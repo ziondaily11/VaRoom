@@ -108,7 +108,7 @@ test('thread and inbox states match legacy', () => {
   assert.match(source, /Your VaRoom search assistant<\/div>/);
   assert.match(source, /<ListingCard listing=\{m\.listing\}/);
   assert.match(source, /<VoiceCard attachmentId=\{attachmentId\}/);
-  assert.match(source, /<ImagePreview url=/);
+  assert.match(source, /<ImagePreview key=\{`[^`]*`\} items=\{selectedPhotoPreview\.items\} index=\{selectedPhotoPreview\.index\}/);
   assert.doesNotMatch(source, /function AuthedImage/, 'one media cache for chat attachments');
   const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
   assert.match(css, /\.chat-listing-card\{max-width:320px/);

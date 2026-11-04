@@ -67,6 +67,8 @@ export interface ChatMessage {
   listing?: ChatListingSummary | null;
   reply_to_message_id?: string | null;
   reply_to_message?: ChatReplyMessage | null;
+  /** Photos sent together share one (shown as a collage). */
+  album_id?: string | null;
   created_at: string;
   delivered_at?: string | null;
   read_at?: string | null;

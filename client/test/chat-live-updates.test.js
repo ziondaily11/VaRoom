@@ -20,7 +20,7 @@ test('inbox: newest conversation first, preview from its last message (legacy up
   // Every path that changes a thread updates the inbox.
   assert.match(source, /if \(sent\.length\) bumpConversation\(conversationId, sent\[sent\.length - 1\]\);/);
   assert.match(source, /bumpConversation\(conversationId, sent\);/);
-  assert.match(source, /bumpConversation\(activeId, sent\);/);
+  assert.match(source, /bumpConversation\(conversationId, sent\);/);
   assert.match(source, /bumpConversation\(conversationId, list\.length \? list\[list\.length - 1\] : null\);/);
   assert.match(source, /if \(finalMsgs\.length\) bumpConversation\(id, finalMsgs\[finalMsgs\.length - 1\]\);/);
   assert.match(source, /bumpConversation\(id, latest\);/);

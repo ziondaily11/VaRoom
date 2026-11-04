@@ -47,7 +47,7 @@ test('a full refresh keeps uploads in progress and the local image of a sent pho
 test('the page keys rows by messageKey and adopts copies on send, Realtime and refresh', () => {
   assert.match(source, /key=\{messageKey\(m as OptimisticChatMessage\)\}/);
   assert.match(source, /setMessagesState\(\(prev\) => prev\.map\(\(m\) => \(m\.id === tempId \? \{ \.\.\.m, attachment_id: initRes\.attachmentId \} : m\)\)\);/);
-  assert.match(source, /if \(activeIdRef\.current === activeId\) setMessagesState\(\(prev\) => mergeServerMessages\(prev, \[sent\]\)\);/);
+  assert.match(source, /if \(activeIdRef\.current === conversationId\) setMessagesState\(\(prev\) => mergeServerMessages\(prev, \[sent\]\)\);/);
   assert.match(source, /setMessagesState\(\(prev\) => mergeServerMessages\(prev, incoming\)\);/);
   assert.match(source, /setMessagesState\(\(prev\) => reconcileThread\(prev, list\)\);/);
   assert.doesNotMatch(source, /URL\.revokeObjectURL\(localObjectUrl\)/, 'the local image is released only when no message shows it');
@@ -58,10 +58,11 @@ test('the photo preview renders its caption box and send button', () => {
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText;
   const module = { exports: {} };
   new Function('module', 'exports', 'require', output)(module, module.exports, require);
-  const html = renderToStaticMarkup(React.createElement(module.exports.default, { imageUrl: 'blob:x', sending: false, onCancel() {}, onSend() {} }));
+  const props = { maxImages: 4, onCancel() {}, onSend() {}, onRemove() {}, onAdd() {} };
+  const html = renderToStaticMarkup(React.createElement(module.exports.default, { ...props, images: ['blob:x'], sending: false }));
   assert.match(html, /id="chatMediaPreviewCaption"[^>]*placeholder="Type a message"[^>]*value=""/);
   assert.match(html, /<img id="chatMediaPreviewImg" class="chat-media-preview-image" src="blob:x"/);
   assert.doesNotMatch(html, /id="chatMediaPreviewSend"[^>]*disabled/);
-  const busy = renderToStaticMarkup(React.createElement(module.exports.default, { imageUrl: 'blob:x', sending: true, onCancel() {}, onSend() {} }));
+  const busy = renderToStaticMarkup(React.createElement(module.exports.default, { ...props, images: ['blob:x'], sending: true }));
   assert.match(busy, /id="chatMediaPreviewSend"[^>]*disabled=""/);
 });
