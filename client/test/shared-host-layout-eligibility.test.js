@@ -6,8 +6,8 @@ const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:pa
 
 const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
 
-test('Chats, Support, Marketplace, and Analytics retain their page layouts outside HostLayout', () => {
-  for (const route of ['/chats', '/support', '/marketplace', '/analytics']) {
+test('Chats, Support, and Marketplace retain their page layouts outside HostLayout', () => {
+  for (const route of ['/chats', '/support', '/marketplace']) {
     assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'none', `${route} remains outside HostLayout`);
   }
   assert.match(appCode, /getAccountLayout\(path, asPath, role\)/);

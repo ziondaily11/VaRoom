@@ -47,20 +47,23 @@ function useActiveAccountSync(enabled: boolean) {
  * while pending, the wrappers use `display: contents` and add no layout.
  * `data-shell-state` tells legacy page scripts when the shell is final.
  */
-export default function AppShell({ variant, className = '', children }: {
+export default function AppShell({ variant, className = '', rail = false, children }: {
   variant: ShellVariant;
   className?: string;
+  /** Host only: collapse the sidebar to an icon-only rail (desktop). */
+  rail?: boolean;
   children: React.ReactNode;
 }) {
   const settled = useShellSettled();
   useActiveAccountSync(Boolean(variant));
+  const isRail = rail && variant === 'host';
   const styles = variant === 'host' ? HOST_SHELL_STYLES : variant === 'client' ? CLIENT_SHELL_STYLES : PENDING_SHELL_STYLES;
-  const { key, shellClass, content } = shellFrame(variant, className);
+  const { key, shellClass, content } = shellFrame(variant, `${className}${isRail ? ' host-rail-layout' : ''}`);
 
   return (
     <div className={shellClass} data-app-shell={key} data-shell-state={shellState(variant, settled)}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
-      {variant === 'host' ? <HostSidebar /> : variant === 'client' ? <ClientSidebar /> : null}
+      {variant === 'host' ? <HostSidebar rail={isRail} /> : variant === 'client' ? <ClientSidebar /> : null}
       <main className={content.className} id={content.id}>
         {children}
       </main>

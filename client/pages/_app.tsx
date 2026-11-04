@@ -16,7 +16,7 @@ import { installAccountActions } from '../lib/account/accountActions';
 import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
 import { installAppLinks } from '../lib/navigation/appLinks';
 import { applyTheme } from '../lib/theme';
-import { getAccountLayout, getSessionBoundCachedRole } from '../lib/accountRoleLayout';
+import { getAccountLayout, getSessionBoundCachedRole, usesIconRail } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/privacy.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
@@ -423,7 +423,9 @@ function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps
 
   let layout: ReactNode = pageElement;
   if (Component.getLayout) layout = Component.getLayout(pageElement);
-  else if (isShellRoute) layout = <AppShell variant={accountLayout === 'none' ? null : accountLayout}>{pageElement}</AppShell>;
+  // The rail is a class on the same AppShell, so the sidebar is not remounted
+  // when moving between rail and full-sidebar routes.
+  else if (isShellRoute) layout = <AppShell variant={accountLayout === 'none' ? null : accountLayout} rail={usesIconRail(path, asPath)}>{pageElement}</AppShell>;
 
   return (
     <>

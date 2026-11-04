@@ -8,6 +8,7 @@ import { getListingFeedCache } from '../lib/listingFeedCache';
 import { NO_CONTACT } from '../lib/reachOut/reachOut';
 import { loadListingVideo, getCachedVideo, type ListingVideo } from '../lib/media/listingVideo';
 import { useListingLike } from '../lib/listings/listingLikes';
+import { recordListingEvent } from '../lib/analytics/listingEvents';
 import {
   bookingKind, bookingNotification, bookingPageError, bookingPayload, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
   loadListingBundle, MESSAGES, openConversation, peekExtras, peekListingBundle, rememberExtras, sendTableRequest,
@@ -126,6 +127,12 @@ export default function BookingPage() {
   }, [showable, client, userId, listingId, kind]);
 
   const like = useListingLike(showable ? client : null, showable ? listingId : null);
+
+  // A listing view for the host's analytics, once the listing is on screen.
+  // The database skips the host's own views and repeats.
+  useEffect(() => {
+    if (showable && listingId) recordListingEvent(client, listingId, 'view');
+  }, [showable, client, listingId]);
 
   const messageHost = useCallback(async () => {
     if (!client || !listing || !userId) return;

@@ -282,6 +282,38 @@ export const HOST_SHELL_STYLES = `
     max-width: 100% !important;
     margin: 0 !important;
   }
+
+  /* ---------- Icon-only rail (host routes that need width, e.g. /analytics) ---------- */
+  /* Same sidebar element as every host page, collapsed with CSS only, so moving
+     between rail and full routes never remounts it. Desktop only: below 861px
+     the sidebar is the usual drawer and the mobile bottom navigation shows. */
+  @media (min-width: 861px) {
+    .host-rail-layout { grid-template-columns: 76px minmax(0, 1fr); }
+    .host-rail-layout > .sidebar {
+      width: 76px; padding: 1.1rem .45rem 1rem; gap: .65rem; align-items: center;
+    }
+    .host-rail-layout .logo { display: flex; justify-content: center; padding: .2rem 0; }
+    .host-rail-layout .logo > span { display: none; }
+    .host-rail-layout .logo::after {
+      content: 'V'; color: var(--red, #C41E3A); font-family: var(--font-brand, inherit);
+      font-size: 1.35rem; font-weight: 800; line-height: 1;
+    }
+    .host-rail-layout .nav-group { align-items: center; width: 100%; }
+    .host-rail-layout .nav-label { display: none; }
+    .host-rail-layout .nav-item,
+    .host-rail-layout .list-space-btn {
+      justify-content: center; width: 46px !important; height: 46px; padding: 0 !important; gap: 0 !important;
+      font-size: 0 !important; line-height: 0; margin-inline: auto;
+    }
+    .host-rail-layout .nav-item svg { width: 20px; height: 20px; }
+    .host-rail-layout .list-space-btn svg { width: 18px; height: 18px; }
+    .host-rail-layout .notif-nav-badge { top: 3px; right: 1px; transform: none; font-size: .6rem !important; line-height: 1; }
+    .host-rail-layout .account-identity { justify-content: center; width: 52px; padding: 6px; }
+    .host-rail-layout .account-identity-info,
+    .host-rail-layout .account-identity-dots { display: none; }
+    /* Menus open beside the narrow rail at their usual width. */
+    .host-rail-layout .account-menu { width: 260px !important; }
+  }
 `;
 
 export const CLIENT_SHELL_STYLES = `
