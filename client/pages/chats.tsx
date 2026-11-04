@@ -176,6 +176,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
   // The inbox shows chats, or the archived ones (Chat Settings, ?archived=1).
   const [inboxView, setInboxView] = useState<'all' | 'archived'>('all');
+  // A chat's menu in the inbox (right-click, or long-press on phones).
+  const [inboxMenu, setInboxMenu] = useState<{ conversation: ChatConversation; x: number; y: number } | null>(null);
   // The conversation whose other person is typing (shown in the header).
   const [typingInConversation, setTypingInConversation] = useState<string | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
@@ -227,6 +229,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  // A long-press opened the inbox menu: the tap that ends it must not open the chat.
+  const inboxPressOpenedRef = useRef(false);
   const highlightTimerRef = useRef<number | null>(null);
   const statusNoteTimerRef = useRef<number | null>(null);
   const sendingRef = useRef<boolean>(false);
@@ -932,6 +936,64 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   };
 
+  // Closes the open conversation (it was deleted): back to the inbox.
+  const closeConversation = () => {
+    const client = getSupabaseClient();
+    if (client && activeChannelRef.current) client.removeChannel(activeChannelRef.current);
+    activeChannelRef.current = null;
+    activeIdRef.current = null;
+    setActiveId(null);
+    setMessagesState([]);
+    setReplyTo(null);
+    setMobileView('inbox');
+    routerRef.current?.replace({ pathname: '/chats' }, undefined, { shallow: true });
+  };
+
+  // "Delete chat": cleared for this person only (all their conversations with
+  // the other person); it comes back with the next new message.
+  const deleteChat = async (conversation: ChatConversation) => {
+    const name = conversation.participant?.full_name || conversation.participant?.username || 'this person';
+    if (!window.confirm(`Delete your chat with ${name}? Its messages will be cleared for you. ${name} keeps their copy.`)) return;
+    const previous = conversations;
+    setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
+    try {
+      const result = await api<{ conversationIds?: string[] }>(`/api/chat/conversations/${encodeURIComponent(conversation.id)}/delete`, { method: 'POST', body: '{}' });
+      const cleared = result.conversationIds && result.conversationIds.length ? result.conversationIds : [conversation.id];
+      if (activeIdRef.current && cleared.includes(activeIdRef.current)) closeConversation();
+      if (userId) {
+        cleared.forEach((id) => { setMessages(userId, id, []).catch(() => {}); });
+        getInbox(userId).then((inbox) => (inbox ? setInbox(userId, inbox.filter((c) => !cleared.includes(c.id))) : undefined)).catch(() => {});
+      }
+      showStatusNote('Chat deleted');
+      updateSidebarCounts();
+    } catch (err) {
+      console.error('Unable to delete the chat:', err);
+      setConversations(previous);
+      showStatusNote('Chat not deleted. Please try again.', 3500);
+    }
+  };
+
+  // Desktop right-click on an inbox chat; on phones the long-press below opens the menu.
+  const onInboxContextMenu = (event: React.MouseEvent, conversation: ChatConversation) => {
+    event.preventDefault();
+    if (window.matchMedia('(max-width: 760px)').matches) return;
+    setInboxMenu({ conversation, x: event.clientX, y: event.clientY });
+  };
+  const onInboxTouchStart = (event: React.TouchEvent, conversation: ChatConversation) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    cancelLongPress();
+    inboxPressOpenedRef.current = false;
+    const press = { x: touch.clientX, y: touch.clientY, timer: 0 };
+    press.timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      inboxPressOpenedRef.current = true;
+      setInboxMenu({ conversation, x: press.x, y: press.y });
+    }, 500);
+    longPressRef.current = press;
+  };
+  const closeInboxMenu = useCallback(() => setInboxMenu(null), []);
+
   // Ctrl+V of a screenshot or a copied image opens the photo preview, as
   // choosing a photo does; text pastes are left to the composer.
   const onComposerPaste = (event: React.ClipboardEvent) => {
@@ -1488,7 +1550,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     style={{ position: 'relative' }}
                     role="button"
                     tabIndex={0}
-                    onClick={() => selectConversation(c.id)}
+                    onClick={() => {
+                      if (inboxPressOpenedRef.current) { inboxPressOpenedRef.current = false; return; }
+                      selectConversation(c.id);
+                    }}
+                    onContextMenu={(e) => onInboxContextMenu(e, c)}
+                    onTouchStart={(e) => onInboxTouchStart(e, c)}
+                    onTouchMove={onMessageTouchMove}
+                    onTouchEnd={cancelLongPress}
+                    onTouchCancel={cancelLongPress}
                   >
                     <div className="avatar-wrap">
                       <ConversationAvatar url={participant?.avatar_url} name={name} size={46} fontSize={14} />
@@ -2157,6 +2227,27 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           items={messageActionItems({ pinned: Boolean(messageMenu.message.pinned_at), ownMessage: messageMenu.message.sender_id === userId, canCopy: Boolean(messageCopyText(messageMenu.message)) })}
           onSelect={(action) => { void performMessageAction(messageMenu.message, action); }}
           onClose={closeMessageMenu}
+        />
+      )}
+
+      {inboxMenu && (
+        <MessageActionMenu
+          x={inboxMenu.x}
+          y={inboxMenu.y}
+          label="Chat actions"
+          items={[
+            inboxMenu.conversation.archived
+              ? { action: 'unarchive' as const, icon: 'i-archive', label: 'Unarchive chat' }
+              : { action: 'archive' as const, icon: 'i-archive', label: 'Archive chat' },
+            { action: 'delete' as const, icon: 'i-trash', label: 'Delete chat' },
+          ]}
+          onSelect={(action) => {
+            const conversation = inboxMenu.conversation;
+            setInboxMenu(null);
+            if (action === 'delete') void deleteChat(conversation);
+            else void setConversationArchived(conversation.id, action === 'archive');
+          }}
+          onClose={closeInboxMenu}
         />
       )}
 
