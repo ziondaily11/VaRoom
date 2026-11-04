@@ -13,6 +13,8 @@ export const CACHE_NAMESPACES = {
   // Memory only: the booking page's listing, per account.
   bookingListing: 'varoom:booking:listing:v1:',
   listingFeedScroll: 'varoom:listings:scroll:',
+  // Host analytics overview, plan payments and listing picker, per account.
+  hostAnalytics: 'varoom:analytics:v2:',
   // Written by lib/chatCache.ts (kept import-free); per-user prefetch stamp.
   chatPrefetch: 'varoom:chat:prefetch:v1:',
   // VaRoomDataCache stores "account:<id>:..." keys URL-encoded.
@@ -26,6 +28,7 @@ export const USER_SCOPED_SESSION_PREFIXES: string[] = [
   CACHE_NAMESPACES.notifications,
   CACHE_NAMESPACES.listingFeed,
   CACHE_NAMESPACES.listingFeedScroll,
+  CACHE_NAMESPACES.hostAnalytics,
   CACHE_NAMESPACES.chatPrefetch,
   CACHE_NAMESPACES.dataCacheAccount,
   'varoom:client-home:',

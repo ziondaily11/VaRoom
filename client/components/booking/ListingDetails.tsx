@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { BookingKind, BookingListing, ReviewsResult } from '../../lib/booking/bookingListing';
 import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
+import { recordListingEvent, type ListingEventType } from '../../lib/analytics/listingEvents';
+import { getSupabaseClient } from '../../lib/supabase/client';
 import { commercialDetails, commercialLabel, SUBTYPE_LABELS } from '../../lib/booking/commercial';
 import { descriptionPreviewChars, getCleanTruncatedDescription, visibleParagraphs } from '../../lib/booking/description';
 import {
@@ -114,9 +116,14 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationText || listing.title)}`;
   const amenities = Array.isArray(details.amenities) ? details.amenities : [];
 
+  // Contact taps and shares count toward the host's analytics; the links
+  // themselves behave exactly as before.
+  const track = (type: ListingEventType) => recordListingEvent(getSupabaseClient(), listing.id, type);
+
   const share = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
+      track('share');
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard unavailable */ }
@@ -137,7 +144,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
         {!rating ? <span>Loading reviews…</span> : rating.count ? <><Svg markup={ICON_STAR} /><span>{rating.text}</span><span>{rating.countText}</span></> : <span>{rating.text}</span>}
       </div>
       <p className="listing-loc"><Svg markup={ICON_LOCATION} /><span>{locationText}</span><a className="map-link-inline" href={mapUrl} target="_blank" rel="noopener">View on map</a></p>
-      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} /><a href={telHref(hostPhone)}>{hostPhone}</a></p>}
+      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} /><a href={telHref(hostPhone)} onClick={() => track('contact_phone')}>{hostPhone}</a></p>}
       {badges.length > 0 && <div className="badge-row">{badges.map((badge) => <span className="mini-badge" key={badge}><Svg markup={ICON_VERIFIED} />{badge}</span>)}</div>}
       {chips.length > 0 && <div className="info-chip-row">{chips.map((chip, index) => <span className="info-chip" key={index}>{chip}</span>)}</div>}
       <hr className="divider" />
@@ -150,9 +157,9 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
             </Link>
           </div>
           <div className="contact-controls" role="group" aria-label="Contact host options">
-            {contact.whatsapp && <a className="contact-control" href={whatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp the host" title="WhatsApp"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
-            {contact.email && <a className="contact-control" href={mailtoHref(contact.email, enquiry)} aria-label="Email the host" title="Email"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
-            {hostPhone && <a className="contact-control" href={telHref(hostPhone)} aria-label="Call the host" title="Call"><Svg markup={ICON_PHONE} /></a>}
+            {contact.whatsapp && <a className="contact-control" href={whatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp the host" title="WhatsApp" onClick={() => track('contact_whatsapp')}><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
+            {contact.email && <a className="contact-control" href={mailtoHref(contact.email, enquiry)} aria-label="Email the host" title="Email" onClick={() => track('contact_email')}><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
+            {hostPhone && <a className="contact-control" href={telHref(hostPhone)} aria-label="Call the host" title="Call" onClick={() => track('contact_phone')}><Svg markup={ICON_PHONE} /></a>}
             <button type="button" className="contact-control" id="contact-host-btn" aria-label="Message host" title={isHotel ? 'Message hotel' : 'Message host'} disabled={messaging} onClick={onMessageHost}><Svg markup={ICON_MESSAGE} /></button>
           </div>
         </div>

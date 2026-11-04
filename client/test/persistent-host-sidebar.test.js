@@ -43,7 +43,7 @@ test('AppShell keeps one element structure for every variant so pages are not re
   // The element-structure guarantee cannot be checked without a DOM renderer.
   const shellCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'AppShell.tsx'), 'utf8');
   assert.match(shellCode, /<main className=\{content\.className\} id=\{content\.id\}>\s*\{children\}\s*<\/main>/);
-  assert.match(shellCode, /variant === 'host' \? <HostSidebar \/> : variant === 'client' \? <ClientSidebar \/> : null/);
+  assert.match(shellCode, /variant === 'host' \? <HostSidebar rail=\{isRail\} \/> : variant === 'client' \? <ClientSidebar \/> : null/);
 });
 
 test('HostSidebar keeps its reference navigation, More menu and account switcher', () => {
@@ -96,7 +96,7 @@ test('_app.tsx wraps designated account routes with the persistent AppShell', ()
   // Wiring in _app (outside this group); the route/role decision itself is tested below.
   const appCode = fs.readFileSync(path.join(clientDir, 'pages', '_app.tsx'), 'utf8');
   assert.match(appCode, /getAccountLayout\(path, asPath, role\)/, 'Uses the tested role-aware route selector');
-  assert.match(appCode, /<AppShell variant=\{accountLayout === 'none' \? null : accountLayout\}>\{pageElement\}<\/AppShell>/, 'Mounts AppShell, pending until the role is known');
+  assert.match(appCode, /<AppShell variant=\{accountLayout === 'none' \? null : accountLayout\} rail=\{usesIconRail\(path, asPath\)\}>\{pageElement\}<\/AppShell>/, 'Mounts AppShell, pending until the role is known; the rail is only a prop');
   assert.match(appCode, /<MobileNav enabled=\{isShellRoute \|\| Boolean\(Component\.appNavigation\)\} \/>/, 'One persistent mobile navigation');
   assert.match(appCode, /const role: ShellRole = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
   assert.match(appCode, /<AuthProvider>/, 'AuthProvider owns the session for every page');
@@ -123,7 +123,9 @@ test('account layout per route and role: shell routes only, none until the role 
   for (const route of ['/', '/marketplace', '/chats', '/list', '/support', '/bookingsx']) {
     assert.equal(getAccountLayout(route, route, 'host'), 'none', route);
   }
-  assert.equal(getAccountLayout('/analytics', '/analytics', 'host'), 'none', 'analytics has its own shell');
+  assert.equal(getAccountLayout('/analytics', '/analytics', 'host'), 'host', 'analytics keeps the persistent host shell');
+  assert.equal(getAccountLayout('/analytics', '/analytics?listing=x', 'client'), 'none', 'analytics is host-only');
+  assert.equal(getAccountLayout('/analytics', '/analytics', null), 'none', 'no shell variant before the role resolves');
 });
 
 test('the shell role comes only from a profile that belongs to the signed-in session', () => {

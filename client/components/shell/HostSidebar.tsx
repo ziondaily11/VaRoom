@@ -23,8 +23,10 @@ const DRAWER_EVENTS = {
   closeEvents: ['close-host-sidebar'],
 };
 
-export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNav?: string }) {
+export default function HostSidebar({ activeNav: explicitActiveNav, rail = false }: { activeNav?: string; rail?: boolean }) {
   const router = useRouter();
+  // In the icon-only rail the labels are hidden, so each item gets a tooltip.
+  const tip = (label: string) => (rail ? label : undefined);
   const { user, hasMounted } = useShellIdentity(hostInitialIdentity(), HOST_FALLBACK_IDENTITY);
   // Shared counts store (one realtime channel for the app); no sidebar polling.
   const unreadCount = useCounts().notifications;
@@ -109,6 +111,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
         <a
           href="/host-home"
           className="logo"
+          title={tip('VaRoom home')}
           id="bookings-home-logo"
           onClick={(e) => handleNav(e, '/host-home')}
         >
@@ -122,6 +125,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
             href="/host-home"
             className={`nav-item ${activeNav === 'home' ? 'active' : ''}`}
             data-nav="home"
+            title={tip('Home')}
             id="bookings-home-link"
             onClick={(e) => handleNav(e, '/host-home')}
           >
@@ -145,6 +149,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
             href="/marketplace"
             className={`nav-item ${activeNav === 'marketplace' ? 'active' : ''}`}
             data-nav="marketplace"
+            title={tip('Marketplace')}
             onClick={(e) => handleNav(e, '/marketplace')}
           >
             <svg
@@ -166,6 +171,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           <div
             className={`nav-item ${activeNav === 'saved' ? 'active' : ''}`}
             data-nav="saved"
+            title={tip('Saved')}
             role="button"
             tabIndex={0}
             onClick={(e) => handleNav(e, '/host-home', 'saved')}
@@ -194,6 +200,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           <a
             href="/bookings"
             className={`nav-item ${activeNav === 'bookings' ? 'active' : ''}`}
+            title={tip('Bookings')}
             onClick={(e) => handleNav(e, '/bookings')}
           >
             <svg
@@ -215,6 +222,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           <a
             href="/chats"
             className={`nav-item ${activeNav === 'chats' ? 'active' : ''}`}
+            title={tip('Chats')}
             data-mobile-hide
             onClick={(e) => handleNav(e, '/chats')}
           >
@@ -237,6 +245,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
             href="/notifications"
             className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
             data-nav="notifications"
+            title={tip('Notifications')}
             id="notif-nav-item"
             onClick={(e) => handleNav(e, '/notifications')}
           >
@@ -269,6 +278,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           <a
             href="/list"
             className="list-space-btn"
+            title={tip('List a space')}
             onClick={(e) => handleNav(e, '/list')}
           >
             <svg
@@ -289,6 +299,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           <div
             className={`nav-item ${activeNav === 'my-listings' ? 'active' : ''}`}
             data-nav="my-listings"
+            title={tip('My Listings')}
             role="button"
             tabIndex={0}
             onClick={(e) => handleNav(e, '/host-home', 'my-listings')}
@@ -314,6 +325,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
             href="/profile"
             className={`nav-item ${activeNav === 'profile' ? 'active' : ''}`}
             id="host-profile-nav-link"
+            title={tip('Profile')}
             onClick={(e) => handleNav(e, '/profile')}
           >
             <svg
@@ -440,6 +452,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           ref={moreBtnRef}
           className={`nav-item ${isMoreActive || moreOpen ? 'active' : ''}`}
           id="more-nav-btn"
+          title={tip('More')}
           aria-haspopup="true"
           aria-expanded={moreOpen}
           aria-controls="more-menu"
@@ -566,6 +579,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
           ref={identityBtnRef}
           className="account-identity"
           id="account-identity-btn"
+          title={tip('Account')}
           aria-haspopup="true"
           aria-expanded={accountOpen}
           aria-controls="account-menu"

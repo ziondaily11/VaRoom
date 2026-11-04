@@ -96,14 +96,14 @@ test('HostLayout and ClientLayout use X Lights Out tokens', () => {
   assert.match(clientLayout, /--layout-popover-bg:\s*#000000;/, 'ClientLayout popovers must be #000000');
 });
 
-test('admin.css and AnalyticsShell.module.css support dark mode with #000000 canvas', () => {
+test('admin.css and the analytics styles support dark mode with #000000 canvas', () => {
   const adminCss = fs.readFileSync(path.join(clientRoot, 'styles', 'admin.css'), 'utf8');
   assert.match(adminCss, /--admin-canvas:\s*#000000;/, 'admin.css canvas must be #000000');
   assert.match(adminCss, /--admin-surface:\s*#000000;/, 'admin.css surface must be #000000');
   assert.doesNotMatch(adminCss, /--admin-canvas:\s*#120F0F;/, 'Old #120F0F must be removed from admin.css');
 
-  const shellCss = fs.readFileSync(path.join(clientRoot, 'components', 'analytics', 'AnalyticsShell.module.css'), 'utf8');
-  assert.match(shellCss, /var\(--color-bg,\s*#fff\)/, 'AnalyticsShell must use theme variable for background');
+  const analyticsCss = fs.readFileSync(path.join(clientRoot, 'components', 'analytics', 'analyticsStyles.ts'), 'utf8');
+  assert.match(analyticsCss, /:root\[data-theme="dark"\] \.va-analytics[^{]*\{--bg:#000;/, 'Analytics must use a #000000 canvas in dark mode');
 });
 
 test('Legacy pages define consistent true black tokens', () => {

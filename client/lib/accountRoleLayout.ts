@@ -23,7 +23,8 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
   const paths = [pathname || '', asPath || ''];
   const matches = (route: string) => paths.some((path) => matchesPath(path, route));
 
-  if (matches('/analytics')) return 'none';
+  // Host-only: the host shell with the icon-only rail (see usesIconRail).
+  if (matches('/analytics')) return role === 'host' ? 'host' : 'none';
 
   const isClientHome = matches('/client-home');
   const isHostHome = matches('/host-home');
@@ -36,4 +37,12 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
     return 'none';
   }
   return 'none';
+}
+
+/**
+ * Routes that keep the host shell but collapse its sidebar to an icon-only
+ * rail, so wide pages get the room. The sidebar stays mounted either way.
+ */
+export function usesIconRail(pathname: string | null | undefined, asPath: string | null | undefined): boolean {
+  return [pathname || '', asPath || ''].some((path) => matchesPath(path, '/analytics'));
 }
