@@ -8,6 +8,7 @@ const propertyNewsPath = path.join(root, 'pages', 'property-news.tsx');
 const nextConfigPath = path.join(root, 'next.config.js');
 const serverPath = path.join(root, '..', 'server', 'server.js');
 const slugPath = path.join(root, 'pages', '[...slug].js');
+const format = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'propertyNews', 'articleFormat.ts'));
 
 test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
@@ -19,7 +20,16 @@ test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () 
   assert.match(source, /className="masthead-rule-thick"/);
   assert.match(source, /className="masthead-rule-thin"/);
   assert.match(source, /Original Country News Edition/);
-  assert.match(source, /formatMastheadDate/);
+  assert.match(source, /formatMastheadDate\(mastheadDate\)/);
+
+  // The masthead dates the edition by the article's publication date (long
+  // British form), falling back to today for a missing or invalid date.
+  const dated = format.formatMastheadDate('2026-11-01T12:00:00Z');
+  assert.match(dated, /Sunday/);
+  assert.match(dated, /1 November 2026/);
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  assert.equal(format.formatMastheadDate(undefined), today);
+  assert.equal(format.formatMastheadDate('not a date'), today);
 
   // Article Header
   assert.match(source, /className="article-header"/);
@@ -51,12 +61,33 @@ test('Section 3: Two-Column Editorial Article Body with Text Trail and Image Tra
 test('Section 4: Conditional Image and Media Rendering', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
 
-  // Multi-image and media extractor
-  assert.match(source, /function extractImages/);
-  assert.match(source, /const candidateImages = detailItem \? extractImages\(detailItem\) : \[\]/);
-  assert.match(source, /const activeImages = candidateImages\.filter/);
-  assert.match(source, /const hasVideo = Boolean\(detailItem\?\.video_url\)/);
-  assert.match(source, /const hasMedia = activeImages\.length > 0 \|\| hasVideo/);
+  // Images come from images[] (strings or objects), image_urls[] and image_url,
+  // trimmed and de-duplicated; captions/credits fall back to the article's and
+  // then the source name.
+  const item = {
+    id: 'a',
+    title: 'T',
+    caption: 'Article caption',
+    source: { name: 'Daily Source' },
+    images: [' https://img.test/1.jpg ', { url: 'https://img.test/2.jpg', caption: 'Two', credit: 'Photographer' }, { caption: 'no url' }, ''],
+    image_urls: ['https://img.test/1.jpg', 'https://img.test/3.jpg'],
+    image_url: 'https://img.test/4.jpg',
+  };
+  assert.deepEqual(format.extractImages(item), [
+    { url: 'https://img.test/1.jpg', caption: 'Article caption', credit: 'Daily Source' },
+    { url: 'https://img.test/2.jpg', caption: 'Two', credit: 'Photographer' },
+    { url: 'https://img.test/3.jpg', caption: 'Article caption', credit: 'Daily Source' },
+    { url: 'https://img.test/4.jpg', caption: 'Article caption', credit: 'Daily Source' },
+  ]);
+  assert.equal(format.extractImages({ id: 'b', title: 'T', image_url: 'https://img.test/x.jpg', credit: 'Own' })[0].credit, 'Own');
+
+  // Failed images drop out; the right column exists only while an image or a video remains.
+  const one = { id: 'c', title: 'T', image_url: 'https://img.test/only.jpg' };
+  assert.equal(format.articleMedia(one, {}).hasMedia, true);
+  assert.deepEqual(format.articleMedia(one, { 'https://img.test/only.jpg': true }), { activeImages: [], hasVideo: false, hasMedia: false });
+  assert.deepEqual(format.articleMedia({ ...one, video_url: 'https://v.test/a.mp4' }, { 'https://img.test/only.jpg': true }), { activeImages: [], hasVideo: true, hasMedia: true });
+  assert.deepEqual(format.articleMedia(null, {}), { activeImages: [], hasVideo: false, hasMedia: false });
+  assert.match(source, /articleMedia\(detailItem, failedImageUrls\)/);
 
   // When hasMedia is false, right column is omitted
   assert.match(source, /\{hasMedia && \(\s*<aside className="image-trail"/);
@@ -64,9 +95,7 @@ test('Section 4: Conditional Image and Media Rendering', () => {
   // No-media CSS ensures comfortable reading width without empty gap
   assert.match(source, /\.editorial-columns\.no-media\s*\{\s*display:\s*block;\s*max-width:\s*780px;/);
 
-  // Graceful failure handling
-  assert.match(source, /handleImageFail/);
-  assert.match(source, /setFailedImageUrls/);
+  // A failing image is reported so it leaves the media list
   assert.match(source, /onFailed=\{.*?handleImageFail\(img\.url\).*?\}/);
 
   // Video preservation with poster/thumbnail and captions

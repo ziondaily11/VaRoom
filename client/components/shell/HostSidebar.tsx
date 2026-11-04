@@ -1,9 +1,11 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
+import { HOST_MORE_ITEMS, hostActiveNav } from '../../lib/navigation/activeNav';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
-import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity, type ShellIdentity } from './useShellChrome';
+import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity } from './useShellChrome';
+import { HOST_FALLBACK_IDENTITY, hostInitialIdentity } from '../../lib/shell/shellIdentity';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 
 // The host sidebar (formerly components/SharedHostSidebar.jsx). Markup, ids
@@ -15,18 +17,6 @@ function getInitial(name?: string | null): string {
   return str ? str.charAt(0).toUpperCase() : '?';
 }
 
-// Server render and first client render: a fixed placeholder identity.
-function getInitialUser(): ShellIdentity {
-  return {
-    full_name: 'Amazing Stays 🌴',
-    username: 'amazingstays',
-    avatar_url: null,
-    email: 'host@varoom.co.ke',
-  };
-}
-
-const FALLBACK_USER: ShellIdentity = { full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' };
-
 const DRAWER_EVENTS = {
   toggleSelector: '#topbar-avatar-btn, #menu-toggle',
   openEvents: ['open-host-sidebar'],
@@ -35,7 +25,7 @@ const DRAWER_EVENTS = {
 
 export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNav?: string }) {
   const router = useRouter();
-  const { user, hasMounted } = useShellIdentity(getInitialUser(), FALLBACK_USER);
+  const { user, hasMounted } = useShellIdentity(hostInitialIdentity(), HOST_FALLBACK_IDENTITY);
   // Shared counts store (one realtime channel for the app); no sidebar polling.
   const unreadCount = useCounts().notifications;
   const linkedAccounts = useLinkedAccounts();
@@ -49,36 +39,10 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
   // Compute active navigation item from router or explicit prop
   const currentPath = router.pathname || '';
   const currentView = hasMounted ? router.query?.view || '' : '';
-  const asPath = (router.asPath || '').split('?')[0];
 
-  let activeNav: string = explicitActiveNav || 'home';
-  if (!explicitActiveNav) {
-    if (currentView === 'my-listings') {
-      activeNav = 'my-listings';
-    } else if (currentView === 'saved') {
-      activeNav = 'saved';
-    } else if (asPath.startsWith('/host-home') || currentPath === '/host-home') {
-      activeNav = 'home';
-    } else if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace')) {
-      activeNav = 'marketplace';
-    } else if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) {
-      activeNav = 'bookings';
-    } else if (asPath.startsWith('/chats') || currentPath.startsWith('/chats')) {
-      activeNav = 'chats';
-    } else if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) {
-      activeNav = 'notifications';
-    } else if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/')) {
-      activeNav = 'profile';
-    } else if (asPath.startsWith('/analytics') || currentPath.startsWith('/analytics')) {
-      activeNav = 'analytics';
-    } else if (asPath.startsWith('/settings') || currentPath.startsWith('/settings')) {
-      activeNav = 'settings';
-    } else if (asPath.startsWith('/support') || currentPath.startsWith('/support')) {
-      activeNav = 'support';
-    }
-  }
+  const activeNav: string = explicitActiveNav || hostActiveNav(currentPath, router.asPath || '', currentView);
 
-  const isMoreActive = ['analytics', 'settings', 'support', 'upgrade'].includes(activeNav);
+  const isMoreActive = HOST_MORE_ITEMS.includes(activeNav);
 
   // Navigation handlers
   const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string, viewName?: string) => {

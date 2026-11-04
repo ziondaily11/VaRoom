@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { accountRole } from '../lib/types/profile';
-import { HELP_ARTICLES, findHelpArticle, stepParts, type HelpArticle, type SupportFlow } from '../lib/support/support';
+import { HELP_ARTICLES, findHelpArticle, stepParts, supportHomeHref, type HelpArticle, type SupportFlow } from '../lib/support/support';
 import SupportDialog from '../components/support/SupportDialog';
 import { SUPPORT_STYLES } from '../components/support/supportStyles';
 
@@ -44,7 +44,7 @@ export default function SupportPage() {
   const matchTimer = useRef<number | null>(null);
 
   const role = accountRole(profile && user && profile.id === user.id ? profile : null);
-  const homeHref = role === 'host' ? '/host-home' : '/client-home';
+  const homeHref = supportHomeHref(role);
   const metadata = (user?.user_metadata || {}) as { full_name?: string; name?: string };
   const name = (profile && user && profile.id === user.id && profile.full_name)
     || metadata.full_name || metadata.name

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { takeAddAccountNotice, takePendingAccountSwitch } from '../../lib/auth/authCallback';
+import { resumeAddAccount } from '../../lib/auth/authCallback';
 import { switchAccount } from '../../lib/account/accountActions';
 
 // What /auth-callback leaves after a full-page Google account add: on success
@@ -26,15 +26,7 @@ export default function AddAccountNotice() {
   useEffect(() => {
     let storage: Storage | null = null;
     try { storage = window.sessionStorage; } catch { /* Storage unavailable. */ }
-    const pendingSwitch = takePendingAccountSwitch(storage);
-    if (pendingSwitch) {
-      switchAccount(pendingSwitch).catch((error: unknown) => {
-        setMessage(`Account added, but switching failed: ${(error as Error)?.message || 'please try again from the account menu.'}`);
-      });
-      return undefined;
-    }
-    const notice = takeAddAccountNotice(storage);
-    if (notice) setMessage(notice);
+    resumeAddAccount(storage, switchAccount, setMessage);
     return undefined;
   }, []);
 

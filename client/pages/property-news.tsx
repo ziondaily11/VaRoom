@@ -13,132 +13,22 @@ import {
   getScrollPosition,
 } from '../lib/propertyNewsCache';
 import { toExcerpt } from '../lib/propertyNewsExcerpt';
+import {
+  articleMedia,
+  bodyRepeatsSummary,
+  cardLocation,
+  classifyParagraph,
+  detailedLocation,
+  formatDate,
+  formatMastheadDate,
+  getRegulatoryStatus,
+  safeSourceUrl,
+  splitArticleParagraphs,
+} from '../lib/propertyNews/articleFormat';
+import { fetchNewsArticle, fetchNewsList } from '../lib/propertyNews/newsRequests';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
 import { errorMessage } from '../lib/errors';
-
-interface StatusResult {
-  label: string;
-  className: string;
-}
-
-interface ArticleImageItem {
-  url: string;
-  caption?: string;
-  credit?: string;
-}
-
-function uniqueLocations(news: PropertyNewsItem): string[] {
-  const values = ([] as string[]).concat(news.counties || [], news.towns || []).filter(Boolean);
-  return values.filter((value, index) => {
-    return (
-      values.findIndex(
-        (other) => String(other).toLowerCase() === String(value).toLowerCase()
-      ) === index
-    );
-  });
-}
-
-function detailedLocation(news: PropertyNewsItem): string {
-  return uniqueLocations(news).join(' · ') || 'Kenya';
-}
-
-function cardLocation(news: PropertyNewsItem): string {
-  if (news.location_summary) return news.location_summary;
-  const values = uniqueLocations(news);
-  if (values.length > 5) return 'National · Kenya';
-  return values.join(' · ') || 'Kenya';
-}
-
-function formatDate(value?: string): string {
-  if (!value) return 'Publication date unavailable';
-  const valueDate = new Date(value);
-  return Number.isNaN(valueDate.getTime())
-    ? 'Publication date unavailable'
-    : valueDate.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-}
-
-function formatMastheadDate(value?: string): string {
-  const dateObj = value ? new Date(value) : new Date();
-  const valid = !Number.isNaN(dateObj.getTime()) ? dateObj : new Date();
-  return valid.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function getRegulatoryStatus(news: PropertyNewsItem): StatusResult | null {
-  const value = String(news.regulatory_status || '').toLowerCase();
-  const labels: Record<string, string> = {
-    proposed: 'PROPOSED',
-    under_consideration: 'UNDER REVIEW',
-    public_participation: 'PUBLIC INPUT',
-    approved: 'APPROVED',
-    enacted: 'ENACTED',
-    effective: 'EFFECTIVE',
-    suspended: 'SUSPENDED',
-    rejected: 'REJECTED',
-    amended: 'AMENDED',
-    reported: 'UPDATE',
-  };
-  if (labels[value]) {
-    return { label: labels[value], className: value };
-  }
-  if (news.category === 'market') {
-    return { label: 'MARKET UPDATE', className: 'market' };
-  }
-  return null;
-}
-
-function safeSourceUrl(value?: string): string {
-  return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
-}
-
-function extractImages(item: PropertyNewsItem): ArticleImageItem[] {
-  const list: ArticleImageItem[] = [];
-  const seen = new Set<string>();
-
-  const add = (url?: string, caption?: string, credit?: string) => {
-    if (!url || typeof url !== 'string' || !url.trim()) return;
-    const cleanUrl = url.trim();
-    if (seen.has(cleanUrl)) return;
-    seen.add(cleanUrl);
-    list.push({
-      url: cleanUrl,
-      caption: caption || item.caption,
-      credit: credit || item.credit || (item.source?.name ? item.source.name : undefined),
-    });
-  };
-
-  if (Array.isArray(item.images)) {
-    for (const img of item.images) {
-      if (typeof img === 'string') {
-        add(img);
-      } else if (img && typeof img === 'object' && (img as { url?: string }).url) {
-        const image = img as { url: string; caption?: string; credit?: string };
-        add(image.url, image.caption, image.credit);
-      }
-    }
-  }
-
-  if (Array.isArray(item.image_urls)) {
-    for (const url of item.image_urls) {
-      add(url);
-    }
-  }
-
-  if (item.image_url) {
-    add(item.image_url);
-  }
-
-  return list;
-}
 
 function NewsCardImage({ src }: { src?: string }) {
   const [loaded, setLoaded] = useState(false);
@@ -309,17 +199,8 @@ export default function PropertyNewsPage() {
     }
     setListError(false);
     try {
-      const response = await fetch('/api/news?limit=50', {
-        headers: { Accept: 'application/json' },
-        signal,
-        cache: force ? 'no-store' : 'default',
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to load property news: ${response.status}`);
-      }
-      const data: PropertyNewsItem[] = await response.json();
+      const validItems = await fetchNewsList(signal, force);
       if (!signal?.aborted) {
-        const validItems = Array.isArray(data) ? data : [];
         setNewsItems(validItems);
         setCachedNewsList(validItems);
         setListLoading(false);
@@ -359,14 +240,7 @@ export default function PropertyNewsPage() {
 
     // 3. Fetch the full article from /api/news/:id
     try {
-      const response = await fetch(`/api/news/${encodeURIComponent(id)}`, {
-        headers: { Accept: 'application/json' },
-        signal,
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to load news article: ${response.status}`);
-      }
-      const fullItem: PropertyNewsItem = await response.json();
+      const fullItem = await fetchNewsArticle(id, signal);
       if (!signal?.aborted) {
         setDetailItem(fullItem);
         setCachedArticle(id, fullItem);
@@ -426,10 +300,7 @@ export default function PropertyNewsPage() {
   };
 
   // Compile available images and check conditional layout state
-  const candidateImages = detailItem ? extractImages(detailItem) : [];
-  const activeImages = candidateImages.filter((img) => !failedImageUrls[img.url]);
-  const hasVideo = Boolean(detailItem?.video_url);
-  const hasMedia = activeImages.length > 0 || hasVideo;
+  const { activeImages, hasVideo, hasMedia } = articleMedia(detailItem, failedImageUrls);
 
   const pageTitle = detailItem && articleId
     ? `${detailItem.title} — VaRoom Property News`
@@ -564,18 +435,10 @@ export default function PropertyNewsPage() {
 
                         // When full article body is available
                         if (bodyText) {
-                          const paragraphs = bodyText
-                            .split(/\n+/)
-                            .map((p) => p.trim())
-                            .filter(Boolean);
+                          const paragraphs = splitArticleParagraphs(bodyText);
 
                           // Avoid repeating exact summary if body begins with the same text
-                          const cleanSummaryPrefix = summaryText.replace(/[\.\s]+$/, '').slice(0, 50).toLowerCase();
-                          const firstParaPrefix = (paragraphs[0] || '').slice(0, 50).toLowerCase();
-                          const bodyStartsWithSummary = cleanSummaryPrefix && (
-                            firstParaPrefix.startsWith(cleanSummaryPrefix) ||
-                            cleanSummaryPrefix.startsWith(firstParaPrefix)
-                          );
+                          const bodyStartsWithSummary = bodyRepeatsSummary(summaryText, paragraphs[0]);
 
                           // If summary is distinct from body, display as editorial lead summary
                           const showDistinctSummary = summaryText && !bodyStartsWithSummary;
@@ -587,27 +450,20 @@ export default function PropertyNewsPage() {
                               )}
                               <div className="detail-body">
                                 {paragraphs.map((paragraph, idx) => {
-                                  const isSubhead = paragraph.startsWith('# ') || paragraph.startsWith('## ') || paragraph.startsWith('### ');
-                                  const isQuote =
-                                    (paragraph.startsWith('"') && paragraph.endsWith('"')) ||
-                                    (paragraph.startsWith('“') && paragraph.endsWith('”')) ||
-                                    (paragraph.startsWith("'") && paragraph.endsWith("'")) ||
-                                    paragraph.startsWith('> ');
+                                  const block = classifyParagraph(paragraph);
 
-                                  if (isSubhead) {
-                                    const clean = paragraph.replace(/^#+\s*/, '');
+                                  if (block.kind === 'subhead') {
                                     return (
                                       <h2 key={idx} className="editorial-subhead">
-                                        {clean}
+                                        {block.text}
                                       </h2>
                                     );
                                   }
 
-                                  if (isQuote) {
-                                    const clean = paragraph.replace(/^>\s*/, '');
+                                  if (block.kind === 'quote') {
                                     return (
                                       <blockquote key={idx} className="editorial-pullquote">
-                                        <p>{clean}</p>
+                                        <p>{block.text}</p>
                                       </blockquote>
                                     );
                                   }

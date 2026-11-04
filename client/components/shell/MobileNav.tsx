@@ -4,13 +4,12 @@ import { isModifiedClick } from '../../lib/navigation/clicks';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { accountRole } from '../../lib/types/profile';
 import { MOBILE_NAV_STYLES } from './shellStyles';
+import { CLIENT_MOBILE_ITEMS, HOST_MOBILE_ITEMS, activeMobileKey, mobileNavPath, scrollHides, showsMobileNav, type NavKey } from '../../lib/navigation/mobileNav';
 
 // Role-aware mobile navigation (ported from public/js/varoom-mobile-nav.js).
 // Rendered once from _app, so it persists across routes and its active item
 // follows client-side navigation. Same items, icons, classes and styles.
 // While shown, pages' own .bottom-bar / .mobile-bottom-nav are hidden.
-
-type NavKey = 'home' | 'marketplace' | 'create' | 'chats' | 'bookings' | 'notifications';
 
 const ICONS: Record<NavKey, React.ReactElement> = {
   home: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9" /></svg>,
@@ -21,50 +20,13 @@ const ICONS: Record<NavKey, React.ReactElement> = {
   notifications: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 0-3.46 0" /></svg>,
 };
 
-interface NavItem { key: NavKey; label: string; href: string }
-
-export const CLIENT_MOBILE_ITEMS: NavItem[] = [
-  { key: 'home', label: 'Home', href: '/client-home' },
-  { key: 'marketplace', label: 'Marketplace', href: '/marketplace' },
-  { key: 'chats', label: 'Chats', href: '/chats' },
-  { key: 'bookings', label: 'Bookings', href: '/bookings' },
-  { key: 'notifications', label: 'Notifications', href: '/notifications' },
-];
-
-export const HOST_MOBILE_ITEMS: NavItem[] = [
-  { key: 'home', label: 'Home', href: '/host-home' },
-  { key: 'marketplace', label: 'Marketplace', href: '/marketplace' },
-  { key: 'create', label: 'Create', href: '/list' },
-  { key: 'chats', label: 'Chats', href: '/chats' },
-  { key: 'bookings', label: 'Bookings', href: '/bookings' },
-];
-
-export function activeMobileKey(pathname: string): NavKey | null {
-  if (pathname === '/marketplace') return 'marketplace';
-  if (pathname === '/chats' || pathname === '/chat') return 'chats';
-  if (pathname === '/bookings' || pathname === '/booking' || pathname === '/booking-approved') return 'bookings';
-  if (pathname === '/notifications') return 'notifications';
-  if (pathname === '/list') return 'create';
-  if (pathname === '/host-home' || pathname === '/client-home' || pathname === '/') return 'home';
-  return null;
-}
-
-/** Pages that own their bottom area: focused workspaces, and Client Home's own bar. */
-export function hidesMobileNav(pathname: string): boolean {
-  return ['/booking', '/chat-settings', '/pricing', '/list', '/properties', '/client-home'].includes(pathname);
-}
-
-function scrollHides(pathname: string): boolean {
-  return ['/client-home', '/host-home', '/bookings', '/booking', '/booking-approved'].includes(pathname);
-}
-
 /** `enabled`: the route is an app page (shell route or legacy page). */
 export default function MobileNav({ enabled }: { enabled: boolean }) {
   const router = useRouter();
   const { profile } = useAuth();
   const role = accountRole(profile);
-  const pathname = (router.asPath || '/').split(/[?#]/)[0];
-  const show = Boolean(enabled && role && profile?.onboarding_completed && !hidesMobileNav(pathname));
+  const pathname = mobileNavPath(router.asPath);
+  const show = showsMobileNav(enabled, role, profile?.onboarding_completed, pathname);
   const [scrollHidden, setScrollHidden] = useState(false);
   const lastPosition = useRef(0);
 

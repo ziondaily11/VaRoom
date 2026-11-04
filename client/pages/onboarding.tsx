@@ -3,11 +3,11 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
-import { getSafeRedirect, loginUrl } from '../lib/safeRedirect';
+import { loginUrl } from '../lib/safeRedirect';
 import { accountRole } from '../lib/types/profile';
 import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import {
-  destination, hostStepKey, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, readListingDraft, roleHome,
+  destination, hostStepKey, onboardingRedirect, photoAllowsFinish, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, readListingDraft, roleHome,
   saveAvatar, writeListingDraft,
   type Category, type HostExtras, type Timeline,
 } from '../lib/onboarding/onboarding';
@@ -35,10 +35,7 @@ export default function OnboardingPage() {
   // As before the migration: the role chosen at sign-up stands in until the profile row has one.
   const metadataRole: unknown = user?.user_metadata?.role;
   const role = accountRole(profile) || (metadataRole === 'host' || metadataRole === 'client' ? metadataRole : null);
-  const redirect = useMemo(() => {
-    const safe = getSafeRedirect(router.query.redirect);
-    return safe && !safe.startsWith('/onboarding') ? safe : null;
-  }, [router.query.redirect]);
+  const redirect = useMemo(() => onboardingRedirect(router.query.redirect), [router.query.redirect]);
 
   const [extras, setExtras] = useState<HostExtras | null>(null);
   const [step, setStep] = useState<1 | 2 | null>(null);
@@ -148,11 +145,7 @@ export default function OnboardingPage() {
 
   // Finish waits for a photo still uploading; a failed one keeps the host here to retry or skip it.
   const finishHost = useCallback(async () => {
-    const run = uploadRun.current;
-    if (run) {
-      const result = await run.done;
-      if (result === 'failed' && uploadRun.current === run) return;
-    }
+    if (!(await photoAllowsFinish(() => uploadRun.current))) return;
     await leave(null);
   }, [leave]);
   const onClientDraft = useCallback((draft: { categories: Category[]; timeline: Timeline | null }) => setClientDraft(draft), []);

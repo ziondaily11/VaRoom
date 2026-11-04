@@ -4,6 +4,7 @@ import {
   FLOW_COPY,
   buildSupportTicket,
   sendSupportTicket,
+  ticketRequest,
   type SupportFlow,
 } from '../../lib/support/support';
 
@@ -64,13 +65,8 @@ export default function SupportDialog({ flow, user, getAccessToken, onFlowChange
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!copy || submitting) return;
-    const result = buildSupportTicket({
-      name: user.name,
-      email: flow === 'ticket' ? replyEmail : user.email,
-      subject: copy.subject ?? subject,
-      message,
-    });
+    if (flow === 'account' || !copy || submitting) return;
+    const result = buildSupportTicket(ticketRequest(flow, user, { replyEmail, subject, message }));
     if ('error' in result) {
       setProblem(result.error);
       return;

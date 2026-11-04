@@ -8,24 +8,29 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
 import {
   NotificationItem,
-  NotificationDetails,
   getCachedNotifications,
   setCachedNotifications,
-  markCachedNotificationRead,
-  markAllCachedNotificationsRead,
   detailsFor,
   notificationTarget,
-  groupForDate,
   timeAgo,
-  searchableText,
 } from '../lib/notificationsCache';
-
-function syncSidebarUnreadCount(count: number) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.dispatchEvent(new CustomEvent('varoom_notification_count', { detail: { count } }));
-  } catch (e) {}
-}
+import {
+  fetchNotificationsSnapshot,
+  markAllNotificationsReadRequest,
+  markAllReadLocally,
+  markNotificationReadRequest,
+  markReadLocally,
+  restoreNotificationsSnapshot,
+  subscribeToNotificationChanges,
+  syncSidebarUnreadCount,
+} from '../lib/notifications/notificationsData';
+import {
+  countBookingNotifications,
+  emptyNotificationsMessage,
+  filterNotifications,
+  groupNotificationsByDate,
+  notificationsSubtitle,
+} from '../lib/notifications/notificationsView';
 
 const ApprovedIcon = () => (
   <svg
@@ -110,24 +115,12 @@ export default function NotificationsPage() {
       const version = ++requestVersionRef.current;
 
       try {
-        const [listResult, countResult] = await Promise.all([
-          client
-            .from('notifications')
-            .select('id,title,message,type,read,created_at,booking_id,related_entity_type,related_entity_id,metadata')
-            .eq('recipient_user_id', currentUserId)
-            .order('created_at', { ascending: false })
-            .limit(100),
-          client
-            .from('notifications')
-            .select('id', { count: 'exact', head: true })
-            .eq('recipient_user_id', currentUserId)
-            .eq('read', false),
-        ]);
+        const result = await fetchNotificationsSnapshot(client, currentUserId);
 
         if (version !== requestVersionRef.current || !mountedRef.current) return;
 
-        if (listResult.error) {
-          console.error('Unable to load notifications:', listResult.error);
+        if (result.error) {
+          console.error('Unable to load notifications:', result.error);
           if (!isBackground) {
             setErrorMessage('Unable to load notifications. Please refresh and try again.');
             setLoading(false);
@@ -135,10 +128,7 @@ export default function NotificationsPage() {
           return;
         }
 
-        const items: NotificationItem[] = listResult.data || [];
-        const nextUnread: number = typeof countResult.count === 'number'
-          ? countResult.count
-          : items.filter((n) => !n.read).length;
+        const { items, unreadCount: nextUnread } = result;
 
         setNotifications(items);
         setUnreadCount(nextUnread);
@@ -167,45 +157,29 @@ export default function NotificationsPage() {
     const prevItems = notifications;
     const prevUnread = unreadCount;
 
-    const cacheResult = markCachedNotificationRead(notification.id, userId);
-    if (cacheResult) {
-      setNotifications(cacheResult.items);
-      setUnreadCount(cacheResult.unreadCount);
-      syncSidebarUnreadCount(cacheResult.unreadCount);
-    } else {
-      const nextItems = notifications.map((item) =>
-        item.id === notification.id ? { ...item, read: true } : item
-      );
-      const nextUnread = Math.max(0, unreadCount - 1);
-      setNotifications(nextItems);
-      setUnreadCount(nextUnread);
-      syncSidebarUnreadCount(nextUnread);
-    }
+    const next = markReadLocally(notifications, unreadCount, notification.id, userId);
+    setNotifications(next.items);
+    setUnreadCount(next.unreadCount);
+    syncSidebarUnreadCount(next.unreadCount);
 
     const client = clientRef.current || getSupabaseClient();
     if (!client) return;
 
     try {
-      const result = await client
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notification.id)
-        .eq('recipient_user_id', userId);
+      const result = await markNotificationReadRequest(client, notification.id, userId);
 
       if (result.error) {
         console.error('Unable to mark notification as read:', result.error);
         // Roll back optimistic state on failure
         setNotifications(prevItems);
         setUnreadCount(prevUnread);
-        setCachedNotifications(prevItems, userId, prevUnread);
-        syncSidebarUnreadCount(prevUnread);
+        restoreNotificationsSnapshot(prevItems, userId, prevUnread);
       }
     } catch (e) {
       console.error('Error marking notification read:', e);
       setNotifications(prevItems);
       setUnreadCount(prevUnread);
-      setCachedNotifications(prevItems, userId, prevUnread);
-      syncSidebarUnreadCount(prevUnread);
+      restoreNotificationsSnapshot(prevItems, userId, prevUnread);
     }
   };
 
@@ -217,26 +191,16 @@ export default function NotificationsPage() {
     const prevUnread = unreadCount;
 
     // Optimistically update
-    const cacheResult = markAllCachedNotificationsRead(userId);
-    if (cacheResult) {
-      setNotifications(cacheResult.items);
-      setUnreadCount(0);
-      syncSidebarUnreadCount(0);
-    } else {
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
-      setUnreadCount(0);
-      syncSidebarUnreadCount(0);
-    }
+    const next = markAllReadLocally(notifications, userId);
+    setNotifications(next.items);
+    setUnreadCount(0);
+    syncSidebarUnreadCount(0);
 
     const client = clientRef.current || getSupabaseClient();
     if (!client) return;
 
     try {
-      const result = await client
-        .from('notifications')
-        .update({ read: true })
-        .eq('recipient_user_id', userId)
-        .eq('read', false);
+      const result = await markAllNotificationsReadRequest(client, userId);
 
       if (result.error) {
         console.error('Unable to mark all notifications read:', result.error);
@@ -244,16 +208,14 @@ export default function NotificationsPage() {
         // Rollback
         setNotifications(prevItems);
         setUnreadCount(prevUnread);
-        setCachedNotifications(prevItems, userId, prevUnread);
-        syncSidebarUnreadCount(prevUnread);
+        restoreNotificationsSnapshot(prevItems, userId, prevUnread);
       }
     } catch (e) {
       console.error('Error marking all notifications read:', e);
       setErrorMessage('Unable to update notifications. Please try again.');
       setNotifications(prevItems);
       setUnreadCount(prevUnread);
-      setCachedNotifications(prevItems, userId, prevUnread);
-      syncSidebarUnreadCount(prevUnread);
+      restoreNotificationsSnapshot(prevItems, userId, prevUnread);
     }
   };
 
@@ -314,21 +276,9 @@ export default function NotificationsPage() {
     }
 
     // 2. Set up page-owned Realtime channel
-    const pageChannel = client
-      .channel(`notifications-page-${authUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `recipient_user_id=eq.${authUserId}`,
-        },
-        () => {
-          void fetchNotifications(authUserId, client, true);
-        }
-      )
-      .subscribe();
+    const pageChannel = subscribeToNotificationChanges(client, authUserId, () => {
+      void fetchNotifications(authUserId, client, true);
+    });
     realtimeChannelRef.current = pageChannel;
 
     return () => {
@@ -346,38 +296,20 @@ export default function NotificationsPage() {
   }, [auth.status, authUserId, fetchNotifications, router]);
 
   // Compute filtered notifications
-  const filteredNotifications = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return notifications.filter((notification) => {
-      const details = detailsFor(notification.type);
-      const matchesFilter =
-        currentFilter === 'all' || (currentFilter === 'booking' && details.category === 'booking');
-      const matchesSearch = !q || searchableText(notification, details).includes(q);
-      return matchesFilter && matchesSearch;
-    });
-  }, [notifications, currentFilter, searchQuery]);
+  const filteredNotifications = useMemo(
+    () => filterNotifications(notifications, currentFilter, searchQuery),
+    [notifications, currentFilter, searchQuery]
+  );
 
   // Group notifications into Today, Yesterday, Older
-  const groupedNotifications = useMemo(() => {
-    const groups: { Today: NotificationItem[]; Yesterday: NotificationItem[]; Older: NotificationItem[] } = {
-      Today: [],
-      Yesterday: [],
-      Older: [],
-    };
-    filteredNotifications.forEach((notification) => {
-      const groupKey = groupForDate(notification.created_at);
-      groups[groupKey].push(notification);
-    });
-    return groups;
-  }, [filteredNotifications]);
+  const groupedNotifications = useMemo(
+    () => groupNotificationsByDate(filteredNotifications),
+    [filteredNotifications]
+  );
 
-  const bookingCount = useMemo(() => {
-    return notifications.filter((n) => detailsFor(n.type).category === 'booking').length;
-  }, [notifications]);
+  const bookingCount = useMemo(() => countBookingNotifications(notifications), [notifications]);
 
-  const subtitleText = unreadCount
-    ? `You have ${unreadCount} new notification${unreadCount === 1 ? '' : 's'}`
-    : "You're all caught up";
+  const subtitleText = notificationsSubtitle(unreadCount);
 
   const isAllRead = unreadCount === 0;
 
@@ -615,7 +547,7 @@ export default function NotificationsPage() {
                 <div className="section">
                   <div className="card-list">
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      {searchQuery.trim().length > 0 ? 'No notifications found' : 'Nothing here yet.'}
+                      {emptyNotificationsMessage(searchQuery)}
                     </div>
                   </div>
                 </div>

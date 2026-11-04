@@ -147,6 +147,27 @@ export interface SupportTicket { name: string; email: string; subject: string; m
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * The dialog's fields as a ticket request: the reply-to email the user typed
+ * (contact support only; other flows use the account's email), and the
+ * flow's fixed subject when it has one.
+ */
+export function ticketRequest(
+  flow: Exclude<SupportFlow, 'account'>,
+  user: { name: string; email: string },
+  fields: { replyEmail: string; subject: string; message: string },
+): { name: string; email: string; subject: string; message: string } {
+  return {
+    name: user.name,
+    email: flow === 'ticket' ? fields.replyEmail : user.email,
+    subject: FLOW_COPY[flow].subject ?? fields.subject,
+    message: fields.message,
+  };
+}
+
+/** The logo and Home link: the account's home, Client Home when signed out. */
+export const supportHomeHref = (role: string | null) => (role === 'host' ? '/host-home' : '/client-home');
+
 /** The ticket to send, or the first problem to show (legacy order and wording). */
 export function buildSupportTicket(input: { name: string; email: string; subject: string; message: string }): { ticket: SupportTicket } | { error: string } {
   const ticket: SupportTicket = {

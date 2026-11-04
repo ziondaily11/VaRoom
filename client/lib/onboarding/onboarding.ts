@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSafeRedirect } from '../safeRedirect';
 
 // Onboarding (migrated from legacy-pages/onboarding.html): the choices, the
 // field rules and wording, the saves, and where each role goes when done.
@@ -171,6 +172,25 @@ export function destination(role: 'host' | 'client', timeline: Timeline | null, 
 }
 
 export const roleHome = (role: 'host' | 'client') => (role === 'host' ? '/host-home' : '/client-home');
+
+/** The ?redirect= to return to when done: same-origin only, and never back to onboarding. */
+export function onboardingRedirect(value: unknown): string | null {
+  const safe = getSafeRedirect(value);
+  return safe && !safe.startsWith('/onboarding') ? safe : null;
+}
+
+/**
+ * Finishing waits for a photo still uploading. False when that upload failed
+ * and is still the current one: the host stays to retry or skip it.
+ */
+export async function photoAllowsFinish<R extends { done: Promise<string> }>(getRun: () => R | null): Promise<boolean> {
+  const run = getRun();
+  if (run) {
+    const result = await run.done;
+    if (result === 'failed' && getRun() === run) return false;
+  }
+  return true;
+}
 
 export function initialCategories(saved: unknown): Category[] {
   return Array.isArray(saved) ? saved.filter(isCategory) : [];

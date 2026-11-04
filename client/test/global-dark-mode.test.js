@@ -43,9 +43,45 @@ test('deleted Payments route stays excluded from global dark mode', () => {
   assert.equal(resolveTheme('/payments/', 'dark', true), 'light');
   const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.tsx'), 'utf8');
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
-  assert.match(docJs, /themeBootScript as buildThemeBootScript \} from '\.\.\/lib\/theme'/);
-  assert.match(appJs, /import \{ applyTheme \} from '\.\.\/lib\/theme';/);
+  // Wiring: _document paints with the generated script, _app re-applies on navigation.
+  assert.match(docJs, /dangerouslySetInnerHTML=\{\{ __html: themeBootScript \}\}/);
+  assert.match(docJs, /const themeBootScript = buildThemeBootScript\(\);/);
   assert.match(appJs, /Router\.events\.on\('routeChangeStart', onStart\)/);
+});
+
+// A tiny document root for the theme functions.
+function themeRoot() {
+  const attrs = {};
+  return { writes: 0, style: {}, getAttribute: (name) => (name in attrs ? attrs[name] : null), setAttribute(name, value) { this.writes += 1; attrs[name] = value; } };
+}
+
+test('the pre-paint script and route changes apply the same theme rules', () => {
+  const theme = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
+  const vm = require('node:vm');
+  const runBoot = (pathname, saved, prefersDark) => {
+    const root = themeRoot();
+    vm.runInNewContext(theme.themeBootScript(), {
+      window: { location: { pathname }, matchMedia: () => ({ matches: prefersDark }) },
+      localStorage: { getItem: () => saved },
+      document: { documentElement: root },
+    });
+    return root.getAttribute('data-theme');
+  };
+  for (const [pathname, saved, prefersDark] of [['/payments/', 'dark', true], ['/', 'dark', true], ['/property-news/abc', 'dark', false], ['/bookings', 'dark', false], ['/bookings', null, true], ['/bookings', 'light', true], ['/pricing', null, false], ['/pricing', 'light', true]]) {
+    assert.equal(runBoot(pathname, saved, prefersDark), theme.resolveTheme(pathname, saved, prefersDark), `${pathname} ${saved}`);
+  }
+
+  const root = themeRoot();
+  const doc = { documentElement: root };
+  const withWindow = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'), {
+    globals: { window: { localStorage: { getItem: () => 'dark' }, matchMedia: () => ({ matches: false }) } },
+  });
+  assert.equal(withWindow.applyTheme('/bookings', doc), true);
+  assert.equal(root.getAttribute('data-theme'), 'dark');
+  assert.equal(root.style.colorScheme, 'dark');
+  assert.equal(withWindow.applyTheme('/settings?tab=1', doc), false, 'no write when unchanged');
+  assert.equal(withWindow.applyTheme('/payments', doc), true);
+  assert.equal(root.getAttribute('data-theme'), 'light');
 });
 
 test('HostLayout and ClientLayout use X Lights Out tokens', () => {

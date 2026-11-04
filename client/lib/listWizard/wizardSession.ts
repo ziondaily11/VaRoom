@@ -34,6 +34,19 @@ const randomId = () => (typeof crypto !== 'undefined' && typeof crypto.randomUUI
 
 export const checkoutPointerKey = (hostId: string, listingId: string) => `${CHECKOUT_POINTER_PREFIX}${hostId}:${listingId}`;
 
+/**
+ * The /list URL carrying a new draft id, so a refresh reopens this session
+ * rather than starting a second one; null when the URL keeps its own state
+ * (editing, a payment return, another page, or a draft already named).
+ */
+export function draftContinuationUrl(query: { edit: string | null; reference: string | null } | null, pathname: string, search: string, draftId: string): string | null {
+  if (!query || query.edit || query.reference || !/\/list(?:\.html)?$/.test(pathname)) return null;
+  const params = new URLSearchParams(search);
+  if (params.get('draft')) return null;
+  params.set('draft', draftId);
+  return `${pathname}?${params.toString()}`;
+}
+
 export class WizardSession {
   readonly hostId: string;
   draftId: string | null = null;

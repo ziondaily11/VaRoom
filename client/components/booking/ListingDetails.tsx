@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { BookingKind, BookingListing, ReviewsResult } from '../../lib/booking/bookingListing';
 import { commercialDetails, commercialLabel, SUBTYPE_LABELS } from '../../lib/booking/commercial';
-import { descriptionParagraphs, getCleanTruncatedDescription } from '../../lib/booking/description';
+import { descriptionPreviewChars, getCleanTruncatedDescription, visibleParagraphs } from '../../lib/booking/description';
 import {
   AMENITY_ICON, AMENITY_LABEL, HOTEL_AMENITY_ICON, HOTEL_AMENITY_LABEL, ICON_GENERIC_AMENITY, ICON_LOCATION, ICON_MESSAGE,
   ICON_PHONE, ICON_SHARE, ICON_STAR, ICON_VERIFIED,
@@ -36,7 +36,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function Description({ text, isHotel }: { text: string; isHotel: boolean }) {
-  const [preview] = useState(() => getCleanTruncatedDescription(text, typeof window !== 'undefined' && window.innerWidth < 640 ? 140 : 220, 3));
+  const [preview] = useState(() => getCleanTruncatedDescription(text, descriptionPreviewChars(typeof window !== 'undefined' ? window.innerWidth : null), 3));
   const [expanded, setExpanded] = useState(false);
   const block = useRef<HTMLDivElement>(null);
   const collapsed = useRef(false);
@@ -52,7 +52,7 @@ function Description({ text, isHotel }: { text: string; isHotel: boolean }) {
   if (!text) {
     return <div className="about-text"><span style={{ color: 'var(--muted)' }}>{isHotel ? "The hotel hasn't added room details yet." : "The host hasn't added details about this place yet."}</span></div>;
   }
-  const paragraphs = descriptionParagraphs(expanded ? text : preview.text);
+  const paragraphs = visibleParagraphs(text, preview, expanded);
   return (
     <div className="about-text" id="about-desc-container" ref={block}>
       {paragraphs.map((paragraph, index) => (

@@ -16,14 +16,15 @@ import {
   uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
-  bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, listingPayload, needsListingPayment, officeShopDetailsFor, savesBookingDetails,
-  shellPayload, shouldActivate, withOfficeShopDocuments,
+  bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
+  reviewActions, savesBookingDetails, shellPayload, shouldActivate, uploadPendingMedia, withOfficeShopDocuments,
 } from '../lib/listWizard/publish';
 import type { PublicationState } from '../lib/listWizard/publish';
 import { removeCurrentPolicyDocument, resolveCurrentPolicyPreview } from '../lib/listWizard/policyDocuments';
 import type { OfficeShopFiles, OfficeShopKind } from '../lib/listWizard/officeShop';
 import { listingDocumentMimeType, officeShopBusinessHoursError } from '../lib/listWizard/officeShop';
-import { WizardSession } from '../lib/listWizard/wizardSession';
+import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSession';
+import { prepareListingCheckout, saveForCheckout } from '../lib/listWizard/checkout';
 import { INITIAL_FLAGS, startWizard } from '../lib/listWizard/startup';
 import type { Flags, Message } from '../lib/listWizard/startup';
 import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../lib/listWizard/amenities';
@@ -154,12 +155,8 @@ export default function ListPage() {
       onStatus: (text, state) => setSaveStatus({ message: text, state }),
       onDraftId: (draftId) => {
         // Keep the draft in the URL so a refresh reopens this session rather than starting a second one.
-        const current = query.current;
-        if (!current || current.edit || current.reference || !/\/list(?:\.html)?$/.test(window.location.pathname)) return;
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('draft')) return;
-        params.set('draft', draftId);
-        void router.replace(`${window.location.pathname}?${params.toString()}`, undefined, { shallow: true, scroll: false });
+        const url = draftContinuationUrl(query.current, window.location.pathname, window.location.search, draftId);
+        if (url) void router.replace(url, undefined, { shallow: true, scroll: false });
       },
       paymentVerified: () => {
         const state = latest.current.flags;
@@ -335,26 +332,11 @@ export default function ListPage() {
   const persistBeforeCheckout = useCallback(async (accessToken: string, saveProfileDraft: boolean): Promise<string> => {
     const current = sessionRef.current;
     if (!current) throw new Error('Please log in again to continue.');
-    current.cancelTimer();
-    const handoff = !saveProfileDraft;
-    if (handoff) current.checkoutHandoff = true;
-    try {
-      await current.settled();
-      await current.documentQueue;
-      const listingId = await current.ensureShell(accessToken, () => shellPayload(latest.current.category, latest.current.form));
-      await persistSelectedDocuments(listingId);
-      try { await current.saveCheckoutState(listingId); } catch (error) {
-        console.error('Unable to persist the listing checkout state:', error);
-        throw new Error('Your listing could not be safely saved for checkout. No payment was started. Please try again or contact support.');
-      }
-      await current.save(listingId);
-      if (current.revisionConflict) setSaveStatus({ message: 'Checkout save is ready. The saved profile copy will sync after this listing returns.', state: 'error' });
-      if (current.remoteUnavailable) setSaveStatus({ message: 'Checkout save is ready. Profile sync will resume when connected.', state: 'error' });
-      return listingId;
-    } catch (error) {
-      if (handoff) current.checkoutHandoff = false;
-      throw error;
-    }
+    return saveForCheckout(current, accessToken, saveProfileDraft, {
+      shellPayload: () => shellPayload(latest.current.category, latest.current.form),
+      persistDocuments: persistSelectedDocuments,
+      onStatus: (text, state) => setSaveStatus({ message: text, state }),
+    });
   }, [persistSelectedDocuments]);
 
   // ---------- Startup ----------
@@ -566,10 +548,7 @@ export default function ListPage() {
     setPayLabelText('Preparing payment…');
     let redirected = false;
     try {
-      const accessToken = await token();
-      if (!accessToken) throw new Error('Please log in again to continue.');
-      const listingId = await persistBeforeCheckout(accessToken, false);
-      const url = await startListingCheckout(accessToken, listingId);
+      const url = await prepareListingCheckout(token, (accessToken) => persistBeforeCheckout(accessToken, false), startListingCheckout);
       setPayLabelText('Opening secure checkout…');
       showMessage('Opening secure Paystack checkout. Your listing remains a saved draft until payment is verified and you select Publish Listing.', false);
       // Same tab: Paystack returns here, and the payment is verified before Publish Listing shows.
@@ -672,23 +651,10 @@ export default function ListPage() {
       }
 
       const files = latest.current.media.mediaFiles;
-      let uploadedCount = 0;
-      let failedCount = 0;
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        setPublishLabel(`Uploading media ${index + 1} of ${files.length}...`);
-        if (uploadedMedia.current.has(file)) { uploadedCount += 1; continue; }
-        try {
-          if (isVideoFile(file)) await uploadListingVideo(accessToken, file, listingId);
-          else await uploadListingPhoto(client, userId, file, listingId, index);
-          uploadedMedia.current.add(file);
-          uploadedCount += 1;
-        } catch (error) {
-          console.warn('Listing media upload failed:', error);
-          failedCount += 1;
-        }
-      }
-      if (!editMode && files.length > 0 && failedCount > 0) {
+      const { uploadedCount, failedCount } = await uploadPendingMedia(files, uploadedMedia.current,
+        (file, index) => (isVideoFile(file) ? uploadListingVideo(accessToken, file, listingId) : uploadListingPhoto(client, userId, file, listingId, index)),
+        (index, total) => setPublishLabel(`Uploading media ${index + 1} of ${total}...`));
+      if (mediaUploadBlocksPublish(editMode, files.length, failedCount)) {
         showMessage('Media upload failed, so the listing was not published. Your private draft and uploaded media are preserved; select Publish Listing to retry the remaining files.', true);
         setPublishLabel(null);
         return;
@@ -774,8 +740,7 @@ export default function ListPage() {
   };
 
   const step = form.currentStep;
-  const showPay = paymentNeeded && flags.entitlementChecked;
-  const submitHidden = paymentNeeded;
+  const { showPay, submitHidden, entitlementNote } = reviewActions(paymentNeeded, flags.entitlementChecked);
   const payDisabled = payBusy !== null;
   const submitLabel = publishLabel || (editMode ? 'Save changes' : 'Publish Listing');
   const officeProps = { kind, form, setField, update };
@@ -913,8 +878,8 @@ export default function ListPage() {
                   title={flags.publishBlocked ? 'Restore the saved listing details before publishing.' : undefined}>
                   {publishLabel ? submitLabel : <>{submitLabel} <span>✓</span></>}
                 </button>
-                <p className="form-note" id="listing-entitlement-note" hidden={!(paymentNeeded && !flags.entitlementChecked)}>
-                  {paymentNeeded && !flags.entitlementChecked ? 'Unable to confirm your listing allowance. Refresh this page to try again before publishing or paying.' : ''}
+                <p className="form-note" id="listing-entitlement-note" hidden={!entitlementNote}>
+                  {entitlementNote ? 'Unable to confirm your listing allowance. Refresh this page to try again before publishing or paying.' : ''}
                 </p>
                 <p className="form-note">Goes live once saved, subject to GPS location verification.</p>
               </div>

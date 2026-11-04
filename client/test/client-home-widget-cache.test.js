@@ -1,25 +1,27 @@
+'use strict';
+
+// Client Home sidebar widgets (destinations, VaRoom Updates, recommendations)
+// and the Property News panel: cache-first display, background refresh and
+// failure handling (lib/clientHomeWidgetCache.ts, lib/clientHome/news.ts).
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { loadTs } = require('./helpers/loadTs');
+
+const quietConsole = { warn() {}, error() {}, log() {} };
+const loadWidgetCache = () => loadTs(path.join(__dirname, '..', 'lib', 'clientHomeWidgetCache.ts'), { globals: { window: undefined, console: quietConsole } });
 const {
   fetchClientHomeWidget,
   readClientHomeWidgetCache,
   writeClientHomeWidgetCache,
-} = require('./helpers/loadTs').loadTs(path.join(__dirname, '..', 'lib', 'clientHomeWidgetCache.ts'), { globals: { window: undefined } });
+} = loadWidgetCache();
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
+const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function createStorage() {
-  const entries = new Map();
-  return {
-    getItem(key) { return entries.get(key) || null; },
-    setItem(key, value) { entries.set(key, String(value)); },
-  };
-}
-
-test('public destination, update, and recommendation snapshots are reusable from session storage', () => {
-  const storage = createStorage();
+test('public destination, update, and recommendation snapshots are reusable', () => {
   assert.equal(writeClientHomeWidgetCache('destinations', { Nairobi: 12, Mombasa: null }), true);
   assert.deepEqual(readClientHomeWidgetCache('destinations'), {
     value: { Nairobi: 12, Mombasa: null },
@@ -32,7 +34,6 @@ test('public destination, update, and recommendation snapshots are reusable from
 });
 
 test('invalid widget responses and failed requests are never cached as successful empty data', async () => {
-  const storage = createStorage();
   assert.equal(writeClientHomeWidgetCache('updates', { data: [] }), false);
   assert.equal(writeClientHomeWidgetCache('destinations', { Nairobi: -1 }), false);
   assert.equal(writeClientHomeWidgetCache('destinations', {}), false);
@@ -43,7 +44,6 @@ test('invalid widget responses and failed requests are never cached as successfu
 });
 
 test('stale widget data remains eligible for immediate display while marked for revalidation', () => {
-  const storage = createStorage();
   const originalNow = Date.now;
   try {
     Date.now = () => 1_000_000;
@@ -73,57 +73,236 @@ test('simultaneous consumers share an in-flight public widget request', async ()
   assert.deepEqual(await second, []);
 });
 
-test('sidebar panels hydrate cache before requests and do not wait for bookmarks', () => {
-  const widgetStart = source.indexOf("readClientHomeWidgetCache<Record<string, number | null>>('destinations')");
-  const widgetFetch = source.indexOf("fetchClientHomeWidget('destinations'", widgetStart);
-  const updatesStart = source.indexOf("readClientHomeWidgetCache<Update[]>('updates')");
-  const updatesFetch = source.indexOf("fetchClientHomeWidget('updates'", updatesStart);
-  assert.ok(widgetStart >= 0 && widgetFetch > widgetStart);
-  assert.ok(updatesStart >= 0 && updatesFetch > updatesStart);
-  assert.match(source, /if \(!user\?\.id\) return \(\) => \{ active = false; \};/);
-  assert.doesNotMatch(source.slice(widgetStart, source.indexOf('useEffect(() => {', widgetStart)), /if \(!ready\)/);
-  assert.match(source, /if \(active\) setDestinationsLoading\(false\)/);
-  assert.match(source, /if \(active\) setUpdatesLoading\(false\)/);
-  assert.match(source, /Destination counts could not be refreshed\./);
-  assert.match(source, /VaRoom Updates could not be refreshed\./);
-  assert.match(source, /Property News could not be refreshed\./);
+// --- hydrateClientHomeWidget ---------------------------------------------
+
+function widgetView(active = () => true) {
+  const events = [];
+  return {
+    events,
+    view: {
+      isActive: active,
+      setValue: (value) => events.push(['value', value]),
+      setLoading: (loading) => events.push(['loading', loading]),
+      setFailed: (failed) => events.push(['failed', failed]),
+    },
+  };
+}
+
+function withNow(time, fn) {
+  const originalNow = Date.now;
+  Date.now = () => time;
+  try { return fn(); } finally { Date.now = originalNow; }
+}
+
+const update = (id) => ({ id, body: `Update ${id}` });
+
+test('a fresh cached widget renders before any request and is not refetched', async () => {
+  const widgets = loadWidgetCache();
+  widgets.writeClientHomeWidgetCache('updates', [update('cached')]);
+  const { events, view } = widgetView();
+  let loaderCreated = false;
+  widgets.hydrateClientHomeWidget('updates', view, () => { loaderCreated = true; return async () => []; }, 'failed:');
+  await flush();
+  assert.deepEqual(events, [['value', [update('cached')]], ['loading', false], ['failed', false]]);
+  assert.equal(loaderCreated, false);
+});
+
+test('a stale cached widget renders immediately and is replaced by the refreshed value', async () => {
+  const widgets = loadWidgetCache();
+  withNow(1_000, () => widgets.writeClientHomeWidgetCache('updates', [update('old')]));
+  const { events, view } = widgetView();
+  await withNow(1_000 + 6 * 60 * 1000, async () => {
+    widgets.hydrateClientHomeWidget('updates', view, () => async () => [update('new')], 'failed:');
+    assert.deepEqual(events[0], ['value', [update('old')]], 'cached value shown synchronously');
+    await flush();
+  });
+  assert.deepEqual(events.slice(3), [['value', [update('new')]], ['failed', false], ['loading', false]]);
+  assert.deepEqual(widgets.readClientHomeWidgetCache('updates').value, [update('new')]);
+});
+
+test('without a cache the widget loads, and a failure settles as failed without caching', async () => {
+  const widgets = loadWidgetCache();
+  const { events, view } = widgetView();
+  widgets.hydrateClientHomeWidget('destinations', view, () => async () => { throw new Error('offline'); }, 'failed:');
+  assert.deepEqual(events.slice(0, 2), [['loading', true], ['failed', false]]);
+  await flush();
+  assert.deepEqual(events.slice(2), [['failed', true], ['loading', false]]);
+  assert.equal(widgets.readClientHomeWidgetCache('destinations'), null);
+});
+
+test('a failed refresh keeps the cached widget value and only flags the failure', async () => {
+  const widgets = loadWidgetCache();
+  withNow(1_000, () => widgets.writeClientHomeWidgetCache('destinations', { Nairobi: 4 }));
+  const { events, view } = widgetView();
+  await withNow(1_000 + 6 * 60 * 1000, async () => {
+    widgets.hydrateClientHomeWidget('destinations', view, () => async () => { throw new Error('offline'); }, 'failed:');
+    await flush();
+  });
+  assert.deepEqual(events.filter(([kind]) => kind === 'value'), [['value', { Nairobi: 4 }]]);
+  assert.deepEqual(events.at(-2), ['failed', true]);
+  assert.deepEqual(events.at(-1), ['loading', false]);
+});
+
+test('an unavailable data source settles the widget as failed', () => {
+  const widgets = loadWidgetCache();
+  const { events, view } = widgetView();
+  widgets.hydrateClientHomeWidget('updates', view, () => null, 'failed:');
+  assert.deepEqual(events, [['loading', true], ['failed', false], ['failed', true], ['loading', false]]);
+});
+
+test('a result arriving after the consumer unmounts is cached but not applied', async () => {
+  const widgets = loadWidgetCache();
+  let active = true;
+  const { events, view } = widgetView(() => active);
+  widgets.hydrateClientHomeWidget('updates', view, () => async () => [update('late')], 'failed:');
+  active = false;
+  await flush();
+  assert.deepEqual(events, [['loading', true], ['failed', false]]);
+  assert.deepEqual(widgets.readClientHomeWidgetCache('updates').value, [update('late')]);
+});
+
+// --- Property News --------------------------------------------------------
+
+function loadNews({ cached = null, fetchImpl }) {
+  const cache = { preview: cached, writes: [], used: new Set() };
+  const propertyNewsCache = new Proxy({
+    getCachedNewsPreview: () => cache.preview,
+    setCachedNewsPreview: (items) => { cache.writes.push(items); },
+  }, { get(target, name) { cache.used.add(name); return target[name]; } });
+  const requests = [];
+  const fetch = async (url, init) => {
+    requests.push({ url, init });
+    return fetchImpl(url, init);
+  };
+  const { loadClientHomeNews } = loadTs(path.join(__dirname, '..', 'lib', 'clientHome', 'news.ts'), {
+    mocks: { '../propertyNewsCache': propertyNewsCache },
+    globals: { fetch, console: quietConsole },
+  });
+  const events = [];
+  let accountId = 'u1';
+  const context = (overrides = {}) => ({
+    accountId: 'u1',
+    currentAccountId: () => accountId,
+    requestVersion: shared.requestVersion,
+    abortController: shared.abortController,
+    setNews: (items) => events.push(['news', items]),
+    setNewsFailed: (failed) => events.push(['failed', failed]),
+    setNewsLoading: (loading) => events.push(['loading', loading]),
+    ...overrides,
+  });
+  const shared = { requestVersion: { current: 0 }, abortController: { current: null } };
+  return { loadClientHomeNews, context, events, requests, cache, shared, switchAccount: (id) => { accountId = id; } };
+}
+
+const article = (id) => ({ id, title: `Article ${id}` });
+const ok = (body) => ({ ok: true, status: 200, json: async () => body });
+
+test('fresh cached Property News renders without a request; Refresh forces an uncached request', async () => {
+  const harness = loadNews({ cached: { items: [article(1)], isFresh: true }, fetchImpl: async () => ok([article(2)]) });
+  await harness.loadClientHomeNews(false, harness.context());
+  assert.deepEqual(harness.events, [['news', [article(1)]], ['failed', false], ['loading', false]]);
+  assert.equal(harness.requests.length, 0);
+
+  await harness.loadClientHomeNews(true, harness.context());
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, '/api/news/latest?limit=5');
+  assert.equal(harness.requests[0].init.cache, 'no-store');
+  assert.deepEqual(harness.cache.writes, [[article(2)]]);
+  assert.deepEqual(harness.events.slice(-3), [['news', [article(2)]], ['failed', false], ['loading', false]]);
+});
+
+test('stale or missing Property News is requested with normal HTTP caching', async () => {
+  const harness = loadNews({ fetchImpl: async () => ok([article('a')]) });
+  await harness.loadClientHomeNews(false, harness.context());
+  assert.deepEqual(harness.events[0], ['loading', true]);
+  assert.equal(harness.requests[0].init.cache, 'default');
+  assert.deepEqual(harness.events.slice(1), [['news', [article('a')]], ['failed', false], ['loading', false]]);
+});
+
+test('Property News failures and invalid responses keep the visible articles', async () => {
+  for (const fetchImpl of [
+    async () => ({ ok: false, status: 503, json: async () => [] }),
+    async () => ok({ items: [] }),
+    async () => ok([{ title: 'no id' }]),
+    async () => { throw new Error('offline'); },
+  ]) {
+    const harness = loadNews({ cached: { items: [article(1)], isFresh: false }, fetchImpl });
+    await harness.loadClientHomeNews(false, harness.context());
+    assert.deepEqual(harness.events.filter(([kind]) => kind === 'news'), [['news', [article(1)]]], 'only the cached articles are shown');
+    assert.deepEqual(harness.events.slice(-2), [['failed', true], ['loading', false]]);
+    assert.deepEqual(harness.cache.writes, []);
+  }
+});
+
+test('a Property News response for a previous account or an older request is ignored', async () => {
+  let release;
+  const harness = loadNews({ fetchImpl: () => new Promise((resolve) => { release = () => resolve(ok([article('late')])); }) });
+  const pending = harness.loadClientHomeNews(false, harness.context());
+  await flush();
+  harness.switchAccount('u2');
+  release();
+  await pending;
+  assert.deepEqual(harness.events, [['loading', true]], 'no news, failure or loading change for the old account');
+  assert.deepEqual(harness.cache.writes, []);
+
+  const second = loadNews({ fetchImpl: () => new Promise((resolve) => { release = () => resolve(ok([article('old')])); }) });
+  const older = second.loadClientHomeNews(false, second.context());
+  await flush();
+  second.shared.requestVersion.current += 1; // a newer request or unmount
+  release();
+  await older;
+  assert.deepEqual(second.cache.writes, []);
+});
+
+test('a new Property News request aborts the previous one, whose failure is then ignored', async () => {
+  const signals = [];
+  const harness = loadNews({
+    fetchImpl: (_url, init) => {
+      signals.push(init.signal);
+      if (signals.length === 1) {
+        return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))));
+      }
+      return Promise.resolve(ok([article('latest')]));
+    },
+  });
+  const first = harness.loadClientHomeNews(false, harness.context());
+  await flush();
+  await harness.loadClientHomeNews(true, harness.context());
+  await first;
+  assert.equal(signals[0].aborted, true);
+  assert.equal(harness.events.some(([kind, value]) => kind === 'failed' && value === true), false);
+  assert.deepEqual(harness.cache.writes, [[article('latest')]]);
+});
+
+test('explicit Refresh only updates this browser\'s Property News preview cache', async () => {
+  const harness = loadNews({ cached: { items: [article(1)], isFresh: true }, fetchImpl: async () => ok([article(2)]) });
+  await harness.loadClientHomeNews(true, harness.context());
+  assert.deepEqual([...harness.cache.used].filter((name) => typeof name === 'string').sort(), ['getCachedNewsPreview', 'setCachedNewsPreview']);
+});
+
+// Wiring and rendering kept as source checks.
+
+test('sidebar panels hydrate before paint and refresh per account without waiting for bookmarks', () => {
+  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{\s*const cachedDestinations = readClientHomeWidgetCache[\s\S]*?getCachedNewsPreview\(\)/);
+  const effectStart = source.indexOf("hydrateClientHomeWidget<Record<string, number | null>>('destinations'");
+  const effect = source.slice(source.lastIndexOf('useEffect(() => {', effectStart), source.indexOf('}, [user?.id]);', effectStart));
+  assert.match(effect, /if \(!user\?\.id\) return \(\) => \{ active = false; \};/);
+  assert.match(effect, /hydrateClientHomeWidget<Update\[\]>\('updates'/);
+  assert.doesNotMatch(effect, /\bready\b/);
+  assert.match(source, /const loadNews = useCallback\(\(force = false\) => loadClientHomeNews\(force, \{[\s\S]*?currentAccountId: \(\) => resolvedSessionUserId\.current/);
+  assert.match(source, /onClick=\{\(\) => \{ void loadNews\(true\); \}\}>Refresh/);
 });
 
 test('sidebar panels have terminal loading, empty, and error rendering branches', () => {
   const updatesStart = source.indexOf('function UpdateList(');
-  const updatesEnd = source.indexOf('\nfunction ', updatesStart + 10);
-  const updatesList = source.slice(updatesStart, updatesEnd);
+  const updatesList = source.slice(updatesStart, source.indexOf('\nfunction ', updatesStart + 10));
   const newsStart = source.indexOf('function PropertyNewsList(');
-  const newsEnd = source.indexOf('\nfunction ', newsStart + 10);
-  const newsList = source.slice(newsStart, newsEnd);
+  const newsList = source.slice(newsStart, source.indexOf('\nfunction ', newsStart + 10));
   assert.match(updatesList, /if \(loading\) return <WidgetLoader/);
   assert.match(updatesList, /items\.length === 0[\s\S]*failed \? 'VaRoom Updates could not be loaded\.'/);
   assert.match(updatesList, /VaRoom Updates could not be refreshed\./);
   assert.match(newsList, /if \(loading\) return <div[^>]*Loading Property News/);
   assert.match(newsList, /items\.length === 0[\s\S]*failed \? 'Property News could not be loaded\.'/);
   assert.match(newsList, /Property News could not be refreshed\./);
-  assert.match(source, /destinationsFailed && <p className=\{styles\.widgetMessage\} role="status"/);
-});
-
-test('Property News reuses its existing list cache while explicit Refresh forces a request', () => {
-  assert.match(source, /const cachedNews = getCachedNewsPreview\(\)/);
-  assert.match(source, /const cached = getCachedNewsPreview\(\)/);
-  assert.match(source, /setCachedNewsPreview\(result as PropertyNewsItem\[\]\)/);
-  assert.match(source, /onClick=\{\(\) => \{ void loadNews\(true\); \}\}>Refresh/);
-  assert.match(source, /if \(cached\.isFresh && !force\) return/);
-  assert.match(source, /cache: force \? 'no-store' : 'default'/);
-  assert.match(source, /requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId/);
-  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{[\s\S]*?readClientHomeWidgetCache<Record<string, number \| null>>\('destinations'\)[\s\S]*?getCachedNewsPreview\(\)/);
-});
-
-test('Property News failures preserve visible articles and explicit refresh is browser-local', () => {
-  const loadNewsStart = source.indexOf('const loadNews = useCallback(async (force = false) => {');
-  const loadNewsEnd = source.indexOf('\n  }, [user?.id]);', loadNewsStart);
-  const loadNews = source.slice(loadNewsStart, loadNewsEnd);
-  assert.ok(loadNewsStart >= 0 && loadNewsEnd > loadNewsStart);
-  assert.match(loadNews, /catch \(newsError\)[\s\S]*?setNewsFailed\(true\)/);
-  assert.doesNotMatch(loadNews, /catch \(newsError\)[\s\S]*?setNews\(\[\]\)/);
-  assert.match(loadNews, /if \(requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId\) return/);
-  assert.match(loadNews, /setCachedNewsPreview\(result as PropertyNewsItem\[\]\)/);
-  assert.doesNotMatch(loadNews, /BroadcastChannel|dispatchEvent|localStorage\.removeItem|clearPropertyNewsCache/);
+  assert.match(source, /destinationsFailed && <p className=\{styles\.widgetMessage\} role="status">Destination counts could not be refreshed\./);
 });

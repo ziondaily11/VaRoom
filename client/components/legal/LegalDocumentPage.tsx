@@ -2,6 +2,7 @@
 
 import Head from "next/head";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { activeSectionId, activeSectionLimit, isPaneLayout, legalLinkTarget, paneScrollTopFor } from "../../lib/legal/legalDocument";
 
 // Content model shared by the legal documents (Privacy Policy, Terms of Service).
 export type Inline = string | { strong: string } | { text: string; href: string };
@@ -42,12 +43,12 @@ export interface LegalDocumentPageProps {
 function Rich({ node }: { node: Inline }) {
   if (typeof node === "string") return <>{node}</>;
   if ("strong" in node) return <strong>{node.strong}</strong>;
-  const isExternal = node.href.startsWith("http");
+  const { target, rel } = legalLinkTarget(node.href);
   return (
     <a
       href={node.href}
-      target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
+      target={target}
+      rel={rel}
     >
       {node.text}
     </a>
@@ -165,13 +166,12 @@ export default function LegalDocumentPage({
     if (!target) return;
 
     const pane = contentPaneRef.current;
-    if (pane && typeof window !== "undefined" && window.innerWidth > 900) {
+    if (pane && typeof window !== "undefined" && isPaneLayout(window.innerWidth)) {
       const paneRect = pane.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const offsetTop = targetRect.top - paneRect.top + pane.scrollTop - 24;
 
       pane.scrollTo({
-        top: Math.max(0, offsetTop),
+        top: paneScrollTopFor(targetRect.top, paneRect.top, pane.scrollTop),
         behavior: "smooth",
       });
     } else {
@@ -217,34 +217,24 @@ export default function LegalDocumentPage({
     const pane = contentPaneRef.current;
 
     const updateActiveSection = () => {
-      const isDesktop = typeof window !== "undefined" && window.innerWidth > 900;
+      const isDesktop = typeof window !== "undefined" && isPaneLayout(window.innerWidth);
       const container = isDesktop && pane ? pane : null;
 
-      let current = "";
+      const tops: Array<{ id: string; top: number }> = [];
       for (const id of sectionIds) {
         const el = document.getElementById(id);
         if (!el) continue;
-
-        if (container) {
-          const paneRect = container.getBoundingClientRect();
-          const elRect = el.getBoundingClientRect();
-          if (elRect.top - paneRect.top <= 140) {
-            current = id;
-          }
-        } else {
-          const elRect = el.getBoundingClientRect();
-          if (elRect.top <= 180) {
-            current = id;
-          }
-        }
+        const elRect = el.getBoundingClientRect();
+        tops.push({ id, top: container ? elRect.top - container.getBoundingClientRect().top : elRect.top });
       }
+      const current = activeSectionId(tops, activeSectionLimit(Boolean(container)));
 
       if (current) {
         setActive(current);
       }
     };
 
-    const isDesktop = typeof window !== "undefined" && window.innerWidth > 900;
+    const isDesktop = typeof window !== "undefined" && isPaneLayout(window.innerWidth);
     const scrollTarget = isDesktop && pane ? pane : typeof window !== "undefined" ? window : null;
 
     if (scrollTarget) {

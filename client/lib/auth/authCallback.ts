@@ -243,3 +243,24 @@ export function takeAddAccountNotice(storage: AuthCallbackEnv['storage'], now: n
     return null;
   }
 }
+
+/**
+ * On the page a full-page account add returned to: switch to the added
+ * account when its sign-in was saved (switching reloads the page), else show
+ * the one-time failure notice, if any. Used by components/shell/AddAccountNotice.
+ */
+export function resumeAddAccount(
+  storage: AuthCallbackEnv['storage'],
+  switchTo: (accountId: string) => Promise<void>,
+  show: (message: string) => void,
+): void {
+  const pendingSwitch = takePendingAccountSwitch(storage);
+  if (pendingSwitch) {
+    switchTo(pendingSwitch).catch((error: unknown) => {
+      show(`Account added, but switching failed: ${(error as Error)?.message || 'please try again from the account menu.'}`);
+    });
+    return;
+  }
+  const notice = takeAddAccountNotice(storage);
+  if (notice) show(notice);
+}

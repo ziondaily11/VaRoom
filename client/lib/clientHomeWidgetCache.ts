@@ -43,3 +43,52 @@ export function writeClientHomeWidgetCache(key: string, value: unknown): boolean
 export function fetchClientHomeWidget<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return cache.load(key, loader, { force: true }) as Promise<T>;
 }
+
+export interface ClientHomeWidgetView<T> {
+  /** False once the consumer has unmounted; late results are then cached but not shown. */
+  isActive: () => boolean;
+  setValue: (value: T) => void;
+  setLoading: (loading: boolean) => void;
+  setFailed: (failed: boolean) => void;
+}
+
+/**
+ * Shows a cached widget value at once, then refreshes it unless it is fresh.
+ * A failed refresh keeps the cached value and only flags the failure.
+ * `createLoader` returns null when the data source is unavailable.
+ */
+export function hydrateClientHomeWidget<T>(
+  key: ClientHomeWidgetKey,
+  view: ClientHomeWidgetView<T>,
+  createLoader: () => (() => Promise<T>) | null,
+  errorLabel: string,
+): void {
+  const cached = readClientHomeWidgetCache<T>(key);
+  if (cached) {
+    view.setValue(cached.value);
+    view.setLoading(false);
+    view.setFailed(false);
+  } else {
+    view.setLoading(true);
+    view.setFailed(false);
+  }
+  if (cached?.isFresh) return;
+  const loader = createLoader();
+  if (!loader) {
+    view.setFailed(true);
+    view.setLoading(false);
+    return;
+  }
+  void fetchClientHomeWidget(key, loader).then((value: T) => {
+    writeClientHomeWidgetCache(key, value);
+    if (view.isActive()) {
+      view.setValue(value);
+      view.setFailed(false);
+    }
+  }).catch((widgetError: Error) => {
+    console.error(errorLabel, widgetError);
+    if (view.isActive()) view.setFailed(true);
+  }).finally(() => {
+    if (view.isActive()) view.setLoading(false);
+  });
+}

@@ -11,7 +11,7 @@ export interface NotificationItem {
   booking_id?: string | null;
   related_entity_type?: string | null;
   related_entity_id?: string | null;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface CachedNotificationsResult {

@@ -117,10 +117,10 @@ test('where people go: the safe link they came from, else their role’s home; h
 
 test('page: AuthProvider profile, safe redirect, Split layout, legacy page and preview retired', () => {
   const page = read('pages', 'onboarding.tsx');
+  // Page wiring (no DOM renderer here); the redirect rule itself is tested below.
   assert.match(page, /useAuth\(\)/);
   assert.doesNotMatch(page, /window\.supabaseClient|window\.location\.href/, 'no legacy globals or full reloads');
-  assert.match(page, /getSafeRedirect\(router\.query\.redirect\)/);
-  assert.match(page, /!safe\.startsWith\('\/onboarding'\)/, 'never loops back here');
+  assert.match(page, /onboardingRedirect\(router\.query\.redirect\)/);
   assert.match(page, /await refreshProfile\(\)/, 'the app sees onboarding as done before moving on');
   const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
   for (const text of ['A little more you.', "Let's set up your profile so people can put a face to your name.", 'What will you be listing?', 'What are you hoping to find?', 'When are you looking?', '← Back to profile setup', 'Finishing setup...', 'Uploading your photo. You can keep going.', 'Try again', 'Continue without photo']) assert.ok(steps.includes(text), text);
@@ -145,7 +145,7 @@ test('photo uploads behind the scenes; step 2 is kept when going back', () => {
   const page = read('pages', 'onboarding.tsx');
   assert.doesNotMatch(steps, /saveAvatar/, 'step 1 no longer waits for the upload');
   assert.match(page, /startUpload\(newPhoto\.blob\)/);
-  assert.match(page, /await run\.done/, 'finishing waits for a photo still uploading');
+  assert.match(page, /photoAllowsFinish\(\(\) => uploadRun\.current\)/, 'finishing waits for a photo still uploading');
   assert.match(page, /initialPhoto=\{chosenPhoto\}/, 'the chosen photo is still there on going back');
   assert.match(page, /initialNiche=\{listingDraft \? listingDraft\.niche/);
   const store = new Map();
@@ -159,4 +159,31 @@ test('photo uploads behind the scenes; step 2 is kept when going back', () => {
   assert.deepEqual({ ...ob.readListingDraft(fake, 'u1') }, { niche: null, name: '' });
   ob.writeListingDraft(fake, 'u1', null);
   assert.equal(store.size, 0);
+});
+
+test('the redirect kept for afterwards: same origin only, never back to onboarding', () => {
+  const withWindow = loadTs(path.join(root, 'lib', 'onboarding', 'onboarding.ts'), { globals: { window: { location: { origin: 'https://varoom.example' } } } });
+  assert.equal(withWindow.onboardingRedirect('/booking?listing=1'), '/booking?listing=1');
+  assert.equal(withWindow.onboardingRedirect('https://varoom.example/bookings#top'), '/bookings#top');
+  assert.equal(withWindow.onboardingRedirect('/onboarding?step=2'), null, 'never loops back here');
+  assert.equal(withWindow.onboardingRedirect('https://evil.example/x'), null);
+  assert.equal(withWindow.onboardingRedirect('//evil.example/x'), null);
+  assert.equal(withWindow.onboardingRedirect('javascript:alert(1)'), null);
+  assert.equal(withWindow.onboardingRedirect(['/a', '/b']), null, 'a repeated query value is ignored');
+  assert.equal(withWindow.onboardingRedirect(undefined), null);
+});
+
+test('finishing waits for the photo upload; a failed current upload keeps the host here', async () => {
+  assert.equal(await ob.photoAllowsFinish(() => null), true, 'no photo');
+  assert.equal(await ob.photoAllowsFinish(() => ({ done: Promise.resolve('done') })), true);
+  const failed = { done: Promise.resolve('failed') };
+  assert.equal(await ob.photoAllowsFinish(() => failed), false, 'retry or skip first');
+  let current = { done: new Promise((resolve) => setImmediate(() => resolve('failed'))) };
+  const pending = ob.photoAllowsFinish(() => current);
+  current = null; // skipped (or replaced) while uploading
+  assert.equal(await pending, true, 'a failure of a photo no longer chosen does not block');
+  const order = [];
+  const slow = { done: new Promise((resolve) => setImmediate(() => { order.push('uploaded'); resolve('done'); })) };
+  await ob.photoAllowsFinish(() => slow).then(() => order.push('finished'));
+  assert.deepEqual(order, ['uploaded', 'finished']);
 });

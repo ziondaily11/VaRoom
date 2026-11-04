@@ -159,6 +159,42 @@ export interface PublicationState {
 export const needsListingPayment = (state: PublicationState) => isPaidNiche(state.category)
   && !state.hasActiveNichePlan && !state.paymentVerified && !(state.editMode && state.hasCurrentListingFee);
 
+/**
+ * The review step's actions: Pay to list and Go Pro only once the allowance
+ * check has answered; Publish hidden while payment is needed; and when the
+ * check failed, a note instead of either.
+ */
+export function reviewActions(paymentNeeded: boolean, entitlementChecked: boolean): { showPay: boolean; submitHidden: boolean; entitlementNote: boolean } {
+  return { showPay: paymentNeeded && entitlementChecked, submitHidden: paymentNeeded, entitlementNote: paymentNeeded && !entitlementChecked };
+}
+
+/**
+ * Uploads the chosen media in order, skipping files an earlier attempt already
+ * uploaded (a retry resumes). A failed file is counted, not thrown.
+ */
+export async function uploadPendingMedia(files: File[], uploaded: Set<File>, upload: (file: File, index: number) => Promise<unknown>,
+  onProgress: (index: number, total: number) => void): Promise<{ uploadedCount: number; failedCount: number }> {
+  let uploadedCount = 0;
+  let failedCount = 0;
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    onProgress(index, files.length);
+    if (uploaded.has(file)) { uploadedCount += 1; continue; }
+    try {
+      await upload(file, index);
+      uploaded.add(file);
+      uploadedCount += 1;
+    } catch (error) {
+      console.warn('Listing media upload failed:', error);
+      failedCount += 1;
+    }
+  }
+  return { uploadedCount, failedCount };
+}
+
+/** A new listing whose media didn't all upload is not activated (the host retries). */
+export const mediaUploadBlocksPublish = (editMode: boolean, total: number, failedCount: number) => !editMode && total > 0 && failedCount > 0;
+
 /** Whether publishing also sets the listing available (unchanged rule). */
 export function shouldActivate(state: PublicationState): boolean {
   const paid = isPaidNiche(state.category);
