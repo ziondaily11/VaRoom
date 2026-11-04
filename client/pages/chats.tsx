@@ -25,9 +25,10 @@ import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
 import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
-import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
+import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
-import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
+import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
+import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, ReplyThumb, VoiceCard } from '../components/chat/MessageMedia';
 import MessageMeta from '../components/chat/MessageMeta';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
@@ -754,6 +755,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           sender_id: currentReply.sender_id,
           body: currentReply.body,
           deleted_at: currentReply.deleted_at,
+          message_type: currentReply.message_type,
+          attachment: currentReply.attachment,
+          listing: currentReply.listing,
         };
       }
       if (sent.length && mountedRef.current && activeIdRef.current === conversationId) {
@@ -834,6 +838,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     } else {
       void handleUploadAttachment(file, 'file');
     }
+  };
+
+  // Ctrl+V of a screenshot or a copied image opens the photo preview, as
+  // choosing a photo does; text pastes are left to the composer.
+  const onComposerPaste = (event: React.ClipboardEvent) => {
+    if (isElie || !activeId) return;
+    const image = pastedImage(event.clipboardData);
+    if (!image) return;
+    event.preventDefault();
+    setPendingPreviewFile(image);
   };
 
   // Upload attachment & send
@@ -939,9 +953,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // Text messages in person-to-person chats only: the server accepts actions
   // on text messages, and Elie messages are not stored there.
+  // Every kind of message: text, photos, files, voice notes and listings.
   const canActOnMessage = (m: ChatMessage): boolean => (
     !isElie
-    && m.message_type === 'text'
+    && m.message_type !== 'system'
     && !m.deleted_at
     && !(m as OptimisticChatMessage)._optimistic
   );
@@ -1012,7 +1027,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   };
 
   const copyMessage = async (message: ChatMessage) => {
-    const text = messagePlainText(message.body);
+    const text = messageCopyText(message);
     let copied = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -1503,7 +1518,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           {pinnedMessage && (
             <div className="pinned-message" id="pinnedMessage" aria-live="polite">
               <svg className="icon" aria-hidden="true"><use href="#i-pin" /></svg>
-              <span>{messagePlainText(pinnedMessage.body) || 'Message'}</span>
+              <span>{messageSummary(pinnedMessage).text || 'Message'}</span>
             </div>
           )}
 
@@ -1584,18 +1599,21 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const replyReference = m.reply_to_message_id ? (() => {
                   const original = m.reply_to_message;
                   const label = original && original.sender_id === userId ? 'You' : 'Reply';
-                  const body = original && !original.deleted_at ? messagePlainText(original.body) : 'This message is unavailable';
+                  const summary = messageSummary(original);
                   return (
                     <div
-                      className="message-reply-reference"
+                      className={`message-reply-reference${summary.photoAttachmentId ? ' has-thumb' : ''}`}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${label}: ${body}`}
+                      aria-label={`${label}: ${summary.text}`}
                       onClick={() => scrollToMessage(m.reply_to_message_id as string)}
                       onKeyDown={replyKeyHandler(m.reply_to_message_id as string)}
                     >
-                      <strong>{label}</strong>
-                      <span>{body}</span>
+                      <div className="reply-text">
+                        <strong>{label}</strong>
+                        <span>{summary.text}</span>
+                      </div>
+                      {summary.photoAttachmentId && <ReplyThumb attachmentId={summary.photoAttachmentId} api={api} />}
                     </div>
                   );
                 })() : null;
@@ -1633,15 +1651,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         alt={m.attachment?.original_filename || 'Shared image'}
                         api={api}
                         onOpen={(url, alt) => setSelectedPhotoPreview({ url, alt })}
-                        footer={(
+                        // With a caption the time sits on its last line; without one it sits over the image.
+                        footer={photoCaption(m) ? (
                           <>
-                            {m.body && m.body.trim() !== m.attachment?.original_filename && (
-                              <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
-                            )}
+                            <div className="chat-message-caption">{renderMessageBody(m.body || '')}{meta}</div>
                             {uploadState}
-                            {meta}
                           </>
-                        )}
+                        ) : uploadState || undefined}
+                        overlay={photoCaption(m) ? undefined : meta}
                       >
                         {replyReference}
                       </PhotoBubble>
@@ -1730,6 +1747,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               aria-label="Write a message"
               data-placeholder={isElie ? 'Ask Elie about spaces, prices, amenities...' : 'Write a message...'}
               ref={desktopEditorRef}
+              onPaste={onComposerPaste}
               onInput={(e: React.FormEvent<HTMLDivElement>) => {
                 const text = e.currentTarget.textContent || '';
                 setComposerText(text);
@@ -1755,6 +1773,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               ref={mobileTextareaRef}
               placeholder={isElie ? 'Ask Elie...' : 'Write a message...'}
               value={composerText}
+              onPaste={onComposerPaste}
               onChange={(e) => {
                 setComposerText(e.target.value);
                 updateComposerUI();
@@ -1774,7 +1793,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             {/* Reply preview (legacy position: the mobile grid places it on its own row) */}
             {replyTo && (() => {
               const label = replyTo.sender_id === userId ? 'Replying to you' : 'Replying to message';
-              const body = messagePlainText(replyTo.body) || 'This message is unavailable';
+              const summary = messageSummary(replyTo);
+              const body = summary.text;
               return (
                 <div className="composer-reply-preview" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'default' }}>
                   <div
@@ -1788,6 +1808,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     <strong>{label}</strong>
                     <span>{body}</span>
                   </div>
+                  {summary.photoAttachmentId && <ReplyThumb attachmentId={summary.photoAttachmentId} api={api} />}
                   <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
                     <svg className="icon" aria-hidden="true" style={{ width: 14, height: 14 }}><use href="#i-close" /></svg>
                   </button>
@@ -2044,7 +2065,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         <MessageActionMenu
           x={messageMenu.x}
           y={messageMenu.y}
-          items={messageActionItems({ pinned: Boolean(messageMenu.message.pinned_at), ownMessage: messageMenu.message.sender_id === userId })}
+          items={messageActionItems({ pinned: Boolean(messageMenu.message.pinned_at), ownMessage: messageMenu.message.sender_id === userId, canCopy: Boolean(messageCopyText(messageMenu.message)) })}
           onSelect={(action) => { void performMessageAction(messageMenu.message, action); }}
           onClose={closeMessageMenu}
         />

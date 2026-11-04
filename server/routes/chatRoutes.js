@@ -8,6 +8,8 @@ const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 const autoReply = require('../lib/autoReply');
 const { markDelivered, readReceiptsShared, withVisibleReceipts } = require('../lib/chatReceipts');
+const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
+const mediaStorageService = require('../lib/mediaStorageService');
 
 const router = express.Router();
 
@@ -38,6 +40,11 @@ async function profilesById(ids) {
   if (error) throw error;
   // Return contact fields used elsewhere in the product — never expose auth emails to other conversation participants.
   return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
+}
+
+// The fields a reply quote needs from an attachment.
+function quotedAttachment(attachment) {
+  return attachment ? { id: attachment.id, kind: attachment.kind, original_filename: attachment.original_filename } : null;
 }
 
 function withDecryptedBody(message) {
@@ -265,10 +272,9 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
         });
       }
     }
-    const attachmentIds = visibleRows
-      .filter((message) => !message.deleted_at)
-      .map((message) => message.attachment_id)
-      .filter(Boolean);
+    // Replied-to messages included: their quotes show a photo, file or listing.
+    const quotedRows = [...visibleById.values()].filter((message) => !message.deleted_at);
+    const attachmentIds = [...new Set(quotedRows.map((message) => message.attachment_id).filter(Boolean))];
     let attachments = [];
     if (attachmentIds.length) {
       const attachmentResult = await supabaseAdmin
@@ -279,10 +285,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       attachments = attachmentResult.data || [];
     }
     const attachmentsById = Object.fromEntries(attachments.map((attachment) => [attachment.id, attachment]));
-    const listingIds = visibleRows
-      .filter((message) => !message.deleted_at)
-      .map((message) => message.listing_id)
-      .filter(Boolean);
+    const listingIds = [...new Set(quotedRows.map((message) => message.listing_id).filter(Boolean))];
     let listingsById = {};
     if (listingIds.length) {
       const listingResult = await supabaseAdmin
@@ -305,6 +308,9 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
             sender_id: reply.sender_id,
             body: reply.deleted_at ? null : withDecryptedBody(reply).body,
             deleted_at: reply.deleted_at,
+            message_type: reply.message_type,
+            attachment: reply.deleted_at ? null : quotedAttachment(attachmentsById[reply.attachment_id]),
+            listing: reply.deleted_at || !listingsById[reply.listing_id] ? null : { id: reply.listing_id, title: listingsById[reply.listing_id].title },
           } : null,
           ...message,
         };
@@ -330,12 +336,13 @@ router.post('/chat/conversations/:conversationId/messages/:messageId/actions', a
     const action = enumValue(req.body.action, 'action', ['pin', 'delete_for_me', 'delete_for_everyone']);
     const { data: message, error: messageError } = await supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,message_type,deleted_at')
+      .select('id,conversation_id,sender_id,message_type,attachment_id,deleted_at')
       .eq('id', messageId)
       .eq('conversation_id', conversationId)
       .maybeSingle();
     if (messageError) throw messageError;
-    if (!message || message.message_type !== 'text' || message.deleted_at) {
+    // Every kind of message: text, photos, files, voice notes and listings.
+    if (!message || message.deleted_at) {
       return res.status(404).json({ error: 'Message not found' });
     }
 
@@ -371,6 +378,9 @@ router.post('/chat/conversations/:conversationId/messages/:messageId/actions', a
         .maybeSingle();
       if (error) throw error;
       if (!deletedMessage) return res.status(403).json({ error: 'Only the sender can delete this message for everyone' });
+      // The photo, file or voice note goes too; the message is already deleted if this fails.
+      await removeChatAttachment(supabaseAdmin, mediaStorageService, message.attachment_id)
+        .catch((cleanupError) => console.error('Deleted message attachment cleanup failed:', cleanupError));
     } else {
       const { error } = await supabaseAdmin.rpc('toggle_chat_message_pin', {
         p_conversation_id: conversationId,
@@ -466,7 +476,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         .eq('conversation_id', conversationId)
         .maybeSingle();
       if (repliedMessageError) throw repliedMessageError;
-      if (!repliedMessage || repliedMessage.message_type !== 'text' || repliedMessage.deleted_at) {
+      if (!repliedMessage || repliedMessage.deleted_at) {
         return res.status(400).json({ error: 'The message being replied to is unavailable' });
       }
       const { data: hiddenMessage, error: hiddenMessageError } = await supabaseAdmin

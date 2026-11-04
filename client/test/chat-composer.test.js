@@ -92,5 +92,16 @@ test('uploads in progress or failed show their state for files as well as photos
   assert.match(source, /const sending = Boolean\(optimistic\._optimistic && !optimistic\._failed\);/);
   assert.match(source, /const uploadState = optimistic\._optimistic && optimistic\._failed \? \(/);
   assert.match(source, /\{renderMessageBody\(m\.body \|\| ''\)\}\s*\{uploadState\}/);
-  assert.match(source, /\{uploadState\}\s*\{meta\}\s*<\/>/);
+  // Photos: with a caption, uploadState follows it; without one, it is the footer.
+  assert.match(source, /<div className="chat-message-caption">\{renderMessageBody\(m\.body \|\| ''\)\}\{meta\}<\/div>\s*\{uploadState\}/);
+  assert.match(source, /\) : uploadState \|\| undefined\}/);
+});
+
+test('a photo without a caption carries its time and ticks over the image in a thin frame', () => {
+  assert.match(source, /overlay=\{photoCaption\(m\) \? undefined : meta\}/);
+  const media = fs.readFileSync(path.join(root, 'components', 'chat', 'MessageMedia.tsx'), 'utf8');
+  assert.match(media, /\{overlay\}\s*<\/div>\s*\{footer\}/, 'inside the image wrapper');
+  const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+  assert.match(css, /\.bubble\.bubble-media\{\s*padding:3px;/);
+  assert.match(css, /\.chat-media-wrap > \.msg-meta\{\s*position:absolute;/);
 });

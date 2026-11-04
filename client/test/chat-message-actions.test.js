@@ -5,7 +5,7 @@ const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
 
 const root = path.join(__dirname, '..');
-const { messageActionItems } = loadTs(path.join(root, 'lib', 'chat', 'messageActions.ts'));
+const { messageActionItems, messageCopyText, messageSummary, pastedImage, photoCaption } = loadTs(path.join(root, 'lib', 'chat', 'messageActions.ts'));
 const { messagePlainText } = loadTs(path.join(root, 'lib', 'chat', 'messageBody.ts'));
 const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
 
@@ -15,6 +15,43 @@ test('menu items follow legacy: Reply, Copy, Pin/Unpin, Delete for me; Delete fo
   assert.deepEqual(labels(messageActionItems({ pinned: false, ownMessage: false })), ['Reply', 'Copy', 'Pin message', 'Delete for me']);
   assert.deepEqual(labels(messageActionItems({ pinned: true, ownMessage: true })), ['Reply', 'Copy', 'Unpin message', 'Delete for me', 'Delete for everyone']);
   assert.deepEqual(messageActionItems({ pinned: false, ownMessage: true }).map((item) => item.action), ['reply', 'copy', 'pin', 'delete_for_me', 'delete_for_everyone']);
+  assert.deepEqual(labels(messageActionItems({ pinned: false, ownMessage: true, canCopy: false })), ['Reply', 'Pin message', 'Delete for me', 'Delete for everyone'], 'no Copy without text');
+});
+
+test('Copy takes a text message or a photo caption; nothing for listings, files, voice or a photo sent without a caption', () => {
+  const photo = { id: 'a1', kind: 'photo', original_filename: 'IMG_1.jpg' };
+  assert.equal(messageCopyText({ message_type: 'text', body: '<b>Hi</b>' }), 'Hi');
+  assert.equal(messageCopyText({ body: 'Legacy row' }), 'Legacy row');
+  assert.equal(messageCopyText({ message_type: 'photo', body: 'Nice view', attachment: photo }), 'Nice view');
+  assert.equal(messageCopyText({ message_type: 'photo', body: 'IMG_1.jpg', attachment: photo }), '', 'the file name is not a caption');
+  assert.equal(photoCaption({ message_type: 'photo', body: 'IMG_1.jpg', attachment: photo }), '');
+  for (const type of ['listing', 'file', 'voice']) assert.equal(messageCopyText({ message_type: type, body: 'x' }), '', type);
+});
+
+test('reply quotes and the pin banner sum up every kind of message', () => {
+  const photo = { id: 'a1', kind: 'photo', original_filename: 'IMG_1.jpg' };
+  assert.deepEqual({ ...messageSummary({ message_type: 'photo', body: 'IMG_1.jpg', attachment: photo }) }, { text: 'Photo', photoAttachmentId: 'a1' });
+  assert.deepEqual({ ...messageSummary({ message_type: 'photo', body: 'The kitchen', attachment: photo }) }, { text: 'The kitchen', photoAttachmentId: 'a1' });
+  assert.equal(messageSummary({ message_type: 'listing', body: '', listing: { id: 'l1', title: 'Garden flat' } }).text, 'Listing: Garden flat');
+  assert.equal(messageSummary({ message_type: 'listing', body: '' }).text, 'Listing');
+  assert.equal(messageSummary({ message_type: 'file', body: 'lease.pdf', attachment: { id: 'f1', kind: 'file', original_filename: 'lease.pdf' } }).text, 'File: lease.pdf');
+  assert.equal(messageSummary({ message_type: 'voice', body: '' }).text, 'Voice message');
+  assert.equal(messageSummary({ message_type: 'text', body: 'Hello' }).text, 'Hello');
+  assert.equal(messageSummary({ message_type: 'photo', deleted_at: 't', attachment: photo }).text, 'This message is unavailable');
+  assert.equal(messageSummary(null).text, 'This message is unavailable');
+});
+
+test('a pasted screenshot or copied image is picked up; a paste with text stays text', () => {
+  const image = { name: 'image.png', type: 'image/png' };
+  const clip = ({ text = '', files = [], items } = {}) => ({ getData: (type) => (type === 'text/plain' ? text : ''), files, items });
+  assert.equal(pastedImage(clip({ files: [image] })), image);
+  assert.equal(pastedImage(clip({ files: [], items: [{ kind: 'string', type: 'text/html', getAsFile: () => null }, { kind: 'file', type: 'image/jpeg', getAsFile: () => image }] })), image);
+  assert.equal(pastedImage(clip({ text: 'Quarterly report', files: [image] })), null, 'office apps add a picture of copied text');
+  assert.equal(pastedImage(clip({ files: [{ name: 'a.pdf', type: 'application/pdf' }] })), null);
+  assert.equal(pastedImage(null), null);
+  assert.match(source, /const image = pastedImage\(event\.clipboardData\);\s*if \(!image\) return;\s*event\.preventDefault\(\);\s*setPendingPreviewFile\(image\);/);
+  assert.match(source, /if \(isElie \|\| !activeId\) return;/);
+  assert.equal((source.match(/onPaste=\{onComposerPaste\}/g) || []).length, 2, 'desktop editor and phone textarea');
 });
 
 test('copied and quoted text is plain text with line breaks, like the legacy previewText', () => {
@@ -27,8 +64,9 @@ test('copied and quoted text is plain text with line breaks, like the legacy pre
   assert.equal(messagePlainText(null), '');
 });
 
-test('actions apply to text messages in person-to-person chats only', () => {
-  assert.match(source, /!isElie\s*&& m\.message_type === 'text'\s*&& !m\.deleted_at\s*&& !\(m as OptimisticChatMessage\)\._optimistic/);
+test('actions apply to every kind of message in person-to-person chats', () => {
+  assert.match(source, /!isElie\s*&& m\.message_type !== 'system'\s*&& !m\.deleted_at\s*&& !\(m as OptimisticChatMessage\)\._optimistic/);
+  assert.match(source, /canCopy: Boolean\(messageCopyText\(messageMenu\.message\)\)/);
   assert.match(source, /\{actionable && \(\s*<div className="msg-action-wrap"/);
 });
 
@@ -47,7 +85,8 @@ test('delete for everyone confirms; failures are shown; the thread and cache are
 });
 
 test('reply quotes scroll to the original; the composer preview uses legacy text and Escape cancels', () => {
-  assert.match(source, /'This message is unavailable'/);
+  assert.match(source, /const summary = messageSummary\(original\);/);
+  assert.match(source, /\{summary\.photoAttachmentId && <ReplyThumb attachmentId=\{summary\.photoAttachmentId\} api=\{api\} \/>\}/);
   assert.match(source, /onClick=\{\(\) => scrollToMessage\(m\.reply_to_message_id as string\)\}/);
   assert.match(source, /'Replying to you' : 'Replying to message'/);
   assert.equal((source.match(/if \(e\.key === 'Escape' && replyTo\) \{\s*setReplyTo\(null\);/g) || []).length, 2);
@@ -55,7 +94,7 @@ test('reply quotes scroll to the original; the composer preview uses legacy text
 });
 
 test('pinned banner and deleted messages match legacy', () => {
-  assert.match(source, /\{messagePlainText\(pinnedMessage\.body\) \|\| 'Message'\}/);
+  assert.match(source, /\{messageSummary\(pinnedMessage\)\.text \|\| 'Message'\}/);
   assert.match(source, /\{isDeleted \? \(\s*\/\* Deleted message, any type/);
 });
 
