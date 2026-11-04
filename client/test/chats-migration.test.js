@@ -278,8 +278,12 @@ test('Stage 5B: Message rendering, context actions, and mobile nav suppression',
   assert.match(source, /onTouchStart=\{actionable \? \(e\) => onMessageTouchStart\(e, m\) : undefined\}/);
   assert.match(source, /<MessageActionMenu/);
 
-  // Phones: the app's bottom navigation hides inside a conversation only (legacy).
-  assert.match(source, /document\.body\.classList\.toggle\('chat-page-context', inConversation\);/);
+  // The app's bottom navigation shows with the inbox only: on phones whenever a
+  // conversation screen is up; side by side (761–860px) whenever one is open.
+  assert.match(source, /const conversationShowing = phone\.matches \? mobileView !== 'inbox' : Boolean\(activeId\);/);
+  assert.match(source, /document\.body\.classList\.toggle\('chat-page-context', conversationShowing\);/);
+  assert.match(source, /phone\.addEventListener\?\.\('change', update\);/, 'rechecked when the screen rotates');
+  assert.match(source, /\}, \[mobileView, activeId\]\);/);
   assert.match(source, /classList\.remove\('chat-page-context'\)/);
 });
 
@@ -304,3 +308,13 @@ test('Stage 5B.1: Clean inbox previews, opaque composer background, and in-conve
   assert.match(cssSource, /\[data-theme="dark"\]\s+\.chat-input-area\s*\{[\s\S]*?background/);
 });
 
+
+test('the bottom navigation never covers a conversation: CSS hides it after the chat page as well as the body class', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+  assert.match(source, /\$\{activeId \? ' has-conversation' : ''\}`\} style=\{bubbleThemeStyle\}>/);
+  const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+  assert.match(css, /@media \(max-width:760px\)\{\s*\.app-shell\.view-chat ~ \.varoom-mobile-nav,\s*\.app-shell\.view-info ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
+  assert.match(css, /@media \(min-width:761px\) and \(max-width:860px\)\{\s*\.app-shell\.has-conversation ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
+  const app = fs.readFileSync(path.join(root, 'pages', '_app.tsx'), 'utf8');
+  assert.match(app, /\{layout\}\s*<MobileNav enabled=/, 'the navigation follows the page, so the sibling rule reaches it');
+});

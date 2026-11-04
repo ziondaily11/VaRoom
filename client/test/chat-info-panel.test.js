@@ -56,7 +56,7 @@ test('rail: links with unread badges for messages and bookings', () => {
 });
 
 test('phones: the app navigation shows on the inbox and hides inside a conversation; identity opens information by keyboard too', () => {
-  assert.match(source, /const inConversation = mobileView !== 'inbox' && window\.matchMedia\('\(max-width: 760px\)'\)\.matches;/);
+  assert.match(source, /const conversationShowing = phone\.matches \? mobileView !== 'inbox' : Boolean\(activeId\);/);
   assert.match(source, /\(ChatsPage as unknown as \{ appNavigation: boolean \}\)\.appNavigation = true;/);
   assert.match(source, /aria-label="Open conversation information"/);
   assert.match(source, /\(e\.key === 'Enter' \|\| e\.key === ' '\) && window\.matchMedia/);

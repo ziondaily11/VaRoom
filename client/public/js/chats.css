@@ -547,6 +547,16 @@
   .pinned-message[hidden]{ display:none; }
   .pinned-message .icon{ flex-shrink:0; color:var(--mint-dark); }
   .pinned-message[role="button"]{ cursor:pointer; }
+  /* The app's bottom navigation (rendered right after Chats, up to 860px) shows
+     with the inbox only, never over a conversation's composer; this holds
+     even before the page's script runs (pages/chats.tsx also marks the body). */
+  @media (max-width:760px){
+    .app-shell.view-chat ~ .varoom-mobile-nav,
+    .app-shell.view-info ~ .varoom-mobile-nav{ display:none !important; }
+  }
+  @media (min-width:761px) and (max-width:860px){
+    .app-shell.has-conversation ~ .varoom-mobile-nav{ display:none !important; }
+  }
   /* Inbox chats open their menu on long-press: no system callout. */
   .contact-item{ -webkit-touch-callout:none; }
   /* Inbox: the Archived entry and, inside it, the way back. */

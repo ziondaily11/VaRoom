@@ -788,12 +788,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [mobileAttachMenuOpen]);
 
-  // Phones: the app's bottom navigation shows on the inbox and hides inside a
-  // conversation or its information (legacy showMobileInbox/Conversation).
+  // The app's bottom navigation (phones and small tablets, up to 860px) shows
+  // with the inbox only, never over a conversation's composer. Up to 760px the
+  // inbox and a conversation are separate screens; from 761px they sit side by
+  // side, so it hides whenever a conversation is open. Rechecked on rotation.
   useEffect(() => {
-    const inConversation = mobileView !== 'inbox' && window.matchMedia('(max-width: 760px)').matches;
-    document.body.classList.toggle('chat-page-context', inConversation);
-  }, [mobileView]);
+    const phone = window.matchMedia('(max-width: 760px)');
+    const update = () => {
+      const conversationShowing = phone.matches ? mobileView !== 'inbox' : Boolean(activeId);
+      document.body.classList.toggle('chat-page-context', conversationShowing);
+    };
+    update();
+    phone.addEventListener?.('change', update);
+    return () => phone.removeEventListener?.('change', update);
+  }, [mobileView, activeId]);
   useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
 
   // Search placeholder as legacy: "Search" on desktop.
@@ -1564,7 +1572,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </defs>
       </svg>
 
-      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}`} style={bubbleThemeStyle}>
+      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}${activeId ? ' has-conversation' : ''}`} style={bubbleThemeStyle}>
         
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>
