@@ -39,3 +39,13 @@ test('Chats: the listing card waits above the composer, goes with the next messa
   assert.match(media, /<em>Asking about this listing<\/em>/);
   assert.match(media, /router\.push\(`\/booking\?id=\$\{encodeURIComponent\(listing\.id\)\}`\)/);
 });
+
+test('in the thread the listing fills the bubble in a thin frame, its price on the photo; only the message keeps padding', () => {
+  const media = read('components', 'chat', 'MessageMedia.tsx');
+  assert.match(media, /<span className="chat-enquiry-overlay">\s*<strong>\{title\}<\/strong>\s*<small>\{listingSubtitle\(listing\)\}<\/small>\s*<span className="chat-enquiry-price">\{listingPriceText\(listing\)\}<\/span>\s*<\/span>/);
+  const css = read('public', 'js', 'chats.css');
+  assert.match(css, /\.bubble\{ padding:12px 16px;/, 'the bubble padding the frame is measured from');
+  assert.match(css, /\.bubble-text\.has-enquiry > \.chat-enquiry-card\{ margin:-9px -13px 10px; \}/, '3px frame on top and sides');
+  assert.match(css, /\.chat-enquiry-price\{ display:block; margin-top:3px; font-size:13px; font-weight:700; \}/, 'no fill behind the price');
+  assert.doesNotMatch(css, /\.chat-enquiry-card\{[^}]*background:rgba/, 'no fill behind the card');
+});
