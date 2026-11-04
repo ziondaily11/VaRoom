@@ -372,7 +372,7 @@
     display:flex;
     flex-direction:column;
     width:fit-content;
-    max-width:min(446px, 100%);
+    max-width:min(336px, 100%);
     box-sizing:border-box;
     overflow:hidden;
   }
@@ -396,10 +396,12 @@
     left:50%;
     margin:-17px 0 0 -17px;
   }
+  /* Desktop: photos fit a 330 × 360 box in their own shape, never cropped;
+     the viewer shows them full size. Phones keep their own limits (below). */
   .chat-message-image{
     display:block;
-    max-width:440px;
-    max-height:480px;
+    max-width:330px;
+    max-height:360px;
     width:auto;
     height:auto;
     object-fit:contain;

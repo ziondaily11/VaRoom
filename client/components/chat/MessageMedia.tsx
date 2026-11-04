@@ -33,7 +33,7 @@ function MediaLoader() {
 
 /**
  * A photo message bubble. The image shows a loader until it loads, then the
- * bubble narrows to the rendered width (440 px desktop, 340 px phone), as legacy.
+ * bubble narrows to the rendered width (330 px desktop, 340 px phone).
  * Without a caption the time and ticks sit over the image in a thin frame.
  */
 export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children, footer, overlay }: {
@@ -61,7 +61,7 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
     setLoaded(true);
     const image = imageRef.current;
     if (!image || !image.naturalWidth) return;
-    const maxAllowed = window.matchMedia('(max-width: 760px)').matches ? 340 : 440;
+    const maxAllowed = window.matchMedia('(max-width: 760px)').matches ? 340 : 330;
     const rendered = Math.min(image.offsetWidth || image.naturalWidth, maxAllowed);
     if (rendered > 0) setWidth(rendered);
   };
