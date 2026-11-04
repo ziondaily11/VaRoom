@@ -13,6 +13,9 @@
  * - Resilient fallback to memory when IndexedDB is unavailable
  */
 
+// Type-only imports: the module stays import-free at runtime (tests transpile it standalone).
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export interface ChatParticipant {
   id: string;
   full_name?: string | null;
@@ -87,7 +90,7 @@ export interface MediaRecord {
   id: string;
   type: string;
   mimeType: string;
-  blob: Blob | any;
+  blob: Blob;
   size: number;
   createdAt: number;
   accessedAt: number;
@@ -97,7 +100,7 @@ export interface MediaUrlResult {
   url: string | null;
   mimeType: string;
   size: number;
-  blob: Blob | any;
+  blob: Blob | null;
 }
 
 export interface MediaStatsResult {
@@ -107,12 +110,21 @@ export interface MediaStatsResult {
 
 export interface ChatSyncOptions {
   accessToken?: string;
-  supabaseClient?: any;
-  fetchFn?: (url: string) => Promise<any>;
+  supabaseClient?: SupabaseClient;
+  /** Returns the parsed JSON for the URL: the API envelope, or a bare list. */
+  fetchFn?: (url: string) => Promise<ChatSyncPayload>;
   cooldownMs?: number;
   priorityCount?: number;
   skipMedia?: boolean;
 }
+
+/** JSON from /api/chat/conversations[/:id/messages]. */
+export interface ChatSyncEnvelope {
+  conversations?: ChatConversation[];
+  messages?: ChatMessage[];
+}
+
+export type ChatSyncPayload = ChatSyncEnvelope | ChatConversation[] | ChatMessage[] | null | undefined;
 
 export interface PrefetchResult {
   success: boolean;
@@ -168,7 +180,16 @@ export function isIndexedDBAvailable(): boolean {
   }
 }
 
-function safeCreateObjectURL(blob: any): string | null {
+// Local copy of lib/errors.ts errorMessage, as this module has no runtime imports.
+function errorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return '';
+}
+
+function safeCreateObjectURL(blob: Blob | null | undefined): string | null {
   if (!blob) return null;
   if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
     try {
@@ -198,8 +219,8 @@ function openDatabase(): Promise<IDBDatabase | null> {
     try {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
+      request.onupgradeneeded = () => {
+        const db = request.result;
         if (!db.objectStoreNames.contains(STORE_INBOX)) {
           db.createObjectStore(STORE_INBOX, { keyPath: 'userId' });
         }
@@ -213,8 +234,8 @@ function openDatabase(): Promise<IDBDatabase | null> {
         }
       };
 
-      request.onsuccess = (event: any) => {
-        const db = event.target.result;
+      request.onsuccess = () => {
+        const db = request.result;
         db.onversionchange = () => {
           db.close();
           dbPromise = null;
@@ -222,8 +243,8 @@ function openDatabase(): Promise<IDBDatabase | null> {
         resolve(db);
       };
 
-      request.onerror = (event: any) => {
-        console.warn('[VaRoomChatCache] IndexedDB open error, falling back to memory:', event.target && event.target.error);
+      request.onerror = () => {
+        console.warn('[VaRoomChatCache] IndexedDB open error, falling back to memory:', request.error);
         dbFailed = true;
         resolve(null);
       };
@@ -403,9 +424,10 @@ async function resolveAuthToken(options?: ChatSyncOptions): Promise<string | nul
       }
     } catch {}
   }
-  if (typeof window !== 'undefined' && (window as any).supabaseClient?.auth) {
+  const globalClient = typeof window !== 'undefined' ? window.supabaseClient : undefined;
+  if (globalClient?.auth) {
     try {
-      const globalSess = await (window as any).supabaseClient.auth.getSession();
+      const globalSess = await globalClient.auth.getSession();
       if (globalSess && globalSess.data && globalSess.data.session) {
         return globalSess.data.session.access_token;
       }
@@ -428,7 +450,9 @@ export function syncInbox(userId: string | number, options?: ChatSyncOptions): P
       let conversations: ChatConversation[] = [];
       if (typeof options.fetchFn === 'function') {
         const res = await options.fetchFn('/api/chat/conversations');
-        conversations = res && res.conversations ? res.conversations : (Array.isArray(res) ? res : []);
+        // A bare list from this URL is the conversation list.
+        if (Array.isArray(res)) conversations = res as ChatConversation[];
+        else conversations = res && res.conversations ? res.conversations : [];
       } else {
         const token = await resolveAuthToken(options);
         if (!token) {
@@ -448,8 +472,8 @@ export function syncInbox(userId: string | number, options?: ChatSyncOptions): P
       }
       const currentCached = await getInbox(strUserId);
       return currentCached || [];
-    } catch (err: any) {
-      console.warn('[VaRoomChatCache] Inbox sync warning:', err && err.message);
+    } catch (err) {
+      console.warn('[VaRoomChatCache] Inbox sync warning:', errorMessage(err));
       const fallback = await getInbox(strUserId);
       return fallback || [];
     } finally {
@@ -617,7 +641,9 @@ export function syncConversationMessages(userId: string | number, conversationId
       let incomingMessages: ChatMessage[] = [];
       if (typeof options.fetchFn === 'function') {
         const res = await options.fetchFn(fetchUrl);
-        incomingMessages = res && res.messages ? res.messages : (Array.isArray(res) ? res : []);
+        // A bare list from this URL is the message list.
+        if (Array.isArray(res)) incomingMessages = res as ChatMessage[];
+        else incomingMessages = res && res.messages ? res.messages : [];
       } else {
         const token = await resolveAuthToken(options);
         if (!token) {
@@ -650,8 +676,8 @@ export function syncConversationMessages(userId: string | number, conversationId
       }
 
       return cloneData(finalMessages);
-    } catch (err: any) {
-      console.warn('[VaRoomChatCache] Conversation sync warning:', err && err.message);
+    } catch (err) {
+      console.warn('[VaRoomChatCache] Conversation sync warning:', errorMessage(err));
       const fallback = await getMessages(strUserId, strConvId);
       return fallback || [];
     } finally {
@@ -749,10 +775,10 @@ function evictMediaIfNecessary(db: IDBDatabase, neededBytes: number): Promise<vo
       let totalSize = 0;
       const items: Array<{ id: string; size: number; accessedAt: number }> = [];
 
-      req.onsuccess = (event: any) => {
-        const cursor = event.target.result;
+      req.onsuccess = () => {
+        const cursor = req.result;
         if (cursor) {
-          const item = cursor.value;
+          const item = cursor.value as MediaRecord;
           totalSize += (item.size || 0);
           items.push({ id: item.id, size: item.size || 0, accessedAt: item.accessedAt });
           cursor.continue();
@@ -792,14 +818,14 @@ function evictMediaIfNecessary(db: IDBDatabase, neededBytes: number): Promise<vo
 
 export function saveMedia(
   id: string | number,
-  blobOrBuffer: any,
+  blobOrBuffer: Blob,
   options?: { type?: string; mimeType?: string }
 ): Promise<{ url: string | null; mimeType: string; size: number } | null> {
   if (!id || !blobOrBuffer) return Promise.resolve(null);
   const strId = String(id);
   options = options || {};
 
-  const size = blobOrBuffer.size || (blobOrBuffer.byteLength || 0);
+  const size = blobOrBuffer.size || 0;
   if (size > MAX_SINGLE_MEDIA_SIZE) {
     const directUrl = safeCreateObjectURL(blobOrBuffer);
     return Promise.resolve({ url: directUrl, mimeType: options.mimeType || '', size: size });
@@ -873,7 +899,7 @@ export function fetchAndCacheMedia(
         return result && result.url ? result.url : remoteUrl;
       });
     }).catch((error) => {
-      console.warn('[VaRoomChatCache] Media caching fallback for ' + strId + ':', error && error.message);
+      console.warn('[VaRoomChatCache] Media caching fallback for ' + strId + ':', errorMessage(error));
       return remoteUrl;
     }).finally(() => {
       inFlightMediaFetches.delete(strId);
@@ -948,11 +974,11 @@ export function getMediaStats(): Promise<MediaStatsResult> {
         let count = 0;
         let totalBytes = 0;
 
-        req.onsuccess = (event: any) => {
-          const cursor = event.target.result;
+        req.onsuccess = () => {
+          const cursor = req.result;
           if (cursor) {
             count++;
-            totalBytes += (cursor.value.size || 0);
+            totalBytes += ((cursor.value as MediaRecord).size || 0);
             cursor.continue();
           } else {
             resolve({ count: count, totalBytes: totalBytes });
@@ -971,9 +997,9 @@ export function getMediaStats(): Promise<MediaStatsResult> {
 
 // --- Background Chat Prefetch ---
 
-function scheduleIdleTask(callback: () => void, timeoutMs?: number): any {
-  if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
-    return (window as any).requestIdleCallback(callback, { timeout: timeoutMs || 2500 });
+function scheduleIdleTask(callback: () => void, timeoutMs?: number): number | ReturnType<typeof setTimeout> {
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    return window.requestIdleCallback(callback, { timeout: timeoutMs || 2500 });
   }
   return setTimeout(callback, 200);
 }
@@ -1069,10 +1095,11 @@ export function prefetch(userId: string | number, options?: ChatSyncOptions): Pr
         prefetchState.lastPrefetchTime = Date.now();
         prefetchState.inProgress = false;
         resolve({ success: true, prefetchedConversations: prefetchedCount });
-      } catch (err: any) {
-        console.warn('[VaRoomChatCache] Background prefetch warning:', err && err.message);
+      } catch (err) {
+        const message = errorMessage(err);
+        console.warn('[VaRoomChatCache] Background prefetch warning:', message);
         prefetchState.inProgress = false;
-        resolve({ success: false, error: err && err.message });
+        resolve({ success: false, error: message || undefined });
       }
     }, 3000);
   });
@@ -1117,10 +1144,11 @@ export function clearUser(userId: string | number): Promise<void> {
         inboxStore.delete(strUserId);
 
         const req = messagesStore.openCursor();
-        req.onsuccess = (event: any) => {
-          const cursor = event.target.result;
+        req.onsuccess = () => {
+          const cursor = req.result;
           if (cursor) {
-            if (cursor.value && cursor.value.userId === strUserId) {
+            const value = cursor.value as { userId?: string } | null;
+            if (value && value.userId === strUserId) {
               cursor.delete();
             }
             cursor.continue();
@@ -1200,10 +1228,12 @@ const chatCacheInstance = {
   clearAll,
 };
 
+export type ChatCacheApi = typeof chatCacheInstance;
+
 if (typeof globalThis !== 'undefined') {
-  (globalThis as any).VaRoomChatCache = chatCacheInstance;
+  globalThis.VaRoomChatCache = chatCacheInstance;
 } else if (typeof window !== 'undefined') {
-  (window as any).VaRoomChatCache = chatCacheInstance;
+  window.VaRoomChatCache = chatCacheInstance;
 }
 
 export default chatCacheInstance;

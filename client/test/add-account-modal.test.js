@@ -90,7 +90,7 @@ test('AddAccountModal delegates linking to the authenticated account-group servi
   // Verifies that email sign-in uses the same per-flow isolated client setup as OAuth.
   assert.match(
     addAccountModalCode,
-    /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/,
+    /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/,
     'Uses a per-flow isolated auth client so active session and auth locks are untouched'
   );
   assert.match(
@@ -149,7 +149,7 @@ test('account-switcher.js startAddAccount opens in-app modal and exports openAdd
   );
   assert.match(
     accountSwitcherCode,
-    /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/,
+    /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/,
     'Vanilla modal uses a per-flow isolated auth client'
   );
 });

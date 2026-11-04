@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
-const sessionStart = source.indexOf('const resolveSession = async (session: any) => {');
+const sessionStart = source.indexOf('const resolveSession = async (session: Session | null) => {');
 const sessionEnd = source.indexOf('\n    };', sessionStart);
 const sessionResolution = source.slice(sessionStart, sessionEnd);
 const loadFeedStart = source.indexOf('const loadFeed = useCallback(async (nextPage = false) => {');
@@ -36,7 +36,7 @@ test('eligible cached feed pages render before bookmark completion and revalidat
   assert.match(loadFeed, /if \(!nextPage && snapshot\.hasCachedPage\) \{\s*setItems\(snapshot\.items as Listing\[\]\)/);
   assert.match(loadFeed, /setLoadedFeedKey\(key\)/);
   assert.match(loadFeed, /setLoading\(false\)/);
-  assert.match(loadFeed, /if \(snapshot\.isStale\) \{\s*const contextVersion = feedContextVersion\.current;\s*void cache\.current\.revalidate\(key, fetcher\)/);
+  assert.match(loadFeed, /if \(snapshot\.isStale\) \{\s*const contextVersion = feedContextVersion\.current;\s*void cache\.current\.revalidate(?:<Listing>)?\(key, fetcher\)/);
   assert.match(loadFeed, /contextVersion !== feedContextVersion\.current \|\| feedContextKey\.current !== key/);
 });
 

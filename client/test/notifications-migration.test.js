@@ -9,7 +9,7 @@ const cacheModulePath = path.join(root, 'lib', 'notificationsCache.ts');
 const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const slugPath = path.join(root, 'pages', '[...slug].js');
-const { getAccountLayout } = require('../lib/accountRoleLayout');
+const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 function loadCacheModule() {
   const store = new Map();

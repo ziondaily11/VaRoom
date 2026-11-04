@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
@@ -93,7 +93,7 @@ export default function NotificationsPage() {
 
   const requestVersionRef = useRef<number>(0);
   const mountedRef = useRef<boolean>(true);
-  const realtimeChannelRef = useRef<any>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
 
   // Helper to open sidebar on mobile
@@ -106,7 +106,7 @@ export default function NotificationsPage() {
 
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(
-    async (currentUserId: string, client: any, isBackground = false) => {
+    async (currentUserId: string, client: SupabaseClient, isBackground = false) => {
       const version = ++requestVersionRef.current;
 
       try {

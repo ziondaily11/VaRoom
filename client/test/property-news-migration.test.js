@@ -10,7 +10,7 @@ const legacyPropertyNewsScriptPath = path.join(root, 'public', 'js', 'property-n
 const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const slugPath = path.join(root, 'pages', '[...slug].js');
-const { getAccountLayout } = require('../lib/accountRoleLayout');
+const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 test('Phase 1 & 2: Property News is a native React page in client/pages/property-news.tsx', () => {
   assert.ok(fs.existsSync(propertyNewsPath), 'property-news.tsx must exist');

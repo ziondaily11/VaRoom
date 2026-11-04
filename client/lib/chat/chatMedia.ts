@@ -12,7 +12,8 @@ import { fetchAndCacheMedia, getMediaUrl } from '../chatCache';
 // and is skipped for the session once storage refuses cross-origin reads
 // (CORS), so a refused fetch never delays a photo.
 
-export type ChatApi = (url: string, options?: RequestInit) => Promise<any>;
+/** An authenticated JSON request; callers name the response shape they read. */
+export type ChatApi = <T = Record<string, unknown>>(url: string, options?: RequestInit) => Promise<T>;
 
 const inFlight = new Map<string, Promise<string>>();
 const SIGNED_URL_LIMIT = 300;
@@ -69,11 +70,11 @@ export function attachmentUrl(attachmentId: string, api: ChatApi): Promise<strin
     } catch {
       // Cache unavailable: fall through to the network.
     }
-    const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+    const result = await api<{ url?: string; expiresAt?: string }>(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
     if (!result || !result.url) throw new Error('Attachment unavailable');
     rememberSignedUrl(cacheKey, result.url, result.expiresAt);
     saveBlobInBackground(cacheKey, result.url);
-    return result.url as string;
+    return result.url;
   });
 }
 
@@ -99,10 +100,10 @@ export interface ListingVideo {
 
 /** The first video of a listing, with its playback URL, or null. */
 export async function listingVideo(listingId: string, api: ChatApi): Promise<ListingVideo | null> {
-  const media = await api(`/api/properties/${encodeURIComponent(listingId)}/media`);
-  const video = (media && media.media || []).find((item: { type?: string }) => item.type === 'video');
+  const media = await api<{ media?: Array<{ id: string; type?: string; thumbnailUrl?: string }> }>(`/api/properties/${encodeURIComponent(listingId)}/media`);
+  const video = ((media && media.media) || []).find((item) => item.type === 'video');
   if (!video) return null;
-  const playback = await api(`/api/media/${encodeURIComponent(video.id)}/playback`);
+  const playback = await api<{ url: string; thumbnailUrl?: string }>(`/api/media/${encodeURIComponent(video.id)}/playback`);
   const rawThumb: string = playback.thumbnailUrl || video.thumbnailUrl || '';
   const thumbnailUrl = rawThumb ? await cachedImageUrl(`listing-thumb:${video.id}`, rawThumb) : '';
   return { videoId: video.id, url: playback.url, thumbnailUrl };

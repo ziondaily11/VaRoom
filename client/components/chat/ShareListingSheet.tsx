@@ -14,7 +14,7 @@ const listingsByUser = new Map<string, Promise<ChatListingSummary[]>>();
 function hostListings(userId: string, api: ChatApi): Promise<ChatListingSummary[]> {
   let promise = listingsByUser.get(userId);
   if (!promise) {
-    promise = api('/api/chat/listings')
+    promise = api<{ listings?: ChatListingSummary[] }>('/api/chat/listings')
       .then((result) => (result && result.listings) || [])
       .catch((error) => {
         listingsByUser.delete(userId);

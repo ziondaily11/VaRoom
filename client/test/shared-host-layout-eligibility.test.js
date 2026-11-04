@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
-const { getAccountLayout } = require('../lib/accountRoleLayout');
+const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
 

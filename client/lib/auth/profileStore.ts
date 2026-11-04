@@ -179,7 +179,7 @@ export function createProfileStore({ getClient, getStorage = () => null, now = (
       if (hookable.__varoomProfileWriteHookInstalled) return;
       hookable.__varoomProfileWriteHookInstalled = true;
 
-      const originalFrom = client.from.bind(client) as (relation: string) => Record<string, unknown>;
+      const originalFrom = client.from.bind(client) as unknown as (relation: string) => Record<string, unknown>;
       client.from = ((relation: string) => {
         const builder = originalFrom(relation);
         if (relation !== 'profiles') return builder;

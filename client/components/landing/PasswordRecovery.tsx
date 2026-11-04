@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
 import { OtpCodeInput, OtpCodeInputHandle } from './OtpCodeInput';
+import { errorMessage } from '../../lib/errors';
 
 type RecoveryStep = 'email' | 'otp' | 'password' | 'success';
 type RecoveryAlert = { type: 'error' | 'success'; message: string };
@@ -41,7 +42,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     let active = true;
     const verifyRecoverySession = async () => {
       try {
-        const client = (window as any).supabaseClient;
+        const client = window.supabaseClient;
         if (!client) throw new Error('Authentication is unavailable right now. Please try again.');
         const { data, error } = await client.auth.getSession();
         if (error) throw error;
@@ -52,10 +53,10 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
         } else if (active) {
           setAlert({ type: 'success', message: 'Email verified. Enter your new password below.' });
         }
-      } catch (error: any) {
+      } catch (error) {
         if (!active) return;
         setStep('email');
-        setAlert({ type: 'error', message: error?.message || 'Could not verify your password reset session. Please request a new verification code.' });
+        setAlert({ type: 'error', message: errorMessage(error) || 'Could not verify your password reset session. Please request a new verification code.' });
       } finally {
         if (active) setIsCheckingRecovery(false);
       }
@@ -122,8 +123,8 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setResendSeconds(60);
       changeStep('otp');
       setAlert({ type: 'success', message: "If an account exists for this email, we've sent you a verification code." });
-    } catch (error: any) {
-      setAlert({ type: 'error', message: error?.message || 'Could not send verification code. Please try again in a few moments.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: errorMessage(error) || 'Could not send verification code. Please try again in a few moments.' });
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +141,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setAlert({ type: 'error', message: 'Too many failed attempts. Please request a new verification code.' });
       return;
     }
-    const client = (window as any).supabaseClient;
+    const client = window.supabaseClient;
     if (!client) {
       setAlert({ type: 'error', message: 'Authentication is unavailable right now. Please try again.' });
       return;
@@ -171,9 +172,9 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setConfirmPassword('');
       changeStep('password');
       setAlert({ type: 'success', message: 'Email verified. Now create your new password.' });
-    } catch (error: any) {
+    } catch (error) {
       otpInputRef.current?.clearAndFocus();
-      setAlert({ type: 'error', message: error?.message || 'Could not verify code. Please check your connection and try again.' });
+      setAlert({ type: 'error', message: errorMessage(error) || 'Could not verify code. Please check your connection and try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -195,8 +196,8 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setFailedAttempts(0);
       setResendSeconds(60);
       setAlert({ type: 'success', message: "If an account exists for this email, we've sent you a verification code." });
-    } catch (error: any) {
-      setAlert({ type: 'error', message: error?.message || 'Could not resend the verification code. Please try again.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: errorMessage(error) || 'Could not resend the verification code. Please try again.' });
     } finally {
       setIsLoading(false);
       window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());
@@ -220,7 +221,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     setConfirmPasswordError(nextConfirmError);
     if (nextPasswordError || nextConfirmError) return;
 
-    const client = (window as any).supabaseClient;
+    const client = window.supabaseClient;
     if (!client) {
       setAlert({ type: 'error', message: 'Authentication is unavailable right now. Please try again.' });
       return;
@@ -242,8 +243,8 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setEmail('');
       setAlert(null);
       changeStep('success');
-    } catch (error: any) {
-      setAlert({ type: 'error', message: error?.message || 'Could not update password. Please try again.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: errorMessage(error) || 'Could not update password. Please try again.' });
     } finally {
       setIsLoading(false);
     }

@@ -7,6 +7,7 @@ import { SignupForm } from './SignupForm';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { getSafeRedirect } from '../../lib/safeRedirect';
 import { profileStore } from '../../lib/auth/session';
+import { errorMessage } from '../../lib/errors';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -138,7 +139,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
       return;
     }
 
-    const client = (window as any).supabaseClient;
+    const client = window.supabaseClient;
     if (!client) {
       setAlert({ type: 'error', message: 'Authentication is unavailable right now. Please try again.' });
       return;
@@ -165,8 +166,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
       }
 
       window.location.assign(redirect || (role === 'host' ? '/host-home' : '/client-home'));
-    } catch (err: any) {
-      const message = err?.message || 'Login failed. Please try again.';
+    } catch (err) {
+      const message = errorMessage(err) || 'Login failed. Please try again.';
       const normalized = String(message).toLowerCase();
       const friendlyMessage = normalized.includes('invalid')
         ? 'Incorrect email or password.'

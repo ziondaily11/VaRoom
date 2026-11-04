@@ -82,12 +82,12 @@ export function getSupabaseClient(): VaRoomSupabaseClient | null {
   if (!window.VAROOM_SUPABASE_ANON_KEY) window.VAROOM_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
   if (!window.supabase) window.supabase = supabaseJs;
 
-  let client = window.supabaseClient;
-  const created = !client?.auth;
-  if (created) {
-    client = supabaseJs.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, resolveClientOptions());
-    window.supabaseClient = client;
-  }
+  const existing = window.supabaseClient;
+  const created = !existing?.auth;
+  const client: SupabaseClient = existing && !created
+    ? existing
+    : supabaseJs.createClient(window.VAROOM_SUPABASE_URL || SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY, resolveClientOptions());
+  window.supabaseClient = client;
 
   installR2PhotoStorage(client);
   installDataCacheInvalidation(client);
