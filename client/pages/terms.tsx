@@ -1,11 +1,11 @@
-import LegalDocumentPage from '../legacy-pages/LegalDocumentPage';
+import LegalDocumentPage from '../components/legal/LegalDocumentPage';
 import {
   LAST_UPDATED,
   TERMS_DESCRIPTION,
   TERMS_TITLE,
   intro,
   sections,
-} from '../legacy-pages/termsContent';
+} from '../lib/legal/termsContent';
 
 export default function TermsOfServicePage() {
   return (

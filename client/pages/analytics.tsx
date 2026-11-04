@@ -4,9 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { profileStore } from '../lib/auth/session';
-import HostAnalytics from '../legacy-pages/Analytics';
-import { supabaseHostAnalyticsApi } from '../legacy-pages/analyticsApi';
-import shell from '../legacy-pages/AnalyticsShell.module.css';
+import HostAnalytics from '../components/analytics/Analytics';
+import { supabaseHostAnalyticsApi } from '../lib/analytics/analyticsApi';
+import shell from '../components/analytics/AnalyticsShell.module.css';
 
 interface HostProfile {
   role: string;

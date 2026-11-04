@@ -9,7 +9,7 @@ import type {
   ReservationSummary,
   ReviewSummary,
   StatusCount,
-} from './Analytics';
+} from '../../components/analytics/Analytics';
 
 interface SupabaseClientWindow extends Window {
   supabaseClient?: SupabaseClient;

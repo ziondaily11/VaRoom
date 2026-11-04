@@ -1,7 +1,7 @@
 "use client";
 
 import LegalDocumentPage from "./LegalDocumentPage";
-import { LAST_UPDATED, intro, sections } from "./privacyContent";
+import { LAST_UPDATED, intro, sections } from "../../lib/legal/privacyContent";
 
 export default function PrivacyPolicyPage() {
   return (
