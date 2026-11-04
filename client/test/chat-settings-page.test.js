@@ -13,7 +13,7 @@ function memory(initial) {
   return { map, getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, String(v)) };
 }
 
-test('settings: this browser keeps the toggles and message; the profile decides away mode and read receipts', () => {
+test('settings: this browser keeps a copy; the profile decides', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
   assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5' });
@@ -30,10 +30,10 @@ test('settings: this browser keeps the toggles and message; the profile decides 
   cs.writeStored(broken, 'readReceipts', true);
 });
 
-test('profile settings: read once per account in one query, saved to the profile and this browser, never the missing away_message column', async () => {
+test('profile settings: every Chat Setting is read once per account in one query and saved to the profile and this browser', async () => {
   cs.clearChatSettingsCache();
   const calls = [];
-  let row = { away_mode: true, read_receipts: null };
+  let row = { away_mode: true, read_receipts: null, away_message: null, message_notifications: null, message_previews: false, typing_indicators: null };
   const client = {
     from(table) {
       const chain = {
@@ -46,24 +46,36 @@ test('profile settings: read once per account in one query, saved to the profile
       return chain;
     },
   };
-  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: true, readReceipts: true }, 'read receipts default on');
-  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: true, readReceipts: true });
-  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,read_receipts']], 'one read per account');
+  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true };
+  const [first, second] = await Promise.all([cs.loadProfileSettings(client, 'h1'), cs.loadProfileSettings(client, 'h1')]);
+  assert.deepEqual({ ...first }, loaded, 'unset switches are on; no away message shows the default');
+  assert.equal(first, second, 'requests at the same time share one read');
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators']], 'one read per account');
+
+  const seen = [];
+  const unsubscribe = cs.subscribeProfileSettings('h1', (settings) => seen.push(settings.typingIndicators));
   const storage = memory();
-  await cs.saveProfileSetting(client, 'h1', 'awayMode', false, storage);
-  await cs.saveProfileSetting(client, 'h1', 'readReceipts', false, storage);
-  const updates = calls.filter((c) => c[0] === 'update');
-  assert.deepEqual(updates, [['update', 'profiles', { away_mode: false }], ['update', 'profiles', { read_receipts: false }]]);
+  await cs.saveProfileSetting(client, 'h1', 'typingIndicators', false, storage);
+  await cs.saveProfileSetting(client, 'h1', 'messageNotifications', false, storage);
+  await cs.saveProfileSetting(client, 'h1', 'awayMessage', 'Back at 5', storage);
+  unsubscribe();
+  await cs.saveProfileSetting(client, 'h1', 'typingIndicators', true, storage);
+  assert.deepEqual(seen, [false, false, false], 'pages following the settings hear each save until they unsubscribe');
+  assert.deepEqual(calls.filter((c) => c[0] === 'update').map((c) => c[2]), [{ typing_indicators: false }, { message_notifications: false }, { away_message: 'Back at 5' }, { typing_indicators: true }]);
   assert.ok(calls.some((c) => c[0] === 'eq' && c[1] === 'id' && c[2] === 'h1'));
-  assert.equal(JSON.parse(storage.map.get(cs.STORAGE_KEY)).awayMode, false);
-  assert.equal(JSON.parse(storage.map.get(cs.STORAGE_KEY)).readReceipts, false);
-  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: false, readReceipts: false }, 'the saved values are reused');
+  assert.equal(JSON.parse(storage.map.get(cs.STORAGE_KEY)).awayMessage, 'Back at 5');
+  assert.equal(cs.cachedProfileSettings('h1').messageNotifications, false, 'the saved values are reused');
+  assert.equal(cs.resolveSettings({ typingIndicators: false }, cs.cachedProfileSettings('h1')).typingIndicators, true, 'the profile wins over this browser');
+
   cs.clearChatSettingsCache();
   row = null;
   assert.equal(await cs.loadProfileSettings(client, 'c1'), null, "no profile: this browser's copy is shown");
-  assert.ok(!JSON.stringify(calls).includes('away_message'));
-  assert.doesNotMatch(read('lib', 'chat', 'chatSettings.ts') + read('components', 'chat', 'ChatSettings.tsx'), /select\([^)]*away_message|away_message:/, 'no query or write uses that column');
+  assert.equal(cs.cleanAwayMessage('x'.repeat(600)).length, cs.AWAY_MESSAGE_MAX, 'the profile keeps at most 500 characters');
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearChatSettingsCache\(\);/);
+  const component = read('components', 'chat', 'ChatSettings.tsx');
+  assert.match(component, /void saveProfileSetting\(getSupabaseClient\(\), userId, key, value, storage\(\)\);/, 'every switch is saved to the account');
+  assert.match(component, /void saveProfileSetting\(getSupabaseClient\(\), userId, 'awayMessage', clean, storage\(\)\);/);
+  assert.match(read('pages', 'chat-settings.tsx'), /onOpenArchived=\{\(\) => router\.push\('\/chats\?archived=1'\)\}/);
 });
 
 test('back from the phone page stays on this site and never loops to the settings page', () => {

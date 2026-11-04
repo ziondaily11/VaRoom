@@ -2,7 +2,7 @@ import React, { useEffect, useId, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, loadProfileSettings, readStored, resolveSettings, saveProfileSetting, writeStored,
+  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, loadProfileSettings, readStored, resolveSettings, saveProfileSetting,
   type ChatSettingsState, type ToggleKey,
 } from '../../lib/chat/chatSettings';
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
@@ -69,22 +69,20 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
   // Runs before the profile's settings arrive (below), which then win.
   useEffect(() => { setSettings(resolveSettings(readStored(storage()), null)); }, []);
 
-  // Away mode and read receipts live on the profile.
+  // Every setting lives on the profile.
   useEffect(() => {
     const client = getSupabaseClient();
     if (!client || !userId) return undefined;
     let cancelled = false;
     loadProfileSettings(client, userId).then((profile) => {
-      if (cancelled || !profile) return;
-      setSettings((current) => ({ ...current, readReceipts: profile.readReceipts, ...(role === 'host' ? { awayMode: profile.awayMode } : {}) }));
+      if (!cancelled && profile) setSettings(resolveSettings({}, profile));
     }).catch(() => { /* Shown from this browser's copy. */ });
     return () => { cancelled = true; };
-  }, [userId, role]);
+  }, [userId]);
 
   const setToggle = (key: ToggleKey, value: boolean) => {
     setSettings((current) => ({ ...current, [key]: value }));
-    if (key === 'awayMode' || key === 'readReceipts') void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
-    else writeStored(storage(), key, value);
+    void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
   };
 
   const editAwayMessage = () => {
@@ -92,7 +90,7 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     if (next === null) return;
     const clean = cleanAwayMessage(next);
     setSettings((current) => ({ ...current, awayMessage: clean }));
-    writeStored(storage(), 'awayMessage', clean);
+    void saveProfileSetting(getSupabaseClient(), userId, 'awayMessage', clean, storage());
   };
 
   return (

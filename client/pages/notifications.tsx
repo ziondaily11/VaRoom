@@ -6,6 +6,8 @@ import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
+import { notificationMessageId, useMessagePreviews } from '../lib/notifications/messagePreviews';
+import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
 import {
   NotificationItem,
   getCachedNotifications,
@@ -239,6 +241,9 @@ export default function NotificationsPage() {
   const auth = useAuth();
   const authUserId = auth.user?.id || null;
   const profileRole = accountRole(auth.profile);
+  // Message previews (Chat Settings): the text of "New message" notifications.
+  const chatPrefs = useProfileChatSettings(authUserId);
+  const messagePreviews = useMessagePreviews(authUserId, notifications, chatPrefs ? chatPrefs.messagePreviews : false);
 
   useEffect(() => {
     if (profileRole) setUserRole(profileRole);
@@ -585,6 +590,11 @@ export default function NotificationsPage() {
                                   <span className={`tag ${details.category}`}>{details.tag}</span>
                                 </div>
                                 <p className="notif-desc">{notification.message || title}</p>
+                                {(() => {
+                                  const messageId = notificationMessageId(notification);
+                                  const preview = messageId ? messagePreviews[messageId] : null;
+                                  return preview ? <p className="notif-desc notif-preview">“{preview}”</p> : null;
+                                })()}
                                 <div className="notif-actions" data-actions>
                                   {target && (
                                     <button

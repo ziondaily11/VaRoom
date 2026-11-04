@@ -2,7 +2,6 @@
 
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
-const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
@@ -10,6 +9,8 @@ const autoReply = require('../lib/autoReply');
 const { markDelivered, readReceiptsShared, withVisibleReceipts } = require('../lib/chatReceipts');
 const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
 const mediaStorageService = require('../lib/mediaStorageService');
+const { notifyNewMessage } = require('../lib/chatNotifications');
+const { previewsFor } = require('../lib/chatPreviews');
 
 const router = express.Router();
 
@@ -40,6 +41,13 @@ async function profilesById(ids) {
   if (error) throw error;
   // Return contact fields used elsewhere in the product — never expose auth emails to other conversation participants.
   return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
+}
+
+// The conversations this person archived (for them only).
+async function archivedConversationIds(userId) {
+  const { data, error } = await supabaseAdmin.from('conversation_archives').select('conversation_id').eq('user_id', userId);
+  if (error) throw error;
+  return new Set((data || []).map((row) => row.conversation_id));
 }
 
 // The fields a reply quote needs from an attachment.
@@ -109,7 +117,9 @@ router.get('/chat/unread-count', async (req, res) => {
       .select('id')
       .or(`host_id.eq.${user.id},client_id.eq.${user.id}`);
     if (conversationError) throw conversationError;
-    const conversationIds = (conversations || []).map((conversation) => conversation.id);
+    // Archived conversations stay out of the count, as on the inbox.
+    const archivedIds = await archivedConversationIds(user.id);
+    const conversationIds = (conversations || []).map((conversation) => conversation.id).filter((id) => !archivedIds.has(id));
     if (!conversationIds.length) return res.json({ count: 0 });
 
     const unreadConversationIds = new Set();
@@ -149,7 +159,7 @@ router.get('/chat/conversations', async (req, res) => {
     const participantIds = [...new Set(conversations.flatMap((conversation) => [
       conversation.host_id, conversation.client_id,
     ]).filter((id) => id && id !== user.id))];
-    const profiles = await profilesById(participantIds);
+    const [profiles, archivedIds] = await Promise.all([profilesById(participantIds), archivedConversationIds(user.id)]);
     const conversationIds = conversations.map(({ id }) => id);
     let previews = [];
     if (conversationIds.length) {
@@ -195,6 +205,7 @@ router.get('/chat/conversations', async (req, res) => {
         ...conversation,
         participant: profiles[conversation.host_id === user.id ? conversation.client_id : conversation.host_id] || null,
         lastMessage: previewByConversation[conversation.id] || null,
+        archived: archivedIds.has(conversation.id),
       })),
     });
   } catch (error) {
@@ -397,6 +408,45 @@ router.post('/chat/conversations/:conversationId/messages/:messageId/actions', a
   }
 });
 
+// Archive or unarchive a conversation for this person. New messages leave it archived.
+router.post('/chat/conversations/:conversationId/archive', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const conversationId = uuid(req.params.conversationId, 'conversation id');
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    assertAllowedKeys(req.body, ['archived']);
+    if (typeof req.body.archived !== 'boolean') throw new ValidationError('archived must be true or false');
+    const { error } = req.body.archived
+      ? await supabaseAdmin.from('conversation_archives').upsert({ user_id: user.id, conversation_id: conversationId }, { onConflict: 'user_id,conversation_id' })
+      : await supabaseAdmin.from('conversation_archives').delete().eq('user_id', user.id).eq('conversation_id', conversationId);
+    if (error) throw error;
+    return res.json({ archived: req.body.archived });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat archive update failed:', error);
+    return res.status(502).json({ error: 'Unable to update the archive' });
+  }
+});
+
+// Previews for "New message" notifications, decrypted for their recipient
+// only when Message previews is on. ?ids=<message id>,… (at most 50).
+router.get('/chat/message-previews', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const raw = typeof req.query.ids === 'string' ? req.query.ids.split(',').map((id) => id.trim()).filter(Boolean) : [];
+    if (raw.length > 50) throw new ValidationError('At most 50 messages per request');
+    const ids = [...new Set(raw.map((id) => uuid(id, 'message id')))];
+    return res.json(await previewsFor(supabaseAdmin, user.id, ids));
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat message previews failed:', error);
+    return res.status(502).json({ error: 'Unable to load message previews' });
+  }
+});
+
 router.post('/chat/conversations/:conversationId/read', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -564,11 +614,10 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     try {
       const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
       const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
-      await createNotification({
+      // Skipped when the recipient turned Message notifications off.
+      await notifyNewMessage({
         recipientUserId,
         actorUserId: user.id,
-        type: 'new_message',
-        title: 'New message',
         message: notificationMessage,
         relatedEntityType: 'conversation',
         relatedEntityId: conversationId,

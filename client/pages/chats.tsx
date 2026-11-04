@@ -32,6 +32,7 @@ import { localUrls, mergeServerMessages, messageKey, reconcileThread, type Optim
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, ReplyThumb, VoiceCard } from '../components/chat/MessageMedia';
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
+import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
@@ -48,6 +49,9 @@ const { chatsCssHref } = require('../lib/chatsCssAssets');
 const ELIE_ID = 'elie';
 /** How far above the newest message (px) the thread must be to offer "back to latest". */
 const SCROLL_LATEST_THRESHOLD = 400;
+/** "typing…": announced at most this often (ms) while typing, and shown this long after the last one. */
+const TYPING_SEND_INTERVAL = 2500;
+const TYPING_SHOW_MS = 4000;
 
 function resolveChatAvatarUrl(url?: string | null, client?: SupabaseClient | null): string | null {
   if (!url) return null;
@@ -170,6 +174,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // UI Views & Drawers
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
+  // The inbox shows chats, or the archived ones (Chat Settings, ?archived=1).
+  const [inboxView, setInboxView] = useState<'all' | 'archived'>('all');
+  // The conversation whose other person is typing (shown in the header).
+  const [typingInConversation, setTypingInConversation] = useState<string | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string>('');
@@ -208,6 +216,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const selectionGenerationRef = useRef<number>(0);
   const channelGenerationRef = useRef<number>(0);
   const activeChannelRef = useRef<RealtimeChannel | null>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const lastTypingSentRef = useRef(0);
+  // Typing indicators (Chat Settings): off means not announcing and not showing.
+  const typingOnRef = useRef(true);
   const mountedRef = useRef<boolean>(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const desktopEditorRef = useRef<HTMLDivElement | null>(null);
@@ -397,6 +409,18 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, []);
 
   // Select conversation & establish Realtime channel
+  const clearTyping = useCallback(() => {
+    if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = null;
+    setTypingInConversation(null);
+  }, []);
+  const showTyping = useCallback((conversationId: string) => {
+    if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+    setTypingInConversation(conversationId);
+    typingTimerRef.current = window.setTimeout(() => setTypingInConversation(null), TYPING_SHOW_MS);
+  }, []);
+  useEffect(() => () => { if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current); }, []);
+
   const selectConversation = useCallback(async (id: string, updateRoute = true) => {
     if (!id) return;
     const client = getSupabaseClient();
@@ -515,8 +539,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!client) return;
     const channelGen = ++channelGenerationRef.current;
     const channel = client.channel(`chat:${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: { new?: { id?: string } }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: { new?: { id?: string; sender_id?: string } }) => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
+        // Their message arrived: they have stopped typing.
+        if (payload.new?.sender_id && payload.new.sender_id !== currentUserId) clearTyping();
         const msgId = payload.new?.id;
         // Messages this page already shows (our own sends) need no request.
         if (!msgId || messagesStateRef.current.some((m) => m.id === msgId)) return;
@@ -557,6 +583,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           console.error('Unable to refresh deleted chat message:', error);
         }
       })
+      // The other person is typing (sent by announceTyping on their side).
+      .on('broadcast', { event: 'typing' }, ({ payload }: { payload?: { user_id?: string } }) => {
+        if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
+        if (!payload?.user_id || payload.user_id === currentUserId || !typingOnRef.current) return;
+        showTyping(id);
+      })
       .on('presence', { event: 'sync' }, () => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         const presence = channel.presenceState();
@@ -579,7 +611,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     });
     // refreshConversation uses refs only, so a stale closure is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, scrollToBottom, updateSidebarCounts, bumpConversation]);
+  }, [api, scrollToBottom, updateSidebarCounts, bumpConversation, clearTyping, showTyping]);
 
   // Role follows the verified account's profile from AuthProvider.
   const verifiedRole = accountRole(useAuth().profile);
@@ -670,6 +702,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, [userId, loadConversations]);
 
   // 3. Deep link & URL query conversation selection
+  // ?archived=1 (from the phone's Chat Settings) opens the archived chats.
+  const routerQueryArchived = router.query.archived === '1';
+  useEffect(() => { if (routerQueryArchived) setInboxView('archived'); }, [routerQueryArchived]);
+
   const routerQueryC = router.query.c as string | undefined;
   const routerQueryConversation = router.query.conversation as string | undefined;
 
@@ -860,6 +896,39 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       setPendingFile(file);
     } else {
       void handleUploadAttachment(file, 'file');
+    }
+  };
+
+  // Chat Settings that act here: typing indicators.
+  const chatPrefs = useProfileChatSettings(userId);
+  typingOnRef.current = chatPrefs ? chatPrefs.typingIndicators : true;
+  useEffect(() => { if (chatPrefs && !chatPrefs.typingIndicators) clearTyping(); }, [chatPrefs, clearTyping]);
+
+  // Tell the other person "typing…" (at most every 2.5 s), unless turned off.
+  const announceTyping = () => {
+    const channel = activeChannelRef.current;
+    if (isElie || !channel || !typingOnRef.current) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < TYPING_SEND_INTERVAL) return;
+    lastTypingSentRef.current = now;
+    void channel.send({ type: 'broadcast', event: 'typing', payload: { user_id: userIdRef.current } });
+  };
+
+  // Archive or unarchive a conversation for this person (shown at once, undone if the server refuses).
+  const setConversationArchived = async (conversationId: string, archived: boolean) => {
+    const apply = (value: boolean) => {
+      setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, archived: value } : c)));
+      if (userId) updateInboxConversation(userId, conversationId, { archived: value }).catch(() => {});
+    };
+    apply(archived);
+    try {
+      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/archive`, { method: 'POST', body: JSON.stringify({ archived }) });
+      showStatusNote(archived ? 'Chat archived' : 'Chat unarchived');
+      updateSidebarCounts();
+    } catch (err) {
+      console.error('Unable to update the archive:', err);
+      apply(!archived);
+      showStatusNote(archived ? 'Chat not archived. Please try again.' : 'Chat not unarchived. Please try again.', 3500);
     }
   };
 
@@ -1182,16 +1251,18 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, []);
 
   // Filtered inbox contacts
+  const archivedCount = useMemo(() => conversations.filter((c) => c.archived).length, [conversations]);
   const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversations;
+    const inView = conversations.filter((c) => Boolean(c.archived) === (inboxView === 'archived'));
+    if (!searchQuery.trim()) return inView;
     const q = searchQuery.toLowerCase();
-    return conversations.filter((c) => {
+    return inView.filter((c) => {
       const name = c.participant?.full_name?.toLowerCase() || '';
       const username = c.participant?.username?.toLowerCase() || '';
       const last = formatConversationPreview(c.lastMessage).toLowerCase();
       return name.includes(q) || username.includes(q) || last.includes(q);
     });
-  }, [conversations, searchQuery, formatConversationPreview]);
+  }, [conversations, inboxView, searchQuery, formatConversationPreview]);
 
   // Message body: plain text unless it carries the editor's formatting, which
   // is rebuilt from allowlisted elements with no attributes (lib/chat/messageBody).
@@ -1243,6 +1314,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
           <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
           <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></symbol>
+          <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></symbol>
           <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
           <symbol id="i-user-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.2a6 6 0 0 1 11.6 0"/></symbol>
           <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.8L6 21V4.5Z"/></symbol>
@@ -1340,6 +1412,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           </div>
 
           <ul className="contact-list" id="contactList">
+            {inboxView === 'archived' ? (
+              /* Archived chats: back to the inbox */
+              <li className="contact-item archived-header" role="button" tabIndex={0} onClick={() => setInboxView('all')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInboxView('all'); } }}>
+                <span className="archived-icon" aria-hidden="true"><svg className="icon"><use href="#i-chevron-left" /></svg></span>
+                <div className="contact-body"><div className="contact-name">Archived</div></div>
+              </li>
+            ) : (
+            <>
             {/* Elie Assistant Permanent Row */}
             <li
               className={`contact-item ${activeId === ELIE_ID ? 'active' : ''}`}
@@ -1359,6 +1439,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
               </div>
             </li>
+            {archivedCount > 0 && (
+              <li className="contact-item archived-entry" role="button" tabIndex={0} onClick={() => setInboxView('archived')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInboxView('archived'); } }}>
+                <span className="archived-icon" aria-hidden="true"><svg className="icon"><use href="#i-archive" /></svg></span>
+                <div className="contact-body">
+                  <div className="contact-top">
+                    <div className="contact-name">Archived</div>
+                    <div className="contact-time">{archivedCount}</div>
+                  </div>
+                </div>
+              </li>
+            )}
+            </>
+            )}
 
             {loadingInbox && conversations.length === 0 ? (
               Array.from({ length: 6 }, (_, index) => (
@@ -1377,7 +1470,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               </li>
             ) : filteredConversations.length === 0 && !loadingInbox ? (
               <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-gray)', fontSize: '14px' }}>
-                No messages found
+                {inboxView === 'archived' && !searchQuery.trim() ? 'No archived chats' : 'No messages found'}
               </div>
             ) : (
               filteredConversations.map((c) => {
@@ -1478,7 +1571,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />
-                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
+                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : typingInConversation === activeId ? 'typing…' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
                 </div>
               </div>
             </div>
@@ -1798,6 +1891,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               onInput={(e: React.FormEvent<HTMLDivElement>) => {
                 const text = e.currentTarget.textContent || '';
                 setComposerText(text);
+                if (text.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
                 if (isElie && (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
@@ -1824,6 +1918,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               onChange={(e) => {
                 setComposerText(e.target.value);
                 updateComposerUI();
+                if (e.target.value.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && replyTo) {
@@ -1993,7 +2088,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               {/* Rendered here directly (it was an iframe of the settings page). */}
               <ChatSettingsStyles />
               <div className="cs-embedded">
-                <ChatSettings key={role} role={role} onOpenArchived={() => setChatSettingsEmbedded(false)} />
+                <ChatSettings key={role} role={role} onOpenArchived={() => { setChatSettingsEmbedded(false); setInboxView('archived'); }} />
               </div>
             </>
           ) : (
@@ -2036,6 +2131,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 api={api}
                 onOpenImage={(url, alt) => setSelectedPhotoPreview({ url, alt })}
                 onOpenFile={(attachmentId) => { void openAttachment(attachmentId); }}
+                archived={Boolean(activeConversation.archived)}
+                onArchive={() => { void setConversationArchived(activeConversation.id, !activeConversation.archived); }}
                 onReport={() => setReportSheetOpen(true)}
                 onBlock={() => {
                   const person = activeConversation.participant;

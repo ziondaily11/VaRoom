@@ -185,6 +185,11 @@ function seedMessage(db, { sender, text, minutesAgo, autoReplyFlag = false }) {
 }
 
 const autoReplies = (db) => db.messages.filter((row) => row.is_auto_reply && row.message_type === 'text' && row.sender_id === HOST);
+const plain = (row) => decryptMessage(row.ciphertext, row.iv, row.key_version);
+// The host's away message goes first; Elie's answers are the other auto-replies.
+const hostAwayText = (db) => autoReply.awayMessageText(db.profiles.find((p) => p.id === HOST).away_message);
+const awayMessages = (db) => autoReplies(db).filter((row) => plain(row) === hostAwayText(db));
+const elieReplies = (db) => autoReplies(db).filter((row) => plain(row) !== hostAwayText(db));
 const sendAsGuest = (call, content) => call(`/chat/conversations/${CONVERSATION}/messages`, 'guest-token', { content });
 
 // --- Away mode ----------------------------------------------------------------
@@ -206,15 +211,15 @@ test('away mode saves an encrypted reply as the host and notifies the guest', as
     assert.equal(request.body.guest_message, 'Is it available this weekend?');
     assert.deepEqual(request.body.history, [{ speaker: 'guest', text: 'Is it available this weekend?' }]);
 
-    const [reply] = autoReplies(db);
+    const [away, reply] = autoReplies(db);
+    assert.equal(plain(away), autoReply.DEFAULT_AWAY_MESSAGE, 'the away message goes first');
     assert.ok(reply, 'reply saved');
     assert.equal(reply.body, undefined, 'no plaintext column');
     assert.equal(decryptMessage(reply.ciphertext, reply.iv, reply.key_version), 'Yes, it is free this weekend.');
 
-    const guestNotification = db.notifications.find((n) => n.recipient_user_id === GUEST);
-    assert.ok(guestNotification, 'guest notified');
-    assert.equal(guestNotification.metadata.auto_reply, true);
-    assert.equal(guestNotification.event_key, `message:${CONVERSATION}:${reply.id}`);
+    const guestNotifications = db.notifications.filter((n) => n.recipient_user_id === GUEST);
+    assert.deepEqual(guestNotifications.map((n) => n.event_key), [`message:${CONVERSATION}:${away.id}`, `message:${CONVERSATION}:${reply.id}`], 'guest notified of both');
+    assert.ok(guestNotifications.every((n) => n.metadata.auto_reply === true));
   });
 });
 
@@ -225,13 +230,15 @@ test('the guest message is accepted when the chatbot fails or times out', async 
     assert.equal(sent.status, 201);
     await waitForIdle();
     assert.equal(chatbot.calls.length, 1);
-    assert.equal(autoReplies(db).length, 0);
+    assert.equal(elieReplies(db).length, 0);
+    assert.equal(awayMessages(db).length, 1, 'the away message does not depend on Elie');
   });
   await withServer(makeDb(), () => jsonResponse(503, { detail: 'Gemini down' }), async ({ call, db: freshDb }) => {
     const sent = await sendAsGuest(call, 'Hello again?');
     assert.equal(sent.status, 201);
     await waitForIdle();
-    assert.equal(autoReplies(freshDb).length, 0);
+    assert.equal(elieReplies(freshDb).length, 0);
+    assert.equal(awayMessages(freshDb).length, 1);
   });
 });
 
@@ -260,10 +267,12 @@ test('no reply when the host is not away, is suspended, or replies are switched 
   });
   process.env.ELIE_AUTO_REPLY_ENABLED = 'false';
   try {
-    await withServer(makeDb(), () => jsonResponse(200, { reply: 'x' }), async ({ call, chatbot }) => {
+    await withServer(makeDb(), () => jsonResponse(200, { reply: 'x' }), async ({ call, chatbot, db }) => {
       assert.equal((await sendAsGuest(call, 'Hi')).status, 201);
       await waitForIdle();
       assert.equal(chatbot.calls.length, 0);
+      assert.equal(awayMessages(db).length, 1, "with Elie switched off the host's away message still goes");
+      assert.equal(elieReplies(db).length, 0);
     });
   } finally {
     delete process.env.ELIE_AUTO_REPLY_ENABLED;
@@ -286,18 +295,20 @@ test('a burst gets one reply now and one after the cooldown covering the rest', 
     await waitForIdle();
 
     assert.equal(chatbot.calls.length, 1, 'the burst did not trigger three replies');
-    assert.equal(autoReplies(db).length, 1);
+    assert.equal(elieReplies(db).length, 1);
+    assert.equal(awayMessages(db).length, 1);
     const state = autoReply._awayState.get(CONVERSATION);
     assert.ok(state && state.timer, 'a follow-up is scheduled for the end of the cooldown');
 
     // Let the cooldown pass: back-date the first reply, then fire the timer.
-    autoReplies(db)[0].created_at = new Date(Date.now() - autoReply.COOLDOWN_MS - 1000).toISOString();
+    autoReplies(db).forEach((row) => { row.created_at = new Date(Date.now() - autoReply.COOLDOWN_MS - 1000).toISOString(); });
     t.mock.timers.tick(autoReply.COOLDOWN_MS + 10 * 60_000);
     await waitForIdle();
 
     assert.equal(chatbot.calls.length, 2);
     assert.equal(chatbot.calls[1].body.guest_message, 'Second question\nThird question');
-    assert.equal(autoReplies(db).length, 2);
+    assert.equal(elieReplies(db).length, 2);
+    assert.equal(awayMessages(db).length, 1, 'the away message is sent once per away spell');
   });
 });
 
@@ -380,5 +391,32 @@ test('@reply hides chatbot errors behind a generic message', async () => {
     assert.equal(result.status, 503);
     assert.doesNotMatch(result.body.error, /Gemini|provider/);
     assert.equal(autoReplies(db).length, 0);
+  });
+});
+
+test("the host's own away message is sent (without the quotes it is shown in), once until the host writes again", async () => {
+  const db = makeDb();
+  db.profiles.find((p) => p.id === HOST).away_message = '“Back on Monday — ask Elie meanwhile.”';
+  await withServer(db, () => jsonResponse(200, { reply: 'Elie here.', alternative_listing_ids: [] }), async ({ call }) => {
+    assert.equal((await sendAsGuest(call, 'Hello')).status, 201);
+    await waitForIdle();
+    assert.deepEqual(autoReplies(db).map(plain), ['Back on Monday — ask Elie meanwhile.', 'Elie here.']);
+  });
+  assert.equal(autoReply.awayMessageText('   '), autoReply.DEFAULT_AWAY_MESSAGE);
+  const conversation = { host_id: HOST, client_id: GUEST };
+  const away = { sender_id: HOST, is_auto_reply: true, message_type: 'text', text: 'Away' };
+  assert.equal(autoReply.awayMessageSent([away, { sender_id: GUEST, text: 'Hi' }], conversation, 'Away'), true);
+  assert.equal(autoReply.awayMessageSent([away, { sender_id: HOST, is_auto_reply: false, text: 'I am back' }], conversation, 'Away'), false, 'the host wrote: a new away spell');
+  assert.equal(autoReply.awayMessageSent([], conversation, 'Away'), false);
+});
+
+test('auto-replies do not notify a guest who turned message notifications off', async () => {
+  const db = makeDb();
+  db.profiles.find((p) => p.id === GUEST).message_notifications = false;
+  await withServer(db, () => jsonResponse(200, { reply: 'Elie here.', alternative_listing_ids: [] }), async ({ call }) => {
+    assert.equal((await sendAsGuest(call, 'Hello')).status, 201);
+    await waitForIdle();
+    assert.equal(autoReplies(db).length, 2);
+    assert.equal(db.notifications.filter((n) => n.recipient_user_id === GUEST).length, 0);
   });
 });
