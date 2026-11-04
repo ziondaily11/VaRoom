@@ -13,11 +13,13 @@ function memory(initial) {
   return { map, getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, String(v)) };
 }
 
-test('settings: this browser keeps the toggles and message; the profile decides away mode', () => {
+test('settings: this browser keeps the toggles and message; the profile decides away mode and read receipts', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
   assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5' });
-  assert.equal(cs.resolveSettings(cs.readStored(stored), false).awayMode, false, 'the profile wins');
+  const fromProfile = cs.resolveSettings(cs.readStored(stored), { awayMode: false, readReceipts: true });
+  assert.equal(fromProfile.awayMode, false, 'the profile wins');
+  assert.equal(fromProfile.readReceipts, true, 'the profile wins');
   assert.equal(cs.resolveSettings({}, null).awayMessage, cs.DEFAULT_AWAY_MESSAGE);
   assert.equal(cs.cleanAwayMessage('   '), cs.DEFAULT_AWAY_MESSAGE);
   cs.writeStored(stored, 'typingIndicators', false);
@@ -28,30 +30,37 @@ test('settings: this browser keeps the toggles and message; the profile decides 
   cs.writeStored(broken, 'readReceipts', true);
 });
 
-test('away mode: read once per account, saved to the profile and this browser, never the missing away_message column', async () => {
+test('profile settings: read once per account in one query, saved to the profile and this browser, never the missing away_message column', async () => {
   cs.clearChatSettingsCache();
   const calls = [];
+  let row = { away_mode: true, read_receipts: null };
   const client = {
     from(table) {
       const chain = {
         select(cols) { calls.push(['select', table, cols]); return chain; },
-        update(row) { calls.push(['update', table, row]); return chain; },
+        update(update) { calls.push(['update', table, update]); return chain; },
         eq(col, val) { calls.push(['eq', col, val]); return chain; },
-        maybeSingle: async () => ({ data: { away_mode: true }, error: null }),
+        maybeSingle: async () => ({ data: row, error: null }),
         then(resolve) { resolve({ error: null }); },
       };
       return chain;
     },
   };
-  assert.equal(await cs.loadAwayMode(client, 'h1'), true);
-  assert.equal(await cs.loadAwayMode(client, 'h1'), true);
-  assert.equal(calls.filter((c) => c[0] === 'select').length, 1, 'one read per account');
+  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: true, readReceipts: true }, 'read receipts default on');
+  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: true, readReceipts: true });
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,read_receipts']], 'one read per account');
   const storage = memory();
-  await cs.saveAwayMode(client, 'h1', false, storage);
-  assert.deepEqual(calls.find((c) => c[0] === 'update'), ['update', 'profiles', { away_mode: false }]);
+  await cs.saveProfileSetting(client, 'h1', 'awayMode', false, storage);
+  await cs.saveProfileSetting(client, 'h1', 'readReceipts', false, storage);
+  const updates = calls.filter((c) => c[0] === 'update');
+  assert.deepEqual(updates, [['update', 'profiles', { away_mode: false }], ['update', 'profiles', { read_receipts: false }]]);
   assert.ok(calls.some((c) => c[0] === 'eq' && c[1] === 'id' && c[2] === 'h1'));
   assert.equal(JSON.parse(storage.map.get(cs.STORAGE_KEY)).awayMode, false);
-  assert.equal(await cs.loadAwayMode(client, 'h1'), false, 'the saved value is reused');
+  assert.equal(JSON.parse(storage.map.get(cs.STORAGE_KEY)).readReceipts, false);
+  assert.deepEqual({ ...(await cs.loadProfileSettings(client, 'h1')) }, { awayMode: false, readReceipts: false }, 'the saved values are reused');
+  cs.clearChatSettingsCache();
+  row = null;
+  assert.equal(await cs.loadProfileSettings(client, 'c1'), null, "no profile: this browser's copy is shown");
   assert.ok(!JSON.stringify(calls).includes('away_message'));
   assert.doesNotMatch(read('lib', 'chat', 'chatSettings.ts') + read('components', 'chat', 'ChatSettings.tsx'), /select\([^)]*away_message|away_message:/, 'no query or write uses that column');
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearChatSettingsCache\(\);/);

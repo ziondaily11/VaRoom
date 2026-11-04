@@ -28,7 +28,8 @@ import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
-import { messageMetaText, type ChatApi } from '../lib/chat/chatMedia';
+import MessageMeta from '../components/chat/MessageMeta';
+import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
 import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
@@ -1552,25 +1553,30 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
                 const hasMedia = m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo');
                 const attachmentId = m.attachment_id || m.attachment?.id || null;
-                const metaText = messageMetaText(m, isOut, (value) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                const meta = <div className="msg-meta">{metaText}</div>;
                 // Uploads in progress or failed (photos and files).
                 const optimistic = m as OptimisticChatMessage;
-                const uploadState = optimistic._optimistic ? (
-                  optimistic._failed ? (
-                    <div className="msg-failed">
-                      Failed
-                      <button
-                        type="button"
-                        className="msg-failed-dismiss"
-                        onClick={() => {
-                          // Dismiss: release the blob URL and remove the failed message.
-                          if (optimistic._localUrl) URL.revokeObjectURL(optimistic._localUrl);
-                          setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
-                        }}
-                      >Dismiss</button>
-                    </div>
-                  ) : <div className="msg-sending">Sending…</div>
+                const sending = Boolean(optimistic._optimistic && !optimistic._failed);
+                // Time on every message; ticks on the user's own (none once deleted or failed).
+                const meta = (
+                  <MessageMeta
+                    time={new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    status={isOut && !isDeleted && !optimistic._failed ? messageStatus(m, sending) : null}
+                  />
+                );
+                // Sending shows as the clock in the meta; a failed upload can be dismissed.
+                const uploadState = optimistic._optimistic && optimistic._failed ? (
+                  <div className="msg-failed">
+                    Failed
+                    <button
+                      type="button"
+                      className="msg-failed-dismiss"
+                      onClick={() => {
+                        // Dismiss: release the blob URL and remove the failed message.
+                        if (optimistic._localUrl) URL.revokeObjectURL(optimistic._localUrl);
+                        setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
+                      }}
+                    >Dismiss</button>
+                  </div>
                 ) : null;
                 const actionable = canActOnMessage(m);
 
@@ -1657,11 +1663,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         >
                           <svg className="icon"><use href="#i-paperclip" /></svg>
                         </a>
-                        <div className="msg-meta" style={{ width: '100%', textAlign: 'right' }}>{metaText}</div>
+                        {meta}
                       </div>
                     ) : (
                       /* Text bubble */
-                      <div className="bubble">
+                      <div className="bubble bubble-text">
                         {replyReference}
                         {renderMessageBody(m.body || '')}
                         {uploadState}

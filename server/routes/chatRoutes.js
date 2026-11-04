@@ -7,6 +7,7 @@ const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('.
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 const autoReply = require('../lib/autoReply');
+const { markDelivered, readReceiptsShared, withVisibleReceipts } = require('../lib/chatReceipts');
 
 const router = express.Router();
 
@@ -166,6 +167,9 @@ router.get('/chat/conversations', async (req, res) => {
           return true;
         });
     }
+    // The inbox reached this person: everything sent to them is delivered.
+    markDelivered(supabaseAdmin, user.id, conversationIds)
+      .catch((error) => console.error('Chat delivery receipt update failed:', error));
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
     const latestByParticipant = new Map();
     conversations.sort((left, right) => {
@@ -207,7 +211,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
 
     let query = supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
       .eq('conversation_id', conversationId);
 
     if (since) {
@@ -222,7 +226,17 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       query = query.order('created_at', { ascending: true });
     }
 
-    const { data, error } = await query;
+    // Messages fetched here have reached this person (opening a chat, or a
+    // live message arriving in the open chat).
+    const [{ data, error }, receiptsShared] = await Promise.all([
+      query,
+      readReceiptsShared(supabaseAdmin, conversation).catch((receiptError) => {
+        console.error('Chat read receipts lookup failed:', receiptError);
+        return true;
+      }),
+      markDelivered(supabaseAdmin, user.id, [conversationId])
+        .catch((deliveryError) => console.error('Chat delivery receipt update failed:', deliveryError)),
+    ]);
     if (error) throw error;
     const rawRows = limit && !since ? (data || []).reverse() : (data || []);
     const deletionResult = await supabaseAdmin
@@ -241,7 +255,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (missingReplyIds.length) {
       const replyResult = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
         .in('id', missingReplyIds);
       if (!replyResult.error && replyResult.data) {
         replyResult.data.forEach((replyMsg) => {
@@ -281,7 +295,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     return res.json({
       conversation,
       messages: visibleRows.map((row) => {
-        const message = withDecryptedBody(row);
+        const message = withVisibleReceipts(withDecryptedBody(row), user.id, receiptsShared);
         const reply = message.reply_to_message_id && visibleById.get(message.reply_to_message_id);
         return {
           attachment: message.deleted_at ? null : attachmentsById[message.attachment_id] || null,
@@ -381,6 +395,8 @@ router.post('/chat/conversations/:conversationId/read', async (req, res) => {
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    // A message is delivered before it is read.
+    await markDelivered(supabaseAdmin, user.id, [conversationId]);
     const { error } = await supabaseAdmin
       .from('messages')
       .update({ read_at: new Date().toISOString() })

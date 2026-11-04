@@ -71,13 +71,28 @@ test('listing video: first video, playback URL and cached thumbnail; null withou
   assert.equal(await media.listingVideo('l2', api), null);
 });
 
-test('read receipts on outgoing messages only (legacy meta)', () => {
+test('message ticks: sending, sent, delivered, read', () => {
   const { media } = loadMedia();
-  const fmt = (value) => value.slice(11, 16);
-  const message = { created_at: '2026-11-02T09:00:00Z', read_at: '2026-11-02T09:14:00Z' };
-  assert.equal(media.messageMetaText(message, true, fmt), 'Read 09:14');
-  assert.equal(media.messageMetaText(message, false, fmt), '09:00');
-  assert.equal(media.messageMetaText({ created_at: '2026-11-02T09:00:00Z' }, true, fmt), '09:00');
+  const at = '2026-11-02T09:14:00Z';
+  assert.equal(media.messageStatus({}, true), 'sending');
+  assert.equal(media.messageStatus({ delivered_at: at, read_at: at }, true), 'sending', 'an upload in progress is still sending');
+  assert.equal(media.messageStatus({}, false), 'sent');
+  assert.equal(media.messageStatus({ delivered_at: at }, false), 'delivered');
+  assert.equal(media.messageStatus({ delivered_at: at, read_at: at }, false), 'read');
+  assert.equal(media.messageStatus({ read_at: at }, false), 'read', 'read implies delivered');
+});
+
+test("bubbles show the time on every message and ticks only on the user's own", () => {
+  const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
+  assert.match(source, /status=\{isOut && !isDeleted && !optimistic\._failed \? messageStatus\(m, sending\) : null\}/);
+  assert.match(source, /className="bubble bubble-text"/);
+  assert.doesNotMatch(source, /Read \$\{|msg-sending/);
+  const meta = fs.readFileSync(path.join(root, 'components', 'chat', 'MessageMeta.tsx'), 'utf8');
+  for (const label of ["sending: 'Sending'", "sent: 'Sent'", "delivered: 'Delivered'", "read: 'Read'"]) assert.ok(meta.includes(label), label);
+  const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+  assert.doesNotMatch(css, /same-sender \.msg-meta\{ display:none/);
+  assert.match(css, /\.bubble-text > \.msg-meta\{ float:right;/);
+  assert.match(css, /\.msg-row\.out \.bubble > \.msg-meta\{ --msg-read-tick:#4ADE80; \}/);
 });
 
 test('thread and inbox states match legacy', () => {

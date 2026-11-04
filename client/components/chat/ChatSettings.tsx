@@ -2,7 +2,7 @@ import React, { useEffect, useId, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, loadAwayMode, readStored, resolveSettings, saveAwayMode, writeStored,
+  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, loadProfileSettings, readStored, resolveSettings, saveProfileSetting, writeStored,
   type ChatSettingsState, type ToggleKey,
 } from '../../lib/chat/chatSettings';
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
@@ -66,23 +66,24 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
   // Defaults first: the page is prerendered, and this browser's values are
   // applied after mounting so the first render matches the server HTML.
   const [settings, setSettings] = useState<ChatSettingsState>(() => resolveSettings({}, null));
-  // Runs before the profile's away mode arrives (below), which then wins.
+  // Runs before the profile's settings arrive (below), which then win.
   useEffect(() => { setSettings(resolveSettings(readStored(storage()), null)); }, []);
 
-  // Away mode lives on the host's profile.
+  // Away mode and read receipts live on the profile.
   useEffect(() => {
     const client = getSupabaseClient();
-    if (!client || !userId || role !== 'host') return undefined;
+    if (!client || !userId) return undefined;
     let cancelled = false;
-    loadAwayMode(client, userId).then((awayMode) => {
-      if (!cancelled && awayMode !== null) setSettings((current) => ({ ...current, awayMode }));
+    loadProfileSettings(client, userId).then((profile) => {
+      if (cancelled || !profile) return;
+      setSettings((current) => ({ ...current, readReceipts: profile.readReceipts, ...(role === 'host' ? { awayMode: profile.awayMode } : {}) }));
     }).catch(() => { /* Shown from this browser's copy. */ });
     return () => { cancelled = true; };
   }, [userId, role]);
 
   const setToggle = (key: ToggleKey, value: boolean) => {
     setSettings((current) => ({ ...current, [key]: value }));
-    if (key === 'awayMode') void saveAwayMode(getSupabaseClient(), userId, value, storage());
+    if (key === 'awayMode' || key === 'readReceipts') void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
     else writeStored(storage(), key, value);
   };
 

@@ -65,6 +65,7 @@ export interface ChatMessage {
   reply_to_message_id?: string | null;
   reply_to_message?: ChatReplyMessage | null;
   created_at: string;
+  delivered_at?: string | null;
   read_at?: string | null;
   deleted_at?: string | null;
   pinned_at?: string | null;
