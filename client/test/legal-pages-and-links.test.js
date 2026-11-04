@@ -108,7 +108,7 @@ test('Next.js config contains permanent redirects for /terms.html and /privacy.h
 });
 
 test('LegalDocumentPage provides independent scrolling panes on desktop with hidden scrollbars', () => {
-  const legalDocPath = path.join(clientRoot, 'legacy-pages', 'LegalDocumentPage.tsx');
+  const legalDocPath = path.join(clientRoot, 'components', 'legal', 'LegalDocumentPage.tsx');
   const docContent = fs.readFileSync(legalDocPath, 'utf8');
 
   // Must render table of contents and content pane
@@ -121,7 +121,7 @@ test('LegalDocumentPage provides independent scrolling panes on desktop with hid
 });
 
 test('PrivacyPolicyPage reuses shared LegalDocumentPage with full feature parity', () => {
-  const privacyPagePath = path.join(clientRoot, 'legacy-pages', 'PrivacyPolicyPage.tsx');
+  const privacyPagePath = path.join(clientRoot, 'components', 'legal', 'PrivacyPolicyPage.tsx');
   const content = fs.readFileSync(privacyPagePath, 'utf8');
 
   assert.match(content, /import LegalDocumentPage from ["']\.\/LegalDocumentPage["']/);
@@ -129,7 +129,7 @@ test('PrivacyPolicyPage reuses shared LegalDocumentPage with full feature parity
 });
 
 test('privacy.css defines desktop independent scrolling rules, hidden scrollbars, and dark mode tokens', () => {
-  const cssPath = path.join(clientRoot, 'legacy-pages', 'privacy.css');
+  const cssPath = path.join(clientRoot, 'styles', 'privacy.css');
   const cssContent = fs.readFileSync(cssPath, 'utf8');
 
   // Desktop media query

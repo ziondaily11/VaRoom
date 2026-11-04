@@ -66,16 +66,16 @@ test('admin.css and AnalyticsShell.module.css support dark mode with #000000 can
   assert.match(adminCss, /--admin-surface:\s*#000000;/, 'admin.css surface must be #000000');
   assert.doesNotMatch(adminCss, /--admin-canvas:\s*#120F0F;/, 'Old #120F0F must be removed from admin.css');
 
-  const shellCss = fs.readFileSync(path.join(clientRoot, 'legacy-pages', 'AnalyticsShell.module.css'), 'utf8');
+  const shellCss = fs.readFileSync(path.join(clientRoot, 'components', 'analytics', 'AnalyticsShell.module.css'), 'utf8');
   assert.match(shellCss, /var\(--color-bg,\s*#fff\)/, 'AnalyticsShell must use theme variable for background');
 });
 
 test('Legacy pages define consistent true black tokens', () => {
-  const legacyDir = path.join(clientRoot, 'legacy-pages');
+  const legacyDir = path.join(clientRoot, 'components');
   const pagesToCheck = [
-    path.join('..', 'components', 'booking', 'bookingStyles.ts'),
-    path.join('..', 'components', 'hostHome', 'hostHomeStyles.ts'),
-    path.join('..', 'components', 'listWizard', 'listWizardStyles.ts')
+    path.join('booking', 'bookingStyles.ts'),
+    path.join('hostHome', 'hostHomeStyles.ts'),
+    path.join('listWizard', 'listWizardStyles.ts')
   ];
 
   for (const pageName of pagesToCheck) {

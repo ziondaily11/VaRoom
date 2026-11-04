@@ -1,4 +1,4 @@
-import type { Block, Inline, Section } from "./LegalDocumentPage";
+import type { Block, Inline, Section } from "../../components/legal/LegalDocumentPage";
 
 export const TERMS_TITLE = "Terms of Service | Varoom";
 export const TERMS_DESCRIPTION = "Varoom Terms of Service governing the use of the Varoom property marketplace.";

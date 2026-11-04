@@ -125,11 +125,8 @@ test('AddAccountModal fixes: popup race, scoped message listener, restored metho
   assert.match(source, /switcher\.upsertFromSession\(window\.supabaseClient, session\)/);
 });
 
-test('no legacy page keeps its own logout (Host Home logs out through the shell)', () => {
-  const legacyDir = path.join(root, 'legacy-pages');
-  for (const file of fs.readdirSync(legacyDir).filter((name) => name.endsWith('.html'))) {
-    assert.doesNotMatch(fs.readFileSync(path.join(legacyDir, file), 'utf8'), /auth\.signOut\(\)/, file);
-  }
+test('no legacy page keeps its own logout (every legacy page is retired)', () => {
+  assert.equal(fs.existsSync(path.join(root, 'legacy-pages')), false);
 });
 
 test('native Settings logs out through the shared logout', () => {
