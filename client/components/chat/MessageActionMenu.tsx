@@ -4,16 +4,24 @@ import type { MessageAction, MessageActionItem } from '../../lib/chat/messageAct
 // The per-message action menu (ported from public/js/chat-data.js
 // openMessageMenu): same `.chat-message-menu` markup and styles, opened at the
 // pointer and kept inside the viewport, closed on outside press or Escape.
+// The inbox uses it too, with its own actions (archive, delete chat).
 
 export { messageActionItems } from '../../lib/chat/messageActions';
 export type { MessageAction, MessageActionItem };
 
-export default function MessageActionMenu({ x, y, items, onSelect, onClose }: {
+export interface MenuItem<A extends string> {
+  action: A;
+  icon: string;
+  label: string;
+}
+
+export default function MessageActionMenu<A extends string = MessageAction>({ x, y, items, onSelect, onClose, label = 'Message actions' }: {
   x: number;
   y: number;
-  items: MessageActionItem[];
-  onSelect: (action: MessageAction) => void;
+  items: MenuItem<A>[];
+  onSelect: (action: A) => void;
   onClose: () => void;
+  label?: string;
 }) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,7 +51,7 @@ export default function MessageActionMenu({ x, y, items, onSelect, onClose }: {
   }, [onClose]);
 
   return (
-    <div ref={menuRef} className="chat-message-menu" role="menu" aria-label="Message actions" style={{ left: x, top: y }}>
+    <div ref={menuRef} className="chat-message-menu" role="menu" aria-label={label} style={{ left: x, top: y }}>
       {items.map((item) => (
         <button key={item.action} type="button" role="menuitem" onClick={() => onSelect(item.action)}>
           <svg className="icon" aria-hidden="true"><use href={`#${item.icon}`} /></svg>

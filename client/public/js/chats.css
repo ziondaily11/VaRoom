@@ -520,6 +520,8 @@
   .pinned-message[hidden]{ display:none; }
   .pinned-message .icon{ flex-shrink:0; color:var(--mint-dark); }
   .pinned-message[role="button"]{ cursor:pointer; }
+  /* Inbox chats open their menu on long-press: no system callout. */
+  .contact-item{ -webkit-touch-callout:none; }
   /* Inbox: the Archived entry and, inside it, the way back. */
   .contact-item .archived-icon{ width:46px; height:46px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-gray-2); }
   .contact-item .archived-icon .icon{ width:20px; height:20px; }

@@ -11,6 +11,7 @@ const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { notifyNewMessage } = require('../lib/chatNotifications');
 const { previewsFor } = require('../lib/chatPreviews');
+const { clearedAtByConversation, visibleAfterClear, clearChat } = require('../lib/chatClears');
 
 const router = express.Router();
 
@@ -123,11 +124,12 @@ router.get('/chat/unread-count', async (req, res) => {
     if (!conversationIds.length) return res.json({ count: 0 });
 
     const unreadConversationIds = new Set();
+    const clears = await clearedAtByConversation(supabaseAdmin, user.id);
     const pageSize = 1000;
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await supabaseAdmin
         .from('messages')
-        .select('conversation_id')
+        .select('conversation_id,created_at')
         .in('conversation_id', conversationIds)
         .neq('sender_id', user.id)
         .is('read_at', null)
@@ -135,7 +137,8 @@ router.get('/chat/unread-count', async (req, res) => {
         .order('id', { ascending: true })
         .range(offset, offset + pageSize - 1);
       if (error) throw error;
-      (data || []).forEach((message) => unreadConversationIds.add(message.conversation_id));
+      // Messages from before "Delete chat" no longer count.
+      (data || []).filter((message) => visibleAfterClear(clears, message)).forEach((message) => unreadConversationIds.add(message.conversation_id));
       if (!data || data.length < pageSize) break;
     }
     return res.json({ count: unreadConversationIds.size });
@@ -159,7 +162,11 @@ router.get('/chat/conversations', async (req, res) => {
     const participantIds = [...new Set(conversations.flatMap((conversation) => [
       conversation.host_id, conversation.client_id,
     ]).filter((id) => id && id !== user.id))];
-    const [profiles, archivedIds] = await Promise.all([profilesById(participantIds), archivedConversationIds(user.id)]);
+    const [profiles, archivedIds, clears] = await Promise.all([
+      profilesById(participantIds),
+      archivedConversationIds(user.id),
+      clearedAtByConversation(supabaseAdmin, user.id),
+    ]);
     const conversationIds = conversations.map(({ id }) => id);
     let previews = [];
     if (conversationIds.length) {
@@ -176,25 +183,30 @@ router.get('/chat/conversations', async (req, res) => {
         .in('conversation_id', conversationIds);
       if (deletionResult.error) throw deletionResult.error;
       const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
+      // The newest message each person can see per conversation (decrypted only for those).
       const seen = new Set();
-      previews = (result.data || []).filter((message) => !hiddenMessageIds.has(message.id))
-        .map(withDecryptedBody).filter((message) => {
+      previews = (result.data || [])
+        .filter((message) => !hiddenMessageIds.has(message.id) && visibleAfterClear(clears, message))
+        .filter((message) => {
           if (seen.has(message.conversation_id)) return false;
           seen.add(message.conversation_id);
           return true;
-        });
+        })
+        .map(withDecryptedBody);
     }
     // The inbox reached this person: everything sent to them is delivered.
     markDelivered(supabaseAdmin, user.id, conversationIds)
       .catch((error) => console.error('Chat delivery receipt update failed:', error));
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
     const latestByParticipant = new Map();
-    conversations.sort((left, right) => {
+    // A deleted chat stays out of the inbox until a new message arrives.
+    const listed = conversations.filter((conversation) => !clears.has(conversation.id) || previewByConversation[conversation.id]);
+    listed.sort((left, right) => {
       const leftTime = previewByConversation[left.id] && previewByConversation[left.id].created_at || left.created_at;
       const rightTime = previewByConversation[right.id] && previewByConversation[right.id].created_at || right.created_at;
       return new Date(rightTime).getTime() - new Date(leftTime).getTime();
     });
-    const uniqueConversations = conversations.filter((conversation) => {
+    const uniqueConversations = listed.filter((conversation) => {
       const participantId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
       if (latestByParticipant.has(participantId)) return false;
       latestByParticipant.set(participantId, conversation.id);
@@ -264,7 +276,9 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       .eq('user_id', user.id);
     if (deletionResult.error) throw deletionResult.error;
     const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
-    const visibleRows = rawRows.filter((message) => !hiddenMessageIds.has(message.id));
+    // Messages from before this person's "Delete chat" are gone for them.
+    const clears = await clearedAtByConversation(supabaseAdmin, user.id);
+    const visibleRows = rawRows.filter((message) => !hiddenMessageIds.has(message.id) && visibleAfterClear(clears, message));
     const visibleById = new Map(visibleRows.map((message) => [message.id, message]));
 
     const missingReplyIds = visibleRows
@@ -277,7 +291,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
         .in('id', missingReplyIds);
       if (!replyResult.error && replyResult.data) {
         replyResult.data.forEach((replyMsg) => {
-          if (!hiddenMessageIds.has(replyMsg.id)) {
+          if (!hiddenMessageIds.has(replyMsg.id) && visibleAfterClear(clears, replyMsg)) {
             visibleById.set(replyMsg.id, replyMsg);
           }
         });
@@ -427,6 +441,24 @@ router.post('/chat/conversations/:conversationId/archive', async (req, res) => {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat archive update failed:', error);
     return res.status(502).json({ error: 'Unable to update the archive' });
+  }
+});
+
+// "Delete chat": clears this person's copy of every conversation with the
+// other person; the chat returns to their inbox only with new messages.
+router.post('/chat/conversations/:conversationId/delete', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const conversationId = uuid(req.params.conversationId, 'conversation id');
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    const conversationIds = await clearChat(supabaseAdmin, user.id, conversation);
+    return res.json({ deleted: true, conversationIds });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat delete failed:', error);
+    return res.status(502).json({ error: 'Unable to delete the chat' });
   }
 });
 

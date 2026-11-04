@@ -1,6 +1,7 @@
 'use strict';
 
 const { decryptMessage } = require('./messageEncryptionService');
+const { clearedAtByConversation, visibleAfterClear } = require('./chatClears');
 
 // Message previews in notifications. Messages stay encrypted in the
 // database; a preview is decrypted only when its recipient views their
@@ -40,7 +41,7 @@ function messagePreview(message, attachment) {
 
 /**
  * Previews of the given messages for this person: only messages in their
- * conversations, not deleted (for everyone or for them), and only when their
+ * conversations, not deleted (for everyone, for them, or by "Delete chat"), and only when their
  * Message previews setting is on.
  */
 async function previewsFor(admin, userId, messageIds) {
@@ -51,16 +52,17 @@ async function previewsFor(admin, userId, messageIds) {
 
   const { data: messages, error } = await admin
     .from('messages')
-    .select('id,conversation_id,sender_id,ciphertext,iv,key_version,message_type,attachment_id,deleted_at')
+    .select('id,conversation_id,sender_id,ciphertext,iv,key_version,message_type,attachment_id,created_at,deleted_at')
     .in('id', messageIds);
   if (error) throw error;
   const live = (messages || []).filter((message) => !message.deleted_at);
   if (!live.length) return { enabled: true, previews: {} };
 
   const conversationIds = [...new Set(live.map((message) => message.conversation_id))];
-  const [{ data: conversations, error: conversationError }, { data: hidden, error: hiddenError }] = await Promise.all([
+  const [{ data: conversations, error: conversationError }, { data: hidden, error: hiddenError }, clears] = await Promise.all([
     admin.from('conversations').select('id,host_id,client_id').in('id', conversationIds),
     admin.from('message_user_deletions').select('message_id').eq('user_id', userId).in('message_id', live.map((message) => message.id)),
+    clearedAtByConversation(admin, userId),
   ]);
   if (conversationError) throw conversationError;
   if (hiddenError) throw hiddenError;
@@ -68,7 +70,7 @@ async function previewsFor(admin, userId, messageIds) {
     .filter((conversation) => conversation.host_id === userId || conversation.client_id === userId)
     .map((conversation) => conversation.id));
   const hiddenIds = new Set((hidden || []).map((row) => row.message_id));
-  const visible = live.filter((message) => member.has(message.conversation_id) && !hiddenIds.has(message.id));
+  const visible = live.filter((message) => member.has(message.conversation_id) && !hiddenIds.has(message.id) && visibleAfterClear(clears, message));
 
   const photoAttachmentIds = visible.filter((message) => message.message_type === 'photo' && message.attachment_id).map((message) => message.attachment_id);
   let attachmentsById = {};
