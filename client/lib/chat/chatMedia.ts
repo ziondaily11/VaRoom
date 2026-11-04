@@ -109,7 +109,12 @@ export async function listingVideo(listingId: string, api: ChatApi): Promise<Lis
   return { videoId: video.id, url: playback.url, thumbnailUrl };
 }
 
-/** "Read 09:14" on outgoing messages the other person has read, otherwise the send time. */
-export function messageMetaText(message: { created_at: string; read_at?: string | null }, outgoing: boolean, formatTime: (value: string) => string): string {
-  return message.read_at && outgoing ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
+/** Ticks on outgoing messages: sending (clock), sent, delivered, read. */
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read';
+
+export function messageStatus(message: { delivered_at?: string | null; read_at?: string | null }, sending: boolean): MessageStatus {
+  if (sending) return 'sending';
+  if (message.read_at) return 'read';
+  if (message.delivered_at) return 'delivered';
+  return 'sent';
 }

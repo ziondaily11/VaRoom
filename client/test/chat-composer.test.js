@@ -88,7 +88,9 @@ test('phone viewport: shell follows the visual viewport, keyboard state, list pi
 });
 
 test('uploads in progress or failed show their state for files as well as photos', () => {
-  assert.match(source, /const uploadState = optimistic\._optimistic \? \(/);
+  // In progress: the clock in the meta (every message type has one). Failed: Failed + Dismiss.
+  assert.match(source, /const sending = Boolean\(optimistic\._optimistic && !optimistic\._failed\);/);
+  assert.match(source, /const uploadState = optimistic\._optimistic && optimistic\._failed \? \(/);
   assert.match(source, /\{renderMessageBody\(m\.body \|\| ''\)\}\s*\{uploadState\}/);
   assert.match(source, /\{uploadState\}\s*\{meta\}\s*<\/>/);
 });
