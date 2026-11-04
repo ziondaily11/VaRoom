@@ -16,7 +16,7 @@ function memory(initial) {
 test('settings: this browser keeps a copy; the profile decides', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
-  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5' });
+  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal' });
   const fromProfile = cs.resolveSettings(cs.readStored(stored), { awayMode: false, readReceipts: true });
   assert.equal(fromProfile.awayMode, false, 'the profile wins');
   assert.equal(fromProfile.readReceipts, true, 'the profile wins');
@@ -46,11 +46,11 @@ test('profile settings: every Chat Setting is read once per account in one query
       return chain;
     },
   };
-  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true };
+  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal' };
   const [first, second] = await Promise.all([cs.loadProfileSettings(client, 'h1'), cs.loadProfileSettings(client, 'h1')]);
   assert.deepEqual({ ...first }, loaded, 'unset switches are on; no away message shows the default');
   assert.equal(first, second, 'requests at the same time share one read');
-  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators']], 'one read per account');
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme']], 'one read per account');
 
   const seen = [];
   const unsubscribe = cs.subscribeProfileSettings('h1', (settings) => seen.push(settings.typingIndicators));

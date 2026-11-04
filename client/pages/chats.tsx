@@ -33,6 +33,8 @@ import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, ReplyThumb, Vo
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
+import { chatThemeStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
+import { readStored, resolveSettings, writeStored } from '../lib/chat/chatSettings';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
@@ -910,6 +912,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   typingOnRef.current = chatPrefs ? chatPrefs.typingIndicators : true;
   useEffect(() => { if (chatPrefs && !chatPrefs.typingIndicators) clearTyping(); }, [chatPrefs, clearTyping]);
 
+  // Bubble colours (Chat Settings → Theme): the account's theme, or this
+  // browser's copy of it until the account's settings have loaded.
+  const [storedTheme, setStoredTheme] = useState<ChatThemeId>(DEFAULT_CHAT_THEME);
+  useEffect(() => {
+    try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
+  }, []);
+  useEffect(() => {
+    if (!chatPrefs) return;
+    try { writeStored(window.localStorage, 'chatTheme', chatPrefs.chatTheme); } catch { /* Kept for this visit. */ }
+  }, [chatPrefs]);
+  const bubbleTheme = chatPrefs ? chatPrefs.chatTheme : storedTheme;
+  const bubbleThemeStyle = useMemo(() => chatThemeStyle(bubbleTheme), [bubbleTheme]);
+
   // Tell the other person "typing…" (at most every 2.5 s), unless turned off.
   const announceTyping = () => {
     const channel = activeChannelRef.current;
@@ -1446,7 +1461,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </defs>
       </svg>
 
-      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}`}>
+      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}`} style={bubbleThemeStyle}>
         
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>

@@ -1,12 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
+import { DEFAULT_CHAT_THEME, isChatThemeId, type ChatThemeId } from './chatThemes';
 
 // Chat Settings (migrated from legacy-pages/chat-settings.html). Every
 // setting is saved on the profile, where it takes effect:
 // - away_mode, away_message: auto-reply sends the away message, then Elie;
 // - message_notifications: "New message" notifications are created;
 // - message_previews: notifications show the message (decrypted on view);
-// - read_receipts: read ticks; typing_indicators: "typing…" in a chat.
+// - read_receipts: read ticks; typing_indicators: "typing…" in a chat;
+// - chat_theme: the colours of message bubbles on this person's screen.
 // This browser keeps a copy, shown until the profile has loaded.
 
 export const STORAGE_KEY = 'varoom:chat-settings';
@@ -24,6 +26,7 @@ export interface ChatSettingsState {
   readReceipts: boolean;
   typingIndicators: boolean;
   awayMessage: string;
+  chatTheme: ChatThemeId;
 }
 
 export type ToggleKey = 'awayMode' | 'messageNotifications' | 'messagePreviews' | 'readReceipts' | 'typingIndicators';
@@ -35,6 +38,7 @@ export const DEFAULTS: ChatSettingsState = {
   readReceipts: true,
   typingIndicators: true,
   awayMessage: DEFAULT_AWAY_MESSAGE,
+  chatTheme: DEFAULT_CHAT_THEME,
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'> | null;
@@ -48,7 +52,7 @@ export function readStored(storage: StorageLike): Partial<ChatSettingsState> {
   }
 }
 
-export function writeStored(storage: StorageLike, key: keyof ChatSettingsState, value: boolean | string): void {
+export function writeStored(storage: StorageLike, key: keyof ChatSettingsState, value: ChatSettingsState[keyof ChatSettingsState]): void {
   try {
     const stored = readStored(storage);
     storage?.setItem(STORAGE_KEY, JSON.stringify({ ...stored, [key]: value }));
@@ -76,6 +80,7 @@ const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = {
   messagePreviews: 'message_previews',
   readReceipts: 'read_receipts',
   typingIndicators: 'typing_indicators',
+  chatTheme: 'chat_theme',
 };
 
 /** Settings to show: the profile's values win over this browser's copy. */
@@ -89,6 +94,7 @@ export function resolveSettings(stored: Partial<ChatSettingsState>, profile: Pro
     readReceipts: bool(stored.readReceipts, true),
     typingIndicators: bool(stored.typingIndicators, true),
     awayMessage: cleanAwayMessage(stored.awayMessage),
+    chatTheme: isChatThemeId(stored.chatTheme) ? stored.chatTheme : DEFAULT_CHAT_THEME,
   };
 }
 
@@ -101,6 +107,7 @@ export function profileSettingsFromRow(row: Record<string, unknown>): ProfileCha
     messagePreviews: row.message_previews !== false,
     readReceipts: row.read_receipts !== false,
     typingIndicators: row.typing_indicators !== false,
+    chatTheme: isChatThemeId(row.chat_theme) ? row.chat_theme : DEFAULT_CHAT_THEME,
   };
 }
 
