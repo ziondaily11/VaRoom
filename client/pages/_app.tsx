@@ -19,7 +19,7 @@ import { applyTheme } from '../lib/theme';
 import { getAccountLayout, getSessionBoundCachedRole } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/privacy.css';
-const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
+const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // Create the shared Supabase client before any page renders so pages and
 // legacy scripts adopt one instance instead of racing to create their own.
@@ -463,7 +463,11 @@ export default function App({ Component, pageProps }: AppProps) {
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32_1.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
-        <link rel="stylesheet" href={isChatsRoute ? chatsThemeCssHref : '/js/varoom-dark-theme.css'} />
+        {/* One dark-theme file on every route (the long-cached copy), so entering
+            Chats does not reload it; other pages fetch Chats' own stylesheet ahead
+            of time, so the first visit to Chats finds it cached. */}
+        <link rel="stylesheet" href={chatsThemeCssHref} />
+        {!isChatsRoute && <link rel="prefetch" href={chatsCssHref} as="style" />}
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
