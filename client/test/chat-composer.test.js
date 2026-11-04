@@ -69,7 +69,12 @@ test('photo preview: one object URL released on change, caption focused, Escape 
   assert.match(source, /const pendingPreviewUrl = useMemo\(\(\) => \(pendingPreviewFile \? URL\.createObjectURL\(pendingPreviewFile\) : null\), \[pendingPreviewFile\]\);/);
   assert.match(source, /useEffect\(\(\) => \(\) => \{ if \(pendingPreviewUrl\) URL\.revokeObjectURL\(pendingPreviewUrl\); \}, \[pendingPreviewUrl\]\);/);
   assert.doesNotMatch(source, /src=\{URL\.createObjectURL\(/);
-  assert.match(source, /value=\{previewCaption\}\s*autoFocus/);
+  // The caption lives in the preview, so typing does not re-render the conversation.
+  assert.doesNotMatch(source, /previewCaption/);
+  const preview = read('components', 'chat', 'MediaPreviewComposer.tsx');
+  assert.match(preview, /const \[caption, setCaption\] = useState\(''\);/);
+  assert.match(preview, /value=\{caption\}\s*autoFocus\s*onChange=\{\(e\) => setCaption\(e\.target\.value\)\}/);
+  assert.match(source, /onSend=\{\(caption\) => \{ void handleUploadAttachment\(pendingPreviewFile, 'photo', caption\); \}\}/);
 });
 
 test('Elie: Ctrl/Cmd+B/I/U do nothing (legacy)', () => {

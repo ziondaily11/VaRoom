@@ -292,10 +292,12 @@ test('Stage 5B.1: Clean inbox previews, opaque composer background, and in-conve
   assert.match(source, /formatConversationPreview\(c\.lastMessage\)/);
 
   // In-conversation media preview is inside chat-col (before </main>)
-  assert.match(source, /className="chat-media-preview-composer"[\s\S]*?<\/main>/);
+  assert.match(source, /<MediaPreviewComposer[\s\S]*?<\/main>/);
 
   // Does not use full-screen fixed positioning covering sidebar/inbox
-  assert.doesNotMatch(source, /className="chat-media-preview-composer"[^>]*?position:\s*'fixed'/);
+  const previewSource = fs.readFileSync(path.join(root, 'components', 'chat', 'MediaPreviewComposer.tsx'), 'utf8');
+  assert.match(previewSource, /className="chat-media-preview-composer"/);
+  assert.doesNotMatch(previewSource, /position:\s*'fixed'/);
 
   // Composer has opaque background rules in both light and dark modes
   assert.match(cssSource, /html:not\(\[data-theme="dark"\]\)\s+\.chat-input-area\s*\{[\s\S]*?background/);

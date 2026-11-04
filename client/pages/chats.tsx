@@ -28,8 +28,10 @@ import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
+import { localUrls, mergeServerMessages, messageKey, reconcileThread, type OptimisticChatMessage } from '../lib/chat/optimisticMessages';
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, ReplyThumb, VoiceCard } from '../components/chat/MessageMedia';
 import MessageMeta from '../components/chat/MessageMeta';
+import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
@@ -147,18 +149,6 @@ function inferMimeType(file: File): string {
   return MIME_EXT_MAP[ext] || 'application/octet-stream';
 }
 
-/**
- * Extends ChatMessage with fields present only during the optimistic-send window.
- * The optimistic message is replaced by the server-confirmed message after upload.
- */
-interface OptimisticChatMessage extends ChatMessage {
-  /** True while the upload / persistence request is in-flight. */
-  _optimistic?: boolean;
-  /** Local blob URL created from the selected file for instant display. */
-  _localUrl?: string;
-  /** True when the upload or persistence request failed. */
-  _failed?: boolean;
-}
 
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
@@ -191,7 +181,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // Attachments & Previews
   const [pendingPreviewFile, setPendingPreviewFile] = useState<File | null>(null);
-  const [previewCaption, setPreviewCaption] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; alt: string } | null>(null);
   const [reportSheetOpen, setReportSheetOpen] = useState<boolean>(false);
@@ -240,6 +229,21 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   activeIdRef.current = activeId;
   const messagesStateRef = useRef<(ChatMessage | OptimisticChatMessage)[]>(messages);
   messagesStateRef.current = messages;
+  // Local images of uploads, released once no message in the thread shows
+  // them (another conversation opened, or the page closed).
+  const localImageUrlsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const tracked = localImageUrlsRef.current;
+    const inUse = localUrls(messages);
+    tracked.forEach((url) => {
+      if (!inUse.has(url)) { URL.revokeObjectURL(url); tracked.delete(url); }
+    });
+    inUse.forEach((url) => tracked.add(url));
+  }, [messages]);
+  useEffect(() => {
+    const tracked = localImageUrlsRef.current;
+    return () => { tracked.forEach((url) => URL.revokeObjectURL(url)); };
+  }, []);
   const routerRef = useRef(router);
   routerRef.current = router;
 
@@ -292,7 +296,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setPendingPreviewFile(null);
-      setPreviewCaption('');
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -508,7 +511,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current || !mountedRef.current) return;
           const incoming: ChatMessage[] = (res.messages || []).filter((m: ChatMessage) => !messagesStateRef.current.some((existing) => existing.id === m.id));
           if (!incoming.length) return;
-          setMessagesState((prev) => [...prev, ...incoming.filter((m) => !prev.some((existing) => existing.id === m.id))]);
+          // Our own upload's copy takes the optimistic row's place.
+          setMessagesState((prev) => mergeServerMessages(prev, incoming));
           incoming.forEach((m) => { appendMessage(currentUserId, id, m).catch(() => {}); });
           const latest = incoming[incoming.length - 1];
           updateInboxConversation(currentUserId, id, { lastMessage: latest }).catch(() => {});
@@ -856,7 +860,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
     // --- Optimistic: create a temporary message immediately ---
     const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const captionAtSend = (caption ?? previewCaption).trim() || file.name;
+    const captionAtSend = (caption || '').trim() || file.name;
     const localObjectUrl = URL.createObjectURL(file);
     const tempMsg: OptimisticChatMessage = {
       id: tempId,
@@ -878,7 +882,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
     setMessagesState((prev) => [...prev, tempMsg]);
     setPendingPreviewFile(null);
-    setPreviewCaption('');
     setTimeout(() => scrollToBottom(true), 50);
 
     setIsUploading(true);
@@ -894,6 +897,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           kind: kind,
         }),
       });
+
+      // The server's copy of this message is recognised by its attachment.
+      setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: initRes.attachmentId } : m)));
 
       // 2. Direct PUT to Cloudflare R2
       const putRes = await fetch(initRes.uploadUrl, {
@@ -921,20 +927,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       const sent = res?.message;
       if (sent && mountedRef.current) {
-        // Replace the optimistic message with the real one; dedup against Realtime
-        setMessagesState((prev) => {
-          const withoutTemp = prev.filter((m) => m.id !== tempId);
-          if (withoutTemp.some((m) => m.id === sent.id)) return withoutTemp;
-          return [...withoutTemp, sent];
-        });
+        // The real message takes the optimistic one's place (or Realtime already
+        // put it there), keeping the local image so the photo holds its size.
+        if (activeIdRef.current === activeId) setMessagesState((prev) => mergeServerMessages(prev, [sent]));
         if (userId) {
           appendMessage(userId, activeId, sent).catch(() => {});
           updateInboxConversation(userId, activeId, { lastMessage: sent }).catch(() => {});
         }
         bumpConversation(activeId, sent);
-        // The persisted message fetches its own signed URL. It must not reuse this
-        // local blob URL, because it is about to be released.
-        URL.revokeObjectURL(localObjectUrl);
         setTimeout(() => scrollToBottom(true), 50);
       }
     } catch (err) {
@@ -951,8 +951,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // ── Message actions (legacy chat-data.js performMessageAction) ──
 
-  // Text messages in person-to-person chats only: the server accepts actions
-  // on text messages, and Elie messages are not stored there.
+  // Person-to-person chats only (Elie messages are not stored there).
   // Every kind of message: text, photos, files, voice notes and listings.
   const canActOnMessage = (m: ChatMessage): boolean => (
     !isElie
@@ -1062,7 +1061,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const list: ChatMessage[] = res.messages || [];
     const currentUserId = userIdRef.current;
     if (currentUserId) setMessages(currentUserId, conversationId, list).catch(() => {});
-    if (mountedRef.current && activeIdRef.current === conversationId) setMessagesState(list);
+    // Uploads in progress stay; a sent photo keeps its local image and size.
+    if (mountedRef.current && activeIdRef.current === conversationId) setMessagesState((prev) => reconcileThread(prev, list));
     bumpConversation(conversationId, list.length ? list[list.length - 1] : null);
     if (currentUserId) updateInboxConversation(currentUserId, conversationId, { lastMessage: list.length ? list[list.length - 1] : null }).catch(() => {});
   };
@@ -1620,7 +1620,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
                 return (
                   <div
-                    key={m.id}
+                    key={messageKey(m as OptimisticChatMessage)}
                     data-message-id={m.id}
                     className={rowClass}
                     style={{ position: 'relative' }}
@@ -1924,67 +1924,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
           {/* In-Conversation Media Preview / Composer Before Send */}
           {pendingPreviewFile && (
-            <div
-              className="chat-media-preview-composer"
-              id="chatMediaPreviewModal"
-              role="dialog"
-              aria-label="Preview image to share"
-            >
-              <div className="chat-media-preview-header">
-                <button
-                  type="button"
-                  className="chat-media-preview-close"
-                  id="chatMediaPreviewClose"
-                  aria-label="Cancel image share"
-                  title="Cancel"
-                  onClick={() => {
-                    setPendingPreviewFile(null);
-                    setPreviewCaption('');
-                  }}
-                >
-                  <svg className="icon" aria-hidden="true"><use href="#i-close" /></svg>
-                </button>
-              </div>
-              <div className="chat-media-preview-body">
-                <img
-                  id="chatMediaPreviewImg"
-                  className="chat-media-preview-image"
-                  src={pendingPreviewUrl || undefined}
-                  alt="Selected image preview"
-                />
-              </div>
-              <div className="chat-media-preview-footer">
-                <div className="chat-media-preview-caption-wrap">
-                  <input
-                    type="text"
-                    id="chatMediaPreviewCaption"
-                    className="chat-media-preview-caption-input"
-                    placeholder="Type a message"
-                    aria-label="Type a message"
-                    value={previewCaption}
-                    autoFocus
-                    onChange={(e) => setPreviewCaption(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleUploadAttachment(pendingPreviewFile, 'photo');
-                      }
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="chat-media-preview-send-btn"
-                  id="chatMediaPreviewSend"
-                  aria-label="Send photo"
-                  title="Send photo"
-                  disabled={isUploading}
-                  onClick={() => handleUploadAttachment(pendingPreviewFile, 'photo')}
-                >
-                  <svg className="icon" aria-hidden="true"><use href="#i-send" /></svg>
-                </button>
-              </div>
-            </div>
+            <MediaPreviewComposer
+              imageUrl={pendingPreviewUrl}
+              sending={isUploading}
+              onCancel={() => setPendingPreviewFile(null)}
+              onSend={(caption) => { void handleUploadAttachment(pendingPreviewFile, 'photo', caption); }}
+            />
           )}
         </main>
 
