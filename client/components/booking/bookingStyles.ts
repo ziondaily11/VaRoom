@@ -188,6 +188,7 @@ export const BOOKING_STYLES = `
   .contact-control img{ display:block; width:27px; height:27px; object-fit:contain; }
   .contact-control svg{ display:block; width:20px; height:20px; }
   .contact-control[aria-disabled="true"]{ cursor:default; }
+  a.contact-control{ text-decoration:none; }
   .contact-control:not([aria-disabled="true"]):hover{ background:var(--ink); color:var(--white); }
 
   .about-block .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:.92rem; margin-bottom:.3rem; }

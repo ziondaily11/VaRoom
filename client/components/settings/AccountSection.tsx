@@ -7,10 +7,12 @@ import {
   googleVerificationEligible, startGoogleVerification, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, verifyPassword,
 } from '../../lib/settings/settings';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
+import ReachOutSection from './ReachOutSection';
 
 // Your Account (legacy #view-account): locked behind the current password
 // (or a server-checked Google re-sign-in for Google-only accounts), then the
-// account details, email and password changes, and account status.
+// account details, email and password changes, Reach Out (hosts) and
+// account status.
 
 type Msg = { text: string; kind: '' | 'success' | 'error' };
 
@@ -20,6 +22,8 @@ interface Props {
   username: string | null;
   fullName: string | null;
   phone: string | null;
+  /** Hosts get Reach Out (how clients contact them from their listings). */
+  isHost: boolean;
   token: string | null;
   verified: boolean;
   onVerified: () => void;
@@ -151,7 +155,7 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
   );
 }
 
-function AccountDetails({ email, username, fullName, phone, openPassword, onPasswordOpened, onBack, onDelete }: Omit<Props, 'userId' | 'token' | 'verified' | 'onVerified'>) {
+function AccountDetails({ userId, email, username, fullName, phone, isHost, openPassword, onPasswordOpened, onBack, onDelete }: Omit<Props, 'token' | 'verified' | 'onVerified'>) {
   const [open, setOpen] = useState<Record<string, boolean>>({ password: openPassword });
   const [newEmail, setNewEmail] = useState(email);
   const [emailMsg, setEmailMsg] = useState<Msg>({ text: '', kind: '' });
@@ -231,6 +235,8 @@ function AccountDetails({ email, username, fullName, phone, openPassword, onPass
           </div>
         </div>
       </div>
+
+      {isHost && <ReachOutSection userId={userId} accountPhone={phone} accountEmail={email} />}
 
       <div className="settings-section">
         <p className="section-title">Account Status</p>

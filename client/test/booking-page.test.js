@@ -120,7 +120,7 @@ test('page: native, identity from AuthProvider, listing cached per account, the 
 test('a listing whose host profile comes back empty still shows ("Host"), instead of crashing the page', async () => {
   const fake = (row) => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) }) });
   const loaded = await bl.fetchBookingListing(fake(listing({ host: null })), 'L1');
-  assert.deepEqual({ ...loaded.host }, { full_name: null, verified: null, avatar_url: null, username: null, phone: null });
+  assert.deepEqual({ ...loaded.host }, { full_name: null, verified: null, avatar_url: null, username: null });
   const withProfile = await bl.fetchBookingListing(fake(listing()), 'L1');
   assert.equal(withProfile.host.full_name, 'Ann');
   assert.equal(await bl.fetchBookingListing(fake(null), 'L1'), null);

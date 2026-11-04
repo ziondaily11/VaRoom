@@ -233,6 +233,16 @@ export const SETTINGS_STYLES = `
   }
   .settings-page .switch input:checked + .switch-track{ background:var(--ink); }
   .settings-page .switch input:checked + .switch-track::before{ transform:translateX(18px); }
+  .settings-page .switch input:disabled + .switch-track{ opacity:.45; cursor:not-allowed; }
+
+  /* Reach Out (Your Account, hosts) */
+
+  .settings-page .reach-fields{ padding:1.1rem 1.2rem; }
+  .settings-page .reach-intro{ margin:0 0 1rem; }
+  .settings-page .reach-subtitle{ margin-top:1.4rem; }
+  .settings-page .reach-channel{ display:flex; align-items:center; gap:.9rem; min-width:0; }
+  .settings-page .reach-icon img{ display:block; width:22px; height:22px; object-fit:contain; }
+  .settings-page .reach-icon svg{ display:block; width:17px; height:17px; }
   
   /* Appearance pills — monochrome */
   
