@@ -525,6 +525,37 @@
   /* Inbox: the Archived entry and, inside it, the way back. */
   .contact-item .archived-icon{ width:46px; height:46px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-gray-2); }
   .contact-item .archived-icon .icon{ width:20px; height:20px; }
+  .contact-item.archived-entry,
+  .contact-item.archived-header{ align-items:center; }
+  .contact-item.archived-entry .contact-top{ align-items:center; }
+  /* Selection mode: ticked chats and the bar that acts on them. */
+  .contact-item.selected{ background:var(--bg-soft); }
+  .select-check{
+    position:absolute; right:-2px; bottom:-2px; width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--mint-dark); color:#fff; border:2px solid var(--white);
+  }
+  .select-check .icon{ width:12px; height:12px; stroke-width:3; }
+  .inbox-select-bar{
+    display:flex; align-items:center; gap:8px; margin:0 12px 8px; padding:6px 8px;
+    border:1px solid var(--border); border-radius:12px; background:var(--white);
+  }
+  .inbox-select-count{ flex:1; font-size:13px; font-weight:600; color:var(--text-dark); }
+  .inbox-select-cancel,
+  .inbox-select-action{
+    display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px;
+    border:none; border-radius:8px; background:transparent; color:var(--text-dark);
+    font:inherit; font-size:13px; cursor:pointer;
+  }
+  .inbox-select-cancel{ width:32px; padding:0; justify-content:center; }
+  .inbox-select-cancel:hover,
+  .inbox-select-action:hover{ background:var(--bg-soft); }
+  .inbox-select-action.danger{ color:#dc2626; }
+  .inbox-select-cancel .icon,
+  .inbox-select-action .icon{ width:16px; height:16px; }
+  [data-theme="dark"] .inbox-select-bar{ background:#18181B; border-color:#27272A; }
+  [data-theme="dark"] .select-check{ border-color:#000; }
+  [data-theme="dark"] .contact-item.selected{ background:rgba(85,198,165,.10); }
   .pinned-message:focus-visible{ outline:2px solid var(--mint); outline-offset:-2px; }
   /* "Back to latest": a round button floating just above the composer. */
   .scroll-latest-anchor{ position:relative; height:0; z-index:5; }
