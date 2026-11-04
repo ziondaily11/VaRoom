@@ -7,7 +7,7 @@ const { loadTs } = require('./helpers/loadTs');
 const clientRoot = path.join(__dirname, '..');
 const styles = fs.readFileSync(path.join(clientRoot, 'components', 'booking', 'bookingStyles.ts'), 'utf8');
 const details = fs.readFileSync(path.join(clientRoot, 'components', 'booking', 'ListingDetails.tsx'), 'utf8');
-const { getCleanTruncatedDescription, descriptionParagraphs } = loadTs(path.join(clientRoot, 'lib', 'booking', 'description.ts'));
+const { getCleanTruncatedDescription, descriptionParagraphs, descriptionPreviewChars, visibleParagraphs } = loadTs(path.join(clientRoot, 'lib', 'booking', 'description.ts'));
 
 test('Property details page: CSS removes line-clamp and defines paragraph & toggle button styles', () => {
   assert.doesNotMatch(styles, /\.about-text\s*\{[^}]*-webkit-line-clamp/i, '.about-text must not be hard-clamped with -webkit-line-clamp');
@@ -37,9 +37,19 @@ test('Property details page: clean truncation and paragraphs', () => {
 });
 
 test('Property details page: Read more / Show less toggles in place, rendered as text (no HTML injection)', () => {
+  // The preview is shorter on phones; expanding shows the whole description.
+  assert.equal(descriptionPreviewChars(390), 140);
+  assert.equal(descriptionPreviewChars(639), 140);
+  assert.equal(descriptionPreviewChars(640), 220);
+  assert.equal(descriptionPreviewChars(null), 220, 'server render');
+  const full = 'First paragraph.\n\nSecond paragraph that is much longer than the preview allows.';
+  const preview = { text: 'First paragraph.', hasOverflow: true };
+  assert.deepEqual(visibleParagraphs(full, preview, false), ['First paragraph.']);
+  assert.deepEqual(visibleParagraphs(full, preview, true), ['First paragraph.', 'Second paragraph that is much longer than the preview allows.']);
+  // Toggle markup (no DOM renderer here).
   assert.match(details, /id="about-desc-container"/);
   assert.match(details, /className="about-toggle-btn" id="about-desc-toggle" aria-expanded=\{expanded\}/);
   assert.match(details, /\{expanded \? 'Show less' : 'Read more'\}/);
-  assert.match(details, /descriptionParagraphs\(expanded \? text : preview\.text\)/);
+  assert.match(details, /visibleParagraphs\(text, preview, expanded\)/);
   assert.doesNotMatch(details, /dangerouslySetInnerHTML/, 'description text is never inserted as HTML');
 });

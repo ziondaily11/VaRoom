@@ -2,15 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { switchAccount, type LinkResult } from '../lib/account/accountActions';
+import {
+  addAccountCallbackUrl, addAccountFormError, addedAccountMessage, linkAddedSession, readAddAccountMessage,
+  signInIsolatedWithPassword, switchFailedMessage, switchesToAdded, type AddAccountMessage,
+} from '../lib/account/addAccount';
 
 const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message) || fallback;
-
-// Message posted by the /auth-callback popup (lib/auth/authCallback.ts).
-interface AddAccountMessage {
-  type?: string;
-  session?: Session;
-  message?: string;
-}
 
 export default function AddAccountModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -99,9 +96,10 @@ export default function AddAccountModal() {
   useEffect(() => {
     if (!isOpen) return undefined;
     const handleMessage = async (e: MessageEvent<AddAccountMessage>) => {
-      if (e.origin !== window.location.origin) return;
-      if (e.data?.type === 'VAROOM_ADD_ACCOUNT_SUCCESS' && e.data?.session) {
-        const session = e.data.session;
+      // Message posted by the /auth-callback popup (lib/auth/authCallback.ts).
+      const outcome = readAddAccountMessage(e.origin, window.location.origin, e.data);
+      if (outcome?.kind === 'success') {
+        const session = outcome.session;
         googleSucceededRef.current = true;
         setIsGoogleLoading(true);
         setError(null);
@@ -113,11 +111,11 @@ export default function AddAccountModal() {
         } finally {
           setIsGoogleLoading(false);
         }
-      } else if (e.data?.type === 'VAROOM_ADD_ACCOUNT_ERROR') {
+      } else if (outcome?.kind === 'error') {
         // The popup closes itself after reporting; this is not a cancellation.
         googleSucceededRef.current = true;
         setIsGoogleLoading(false);
-        setError(e.data.message || 'Could not add that Google account. Please try again.');
+        setError(outcome.message);
       }
     };
 
@@ -128,32 +126,25 @@ export default function AddAccountModal() {
   // An added account becomes the active one when its sign-in was saved in this
   // browser; switching reloads the page on the new account.
   const finishAdded = async (linked: LinkResult, addedUserId: string | undefined) => {
-    if (linked.session_cached && addedUserId) {
+    if (switchesToAdded(linked, addedUserId)) {
       setSuccess('Account added! Switching to it…');
       try {
         await switchAccount(addedUserId);
       } catch (switchError) {
         setSuccess(null);
-        setError(`Account added, but switching failed: ${(switchError as Error)?.message || 'please try again from the account menu.'}`);
+        setError(switchFailedMessage(switchError));
       }
       return;
     }
-    setSuccess(linked.session_cached
-      ? 'Account added! You can now switch to this account anytime.'
-      : 'Account linked. Sign in again on this browser before switching to it.');
+    setSuccess(addedAccountMessage(linked));
     setTimeout(() => {
       setIsOpen(false);
     }, 1200);
   };
 
   // Helper to register an authenticated session into linked accounts
-  const registerAdditionalSession = async (session: Session, _tempClient?: unknown) => {
-    const switcher = window.VaRoomAccountSwitcher;
-    if (!switcher?.linkAdditionalSession || !window.supabaseClient) {
-      throw new Error('Secure account linking is not available. Refresh the page and try again.');
-    }
-    return switcher.linkAdditionalSession(window.supabaseClient, session);
-  };
+  const registerAdditionalSession = async (session: Session) =>
+    linkAddedSession(window.VaRoomAccountSwitcher, window.supabaseClient, session);
 
   // Google sign in handler
   const handleGoogleSignIn = async () => {
@@ -195,7 +186,7 @@ export default function AddAccountModal() {
         window.supabase, supabaseUrl, supabaseAnonKey, { usesRedirect: true, flowId: accountAuthFlow }
       );
 
-      const callbackUrl = `${window.location.origin}/auth-callback?addAccount=true&account_auth_flow=${encodeURIComponent(accountAuthFlow)}`;
+      const callbackUrl = addAccountCallbackUrl(window.location.origin, accountAuthFlow);
       const { data, error: oauthError } = await tempClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -254,63 +245,25 @@ export default function AddAccountModal() {
     setSuccess(null);
 
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setError('Please enter your email address.');
+    const formError = addAccountFormError(trimmedEmail, password);
+    if (formError) {
+      setError(formError);
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    if (!password) {
-      setError('Please enter your password.');
-      return;
-    }
-
-    const switcher = window.VaRoomAccountSwitcher;
 
     setIsLoading(true);
 
     try {
-      const supabaseUrl = window.VAROOM_SUPABASE_URL || SUPABASE_URL;
-      const supabaseAnonKey = window.VAROOM_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
-
-      if (!window.supabase) {
-        throw new Error('Authentication service is initializing. Please try again.');
-      }
-
-      // Use a flow-specific auth storage key so this temporary sign-in cannot
+      // A flow-specific auth storage key, so this temporary sign-in cannot
       // share auth state or the cross-tab lock namespace with the active user.
-      const accountAuth = window.VaRoomAccountAuth;
-      if (!accountAuth) throw new Error('Authentication service is initializing. Please try again.');
-      const accountAuthFlow = accountAuth.createFlowId();
-      const tempClient = accountAuth.createClient(
-        window.supabase,
-        supabaseUrl,
-        supabaseAnonKey,
-        { usesRedirect: false, flowId: accountAuthFlow }
-      );
+      const data = await signInIsolatedWithPassword({
+        supabase: window.supabase,
+        accountAuth: window.VaRoomAccountAuth,
+        url: window.VAROOM_SUPABASE_URL || SUPABASE_URL,
+        anonKey: window.VAROOM_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY,
+      }, trimmedEmail, password);
 
-      const { data, error: authError } = await tempClient.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: password
-      });
-
-      if (authError) {
-        let msg = authError.message || 'Authentication failed.';
-        if (msg.toLowerCase().includes('invalid login credentials')) {
-          msg = 'Incorrect email or password.';
-        } else if (msg.toLowerCase().includes('email not confirmed')) {
-          msg = 'Please confirm your email before adding this account.';
-        }
-        throw new Error(msg);
-      }
-
-      if (!data?.session || !data?.user) {
-        throw new Error('Failed to retrieve authentication tokens.');
-      }
-
-      const linked = await registerAdditionalSession(data.session, tempClient);
+      const linked = await registerAdditionalSession(data.session);
       await finishAdded(linked, data.user.id);
     } catch (err) {
       setError(errorText(err, 'Failed to add account. Please check your credentials.'));

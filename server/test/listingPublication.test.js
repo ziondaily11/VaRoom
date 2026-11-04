@@ -18,8 +18,9 @@ const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib',
 const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'PublicHostProfile.tsx'), 'utf8');
 const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfileView.tsx'), 'utf8');
 const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'listings', 'hostListingActions.ts'), 'utf8');
-// The native listing wizard (legacy list.html is retired).
-const listingPage = ['pages/list.tsx', 'lib/listWizard/startup.ts'].map((file) => fs.readFileSync(path.join(repositoryRoot, 'client', file), 'utf8')).join('\n');
+// The listing wizard's own behaviour (edit mode reads only the host's listing,
+// a failed media upload stops before activation) is tested in
+// client/test/list-wizard-startup.test.js and list-wizard-flows/page.test.js.
 const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
 const draftStatusMigration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261013_000039_listing_draft_status.sql'),
@@ -93,18 +94,6 @@ test('all Discover feed branches require active moderation and available status'
     listingRoutes.indexOf("router.patch('/listings/:id/status'")
   );
   assert.match(ownershipCheck, /\.eq\('id', id\)[\s\S]*if \(data\.host_id !== userId\)/);
-  assert.match(listingPage, /\.eq\('id', params\.edit\)\.eq\('host_id', hostId\)/);
-});
-
-test('failed new-listing media upload exits before requesting activation', () => {
-  const failedMediaStart = listingPage.indexOf('if (!editMode && files.length > 0 && failedCount > 0)');
-  const activationStart = listingPage.indexOf('if (shouldActivate(', failedMediaStart);
-  assert.ok(failedMediaStart >= 0 && activationStart > failedMediaStart);
-
-  const failedMediaBranch = listingPage.slice(failedMediaStart, activationStart);
-  assert.match(failedMediaBranch, /return;/);
-  assert.doesNotMatch(failedMediaBranch, /activateListing/);
-  assert.match(failedMediaBranch, /Media upload failed, so the listing was not published/);
 });
 
 test('server activation keeps subscription limits and verified listing-payment entitlement checks', () => {

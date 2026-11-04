@@ -223,15 +223,30 @@ test('after a full-page account add the returned page switches to the added acco
   assert.equal(cb.takePendingAccountSwitch(notSaved, 2000), null, 'no switch without a saved sign-in');
   const stale = memoryStorage({ varoom_add_account_switch: JSON.stringify({ id: 'added', at: 0 }) });
   assert.equal(cb.takePendingAccountSwitch(stale, 10 * 60 * 1000), null);
-  const notice = fs.readFileSync(path.join(root, 'components', 'shell', 'AddAccountNotice.tsx'), 'utf8');
-  assert.match(notice, /switchAccount\(pendingSwitch\)/);
 });
 
-test('both add-account dialogs switch to the added account when its sign-in was saved', () => {
-  const modal = fs.readFileSync(path.join(root, 'components', 'AddAccountModal.tsx'), 'utf8');
-  assert.match(modal, /if \(linked\.session_cached && addedUserId\) \{[\s\S]*?await switchAccount\(addedUserId\)/);
-  assert.equal((modal.match(/await finishAdded\(/g) || []).length, 2, 'Google popup and email');
-  const legacy = fs.readFileSync(path.join(root, 'public', 'js', 'account-switcher.js'), 'utf8');
-  assert.match(legacy, /account\.switchAccount\(addedUserId\)/);
-  assert.equal((legacy.match(/[^n] finishAdded\(result, /g) || []).length, 2, 'Google popup and email calls');
+test('the returned page switches to the added account, or shows the one-time notice', async () => {
+  const switched = [];
+  const shown = [];
+  const show = (message) => shown.push(message);
+  const pending = memoryStorage({ varoom_add_account_switch: JSON.stringify({ id: 'added', at: Date.now() }), varoom_add_account_notice: JSON.stringify({ message: 'later', at: Date.now() }) });
+  cb.resumeAddAccount(pending, async (id) => { switched.push(id); }, show);
+  assert.deepEqual(switched, ['added']);
+  assert.deepEqual(shown, [], 'a switch reloads the page; no notice on top');
+  cb.resumeAddAccount(pending, async (id) => { switched.push(id); }, show);
+  assert.deepEqual(switched, ['added'], 'only once');
+  assert.deepEqual(shown, ['later'], 'the notice is shown on the next page instead');
+
+  const failing = memoryStorage({ varoom_add_account_switch: JSON.stringify({ id: 'added', at: Date.now() }) });
+  cb.resumeAddAccount(failing, async () => { throw new Error('Sign in again.'); }, show);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(shown.at(-1), 'Account added, but switching failed: Sign in again.');
+
+  const notice = memoryStorage({ varoom_add_account_notice: JSON.stringify({ message: cb.ADD_ACCOUNT_FAILED_MESSAGE, at: Date.now() }) });
+  cb.resumeAddAccount(notice, async () => assert.fail('nothing to switch to'), show);
+  assert.equal(shown.at(-1), cb.ADD_ACCOUNT_FAILED_MESSAGE);
+  const nothing = shown.length;
+  cb.resumeAddAccount(memoryStorage(), async () => assert.fail('nothing to switch to'), show);
+  cb.resumeAddAccount(null, async () => assert.fail('nothing to switch to'), show);
+  assert.equal(shown.length, nothing, 'nothing pending, nothing shown (or storage unavailable)');
 });

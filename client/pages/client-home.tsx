@@ -12,15 +12,33 @@ import { Music2, X } from 'lucide-react';
 import AppShell from '../components/shell/AppShell';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
-import { getCachedNewsPreview, setCachedNewsPreview } from '../lib/propertyNewsCache';
+import { getCachedNewsPreview } from '../lib/propertyNewsCache';
 import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
 import { resolveClientHomeProfile } from '../lib/clientHomeAccount';
-import { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } from '../lib/clientHomeScroll';
-import { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
+import { persistClientHomeScroll, restoreClientHomeScroll, shouldRestoreFeedScroll, trackScrollIntent } from '../lib/clientHomeScroll';
+import { fetchClientHomeWidget, hydrateClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
+import {
+  canLoadClientHomeFeed,
+  clientHomeInterests,
+  createInitialSessionGate,
+  deriveClientHomeFeedView,
+  isCurrentFeedContext,
+  isSameAccountTokenRefresh,
+  planClientHomeFeedLoad,
+  syncFeedContext,
+} from '../lib/clientHome/feed';
+import { loadClientHomeNews } from '../lib/clientHome/news';
+import {
+  discoverVideoMetadata,
+  loadCompatibilityVideoMetadata,
+  markVideoStates,
+  resolveVideoFrameSize,
+  settleVideoBatches,
+  toListingVideo,
+} from '../lib/clientHome/video';
 
 interface LikeSummary { listing_id: string; like_count: number | string | null; liked_by_current_user: boolean | null }
-interface MediaItem { id?: string; type?: string; width?: number | null; height?: number | null }
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -301,12 +319,11 @@ function Gallery({
 
   if (video) {
     if (videoFailed) return <div className={`${styles.mediaStage} ${styles.mediaUnavailable}`} role="status">Video unavailable</div>;
-    const naturalSize = videoNaturalSize?.url === video.url
-      ? videoNaturalSize
-      : null;
-    const videoWidth = naturalSize?.width || video.width || 0;
-    const videoHeight = naturalSize?.height || video.height || 0;
-    const hasVideoDimensions = videoWidth > 0 && videoHeight > 0;
+    const {
+      width: videoWidth,
+      height: videoHeight,
+      hasDimensions: hasVideoDimensions,
+    } = resolveVideoFrameSize(video, videoNaturalSize);
     const markVideoReady = () => {
       if (videoLoadTimeout.current !== null) {
         window.clearTimeout(videoLoadTimeout.current);
@@ -944,9 +961,7 @@ export default function ClientHome() {
       const cachedProfile = completedClientProfile(profileStore().peek(sessionUser.id));
       if (cachedProfile) {
         setUser(sessionUser);
-        setInterests(cachedProfile.looking_timeline === 'soon'
-          ? cachedProfile.interested_categories.map((value: string) => value.trim().toLowerCase()).filter(Boolean)
-          : []);
+        setInterests(clientHomeInterests(cachedProfile));
         setFeedReady(true);
       }
 
@@ -975,9 +990,7 @@ export default function ClientHome() {
       if (account.kind !== 'ready') return;
 
       setUser(account.user);
-      const nextInterests = account.profile.looking_timeline === 'soon'
-        ? (account.profile.interested_categories || []).map((value: string) => value.trim().toLowerCase()).filter(Boolean)
-        : [];
+      const nextInterests = clientHomeInterests(account.profile);
       setInterests(nextInterests);
 
       setFeedReady(true);
@@ -999,24 +1012,17 @@ export default function ClientHome() {
       });
     };
 
-    let initialSessionResolved = false;
-    let hasPendingInitialSession = false;
-    let pendingInitialSession: Session | null = null;
+    const initialSession = createInitialSessionGate<Session | null>();
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
-      if (!initialSessionResolved) {
-        hasPendingInitialSession = true;
-        pendingInitialSession = session;
-        return;
-      }
-      if (event === 'TOKEN_REFRESHED' && session?.user?.id === resolvedSessionUserId.current) return;
+      if (initialSession.defer(session)) return;
+      if (isSameAccountTokenRefresh(event, session?.user?.id, resolvedSessionUserId.current)) return;
       void resolveSession(session);
     });
     Promise.all([loadListingFeedCache(), client.auth.getSession()])
       .then(([listingCache, result]) => {
         if (!active) return;
         cache.current = listingCache;
-        initialSessionResolved = true;
-        return resolveSession(hasPendingInitialSession ? pendingInitialSession : result.data.session);
+        return resolveSession(initialSession.release(result.data.session));
       })
       .catch((loadError: Error) => {
         if (active) {
@@ -1039,10 +1045,7 @@ export default function ClientHome() {
       : '',
     [category, interests, term, user, view],
   );
-  if (feedContextKey.current !== key) {
-    feedContextKey.current = key;
-    feedContextVersion.current += 1;
-  }
+  syncFeedContext(feedContextKey, feedContextVersion, key);
 
   const fetcher = useCallback(async (offset: number, limit: number): Promise<{ data?: Listing[]; hasMore?: boolean; error?: Error }> => {
     const client = getSupabaseClient();
@@ -1086,30 +1089,31 @@ export default function ClientHome() {
     return { data: matches.slice(0, limit), hasMore: false };
   }, [category, interests, term, view]);
 
-  const feedContextReady = view === 'saved' ? ready : feedReady;
-  const currentFeedLoading = loadedFeedKey === key
-    ? loading
-    : loading || feedContextReady;
-  const visibleItems = loadedFeedKey === key ? items : [];
+  const { visibleItems, showSkeleton, showEmpty } = deriveClientHomeFeedView({
+    view, ready, feedReady, key, loadedFeedKey, loading, error, items,
+  });
 
   const loadFeed = useCallback(async (nextPage = false) => {
-    if (!feedReady || !user || !cache.current || !key || view === 'saved' || (nextPage && loadingMoreRef.current)) return;
+    if (!cache.current || !canLoadClientHomeFeed({
+      feedReady, hasUser: Boolean(user), key, view, nextPage, loadingMore: loadingMoreRef.current,
+    })) return;
     if (!nextPage) {
       loadingMoreRef.current = false;
       setLoadingMore(false);
     }
     const currentVersion = ++loadVersion.current;
     const snapshot = cache.current.snapshot<Listing>(key);
-    if (!nextPage && snapshot.hasCachedPage) {
+    const plan = planClientHomeFeedLoad(snapshot, nextPage);
+    if (plan.useCached) {
       setItems(snapshot.items as Listing[]);
       setLoadedFeedKey(key);
       setHasMore(Boolean(snapshot.hasMore));
       setLoading(false);
       setError('');
-      if (snapshot.isStale) {
+      if (plan.revalidate) {
         const contextVersion = feedContextVersion.current;
         void cache.current.revalidate<Listing>(key, fetcher).then((result) => {
-          if (contextVersion !== feedContextVersion.current || feedContextKey.current !== key) return;
+          if (!isCurrentFeedContext(contextVersion, key, { version: feedContextVersion.current, key: feedContextKey.current })) return;
           setItems((result.items || []) as Listing[]);
           setHasMore(Boolean(result.hasMore));
         }).catch((loadError: Error) => {
@@ -1252,11 +1256,7 @@ export default function ClientHome() {
           : {};
         const settle = (listingIds: string[], state: 'none' | 'unavailable') => {
           if (!isCurrent()) return;
-          setVideoStates((current) => {
-            const next = { ...current };
-            listingIds.forEach((id) => { next[id] = state; });
-            return next;
-          });
+          setVideoStates((current) => markVideoStates(current, listingIds, state));
         };
         const loadPlayback = async (
           id: string,
@@ -1269,93 +1269,38 @@ export default function ClientHome() {
               if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
               return playbackResponse.json();
             });
-            if (!playback?.url) throw new Error('Video playback did not include a URL.');
+            const video = toListingVideo(playback, dimensions);
             if (!isCurrent()) return;
-            setVideos((current) => ({
-              ...current,
-              [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: dimensions.width || undefined, height: dimensions.height || undefined },
-            }));
+            setVideos((current) => ({ ...current, [id]: video }));
             settle([id], 'none');
           } catch (playbackError) {
             console.error(`Video playback for listing ${id} could not be loaded:`, playbackError);
             settle([id], 'unavailable');
           }
         };
-        const loadCompatibility = async (listingIds: string[]) => {
-          console.warn('Video discovery endpoint is unavailable; using the compatibility route.');
-          const discovered: Record<string, { mediaId: string | null; width?: number | null; height?: number | null }> = {};
-          await Promise.all(listingIds.map(async (id) => {
-            try {
-              const response = await fetch(`/api/properties/${encodeURIComponent(id)}/media`, { headers });
-              if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
-              const result = await response.json();
-              if (!Array.isArray(result?.media)) throw new Error('Video media response was invalid.');
-              const videoMedia = (result.media as MediaItem[]).find((mediaItem) => mediaItem?.type === 'video' && typeof mediaItem.id === 'string');
-              discovered[id] = videoMedia
-                ? { mediaId: videoMedia.id || null, width: videoMedia.width, height: videoMedia.height }
-                : { mediaId: null };
-            } catch (fallbackError) {
-              console.error(`Video media for listing ${id} could not be loaded:`, fallbackError);
-              throw fallbackError;
-            }
-          }));
-          return discovered;
-        };
+        const loadCompatibility = (listingIds: string[]) => loadCompatibilityVideoMetadata(
+          listingIds,
+          (id) => fetch(`/api/properties/${encodeURIComponent(id)}/media`, { headers }),
+        );
 
-        for (let offset = 0; offset < ids.length; offset += 24) {
-          const batch = ids.slice(offset, offset + 24);
-          try {
-            const metadata = await fetchClientHomeVideoMetadata(
-              getSessionStorageSafe(),
-              accountId,
-              batch,
-              async (missingIds: string[]) => {
-                const discovered: Record<string, { mediaId: string | null; width?: number | null; height?: number | null }> = {};
-                for (let missingOffset = 0; missingOffset < missingIds.length; missingOffset += 24) {
-                  const missingBatch = missingIds.slice(missingOffset, missingOffset + 24);
-                  const response = await fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(missingBatch.join(','))}`, { headers });
-                  if (response.status === 404 || response.status === 405) {
-                    Object.assign(discovered, await loadCompatibility(missingBatch));
-                    continue;
-                  }
-                  if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
-                  const payload = await response.json();
-                  if (!payload?.videoMedia || typeof payload.videoMedia !== 'object' || Array.isArray(payload.videoMedia)) {
-                    throw new Error('Video media response was invalid.');
-                  }
-                  missingBatch.forEach((id) => {
-                    const mediaId = payload.videoMedia[id];
-                    const dimensions = payload.videoDimensions?.[id] || {};
-                    discovered[id] = typeof mediaId === 'string' && mediaId
-                      ? { mediaId, width: dimensions.width, height: dimensions.height }
-                      : { mediaId: null };
-                  });
-                }
-                return discovered;
-              },
-            );
-            if (!isCurrent()) return;
-            await Promise.all(batch.map(async (id) => {
-              const videoMetadata = metadata[id];
-              if (!videoMetadata || !videoMetadata.mediaId) {
-                settle([id], 'none');
-                return;
-              }
-              await loadPlayback(id, videoMetadata.mediaId, videoMetadata);
-            }));
-          } catch (lookupError) {
-            console.error('Batched listing video lookup could not be completed:', lookupError);
-            settle(batch, 'unavailable');
-          }
-        }
+        await settleVideoBatches(ids, {
+          isCurrent,
+          settle,
+          loadPlayback,
+          discover: (batch) => fetchClientHomeVideoMetadata(
+            getSessionStorageSafe(),
+            accountId,
+            batch,
+            (missingIds: string[]) => discoverVideoMetadata(missingIds, {
+              requestBatch: (missingBatch) => fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(missingBatch.join(','))}`, { headers }),
+              loadCompatibility,
+            }),
+          ),
+        });
       } catch (lookupError) {
         console.error('Listing video discovery could not be started:', lookupError);
         if (!isCurrent()) return;
-        setVideoStates((current) => {
-          const next = { ...current };
-          ids.forEach((id) => { next[id] = 'unavailable'; });
-          return next;
-        });
+        setVideoStates((current) => markVideoStates(current, ids, 'unavailable'));
       }
     }, 60);
   }, [videoStates, videos]);
@@ -1381,169 +1326,71 @@ export default function ClientHome() {
   }, [items, key, loadedFeedKey, requestVideoMedia]);
 
   useEffect(() => {
-    const markScrollIntent = () => { scrollInteractionVersion.current += 1; };
-    const markKeyboardScrollIntent = (event: KeyboardEvent) => {
-      if (!['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return;
-      markScrollIntent();
-    };
-    window.addEventListener('wheel', markScrollIntent, { passive: true });
-    window.addEventListener('touchstart', markScrollIntent, { passive: true });
-    window.addEventListener('pointerdown', markScrollIntent, { passive: true });
-    window.addEventListener('keydown', markKeyboardScrollIntent);
+    const stopTrackingScrollIntent = trackScrollIntent(window, () => { scrollInteractionVersion.current += 1; });
     return () => {
       anchorObserverCleanup.current?.();
       anchorObserverCleanup.current = null;
-      window.removeEventListener('wheel', markScrollIntent);
-      window.removeEventListener('touchstart', markScrollIntent);
-      window.removeEventListener('pointerdown', markScrollIntent);
-      window.removeEventListener('keydown', markKeyboardScrollIntent);
+      stopTrackingScrollIntent();
     };
   }, []);
 
   useIsomorphicLayoutEffect(() => {
-    if (!feedReady || !key || loadedFeedKey !== key || loading || error || restoredScrollKey.current === key) return;
-    const node = feed.current;
-    try {
-      const rawPosition = sessionStorage.getItem(`varoom:listings:scroll:${key}`);
-      restoredScrollKey.current = key;
-      if (!rawPosition) return;
-      const savedPosition = JSON.parse(rawPosition);
-      const interactionVersion = scrollInteractionVersion.current;
-      restoreScrollPosition(window, node, savedPosition);
-      anchorObserverCleanup.current?.();
-      anchorObserverCleanup.current = preserveAnchorPosition(
-        window,
-        node,
-        savedPosition,
-        () => interactionVersion !== scrollInteractionVersion.current,
-      );
-      return () => {
-        anchorObserverCleanup.current?.();
-        anchorObserverCleanup.current = null;
-      };
-    } catch (restoreError) {
-      console.warn('Client Home scroll position could not be restored:', restoreError);
-    }
+    if (!shouldRestoreFeedScroll({ feedReady, key, loadedFeedKey, loading, error, restoredKey: restoredScrollKey.current })) return;
+    return restoreClientHomeScroll(window, feed.current, key, {
+      restoredKey: restoredScrollKey,
+      interactionVersion: scrollInteractionVersion,
+      anchorCleanup: anchorObserverCleanup,
+    });
   }, [error, feedReady, key, loadedFeedKey, loading]);
 
   useEffect(() => {
     const node = feed.current;
     if (!node || !key) return;
-    const saveScroll = () => {
-      if (leavingClientHome.current) return;
-      try {
-        sessionStorage.setItem(`varoom:listings:scroll:${key}`, JSON.stringify({
-          ...captureScrollPosition(window, node),
-        }));
-      } catch (saveError) {
-        console.warn('Client Home scroll position could not be saved:', saveError);
-      }
-    };
-    const saveBeforeNavigation = () => {
-      anchorObserverCleanup.current?.();
-      anchorObserverCleanup.current = null;
-      saveScroll();
-    };
-    const handleRouteStart = (nextUrl: string) => {
-      saveBeforeNavigation();
-      leavingClientHome.current = isClientHomePageExit(router.asPath, nextUrl);
-    };
-    const handleRouteError = () => {
-      leavingClientHome.current = false;
-    };
-    node.addEventListener('scroll', saveScroll, { passive: true });
-    window.addEventListener('scroll', saveScroll, { passive: true });
-    window.addEventListener('pagehide', saveScroll);
-    router.events.on('routeChangeStart', handleRouteStart);
-    router.events.on('routeChangeError', handleRouteError);
-    return () => {
-      if (!leavingClientHome.current) saveScroll();
-      node.removeEventListener('scroll', saveScroll);
-      window.removeEventListener('scroll', saveScroll);
-      window.removeEventListener('pagehide', saveScroll);
-      router.events.off('routeChangeStart', handleRouteStart);
-      router.events.off('routeChangeError', handleRouteError);
-    };
+    return persistClientHomeScroll(window, node, key, router, {
+      leaving: leavingClientHome,
+      anchorCleanup: anchorObserverCleanup,
+    });
   }, [key, router]);
 
   useEffect(() => {
     let active = true;
     if (!user?.id) return () => { active = false; };
-    const cachedDestinations = readClientHomeWidgetCache<Record<string, number | null>>('destinations');
-    if (cachedDestinations) {
-      setDestCounts(cachedDestinations.value);
-      setDestinationsLoading(false);
-      setDestinationsFailed(false);
-    } else {
-      setDestinationsLoading(true);
-      setDestinationsFailed(false);
-    }
-    if (!cachedDestinations?.isFresh) {
+    const isActive = () => active;
+    hydrateClientHomeWidget<Record<string, number | null>>('destinations', {
+      isActive,
+      setValue: setDestCounts,
+      setLoading: setDestinationsLoading,
+      setFailed: setDestinationsFailed,
+    }, () => {
       const client = getSupabaseClient();
-      if (!client) {
-        setDestinationsFailed(true);
-        setDestinationsLoading(false);
-      } else {
-        void fetchClientHomeWidget('destinations', async () => {
-          const counts = await Promise.all(destinations.map(async ({ city }) => {
-            const result = await client.from('listings').select('id', { count: 'exact', head: true })
-              .ilike('location_text', `%${city}%`);
-            if (result.error) throw result.error;
-            return [city, typeof result.count === 'number' ? result.count : null] as const;
-          }));
-          return Object.fromEntries(counts);
-        }).then((counts: Record<string, number | null>) => {
-          writeClientHomeWidgetCache('destinations', counts);
-          if (active) {
-            setDestCounts(counts);
-            setDestinationsFailed(false);
-          }
-        }).catch((widgetError: Error) => {
-          console.error('Popular destination counts could not be loaded:', widgetError);
-          if (active) setDestinationsFailed(true);
-        }).finally(() => {
-          if (active) setDestinationsLoading(false);
-        });
-      }
-    }
-
-    const cachedUpdates = readClientHomeWidgetCache<Update[]>('updates');
-    if (cachedUpdates) {
-      setUpdates(cachedUpdates.value);
-      setUpdatesLoading(false);
-      setUpdatesFailed(false);
-    } else {
-      setUpdatesLoading(true);
-      setUpdatesFailed(false);
-    }
-    if (!cachedUpdates?.isFresh) {
-      const client = getSupabaseClient();
-      if (!client) {
-        setUpdatesFailed(true);
-        setUpdatesLoading(false);
-      } else {
-        void fetchClientHomeWidget('updates', async () => {
-          const result = await client.from('varoom_updates').select('id,body,image_url,image_urls,created_at')
-            .eq('status', 'published').order('created_at', { ascending: false }).limit(3);
+      if (!client) return null;
+      return async () => {
+        const counts = await Promise.all(destinations.map(async ({ city }) => {
+          const result = await client.from('listings').select('id', { count: 'exact', head: true })
+            .ilike('location_text', `%${city}%`);
           if (result.error) throw result.error;
-          if (!Array.isArray(result.data)) throw new Error('VaRoom Updates returned an invalid response.');
-          return result.data;
-        }).then((nextUpdates: Update[]) => {
-          writeClientHomeWidgetCache('updates', nextUpdates);
-          if (active) {
-            setUpdates(nextUpdates);
-            setUpdatesFailed(false);
-          }
-        }).catch((widgetError: Error) => {
-          console.error('VaRoom Updates could not be loaded:', widgetError);
-          if (active) setUpdatesFailed(true);
-        }).finally(() => {
-          if (active) setUpdatesLoading(false);
-        });
-      }
-    }
+          return [city, typeof result.count === 'number' ? result.count : null] as const;
+        }));
+        return Object.fromEntries(counts);
+      };
+    }, 'Popular destination counts could not be loaded:');
+
+    hydrateClientHomeWidget<Update[]>('updates', {
+      isActive,
+      setValue: setUpdates,
+      setLoading: setUpdatesLoading,
+      setFailed: setUpdatesFailed,
+    }, () => {
+      const client = getSupabaseClient();
+      if (!client) return null;
+      return async () => {
+        const result = await client.from('varoom_updates').select('id,body,image_url,image_urls,created_at')
+          .eq('status', 'published').order('created_at', { ascending: false }).limit(3);
+        if (result.error) throw result.error;
+        if (!Array.isArray(result.data)) throw new Error('VaRoom Updates returned an invalid response.');
+        return result.data;
+      };
+    }, 'VaRoom Updates could not be loaded:');
 
     return () => { active = false; };
   }, [user?.id]);
@@ -1600,48 +1447,15 @@ export default function ClientHome() {
     };
   }, [user?.id]);
 
-  const loadNews = useCallback(async (force = false) => {
-    const accountId = user?.id || null;
-    const cached = getCachedNewsPreview();
-    if (cached) {
-      setNews(cached.items);
-      setNewsFailed(false);
-      setNewsLoading(false);
-      if (cached.isFresh && !force) return;
-    } else {
-      setNewsLoading(true);
-    }
-    newsAbortController.current?.abort();
-    const controller = new AbortController();
-    newsAbortController.current = controller;
-    const requestVersion = ++newsRequestVersion.current;
-    try {
-      const response = await fetch('/api/news/latest?limit=5', {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
-        cache: force ? 'no-store' : 'default',
-      });
-      if (!response.ok) throw new Error(`Property News request returned ${response.status}.`);
-      const result = await response.json();
-      if (!Array.isArray(result) || !result.every((item) =>
-        item && (typeof item.id === 'string' || typeof item.id === 'number'))) {
-        throw new Error('Property News returned an invalid response.');
-      }
-      if (requestVersion !== newsRequestVersion.current || resolvedSessionUserId.current !== accountId) return;
-      setCachedNewsPreview(result as PropertyNewsItem[]);
-      setNews(result);
-      setNewsFailed(false);
-    } catch (newsError) {
-      if (controller.signal.aborted) return;
-      if (requestVersion !== newsRequestVersion.current || resolvedSessionUserId.current !== accountId) return;
-      console.warn('Property News could not be loaded:', newsError);
-      setNewsFailed(true);
-    } finally {
-      if (requestVersion === newsRequestVersion.current && resolvedSessionUserId.current === accountId) {
-        setNewsLoading(false);
-      }
-    }
-  }, [user?.id]);
+  const loadNews = useCallback((force = false) => loadClientHomeNews(force, {
+    accountId: user?.id || null,
+    currentAccountId: () => resolvedSessionUserId.current,
+    requestVersion: newsRequestVersion,
+    abortController: newsAbortController,
+    setNews,
+    setNewsFailed,
+    setNewsLoading,
+  }), [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1878,7 +1692,7 @@ export default function ClientHome() {
           )}
 
           {error && !loading && <p className={styles.errorMessage} role="alert">{error} <button type="button" onClick={retryAccount}>Retry</button></p>}
-          {currentFeedLoading && !error && visibleItems.length === 0 && (
+          {showSkeleton && (
             <div aria-label="Loading listings">
               {[0, 1, 2].map((item) => (
                 <div key={item}>
@@ -1897,7 +1711,7 @@ export default function ClientHome() {
               ))}
             </div>
           )}
-          {feedContextReady && loadedFeedKey === key && !currentFeedLoading && !error && visibleItems.length === 0 && (
+          {showEmpty && (
             <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
           )}
           {visibleItems.map((listing, index) => (

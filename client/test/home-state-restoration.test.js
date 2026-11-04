@@ -5,32 +5,19 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 
-test('native Client Home uses account-scoped feed caches before revalidation', () => {
-  const source = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
-  assert.match(source, /loadListingFeedCache\(\)/);
-  assert.match(source, /cache\.current\.snapshot/);
-  assert.match(source, /cache\.current\.revalidate(?:<Listing>)?\(key, fetcher\)/);
-  assert.match(source, /\['client', user\.id, view, category/);
-  assert.match(source, /feedContextKey\.current !== key/);
-});
+// Client Home's account-scoped feed cache, revalidation and stale-response
+// guards are behaviour-tested in client-home-cache-first.test.js
+// (lib/clientHome/feed.ts) and client-home-video.test.js.
 
-test('both sidebars show the verified profile only when it belongs to the session account', () => {
+// Which profile the sidebars show (only the session account's) is
+// behaviour-tested through lib/shell/shellIdentity.ts in
+// persistent-host-sidebar.test.js.
+test('both sidebars reuse the shared identity instead of fetching the profile again', () => {
   for (const file of ['shell/HostSidebar.tsx', 'shell/ClientSidebar.tsx']) {
     const source = fs.readFileSync(path.join(root, 'components', file), 'utf8');
-    assert.match(source, /useShellIdentity\(getInitialUser\(\), /, file);
+    assert.match(source, /useShellIdentity\(/, file);
     assert.doesNotMatch(source, /profileStore\(\)\.get|from\('profiles'\)/, file);
   }
-  const chrome = fs.readFileSync(path.join(root, 'components', 'shell', 'useShellChrome.ts'), 'utf8');
-  assert.match(chrome, /if \(authUser && profile && profile\.id === authUser\.id\)/);
-  assert.match(chrome, /if \(!hasMounted\) return \{ user: initial, hasMounted \};/);
-});
-
-test('native Client Home keeps lifecycle work page-scoped and avoids stale state races', () => {
-  const pageSource = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
-  assert.match(pageSource, /if \(!active\) return;/);
-  assert.match(pageSource, /epoch !== authEpoch\.current/);
-  assert.match(pageSource, /feedContextVersion\.current/);
-  assert.match(pageSource, /if \(contextVersion !== feedContextVersion\.current \|\| feedContextKey\.current !== key\) return;/);
 });
 
 test('Host Home is native; the legacy page lifecycle is retired', () => {

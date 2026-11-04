@@ -59,3 +59,10 @@ export function descriptionParagraphs(text: string | null | undefined): string[]
   if (!normalized) return [];
   return normalized.split(/\n\s*\n/).filter((paragraph) => paragraph.trim().length > 0).map((paragraph) => paragraph.trim());
 }
+
+/** Preview length: 140 characters on phones (under 640 px wide), else 220; 220 when the width is unknown (server render). */
+export const descriptionPreviewChars = (viewportWidth: number | null) => (viewportWidth !== null && viewportWidth < 640 ? 140 : 220);
+
+/** The paragraphs shown: the whole description when expanded, else the preview. */
+export const visibleParagraphs = (fullText: string, preview: { text: string }, expanded: boolean) =>
+  descriptionParagraphs(expanded ? fullText : preview.text);

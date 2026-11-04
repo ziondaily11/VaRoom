@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { activeLinkedAccount, logout, switchAccount } from '../../lib/account/accountActions';
+import { resolveShellIdentity, storedIdentity, type ShellIdentity } from '../../lib/shell/shellIdentity';
 
 // Behaviour shared by the host and client sidebars: the More and account
 // popovers, closing on outside click or Escape, the mobile drawer, the
@@ -115,14 +116,7 @@ export function useShellChrome({ toggleSelector, openEvents, closeEvents, toggle
   };
 }
 
-export interface ShellIdentity {
-  id?: string;
-  full_name: string;
-  username: string;
-  avatar_url: string | null;
-  email: string;
-  role?: string | null;
-}
+export type { ShellIdentity };
 
 /**
  * The identity shown in a sidebar. Server render and first client render use
@@ -138,36 +132,12 @@ export function useShellIdentity(initial: ShellIdentity, fallback: ShellIdentity
   useEffect(() => {
     setHasMounted(true);
     const active = activeLinkedAccount();
-    if (active) {
-      setStored({
-        id: active.id,
-        full_name: active.full_name || fallback.full_name,
-        username: active.username || fallback.username,
-        avatar_url: active.avatar_url,
-        email: active.email,
-        role: active.role,
-      });
-    }
+    if (active) setStored(storedIdentity(active, fallback));
     // Initial values are constants per sidebar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (authUser && profile && profile.id === authUser.id) {
-    const metadata = (authUser.user_metadata || {}) as { full_name?: string; avatar_url?: string };
-    return {
-      hasMounted,
-      user: {
-        id: profile.id,
-        full_name: profile.full_name || metadata.full_name || fallback.full_name,
-        username: profile.username || (authUser.email ? authUser.email.split('@')[0] : fallback.username),
-        avatar_url: profile.avatar_url || metadata.avatar_url || null,
-        email: authUser.email || '',
-        role: profile.role,
-      },
-    };
-  }
-  if (!hasMounted) return { user: initial, hasMounted };
-  return { user: stored || fallback, hasMounted };
+  return { hasMounted, user: resolveShellIdentity({ authUser, profile, hasMounted, stored, initial, fallback }) };
 }
 
 export function openAddAccountModal(): void {

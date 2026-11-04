@@ -1,9 +1,11 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
+import { CLIENT_MORE_ITEMS, clientActiveNav } from '../../lib/navigation/activeNav';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
-import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity, type ShellIdentity } from './useShellChrome';
+import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity } from './useShellChrome';
+import { clientInitialIdentity } from '../../lib/shell/shellIdentity';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 
 // The client sidebar (formerly components/SharedClientSidebar.jsx). Markup,
@@ -28,16 +30,6 @@ function resolveAvatar(url?: string | null): string | null {
   return url;
 }
 
-// Server render and first client render: a fixed placeholder identity.
-function getInitialUser(): ShellIdentity {
-  return {
-    full_name: 'VaRoom Member',
-    username: 'member',
-    avatar_url: null,
-    email: '',
-  };
-}
-
 const DRAWER_EVENTS = {
   toggleSelector: '#topbar-avatar-btn, #menu-toggle, .menu-toggle',
   openEvents: ['open-client-sidebar'],
@@ -47,7 +39,7 @@ const DRAWER_EVENTS = {
 
 export default function ClientSidebar({ activeNav: explicitActiveNav }: { activeNav?: string } = {}) {
   const router = useRouter();
-  const { user, hasMounted } = useShellIdentity(getInitialUser(), getInitialUser());
+  const { user, hasMounted } = useShellIdentity(clientInitialIdentity(), clientInitialIdentity());
   // Shared counts store (one realtime channel for the app); no sidebar polling.
   const unreadCount = useCounts().notifications;
   const linkedAccounts = useLinkedAccounts();
@@ -59,25 +51,9 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
   } = useShellChrome(DRAWER_EVENTS);
 
   // Compute active navigation item from router if not explicitly passed
-  const activeNav: string = explicitActiveNav || (() => {
-    const p = router.pathname || '';
-    const as = router.asPath || '';
-    if (p === '/client-home' || as.startsWith('/client-home')) {
-      if (as.includes('view=saved')) return 'saved';
-      return 'home';
-    }
-    if (p === '/marketplace' || as.startsWith('/marketplace')) return 'marketplace';
-    if (p === '/bookings' || as.startsWith('/bookings')) return 'bookings';
-    if (p === '/chats' || as.startsWith('/chats')) return 'chats';
-    if (p === '/notifications' || as.startsWith('/notifications')) return 'notifications';
-    if (p === '/profile' || as.startsWith('/profile')) return 'profile';
-    if (p === '/settings' || as.startsWith('/settings')) return 'settings';
-    if (p === '/support' || as.startsWith('/support')) return 'support';
-    if (p === '/signup-host' || as.startsWith('/signup-host')) return 'signup-host';
-    return '';
-  })();
+  const activeNav: string = explicitActiveNav || clientActiveNav(router.pathname || '', router.asPath || '');
 
-  const isMoreActive = ['profile', 'settings', 'support', 'signup-host'].includes(activeNav);
+  const isMoreActive = CLIENT_MORE_ITEMS.includes(activeNav);
 
   // Navigation click handler
   const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string, navKey?: string) => {

@@ -4,9 +4,10 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import HostSidebar from './HostSidebar';
 import ClientSidebar from './ClientSidebar';
 import AddAccountNotice from './AddAccountNotice';
+import { isShellSettled, shellFrame, shellState, type ShellVariant } from '../../lib/shell/appShell';
 import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES } from './shellStyles';
 
-export type ShellVariant = 'host' | 'client' | null;
+export type { ShellVariant };
 
 /**
  * True once the account's role is known (or known to be absent): signed out,
@@ -14,9 +15,7 @@ export type ShellVariant = 'host' | 'client' | null;
  */
 export function useShellSettled(): boolean {
   const { status, profile, profileError } = useAuth();
-  if (status === 'loading') return false;
-  if (status === 'signed-out') return true;
-  return Boolean(profile || profileError);
+  return isShellSettled(status, profile, profileError);
 }
 
 /**
@@ -41,17 +40,6 @@ function useActiveAccountSync(enabled: boolean) {
   }, [userId]);
 }
 
-const SHELL_CLASS: Record<'host' | 'client', string> = {
-  host: 'host-app-layout host-layout-active',
-  client: 'client-app-layout client-layout-active',
-};
-
-const CONTENT_PROPS: Record<'host' | 'client' | 'pending', { className: string; id?: string }> = {
-  host: { className: 'host-page-content', id: 'host-page-content' },
-  client: { className: 'client-page-content', id: 'client-main-content' },
-  pending: { className: 'app-shell-pending-content' },
-};
-
 /**
  * The persistent application shell for host and client routes. Its element
  * structure is identical for every variant, so the page inside is never
@@ -66,13 +54,11 @@ export default function AppShell({ variant, className = '', children }: {
 }) {
   const settled = useShellSettled();
   useActiveAccountSync(Boolean(variant));
-  const key = variant || 'pending';
   const styles = variant === 'host' ? HOST_SHELL_STYLES : variant === 'client' ? CLIENT_SHELL_STYLES : PENDING_SHELL_STYLES;
-  const shellClass = variant ? `${SHELL_CLASS[variant]} ${className}`.trim() : 'app-shell-pending';
-  const content = CONTENT_PROPS[key];
+  const { key, shellClass, content } = shellFrame(variant, className);
 
   return (
-    <div className={shellClass} data-app-shell={key} data-shell-state={variant || settled ? 'ready' : 'pending'}>
+    <div className={shellClass} data-app-shell={key} data-shell-state={shellState(variant, settled)}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       {variant === 'host' ? <HostSidebar /> : variant === 'client' ? <ClientSidebar /> : null}
       <main className={content.className} id={content.id}>

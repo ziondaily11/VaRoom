@@ -55,9 +55,9 @@ test('sending: same endpoint and body; token only when signed in; server errors 
   await assert.rejects(support.sendSupportTicket(ticket, null, async () => ({ ok: true, headers: { get: () => 'text/html' } })), /unexpected response/);
 });
 
-test('page: legacy markup classes, identity from AuthProvider (no profile request), role-based home, mobile navigation', () => {
+test('page: legacy markup classes, identity from AuthProvider (no profile request), mobile navigation', () => {
   assert.doesNotMatch(page, /from\('profiles'\)|supabase-client\.js/);
-  assert.match(page, /const homeHref = role === 'host' \? '\/host-home' : '\/client-home';/);
+  assert.match(page, /const homeHref = supportHomeHref\(role\);/);
   assert.match(page, /<div className="page support-page">/);
   // Nothing of the legacy page remains: its styles (including dark theme) live with the page.
   assert.doesNotMatch(page, /support-page-body/);
@@ -77,7 +77,19 @@ test('dialog: closes on Escape, backdrop and ✕; focus moves in and returns; ac
   assert.match(dialog, /const openerRef = useRef<HTMLElement \| null>\(typeof document === 'undefined' \? null : document\.activeElement/, 'the opener is read before focus moves into the dialog');
   assert.match(dialog, /onClick=\{\(\) => onFlowChange\('ticket'\)\}/);
   assert.match(dialog, /window\.setTimeout\(onClose, 1400\)/);
-  assert.match(dialog, /email: flow === 'ticket' \? replyEmail : user\.email/, 'the reply-to email the user typed is used');
+  assert.match(dialog, /buildSupportTicket\(ticketRequest\(flow, user, \{ replyEmail, subject, message \}\)\)/);
+});
+
+test('ticket request: the typed reply-to email for tickets, the account email and fixed subject otherwise', () => {
+  const user = { name: 'Zion', email: 'zion@example.com' };
+  const fields = { replyEmail: 'reply@example.com', subject: 'Payout', message: 'Hi' };
+  assert.deepEqual({ ...support.ticketRequest('ticket', user, fields) }, { name: 'Zion', email: 'reply@example.com', subject: 'Payout', message: 'Hi' });
+  assert.deepEqual({ ...support.ticketRequest('bug', user, fields) }, { name: 'Zion', email: 'zion@example.com', subject: 'Bug report', message: 'Hi' });
+  assert.deepEqual({ ...support.ticketRequest('feature', user, fields) }, { name: 'Zion', email: 'zion@example.com', subject: 'Feature request', message: 'Hi' });
+  assert.deepEqual(support.buildSupportTicket(support.ticketRequest('ticket', user, { ...fields, replyEmail: 'typo' })), { error: 'Please enter a valid reply-to email.' });
+  assert.equal(support.supportHomeHref('host'), '/host-home');
+  assert.equal(support.supportHomeHref('client'), '/client-home');
+  assert.equal(support.supportHomeHref(null), '/client-home', 'signed out');
 });
 
 test('legacy support.html is gone; old URLs reach the native page', () => {

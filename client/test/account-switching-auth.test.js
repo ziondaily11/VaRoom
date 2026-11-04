@@ -288,10 +288,11 @@ test('Google add-account callback rejects missing, rejected, or cross-identity r
 });
 
 test('email and Google add-account flows use isolated auth clients; callback links accounts without replacing the active session', () => {
-  assert.match(addAccountModalSource, /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
+  // The email flow's isolated client is behaviour-tested in add-account-modal.test.js (lib/account/addAccount.ts).
+  assert.match(addAccountModalSource, /signInIsolatedWithPassword\(\{/);
   assert.match(accountSwitcherSource, /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/);
   assert.match(addAccountModalSource, /\{ usesRedirect: true, flowId: accountAuthFlow \}/);
-  assert.match(addAccountModalSource, /\/auth-callback\?addAccount=true&account_auth_flow=\$\{encodeURIComponent\(accountAuthFlow\)\}/);
+  assert.match(addAccountModalSource, /addAccountCallbackUrl\(window\.location\.origin, accountAuthFlow\)/);
   assert.match(supabaseBrowserClientSource, /params\.get\('addAccount'\) === 'true'/);
   assert.match(callbackSource, /linkAdditionalSession\(env\.createPrimaryClient\(\), additional\)/);
   assert.match(callbackSource, /refreshAccountAddSession\(env\.client, session\)/);

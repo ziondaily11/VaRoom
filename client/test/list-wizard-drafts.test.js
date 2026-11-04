@@ -6,84 +6,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('node:path');
 const { File } = require('node:buffer');
-const { loadTs } = require('./helpers/loadTs');
+const { loadWizard: load, createMemoryIndexedDB, createMemoryStorage, jsonResponse, plain } = require('./helpers/listWizardFakes');
 
-const dir = path.join(__dirname, '..', 'lib', 'listWizard');
-const keyRange = { bound: (lower, upper) => ({ lower, upper }) };
-const load = (file, globals = {}) => loadTs(path.join(dir, file), { globals: { IDBKeyRange: keyRange, ...globals } });
 const { createListingDraftCache, clearListingDrafts } = load('draftCache.ts');
 const drafts = load('drafts.ts');
 const { emptyForm } = load('formState.ts');
 const publish = load('publish.ts');
-
-function createMemoryIndexedDB(records = new Map()) {
-  let hasStore = false;
-  const database = {
-    objectStoreNames: { contains: () => hasStore },
-    createObjectStore() { hasStore = true; },
-    close() {},
-    transaction() {
-      const transaction = {};
-      const schedule = (callback) => {
-        const request = {};
-        queueMicrotask(() => {
-          try {
-            request.result = callback();
-            if (request.onsuccess) request.onsuccess();
-            if (transaction.oncomplete) transaction.oncomplete();
-          } catch (error) {
-            transaction.error = error;
-            if (transaction.onerror) transaction.onerror();
-          }
-        });
-        return request;
-      };
-      transaction.objectStore = () => ({
-        put: (value) => schedule(() => records.set(value.cacheKey, structuredClone(value))),
-        get: (key) => schedule(() => { const value = records.get(key); return value && structuredClone(value); }),
-        delete: (key) => schedule(() => {
-          if (key && typeof key === 'object') {
-            [...records.keys()].filter((name) => name >= key.lower && name <= key.upper).forEach((name) => records.delete(name));
-          } else records.delete(key);
-        }),
-      });
-      return transaction;
-    },
-  };
-  return {
-    records,
-    open() {
-      const request = {};
-      queueMicrotask(() => {
-        request.result = database;
-        if (!hasStore && request.onupgradeneeded) request.onupgradeneeded();
-        if (request.onsuccess) request.onsuccess();
-      });
-      return request;
-    },
-    deleteDatabase() {
-      const request = {};
-      queueMicrotask(() => { records.clear(); if (request.onsuccess) request.onsuccess(); });
-      return request;
-    },
-  };
-}
-
-function createMemoryStorage() {
-  const values = new Map();
-  return {
-    values,
-    get length() { return values.size; },
-    key: (index) => [...values.keys()][index] || null,
-    getItem: (key) => (values.has(key) ? values.get(key) : null),
-    setItem: (key, value) => values.set(key, String(value)),
-    removeItem: (key) => values.delete(key),
-  };
-}
-
-const plain = (value) => JSON.parse(JSON.stringify(value));
 
 // ---------- The device draft store (unchanged keys) ----------
 
@@ -215,8 +144,6 @@ function sessionWith(fetchImpl, overrides = {}) {
   });
   return { session, cache, storage, statuses };
 }
-
-const jsonResponse = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
 test('a save sends the revision and keeps the server\'s next one; a conflict stops syncing', async () => {
   const calls = [];
