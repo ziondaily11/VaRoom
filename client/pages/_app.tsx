@@ -398,34 +398,10 @@ const fontSizeScript = `
   })();
 `;
 
-if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototype) {
-  const originalRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
-    if (child && child.parentNode !== this) {
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn('Safely ignored removeChild on detached node:', child);
-      }
-      return child;
-    }
-    return originalRemoveChild.call(this, child) as T;
-  };
-
-  const originalInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function <T extends Node>(this: Node, newNode: T, referenceNode: Node | null): T {
-    if (referenceNode && referenceNode.parentNode !== this) {
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn('Safely ignored insertBefore on detached reference node:', referenceNode);
-      }
-      return newNode;
-    }
-    return originalInsertBefore.call(this, newNode, referenceNode) as T;
-  };
-}
-
 type AppPage = NextPage & {
   /** Replaces the account shell (full-screen pages, or a fixed shell variant). */
   getLayout?: (page: ReactElement) => ReactNode;
-  /** Legacy app pages show the role mobile navigation. */
+  /** Full-screen pages outside the shell that still show the role mobile navigation. */
   appNavigation?: boolean;
 };
 

@@ -57,13 +57,11 @@ test('Phase 3: both shells navigate to /property-news client-side with exact rou
 });
 
 test('Property News is independent of the retired catch-all template and initializer', () => {
-  const slugSource = fs.readFileSync(slugPath, 'utf8');
+  assert.equal(fs.existsSync(slugPath), false, 'the legacy catch-all is retired (E1)');
   const pageSource = fs.readFileSync(propertyNewsPath, 'utf8');
 
   assert.equal(fs.existsSync(legacyPropertyNewsPath), false);
   assert.equal(fs.existsSync(legacyPropertyNewsScriptPath), false);
-  assert.doesNotMatch(slugSource, /property-news\.html/);
-  assert.doesNotMatch(slugSource, /VaRoomLegacyPageInitializers\.propertyNews/);
   assert.match(pageSource, /export default function PropertyNewsPage/);
   assert.match(pageSource, /fetch\('\/api\/news\?limit=50'/);
   assert.match(pageSource, /fetch\(`\/api\/news\/\$\{encodeURIComponent\(id\)\}`/);

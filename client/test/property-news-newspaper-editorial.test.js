@@ -96,9 +96,7 @@ test('Section 6: Routing and Property News Links to Native TSX Page', () => {
   assert.match(nextConfig, /source:\s*'\/legacy-pages\/property-news\.html'/);
 
   // The retired HTML template is not part of catch-all routing.
-  const slugSource = fs.readFileSync(slugPath, 'utf8');
-  assert.doesNotMatch(slugSource, /property-news\.html/);
-  assert.match(slugSource, /return \{\s*notFound:\s*true\s*\}/);
+  assert.equal(fs.existsSync(slugPath), false, 'the legacy catch-all is retired (E1)');
 
   // Check server.js redirects legacy HTML to /property-news
   const serverSource = fs.readFileSync(serverPath, 'utf8');

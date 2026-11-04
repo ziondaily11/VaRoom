@@ -30,13 +30,11 @@ test('Phase 1 & 2: Chats is a native React page in client/pages/chats.tsx', () =
 });
 
 test('CH5: chats.html, elie.html and chat-data.js are retired; old URLs redirect to native Chats', () => {
-  const slugSource = fs.readFileSync(slugPath, 'utf8');
+  assert.equal(fs.existsSync(slugPath), false, 'the legacy catch-all is retired (E1)');
   for (const file of ['legacy-pages/chats.html', 'legacy-pages/elie.html', 'public/js/chat-data.js', 'public/js/chat-cache.js']) {
     assert.equal(fs.existsSync(path.join(root, file)), false, `${file} is deleted`);
   }
-  assert.doesNotMatch(slugSource, /chats\.html|elie\.html|chat-data\.js|chat-cache\.js|Messenger Dashboard|ChatComposerActions|ElieComposerBeam/);
   // The catch-all never serves these URLs.
-  assert.match(slugSource, /\['notifications', 'property-news', 'chats', 'chat', 'elie'\]\.includes\(slugKey\)/);
   const config = fs.readFileSync(path.join(root, 'next.config.js'), 'utf8');
   assert.match(config, /source: '\/elie',\s*destination: '\/chats\?c=elie'/);
   assert.match(config, /source: '\/chat',\s*destination: '\/chats'/);
