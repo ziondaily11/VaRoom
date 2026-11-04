@@ -23,7 +23,7 @@ function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
-export default function ConversationInfo({ conversation, avatar, online, messages, api, onOpenImage, onOpenFile, onReport, onBlock }: {
+export default function ConversationInfo({ conversation, avatar, online, messages, api, onOpenImage, onOpenFile, archived, onArchive, onReport, onBlock }: {
   conversation: ChatConversation;
   /** The avatar element (shared with the inbox). */
   avatar: React.ReactNode;
@@ -33,6 +33,8 @@ export default function ConversationInfo({ conversation, avatar, online, message
   api: ChatApi;
   onOpenImage: (url: string, alt: string) => void;
   onOpenFile: (attachmentId: string) => void;
+  archived: boolean;
+  onArchive: () => void;
   onReport: () => void;
   onBlock: () => void;
 }) {
@@ -121,6 +123,9 @@ export default function ConversationInfo({ conversation, avatar, online, message
 
       <div className="info-section chat-actions">
         <div className="info-section-head"><span className="label">Actions</span></div>
+        <button type="button" className="info-action info-action-archive" onClick={onArchive}>
+          <svg className="icon"><use href="#i-archive" /></svg> {archived ? 'Unarchive chat' : 'Archive chat'}
+        </button>
         <button type="button" className="info-action info-action-report" onClick={onReport}>
           <svg className="icon"><use href="#i-flag" /></svg> Report User
         </button>

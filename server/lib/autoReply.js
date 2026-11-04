@@ -8,7 +8,7 @@
 
 const crypto = require('crypto');
 const supabaseAdmin = require('./supabaseClient');
-const { createNotification } = require('./notifications');
+const { notifyNewMessage } = require('./chatNotifications');
 const { accountCanCreateActivity } = require('./accountAccess');
 const { encryptMessage, decryptMessage } = require('./messageEncryptionService');
 
@@ -186,30 +186,51 @@ async function persistReply(conversation, { reply, alternativeListingIds }, corr
     }
   }
 
+  await notifyGuest(conversation, replyMessage, correlationId);
+  return messages;
+}
+
+/** Tells the guest about an auto-reply (unless they turned message notifications off). */
+async function notifyGuest(conversation, message, correlationId) {
   try {
     const { data: hostProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', conversation.host_id).maybeSingle();
-    await createNotification({
+    await notifyNewMessage({
       recipientUserId: conversation.client_id,
       actorUserId: conversation.host_id,
-      type: 'new_message',
-      title: 'New message',
       message: `${(hostProfile && hostProfile.full_name) || 'Your host'} sent you a message.`,
       relatedEntityType: 'conversation',
       relatedEntityId: conversation.id,
       metadata: {
         conversation_id: conversation.id,
         sender_id: conversation.host_id,
-        message_id: replyMessage.id,
+        message_id: message.id,
         listing_id: conversation.listing_id || null,
         auto_reply: true,
       },
-      eventKey: `message:${conversation.id}:${replyMessage.id}`,
+      eventKey: `message:${conversation.id}:${message.id}`,
     });
   } catch (error) {
     log('warn', 'notification failed', { conversationId: conversation.id, correlationId, code: error.code });
   }
+}
 
-  return messages;
+// The host's away message (Chat Settings), shown there in quotes; sent without them.
+const DEFAULT_AWAY_MESSAGE = 'I’m currently away and will respond as soon as I can.';
+
+function awayMessageText(value) {
+  const text = String(value || '').trim().replace(/^[“"](.*)[”"]$/s, '$1').trim();
+  return text || DEFAULT_AWAY_MESSAGE;
+}
+
+/** The away message went out since the host last wrote themselves (once per away spell). */
+function awayMessageSent(history, conversation, text) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const row = history[index];
+    if (row.sender_id !== conversation.host_id) continue;
+    if (!row.is_auto_reply) return false;
+    if (row.message_type === 'text' && row.text === text) return true;
+  }
+  return false;
 }
 
 /** The host typed @reply: answer the guest's messages now. */
@@ -247,7 +268,7 @@ async function awayReplyOnce(conversation, state, correlationId) {
   };
 
   const { data: hostProfile, error: profileError } = await supabaseAdmin
-    .from('profiles').select('away_mode').eq('id', conversation.host_id).maybeSingle();
+    .from('profiles').select('away_mode,away_message').eq('id', conversation.host_id).maybeSingle();
   if (profileError) throw new AutoReplyError('Unable to read the host profile', { stage: 'profile' });
   if (!hostProfile || !hostProfile.away_mode) return skip('host not away');
   if (!(await accountCanCreateActivity(conversation.host_id))) return skip('host suspended');
@@ -274,6 +295,19 @@ async function awayReplyOnce(conversation, state, correlationId) {
     .limit(HOURLY_CAP);
   if (capError) throw new AutoReplyError('Unable to check the reply limit', { stage: 'cap' });
   if ((recent || []).length >= HOURLY_CAP) return skip('hourly limit reached');
+
+  // The host's own away message goes out first, at once, even while Elie is
+  // asleep or switched off; Elie's answer follows.
+  const awayText = awayMessageText(hostProfile.away_message);
+  if (!awayMessageSent(history, conversation, awayText)) {
+    const awayMessage = await insertHostMessage(conversation, awayText);
+    log('info', 'away message sent', { conversationId: conversation.id, correlationId });
+    await notifyGuest(conversation, awayMessage, correlationId);
+  }
+  if (!awayRepliesEnabled()) {
+    state.answeredUpTo = unanswered[unanswered.length - 1].created_at;
+    return skip('elie disabled');
+  }
 
   const generated = await requestGeneration({
     conversation,
@@ -328,10 +362,7 @@ async function runAway(conversation, state) {
  * away; never throws and never delays the guest's request.
  */
 function handleGuestMessage(conversation) {
-  if (!awayRepliesEnabled()) {
-    log('info', 'skipped', { conversationId: conversation.id, trigger: 'away', reason: 'disabled' });
-    return Promise.resolve();
-  }
+  // With Elie switched off the host's away message is still sent.
   let state = awayState.get(conversation.id);
   if (state && (state.running || state.timer)) {
     // A run in progress picks this message up; a scheduled run will see it.
@@ -348,6 +379,9 @@ function handleGuestMessage(conversation) {
 
 module.exports = {
   AutoReplyError,
+  DEFAULT_AWAY_MESSAGE,
+  awayMessageText,
+  awayMessageSent,
   COOLDOWN_MS,
   HOURLY_CAP,
   handleGuestMessage,

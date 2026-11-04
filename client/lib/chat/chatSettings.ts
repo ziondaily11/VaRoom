@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
 
-// Chat Settings (migrated from legacy-pages/chat-settings.html). Away mode
-// (profiles.away_mode, the server's auto-reply) and read receipts
-// (profiles.read_receipts, the server's read ticks) live on the profile. The
-// other settings and the away message are kept in this browser only, as
-// before: there is no away_message column, and nothing reads those toggles yet.
+// Chat Settings (migrated from legacy-pages/chat-settings.html). Every
+// setting is saved on the profile, where it takes effect:
+// - away_mode, away_message: auto-reply sends the away message, then Elie;
+// - message_notifications: "New message" notifications are created;
+// - message_previews: notifications show the message (decrypted on view);
+// - read_receipts: read ticks; typing_indicators: "typing…" in a chat.
+// This browser keeps a copy, shown until the profile has loaded.
 
 export const STORAGE_KEY = 'varoom:chat-settings';
 export const DEFAULT_AWAY_MESSAGE = '“I’m currently away and will respond as soon as I can.”';
@@ -55,27 +57,50 @@ export function writeStored(storage: StorageLike, key: keyof ChatSettingsState, 
   }
 }
 
+/** The longest away message the profile keeps. */
+export const AWAY_MESSAGE_MAX = 500;
+
 export function cleanAwayMessage(value: unknown): string {
-  const message = typeof value === 'string' ? value.trim() : '';
+  const message = typeof value === 'string' ? value.trim().slice(0, AWAY_MESSAGE_MAX) : '';
   return message || DEFAULT_AWAY_MESSAGE;
 }
 
 /** The settings saved on the profile (null: not loaded). */
-export type ProfileChatSettings = Pick<ChatSettingsState, 'awayMode' | 'readReceipts'>;
+export type ProfileChatSettings = ChatSettingsState;
 export type ProfileSettingKey = keyof ProfileChatSettings;
 
-const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = { awayMode: 'away_mode', readReceipts: 'read_receipts' };
+const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = {
+  awayMode: 'away_mode',
+  awayMessage: 'away_message',
+  messageNotifications: 'message_notifications',
+  messagePreviews: 'message_previews',
+  readReceipts: 'read_receipts',
+  typingIndicators: 'typing_indicators',
+};
 
 /** Settings to show: the profile's values win over this browser's copy. */
 export function resolveSettings(stored: Partial<ChatSettingsState>, profile: ProfileChatSettings | null): ChatSettingsState {
+  if (profile) return { ...profile };
   const bool = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
   return {
-    awayMode: profile ? profile.awayMode : bool(stored.awayMode, false),
+    awayMode: bool(stored.awayMode, false),
     messageNotifications: bool(stored.messageNotifications, true),
     messagePreviews: bool(stored.messagePreviews, true),
-    readReceipts: profile ? profile.readReceipts : bool(stored.readReceipts, true),
+    readReceipts: bool(stored.readReceipts, true),
     typingIndicators: bool(stored.typingIndicators, true),
     awayMessage: cleanAwayMessage(stored.awayMessage),
+  };
+}
+
+/** A profile row's settings; unset switches are on (away mode off). */
+export function profileSettingsFromRow(row: Record<string, unknown>): ProfileChatSettings {
+  return {
+    awayMode: row.away_mode === true,
+    awayMessage: cleanAwayMessage(row.away_message),
+    messageNotifications: row.message_notifications !== false,
+    messagePreviews: row.message_previews !== false,
+    readReceipts: row.read_receipts !== false,
+    typingIndicators: row.typing_indicators !== false,
   };
 }
 
@@ -85,26 +110,55 @@ export function backDestination(returnTo: unknown, origin: string): string {
   return safe && !safe.startsWith('/chat-settings') ? safe : '/chats';
 }
 
-// The profile's settings, read once per account while the app is open.
+// The profile's settings, read once per account while the app is open;
+// pages that act on them (Chats, Notifications) follow changes as they are saved.
 const profileSettings = new Map<string, ProfileChatSettings>();
+const inFlight = new Map<string, Promise<ProfileChatSettings | null>>();
+const listeners = new Map<string, Set<(settings: ProfileChatSettings) => void>>();
+
+function publish(userId: string, settings: ProfileChatSettings): void {
+  listeners.get(userId)?.forEach((listener) => listener(settings));
+}
+
+/** Calls `listener` whenever this account's saved settings change; returns the unsubscribe. */
+export function subscribeProfileSettings(userId: string, listener: (settings: ProfileChatSettings) => void): () => void {
+  const set = listeners.get(userId) || new Set();
+  set.add(listener);
+  listeners.set(userId, set);
+  return () => { set.delete(listener); };
+}
+
+export function cachedProfileSettings(userId: string): ProfileChatSettings | null {
+  return profileSettings.get(userId) || null;
+}
 
 export async function loadProfileSettings(client: SupabaseClient, userId: string): Promise<ProfileChatSettings | null> {
   const known = profileSettings.get(userId);
   if (known) return known;
-  const { data, error } = await client.from('profiles').select('away_mode,read_receipts').eq('id', userId).maybeSingle();
-  if (error || !data) return null;
-  const row = data as { away_mode?: boolean; read_receipts?: boolean | null };
-  const value = { awayMode: Boolean(row.away_mode), readReceipts: row.read_receipts !== false };
-  profileSettings.set(userId, value);
-  return value;
+  const pending = inFlight.get(userId);
+  if (pending) return pending;
+  const request = (async () => {
+    const { data, error } = await client.from('profiles').select(Object.values(PROFILE_COLUMNS).join(',')).eq('id', userId).maybeSingle();
+    if (error || !data) return null;
+    const value = profileSettingsFromRow(data as unknown as Record<string, unknown>);
+    profileSettings.set(userId, value);
+    publish(userId, value);
+    return value;
+  })().finally(() => inFlight.delete(userId));
+  inFlight.set(userId, request);
+  return request;
 }
 
 /** Save a profile setting (the server reads it) and keep it in this browser. */
-export async function saveProfileSetting(client: SupabaseClient | null, userId: string | null, key: ProfileSettingKey, value: boolean, storage: StorageLike): Promise<void> {
+export async function saveProfileSetting<K extends ProfileSettingKey>(client: SupabaseClient | null, userId: string | null, key: K, value: ProfileChatSettings[K], storage: StorageLike): Promise<void> {
   writeStored(storage, key, value);
   if (!client || !userId) return;
   const previous = profileSettings.get(userId);
-  if (previous) profileSettings.set(userId, { ...previous, [key]: value });
+  if (previous) {
+    const next = { ...previous, [key]: value };
+    profileSettings.set(userId, next);
+    publish(userId, next);
+  }
   const { error } = await client.from('profiles').update({ [PROFILE_COLUMNS[key]]: value }).eq('id', userId);
   if (error) {
     profileSettings.delete(userId);
@@ -114,4 +168,5 @@ export async function saveProfileSetting(client: SupabaseClient | null, userId: 
 
 export function clearChatSettingsCache(): void {
   profileSettings.clear();
+  inFlight.clear();
 }

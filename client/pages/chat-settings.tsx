@@ -38,7 +38,7 @@ export default function ChatSettingsPage() {
           <h1 className="cs-header__title">Chat Settings</h1>
         </header>
         <main className="cs-page__body">
-          <ChatSettings key={role} role={role} onOpenArchived={() => router.push('/chats')} />
+          <ChatSettings key={role} role={role} onOpenArchived={() => router.push('/chats?archived=1')} />
         </main>
       </div>
     </>

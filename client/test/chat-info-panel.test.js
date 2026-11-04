@@ -36,7 +36,7 @@ test('report: legacy sheet with fixed reasons; submit enabled once a reason is c
 test('chat settings: rendered in the desktop information column with its own close; phones return to this conversation', () => {
   assert.match(source, /className="chat-settings-panel-head"/);
   assert.match(source, /\$\{chatSettingsEmbedded \? ' chat-settings-open' : ''\}/);
-  assert.match(source, /<div className="cs-embedded">\s*<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => setChatSettingsEmbedded\(false\)\} \/>/);
+  assert.match(source, /<div className="cs-embedded">\s*<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => \{ setChatSettingsEmbedded\(false\); setInboxView\('archived'\); \}\} \/>/);
   assert.doesNotMatch(source, /<iframe|chat-settings\?embedded=1/, 'no second copy of the app in a frame');
   assert.match(source, /\/chat-settings\?returnTo=\$\{encodeURIComponent\(router\.asPath \|\| '\/chats'\)\}/);
   assert.doesNotMatch(source, /returnTo=\/chats'/);

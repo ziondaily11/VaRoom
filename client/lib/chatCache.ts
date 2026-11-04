@@ -87,6 +87,8 @@ export interface ChatConversation {
   participant?: ChatParticipant | null;
   lastMessage?: ChatMessage | null;
   unread_count?: number | null;
+  /** Archived by the signed-in person (Chat Settings → Archived conversations). */
+  archived?: boolean;
   isElie?: boolean;
 }
 
