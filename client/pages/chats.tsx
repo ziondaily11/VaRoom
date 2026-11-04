@@ -178,6 +178,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [inboxView, setInboxView] = useState<'all' | 'archived'>('all');
   // A chat's menu in the inbox (right-click, or long-press on phones).
   const [inboxMenu, setInboxMenu] = useState<{ conversation: ChatConversation; x: number; y: number } | null>(null);
+  // Chats ticked in selection mode (null: not selecting), for archiving or deleting together.
+  const [selectedChats, setSelectedChats] = useState<Set<string> | null>(null);
   // The conversation whose other person is typing (shown in the header).
   const [typingInConversation, setTypingInConversation] = useState<string | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
@@ -918,23 +920,29 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     void channel.send({ type: 'broadcast', event: 'typing', payload: { user_id: userIdRef.current } });
   };
 
-  // Archive or unarchive a conversation for this person (shown at once, undone if the server refuses).
-  const setConversationArchived = async (conversationId: string, archived: boolean) => {
-    const apply = (value: boolean) => {
-      setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, archived: value } : c)));
-      if (userId) updateInboxConversation(userId, conversationId, { archived: value }).catch(() => {});
+  // Archive or unarchive chats for this person (shown at once; any the server refuses go back).
+  const archiveChats = async (conversationIds: string[], archived: boolean) => {
+    if (!conversationIds.length) return;
+    const apply = (ids: string[], value: boolean) => {
+      setConversations((prev) => prev.map((c) => (ids.includes(c.id) ? { ...c, archived: value } : c)));
+      if (userId) ids.forEach((id) => { updateInboxConversation(userId, id, { archived: value }).catch(() => {}); });
     };
-    apply(archived);
-    try {
-      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/archive`, { method: 'POST', body: JSON.stringify({ archived }) });
-      showStatusNote(archived ? 'Chat archived' : 'Chat unarchived');
-      updateSidebarCounts();
-    } catch (err) {
-      console.error('Unable to update the archive:', err);
-      apply(!archived);
-      showStatusNote(archived ? 'Chat not archived. Please try again.' : 'Chat not unarchived. Please try again.', 3500);
+    apply(conversationIds, archived);
+    const results = await Promise.allSettled(conversationIds.map((id) => (
+      api(`/api/chat/conversations/${encodeURIComponent(id)}/archive`, { method: 'POST', body: JSON.stringify({ archived }) })
+    )));
+    const failed = conversationIds.filter((_, index) => results[index].status === 'rejected');
+    if (failed.length) {
+      console.error('Unable to update the archive for', failed.length, 'chats');
+      apply(failed, !archived);
     }
+    const done = conversationIds.length - failed.length;
+    const noun = (count: number) => (count === 1 ? 'Chat' : `${count} chats`);
+    if (!failed.length) showStatusNote(`${noun(done)} ${archived ? 'archived' : 'unarchived'}`);
+    else showStatusNote(`${noun(failed.length)} not ${archived ? 'archived' : 'unarchived'}. Please try again.`, 3500);
+    if (done) updateSidebarCounts();
   };
+  const setConversationArchived = (conversationId: string, archived: boolean) => archiveChats([conversationId], archived);
 
   // Closes the open conversation (it was deleted): back to the inbox.
   const closeConversation = () => {
@@ -951,27 +959,61 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // "Delete chat": cleared for this person only (all their conversations with
   // the other person); it comes back with the next new message.
-  const deleteChat = async (conversation: ChatConversation) => {
-    const name = conversation.participant?.full_name || conversation.participant?.username || 'this person';
-    if (!window.confirm(`Delete your chat with ${name}? Its messages will be cleared for you. ${name} keeps their copy.`)) return;
-    const previous = conversations;
-    setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
-    try {
-      const result = await api<{ conversationIds?: string[] }>(`/api/chat/conversations/${encodeURIComponent(conversation.id)}/delete`, { method: 'POST', body: '{}' });
-      const cleared = result.conversationIds && result.conversationIds.length ? result.conversationIds : [conversation.id];
+  const deleteChats = async (chats: ChatConversation[]) => {
+    if (!chats.length) return;
+    const nameOf = (c: ChatConversation) => c.participant?.full_name || c.participant?.username || 'this person';
+    const question = chats.length === 1
+      ? `Delete your chat with ${nameOf(chats[0])}? Its messages will be cleared for you. ${nameOf(chats[0])} keeps their copy.`
+      : `Delete ${chats.length} chats? Their messages will be cleared for you. The other people keep their copies.`;
+    if (!window.confirm(question)) return;
+    const ids = chats.map((c) => c.id);
+    setConversations((prev) => prev.filter((c) => !ids.includes(c.id)));
+    const results = await Promise.allSettled(chats.map((c) => (
+      api<{ conversationIds?: string[] }>(`/api/chat/conversations/${encodeURIComponent(c.id)}/delete`, { method: 'POST', body: '{}' })
+    )));
+    const cleared: string[] = [];
+    const failed: ChatConversation[] = [];
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') { failed.push(chats[index]); return; }
+      const returned = result.value.conversationIds;
+      cleared.push(...(returned && returned.length ? returned : [chats[index].id]));
+    });
+    if (cleared.length) {
       if (activeIdRef.current && cleared.includes(activeIdRef.current)) closeConversation();
       if (userId) {
         cleared.forEach((id) => { setMessages(userId, id, []).catch(() => {}); });
         getInbox(userId).then((inbox) => (inbox ? setInbox(userId, inbox.filter((c) => !cleared.includes(c.id))) : undefined)).catch(() => {});
       }
-      showStatusNote('Chat deleted');
       updateSidebarCounts();
-    } catch (err) {
-      console.error('Unable to delete the chat:', err);
-      setConversations(previous);
-      showStatusNote('Chat not deleted. Please try again.', 3500);
+    }
+    if (failed.length) {
+      console.error('Unable to delete', failed.length, 'chats');
+      // The chats the server refused go back to the inbox.
+      setConversations((prev) => [...prev, ...failed.filter((f) => !prev.some((c) => c.id === f.id))]
+        .sort((a, b) => new Date(b.lastMessage?.created_at || b.created_at || 0).getTime() - new Date(a.lastMessage?.created_at || a.created_at || 0).getTime()));
+      showStatusNote(`${failed.length === 1 ? 'Chat' : `${failed.length} chats`} not deleted. Please try again.`, 3500);
+    } else {
+      showStatusNote(chats.length === 1 ? 'Chat deleted' : `${chats.length} chats deleted`);
     }
   };
+
+  // Selection mode: tick chats, then archive or delete them together.
+  const toggleChatSelection = (conversationId: string) => {
+    setSelectedChats((current) => {
+      const next = new Set(current || []);
+      if (next.has(conversationId)) next.delete(conversationId); else next.add(conversationId);
+      return next.size ? next : null;
+    });
+  };
+  const selectedConversations = selectedChats ? conversations.filter((c) => selectedChats.has(c.id)) : [];
+  // Another view or account: start again.
+  useEffect(() => { setSelectedChats(null); }, [inboxView, userId]);
+  useEffect(() => {
+    if (!selectedChats) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelectedChats(null); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selectedChats]);
 
   // Desktop right-click on an inbox chat; on phones the long-press below opens the menu.
   const onInboxContextMenu = (event: React.MouseEvent, conversation: ChatConversation) => {
@@ -1376,6 +1418,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
           <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
           <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></symbol>
+          <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
           <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></symbol>
           <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
           <symbol id="i-user-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.2a6 6 0 0 1 11.6 0"/></symbol>
@@ -1473,6 +1516,33 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             </button>
           </div>
 
+          {selectedChats && (
+            <div className="inbox-select-bar" role="toolbar" aria-label="Selected chats">
+              <button type="button" className="inbox-select-cancel" aria-label="Cancel selection" title="Cancel" onClick={() => setSelectedChats(null)}>
+                <svg className="icon" aria-hidden="true"><use href="#i-close" /></svg>
+              </button>
+              <span className="inbox-select-count" aria-live="polite">{selectedChats.size} selected</span>
+              <button
+                type="button"
+                className="inbox-select-action"
+                title={inboxView === 'archived' ? 'Unarchive' : 'Archive'}
+                onClick={() => { const ids = Array.from(selectedChats); setSelectedChats(null); void archiveChats(ids, inboxView !== 'archived'); }}
+              >
+                <svg className="icon" aria-hidden="true"><use href="#i-archive" /></svg>
+                <span>{inboxView === 'archived' ? 'Unarchive' : 'Archive'}</span>
+              </button>
+              <button
+                type="button"
+                className="inbox-select-action danger"
+                title="Delete"
+                onClick={() => { const chats = selectedConversations; setSelectedChats(null); void deleteChats(chats); }}
+              >
+                <svg className="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                <span>Delete</span>
+              </button>
+            </div>
+          )}
+
           <ul className="contact-list" id="contactList">
             {inboxView === 'archived' ? (
               /* Archived chats: back to the inbox */
@@ -1482,12 +1552,22 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               </li>
             ) : (
             <>
+            {/* Archived chats, always first; the number shows once a chat is archived */}
+            <li className="contact-item archived-entry" role="button" tabIndex={0} onClick={() => setInboxView('archived')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInboxView('archived'); } }}>
+              <span className="archived-icon" aria-hidden="true"><svg className="icon"><use href="#i-archive" /></svg></span>
+              <div className="contact-body">
+                <div className="contact-top">
+                  <div className="contact-name">Archived</div>
+                  {archivedCount > 0 && <div className="contact-time">{archivedCount}</div>}
+                </div>
+              </div>
+            </li>
             {/* Elie Assistant Permanent Row */}
             <li
               className={`contact-item ${activeId === ELIE_ID ? 'active' : ''}`}
               role="button"
               tabIndex={0}
-              onClick={() => selectConversation(ELIE_ID)}
+              onClick={() => { setSelectedChats(null); selectConversation(ELIE_ID); }}
             >
               <div className="avatar-wrap" style={{ background: 'transparent' }}>
                 <ElieIcon size={34} state="default" />
@@ -1501,17 +1581,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
               </div>
             </li>
-            {archivedCount > 0 && (
-              <li className="contact-item archived-entry" role="button" tabIndex={0} onClick={() => setInboxView('archived')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInboxView('archived'); } }}>
-                <span className="archived-icon" aria-hidden="true"><svg className="icon"><use href="#i-archive" /></svg></span>
-                <div className="contact-body">
-                  <div className="contact-top">
-                    <div className="contact-name">Archived</div>
-                    <div className="contact-time">{archivedCount}</div>
-                  </div>
-                </div>
-              </li>
-            )}
             </>
             )}
 
@@ -1542,16 +1611,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const name = participant?.full_name || participant?.username || 'User';
                 const timeStr = c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const lastPreview = formatConversationPreview(c.lastMessage);
+                const isSelected = Boolean(selectedChats && selectedChats.has(c.id));
 
                 return (
                   <li
                     key={c.id}
-                    className={`contact-item ${isActive ? 'active' : ''}`}
+                    className={`contact-item ${isActive ? 'active' : ''}${isSelected ? ' selected' : ''}`}
                     style={{ position: 'relative' }}
-                    role="button"
+                    role={selectedChats ? 'checkbox' : 'button'}
+                    aria-checked={selectedChats ? isSelected : undefined}
                     tabIndex={0}
                     onClick={() => {
                       if (inboxPressOpenedRef.current) { inboxPressOpenedRef.current = false; return; }
+                      if (selectedChats) { toggleChatSelection(c.id); return; }
                       selectConversation(c.id);
                     }}
                     onContextMenu={(e) => onInboxContextMenu(e, c)}
@@ -1562,6 +1634,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   >
                     <div className="avatar-wrap">
                       <ConversationAvatar url={participant?.avatar_url} name={name} size={46} fontSize={14} />
+                      {isSelected && (
+                        <span className="select-check" aria-hidden="true"><svg className="icon"><use href="#i-check" /></svg></span>
+                      )}
                       {isItemOnline && <span className="online-indicator" style={{ position: 'absolute', bottom: 2, right: 2, width: 10, height: 10, borderRadius: '50%', background: '#4ec1a0', border: '2px solid #fff' }} />}
                     </div>
                     <div className="contact-body">
@@ -2240,11 +2315,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               ? { action: 'unarchive' as const, icon: 'i-archive', label: 'Unarchive chat' }
               : { action: 'archive' as const, icon: 'i-archive', label: 'Archive chat' },
             { action: 'delete' as const, icon: 'i-trash', label: 'Delete chat' },
+            { action: 'select' as const, icon: 'i-check', label: 'Select chats' },
           ]}
           onSelect={(action) => {
             const conversation = inboxMenu.conversation;
             setInboxMenu(null);
-            if (action === 'delete') void deleteChat(conversation);
+            if (action === 'select') setSelectedChats(new Set([conversation.id]));
+            else if (action === 'delete') void deleteChats([conversation]);
             else void setConversationArchived(conversation.id, action === 'archive');
           }}
           onClose={closeInboxMenu}

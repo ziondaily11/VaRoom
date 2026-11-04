@@ -21,11 +21,11 @@ test('typing indicators: announced at most every 2.5 s over the chat channel, sh
 
 test('archived chats: hidden from the inbox, listed under Archived, archived from the info panel, opened from Chat Settings', () => {
   assert.match(source, /const inView = conversations\.filter\(\(c\) => Boolean\(c\.archived\) === \(inboxView === 'archived'\)\);/);
-  assert.match(source, /\{archivedCount > 0 && \(\s*<li className="contact-item archived-entry"/);
+  assert.match(source, /<li className="contact-item archived-entry" role="button"/);
   assert.match(source, /'No archived chats'/);
-  assert.match(source, /await api\(`\/api\/chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/archive`, \{ method: 'POST', body: JSON\.stringify\(\{ archived \}\) \}\);/);
-  assert.match(source, /apply\(!archived\);/, 'undone when the server refuses');
-  assert.match(source, /updateInboxConversation\(userId, conversationId, \{ archived: value \}\)/, 'the cached inbox follows');
+  assert.match(source, /api\(`\/api\/chat\/conversations\/\$\{encodeURIComponent\(id\)\}\/archive`, \{ method: 'POST', body: JSON\.stringify\(\{ archived \}\) \}\)/);
+  assert.match(source, /apply\(failed, !archived\);/, 'undone when the server refuses');
+  assert.match(source, /updateInboxConversation\(userId, id, \{ archived: value \}\)/, 'the cached inbox follows');
   assert.match(source, /if \(routerQueryArchived\) setInboxView\('archived'\);/);
   const info = read('components', 'chat', 'ConversationInfo.tsx');
   assert.match(info, /\{archived \? 'Unarchive chat' : 'Archive chat'\}/);
