@@ -213,7 +213,7 @@ function listingPhotoUrl(storagePath: string): string {
 
 /**
  * The listing a message asks about ("Chat" on a listing), Marketplace style:
- * the photo with the title, place and kind over it, and the price. Above the
+ * the photo with the title, place, kind and price over it. Above the
  * message in the thread (the message reads as a reply to it); compact above
  * the composer before sending. Opens the listing.
  */
@@ -245,17 +245,16 @@ export function ListingEnquiryCard({ listing, compact = false }: { listing: Chat
           <span className="chat-enquiry-overlay">
             <strong>{title}</strong>
             <small>{listingSubtitle(listing)}</small>
+            <span className="chat-enquiry-price">{listingPriceText(listing)}</span>
           </span>
         )}
       </span>
-      {compact ? (
+      {compact && (
         <span className="chat-enquiry-text">
           <em>Asking about this listing</em>
           <strong>{title}</strong>
           <small>{listingSubtitle(listing)} · {listingPriceText(listing)}</small>
         </span>
-      ) : (
-        <span className="chat-enquiry-price">{listingPriceText(listing)}</span>
       )}
     </div>
   );
