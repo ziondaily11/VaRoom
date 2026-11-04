@@ -24,6 +24,28 @@ html[data-theme="dark"] .cs, html[data-theme="dark"] .cs-page {
   --cs-switch-off: #3a3e46;
 }
 
+/* Theme: each preview carries its theme's light (-l) and dark (-d) colours. */
+.cs-theme {
+  --bubble-out: var(--bubble-out-l); --bubble-in: var(--bubble-in-l);
+}
+html[data-theme="dark"] .cs-theme {
+  --bubble-out: var(--bubble-out-d); --bubble-in: var(--bubble-in-d);
+}
+.cs-themes { display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:10px; padding:10px 0 4px; }
+.cs-theme {
+  display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:10px;
+  border:1px solid var(--cs-divider); border-radius:14px; background:transparent;
+  color:var(--cs-text); font:inherit; text-align:center; cursor:pointer;
+}
+.cs-theme:hover { background:var(--cs-hover); }
+.cs-theme.is-selected { border-color:var(--cs-accent); box-shadow:0 0 0 1px var(--cs-accent); }
+.cs-theme:focus-visible { outline:2px solid var(--cs-accent); outline-offset:2px; }
+.cs-theme__bubbles { display:flex; flex-direction:column; gap:5px; }
+.cs-theme__out, .cs-theme__in { display:block; height:16px; border-radius:8px; }
+.cs-theme__out { width:72%; align-self:flex-end; background:var(--bubble-out); border-bottom-right-radius:3px; }
+.cs-theme__in { width:72%; align-self:flex-start; background:var(--bubble-in); border-bottom-left-radius:3px; }
+.cs-theme__label { font-size:.72rem; font-weight:600; line-height:1.25; }
+
 /* Inside desktop Chats: the information column supplies the shell. */
 .cs-embedded { flex:1; min-height:0; width:100%; overflow-y:auto; background:transparent; }
 .cs-embedded .cs { padding:0 18px 22px; }

@@ -760,7 +760,7 @@
   box-shadow: none !important;
 }
 [data-theme="dark"] .contact-item { background: transparent !important; border-bottom-color: var(--line-soft) !important; }
-[data-theme="dark"] .msg-row.in .bubble { background: var(--surface-elevated) !important; }
+[data-theme="dark"] .msg-row.in .bubble { background: var(--bubble-in, var(--surface-elevated)) !important; }
 
 /* ================================================================
    AUTHENTICATION & FORMS (signup, forgot-password)

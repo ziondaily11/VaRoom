@@ -6,6 +6,7 @@ import {
   type ChatSettingsState, type ToggleKey,
 } from '../../lib/chat/chatSettings';
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
+import { CHAT_THEMES, chatThemeStyle, type ChatThemeId } from '../../lib/chat/chatThemes';
 
 // The chat settings (legacy VaroomChatSettings.mount): away mode for hosts,
 // notifications, privacy and archived conversations. Shown in the desktop
@@ -43,6 +44,34 @@ function NavRow({ label, description, onClick }: { label: string; description?: 
       </div>
       <span className="cs-row__chevron"><ChevronIcon /></span>
     </button>
+  );
+}
+
+/** The bubble themes as small previews (sent above received), in this mode's colours. */
+function ThemePicker({ value, onChange }: { value: ChatThemeId; onChange: (theme: ChatThemeId) => void }) {
+  return (
+    <div className="cs-themes" role="radiogroup" aria-label="Message bubble colours">
+      {CHAT_THEMES.map((theme) => {
+        const selected = theme.id === value;
+        return (
+          <button
+            key={theme.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            className={`cs-theme${selected ? ' is-selected' : ''}`}
+            style={chatThemeStyle(theme.id)}
+            onClick={() => onChange(theme.id)}
+          >
+            <span className="cs-theme__bubbles" aria-hidden="true">
+              <span className="cs-theme__out" />
+              <span className="cs-theme__in" />
+            </span>
+            <span className="cs-theme__label">{theme.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -85,6 +114,11 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
   };
 
+  const setTheme = (chatTheme: ChatThemeId) => {
+    setSettings((current) => ({ ...current, chatTheme }));
+    void saveProfileSetting(getSupabaseClient(), userId, 'chatTheme', chatTheme, storage());
+  };
+
   const editAwayMessage = () => {
     const next = window.prompt('Edit away message', settings.awayMessage || DEFAULT_AWAY_MESSAGE);
     if (next === null) return;
@@ -101,6 +135,9 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
           <NavRow label="Away message" description={settings.awayMessage} onClick={editAwayMessage} />
         </Section>
       )}
+      <Section title="THEME">
+        <ThemePicker value={settings.chatTheme} onChange={setTheme} />
+      </Section>
       <Section title="NOTIFICATIONS">
         <ToggleRow label="Message notifications" description="Receive notifications for new messages." checked={settings.messageNotifications} onChange={(v) => setToggle('messageNotifications', v)} />
         <ToggleRow label="Message previews" description="Show message content in notifications." checked={settings.messagePreviews} onChange={(v) => setToggle('messagePreviews', v)} />

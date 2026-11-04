@@ -92,7 +92,7 @@ test("bubbles show the time on every message and ticks only on the user's own", 
   const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
   assert.doesNotMatch(css, /same-sender \.msg-meta\{ display:none/);
   assert.match(css, /\.bubble-text > \.msg-meta\{ float:right;/);
-  assert.match(css, /\.msg-row\.out \.bubble > \.msg-meta\{ --msg-read-tick:#4ADE80; \}/);
+  assert.match(css, /\.msg-row\.out \.bubble > \.msg-meta\{ --msg-read-tick:var\(--bubble-read-tick\); \}/, 'each theme sets a read colour that shows on its sent bubbles');
 });
 
 test('thread and inbox states match legacy', () => {
