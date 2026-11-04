@@ -24,11 +24,11 @@ test('information column: profile, details, latest six photos, files, actions (l
   assert.match(source, /Blocking \$\{person\?\.full_name \|\| person\?\.username \|\| 'this user'\} is not available yet\./);
 });
 
-test('report: legacy sheet with fixed reasons; submit enabled once a reason is chosen', () => {
+test('report: a small dialog with the fixed reasons as choices; submit enabled once a reason is chosen', () => {
   assert.match(report, /\['Spam or scam', 'Harassment', 'Inappropriate content', 'Other'\]/);
-  assert.match(report, /<option value="">Select a reason<\/option>/);
+  assert.match(report, /<input type="radio" name="chatReportReason" value=\{item\} checked=\{reason === item\} onChange=\{\(\) => setReason\(item\)\} \/>/);
   assert.match(report, /disabled=\{!reason \|\| submitting\}/);
-  assert.match(report, /placeholder=\{`Additional details about \$\{personName \|\| 'this user'\}`\}/);
+  assert.match(report, /placeholder=\{`What happened with \$\{name\}\?`\}/);
   assert.match(source, /body: JSON\.stringify\(\{ conversationId, reason, details: details \|\| undefined \}\)/);
   assert.doesNotMatch(source, /User Report Modal/);
 });
@@ -64,12 +64,13 @@ test('phones: the app navigation shows on the inbox and hides inside a conversat
 
 test('the profile photo sits in the legacy 76px circle; the report form is a labelled column', () => {
   assert.match(info, /<div className="avatar-fallback" style=\{\{ background: '#14161c', overflow: 'hidden' \}\}>\s*\{avatar \|\| initials\(name\)\}/);
-  assert.match(report, /<div className="chat-report-form">/);
-  assert.match(report, /<label className="chat-report-label" htmlFor="chatReportReason">Reason<\/label>/);
+  assert.match(report, /<form className="chat-report-form"/);
+  assert.match(report, /<legend className="chat-report-label">Why are you reporting\?<\/legend>/);
   assert.match(report, /<label className="chat-report-label" htmlFor="chatReportDetails">Details \(optional\)<\/label>/);
   const css = read('public', 'js', 'chats.css');
-  assert.match(css, /\.chat-report-form\{display:flex;flex-direction:column/);
-  assert.match(css, /\.chat-report-details\{display:block;width:100%/);
+  assert.match(css, /\.chat-report-form\{ display:flex; flex-direction:column;/);
+  assert.match(css, /\.chat-report\{ max-width:420px; \}/, 'small');
+  assert.match(css, /\.chat-modal\{[^}]*position:absolute; inset:0;[^}]*align-items:center; justify-content:center;/, 'centred over the conversation');
   assert.match(css, /\.profile-block \.avatar-fallback\{ width:76px; height:76px;/);
   // Icons used by the information column exist in the page's icon set.
   for (const icon of ['i-phone', 'i-calendar', 'i-clock', 'i-download', 'i-file-text', 'i-flag', 'i-ban']) {

@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ChatListingSummary } from '../../lib/chatCache';
 import { cachedImageUrl, listingVideo, type ChatApi, type ListingVideo } from '../../lib/chat/chatMedia';
 import { getSupabaseClient } from '../../lib/supabase/client';
 
-// Host "Share listing" sheet (ported from public/js/chat-data.js
-// openShareSheet): the host's listings with photo or video, multi-select,
-// then one listing message per selection.
+// Host "Share listings" dialog, centred over the conversation: the host's
+// listings as tiles (photo or video, title and location over it), picked
+// like files in an explorer, then one listing message per selection.
 
 // Each host's listings, loaded once per page session (legacy kept them in
 // state). Keyed by account so another sign-in never sees them.
@@ -25,7 +25,7 @@ function hostListings(userId: string, api: ChatApi): Promise<ChatListingSummary[
   return promise;
 }
 
-function ListingOption({ listing, selected, api, onToggle }: {
+function ListingTile({ listing, selected, api, onToggle }: {
   listing: ChatListingSummary;
   selected: boolean;
   api: ChatApi;
@@ -36,6 +36,7 @@ function ListingOption({ listing, selected, api, onToggle }: {
   const fallbackUrl = photo && client ? client.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : '';
   const [photoUrl, setPhotoUrl] = useState(fallbackUrl);
   const [video, setVideo] = useState<ListingVideo | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,25 +48,33 @@ function ListingOption({ listing, selected, api, onToggle }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.id]);
 
+  const title = listing.title || 'Untitled listing';
   return (
-    <button type="button" className={`chat-listing-option${selected ? ' selected' : ''}`} aria-pressed={selected} onClick={onToggle}>
-      {video ? (
-        <video
-          src={video.url}
-          poster={video.thumbnailUrl || undefined}
-          muted
-          playsInline
-          controls
-          style={{ width: '100%', height: 82, objectFit: 'cover', display: 'block', background: '#f6f7f9' }}
-          onClick={(event) => event.stopPropagation()}
-        />
-      ) : (
-        <img src={photoUrl || undefined} alt={listing.title || ''} />
-      )}
-      <div>
-        <strong>{listing.title || ''}</strong>
-        <small>{listing.location_text || ''}</small>
-      </div>
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      className={`chat-share-tile${selected ? ' is-selected' : ''}`}
+      onClick={onToggle}
+      // A listing's video plays, muted, while the pointer rests on it.
+      onMouseEnter={() => { void videoRef.current?.play().catch(() => {}); }}
+      onMouseLeave={() => { videoRef.current?.pause(); }}
+    >
+      <span className="chat-share-media">
+        {video ? (
+          <video ref={videoRef} src={video.url} poster={video.thumbnailUrl || photoUrl || undefined} muted loop playsInline preload="none" />
+        ) : photoUrl ? (
+          <img src={photoUrl} alt="" loading="lazy" />
+        ) : (
+          <span className="chat-share-empty" aria-hidden="true"><svg className="icon"><use href="#i-store" /></svg></span>
+        )}
+      </span>
+      <span className="chat-share-check" aria-hidden="true"><svg className="icon"><use href="#i-check" /></svg></span>
+      {video && <span className="chat-share-badge" aria-hidden="true">Video</span>}
+      <span className="chat-share-info">
+        <strong>{title}</strong>
+        {listing.location_text && <small>{listing.location_text}</small>}
+      </span>
     </button>
   );
 }
@@ -75,17 +84,20 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
   userId: string | null;
   api: ChatApi;
   onClose: () => void;
-  /** Sends the selected listings; the sheet closes when it resolves and stays open if it rejects. */
+  /** Sends the selected listings; the dialog closes when it resolves and stays open if it rejects. */
   onShare: (listings: ChatListingSummary[]) => Promise<void>;
 }) {
   const [listings, setListings] = useState<ChatListingSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sharing, setSharing] = useState(false);
+  const [query, setQuery] = useState('');
+  const titleId = useId();
 
   useEffect(() => {
     if (!open || !userId) return undefined;
     setSelected(new Set());
+    setQuery('');
     let cancelled = false;
     setError(false);
     setListings(null);
@@ -110,6 +122,12 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
     return next;
   });
 
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!listings || !q) return listings || [];
+    return listings.filter((listing) => `${listing.title || ''} ${listing.location_text || ''}`.toLowerCase().includes(q));
+  }, [listings, query]);
+
   const share = async () => {
     if (!listings || !selected.size || sharing) return;
     setSharing(true);
@@ -117,42 +135,54 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
       await onShare(listings.filter((listing) => selected.has(listing.id)));
       onClose();
     } catch {
-      // The page reports the failure; the sheet stays open to retry.
+      // The page reports the failure; the dialog stays open to retry.
     } finally {
       setSharing(false);
     }
   };
 
+  if (!open) return null;
+  const count = selected.size;
   return (
-    <section
-      id="chatShareSheet"
-      className={`chat-sheet${open ? ' open' : ''}`}
-      aria-hidden={!open}
-      aria-label="Share listing"
-      role="dialog"
-    >
-      {open && (
-        <>
-          <div className="chat-sheet-head">
-            <span>Share listing</span>
-            <button className="chat-sheet-close" type="button" aria-label="Close" onClick={onClose}>×</button>
+    <div className="chat-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section id="chatShareSheet" className="chat-modal-card chat-share" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <header className="chat-modal-head">
+          <div>
+            <h2 id={titleId}>Share listings</h2>
+            <p>Choose one or more of your listings to send in this chat.</p>
           </div>
-          <div className="chat-sheet-list">
-            {error ? (
-              <div>Unable to load your listings. Please try again.</div>
-            ) : listings === null ? (
-              <span className="chat-media-loader" aria-label="Loading listings" style={{ position: 'relative' }} />
-            ) : listings.length === 0 ? (
-              <div>No listings available</div>
-            ) : listings.map((listing) => (
-              <ListingOption key={listing.id} listing={listing} api={api} selected={selected.has(listing.id)} onToggle={() => toggle(listing.id)} />
-            ))}
-          </div>
-          <button className="chat-sheet-action" type="button" disabled={!selected.size || sharing} onClick={() => { void share(); }}>
-            Share selected listing
+          <button className="chat-modal-close" type="button" aria-label="Close" onClick={onClose}>
+            <svg className="icon" aria-hidden="true"><use href="#i-close" /></svg>
           </button>
-        </>
-      )}
-    </section>
+        </header>
+        <div className="chat-share-toolbar">
+          <label className="chat-share-search">
+            <svg className="icon" aria-hidden="true"><use href="#i-search" /></svg>
+            <input type="search" placeholder="Search your listings" aria-label="Search your listings" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          {listings && <span className="chat-share-total">{listings.length} {listings.length === 1 ? 'listing' : 'listings'}</span>}
+        </div>
+        <div className="chat-share-grid" role="listbox" aria-multiselectable="true" aria-label="Your listings">
+          {error ? (
+            <p className="chat-share-note">Unable to load your listings. Please try again.</p>
+          ) : listings === null ? (
+            <span className="chat-media-loader" aria-label="Loading listings" style={{ position: 'relative' }} />
+          ) : listings.length === 0 ? (
+            <p className="chat-share-note">You have no listings to share yet.</p>
+          ) : visible.length === 0 ? (
+            <p className="chat-share-note">No listings match “{query.trim()}”.</p>
+          ) : visible.map((listing) => (
+            <ListingTile key={listing.id} listing={listing} api={api} selected={selected.has(listing.id)} onToggle={() => toggle(listing.id)} />
+          ))}
+        </div>
+        <footer className="chat-modal-actions">
+          <span className="chat-share-selected" aria-live="polite">{count ? `${count} selected` : 'Nothing selected'}</span>
+          <button className="chat-btn chat-btn-secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className="chat-btn chat-btn-primary" type="button" disabled={!count || sharing} onClick={() => { void share(); }}>
+            {sharing ? 'Sharing…' : count > 1 ? `Share ${count} listings` : 'Share listing'}
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
