@@ -99,7 +99,6 @@ app.use('/api', createBillingRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');
-const legacyPagesDirectory = path.join(clientDirectory, 'legacy-pages');
 app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
@@ -310,13 +309,8 @@ app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   return res.status(201).json({ ticket: data });
 });
 
-// Legacy pages this server still serves directly. Pages that are native on
-// the frontend redirect there (below); entries whose files no longer exist
-// (analytics, payments, profile-public, varoom-post, landing page) are gone.
-const pageTemplates = {
-  '/properties': 'list.html',
-  '/list': 'list.html',
-};
+// Every page is native on the frontend now; this server redirects the old
+// page URLs there (below) and serves no legacy-pages templates.
 
 // The landing page and its sign-in / sign-up are native on the frontend.
 const landingRoutes = [
@@ -466,6 +460,22 @@ app.get(['/bookings', '/bookings.html', '/legacy-pages/bookings.html'], (req, re
   return res.status(redirect.status).send(redirect.message);
 });
 
+// The listing wizard is a native frontend page at /list and /properties (the
+// query is kept: drafts, edits and Paystack returns carry their state in it).
+[['/list', ['/list', '/list.html', '/legacy-pages/list.html']], ['/properties', ['/properties', '/properties.html']]].forEach(([destinationPath, paths]) => {
+  app.get(paths, (req, res) => {
+    const redirect = resolveFrontendRouteRedirect({
+      frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+      requestHost: req.get('host'),
+      requestUrl: req.originalUrl,
+      destinationPath,
+      unavailableMessage: 'Listing a space is not available from this server.',
+    });
+    if (redirect.location) return res.redirect(redirect.status, redirect.location);
+    return res.status(redirect.status).send(redirect.message);
+  });
+});
+
 // Host home is a native frontend page (the query is kept).
 app.get(['/host-home', '/host-home.html', '/legacy-pages/host-home.html'], (req, res) => {
   const redirect = resolveFrontendRouteRedirect({
@@ -541,10 +551,6 @@ app.get(['/chats', '/chat', '/chats.html', '/legacy-pages/chats.html', '/elie', 
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);
-});
-
-Object.entries(pageTemplates).forEach(([route, template]) => {
-  app.get(route, (_req, res) => res.sendFile(path.join(legacyPagesDirectory, template)));
 });
 
 app.get('/forgot-password', (req, res) => {

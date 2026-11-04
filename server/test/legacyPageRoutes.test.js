@@ -9,14 +9,15 @@ const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const legacyDir = path.join(__dirname, '..', '..', 'client', 'legacy-pages');
 
-test('every page this server still serves exists in legacy-pages', () => {
-  const block = serverSource.slice(serverSource.indexOf('const pageTemplates = {'), serverSource.indexOf('};', serverSource.indexOf('const pageTemplates = {')));
-  const files = [...block.matchAll(/'(\/[^']*)': '([^']+)'/g)].map((m) => m[2]);
-  assert.ok(files.length > 0);
-  for (const file of files) assert.ok(fs.existsSync(path.join(legacyDir, file)), `${file} is missing`);
-  for (const retired of ['index.html', 'login.html', 'signup-client.html', 'signup-host.html', 'analytics.html', 'payments.html', 'profile-public.html', 'varoom-post.html', 'landing page.html']) {
-    assert.ok(!block.includes(`'${retired}'`), `${retired} is no longer served`);
-  }
+test('this server serves no legacy-pages templates; the wizard URLs redirect to the frontend', () => {
+  assert.doesNotMatch(serverSource, /pageTemplates|legacyPagesDirectory|legacy-pages'\)/);
+  assert.equal(fs.existsSync(path.join(legacyDir, 'list.html')), false, 'list.html is retired');
+  assert.match(serverSource, /\['\/list', \['\/list', '\/list\.html', '\/legacy-pages\/list\.html'\]\], \['\/properties', \['\/properties', '\/properties\.html'\]\]/);
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: 'https://varoom.co.ke', requestHost: 'server-4jlx.onrender.com', requestUrl: '/list?payment=return&reference=abc',
+    destinationPath: '/list', unavailableMessage: 'x', nodeEnv: 'production',
+  });
+  assert.equal(redirect.location, 'https://varoom.co.ke/list?payment=return&reference=abc');
 });
 
 test('the landing page and its sign-in / sign-up redirect to the frontend', () => {

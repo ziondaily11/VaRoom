@@ -10,7 +10,7 @@ const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'u
 
 test('Notifications Express paths redirect to the configured native frontend route', () => {
   const routeStart = serverSource.indexOf("app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.html']");
-  const routeEnd = serverSource.indexOf('Object.entries(pageTemplates)', routeStart);
+  const routeEnd = serverSource.indexOf("app.get('/forgot-password'", routeStart);
   const route = serverSource.slice(routeStart, routeEnd);
   const templateStart = serverSource.indexOf('const pageTemplates = {');
   const templateEnd = serverSource.indexOf('\n};', templateStart);
@@ -21,7 +21,7 @@ test('Notifications Express paths redirect to the configured native frontend rou
   assert.match(route, /process\.env\.PUBLIC_BASE_URL \|\| process\.env\.CLIENT_BASE_URL/);
   assert.match(route, /requestUrl: req\.originalUrl/);
   assert.match(route, /res\.redirect\(redirect\.status, redirect\.location\)/);
-  assert.doesNotMatch(templates, /notifications\.html/);
+  assert.doesNotMatch(serverSource, /pageTemplates|legacyPagesDirectory/);
   assert.doesNotMatch(route, /sendFile|readFile/);
 });
 

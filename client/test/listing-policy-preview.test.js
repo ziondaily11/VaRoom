@@ -4,8 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { resolveCurrentPolicyPreview } = require('../public/js/listing-policy-preview.js');
-const listingPage = fs.readFileSync(path.join(__dirname, '..', 'legacy-pages', 'list.html'), 'utf8');
+const { loadTs } = require('./helpers/loadTs');
+const { resolveCurrentPolicyPreview } = loadTs(path.join(__dirname, '..', 'lib', 'listWizard', 'policyDocuments.ts'));
+// The listing wizard (legacy list.html is retired).
+const listingPage = fs.readFileSync(path.join(__dirname, '..', 'pages', 'list.tsx'), 'utf8');
+const policyComponent = fs.readFileSync(path.join(__dirname, '..', 'components', 'listWizard', 'PolicyDocument.tsx'), 'utf8');
 
 const listingId = '11111111-1111-4111-8111-111111111111';
 const accessToken = 'host-session-token';
@@ -60,7 +63,10 @@ test('reports an unavailable policy when it was removed or the request fails', a
 });
 
 test('the existing policy Preview button resolves a fresh URL and shows unavailable feedback on failure', () => {
-  assert.match(listingPage, /VaRoomListingPolicyPreview\.resolveCurrentPolicyPreview\(editListingId, session && session\.access_token\)/);
-  assert.match(listingPage, /This document is no longer available\. Please refresh the listing and try again\./);
-  assert.doesNotMatch(listingPage, /const url = selectedPolicyFile \? URL\.createObjectURL\(selectedPolicyFile\) : existingPolicyUrl/);
+  assert.match(listingPage, /await resolveCurrentPolicyPreview\(policyListingId, await token\(\)\)/);
+  assert.match(listingPage, /setPolicyPreview\(\{ filename: 'Document unavailable', src: null \}\)/);
+  assert.match(policyComponent, /This document is no longer available\. Please refresh the listing and try again\./);
+  // The unavailable page and a document are never set together, so a later preview is not hidden behind it.
+  assert.match(policyComponent, /srcDoc=\{preview && !preview\.src \? UNAVAILABLE_DOCUMENT_PAGE : undefined\}/);
+  assert.doesNotMatch(listingPage, /URL\.createObjectURL\(policyFile\) : existingPolicyUrl/);
 });

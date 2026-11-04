@@ -73,7 +73,8 @@ export default function Custom404() {
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = search.trim();
-    router.push(query ? `/properties?search=${encodeURIComponent(query)}` : '/properties');
+    // /properties is the listing wizard; searching is the marketplace's job.
+    router.push(query ? `/marketplace?q=${encodeURIComponent(query)}` : '/marketplace');
   }
 
   return (
@@ -102,7 +103,7 @@ export default function Custom404() {
             {categories.map((category, index) => (
               <Link
                 className={index === 0 ? 'category active' : 'category'}
-                href={`/properties?type=${encodeURIComponent(category.query)}`}
+                href={`/marketplace?q=${encodeURIComponent(category.query)}`}
                 key={category.label}
               >
                 {category.label}

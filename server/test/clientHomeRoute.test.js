@@ -10,7 +10,7 @@ const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'u
 
 test('legacy server hosting redirects both Client Home URLs through one native frontend handler', () => {
   const redirectStart = serverSource.indexOf("app.get(['/client-home', '/client-home.html']");
-  const redirectEnd = serverSource.indexOf('Object.entries(pageTemplates)', redirectStart);
+  const redirectEnd = serverSource.indexOf("app.get('/forgot-password'", redirectStart);
   const redirect = serverSource.slice(redirectStart, redirectEnd);
   const templateStart = serverSource.indexOf('const pageTemplates = {');
   const templateEnd = serverSource.indexOf('\n};', templateStart);
@@ -20,7 +20,7 @@ test('legacy server hosting redirects both Client Home URLs through one native f
   assert.match(redirect, /resolveClientHomeRedirect\(\{/);
   assert.match(redirect, /process\.env\.PUBLIC_BASE_URL \|\| process\.env\.CLIENT_BASE_URL/);
   assert.match(redirect, /res\.redirect\(redirect\.status, redirect\.location\)/);
-  assert.doesNotMatch(templates, /client-home\.html/);
+  assert.doesNotMatch(serverSource, /pageTemplates|legacyPagesDirectory/);
 });
 
 test('Client Home redirect preserves the incoming query string', () => {

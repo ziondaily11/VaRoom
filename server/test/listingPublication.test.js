@@ -18,7 +18,8 @@ const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib',
 const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'PublicHostProfile.tsx'), 'utf8');
 const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfileView.tsx'), 'utf8');
 const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'listings', 'hostListingActions.ts'), 'utf8');
-const listingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'list.html'), 'utf8');
+// The native listing wizard (legacy list.html is retired).
+const listingPage = ['pages/list.tsx', 'lib/listWizard/startup.ts'].map((file) => fs.readFileSync(path.join(repositoryRoot, 'client', file), 'utf8')).join('\n');
 const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
 const draftStatusMigration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261013_000039_listing_draft_status.sql'),
@@ -92,20 +93,18 @@ test('all Discover feed branches require active moderation and available status'
     listingRoutes.indexOf("router.patch('/listings/:id/status'")
   );
   assert.match(ownershipCheck, /\.eq\('id', id\)[\s\S]*if \(data\.host_id !== userId\)/);
-  assert.match(listingPage, /\.eq\('id', editListingId\)\.eq\('host_id', currentUser\.id\)/);
+  assert.match(listingPage, /\.eq\('id', params\.edit\)\.eq\('host_id', hostId\)/);
 });
 
 test('failed new-listing media upload exits before requesting activation', () => {
-  const failedMediaStart = listingPage.indexOf("if (!editMode && selectedFiles.length > 0 && failedCount > 0)");
-  const activationMatch = /if \(listingPaymentVerified\s*\|\|\s*\(!editMode/.exec(listingPage.slice(failedMediaStart));
-  const activationStart = activationMatch ? failedMediaStart + activationMatch.index : -1;
+  const failedMediaStart = listingPage.indexOf('if (!editMode && files.length > 0 && failedCount > 0)');
+  const activationStart = listingPage.indexOf('if (shouldActivate(', failedMediaStart);
   assert.ok(failedMediaStart >= 0 && activationStart > failedMediaStart);
 
   const failedMediaBranch = listingPage.slice(failedMediaStart, activationStart);
   assert.match(failedMediaBranch, /return;/);
-  assert.doesNotMatch(failedMediaBranch, /\/status/);
-  assert.match(listingPage.slice(failedMediaStart, activationStart),
-    /Media upload failed, so the listing was not published/);
+  assert.doesNotMatch(failedMediaBranch, /activateListing/);
+  assert.match(failedMediaBranch, /Media upload failed, so the listing was not published/);
 });
 
 test('server activation keeps subscription limits and verified listing-payment entitlement checks', () => {

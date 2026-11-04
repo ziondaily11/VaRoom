@@ -119,5 +119,7 @@ test('legacy pricing.html is retired; old URLs reach the native page', () => {
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/pricing', '\/pricing\.html', '\/legacy-pages\/pricing\.html'\]/);
   assert.doesNotMatch(server, /'\/pricing': 'pricing\.html'/);
-  assert.ok(fs.existsSync(path.join(root, 'public', 'js', 'listing-draft-cache.js')), '/list still uses the draft cache');
+  // /list's draft cache is native now; Pricing reads the same pointer.
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'listing-draft-cache.js')), false);
+  assert.ok(fs.existsSync(path.join(root, 'lib', 'listWizard', 'draftCache.ts')));
 });
