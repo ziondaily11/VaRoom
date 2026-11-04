@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCache } from '../cache/createCache';
 import { CACHE_NAMESPACES } from '../cache/namespaces';
 import { fetchListingContact, type ListingContact } from '../reachOut/reachOut';
+import { startListingChat } from '../chat/startChat';
 
 // The booking page (migrated from legacy-pages/booking.html): what it loads
 // about a listing, the rules that decide which booking widget it shows, the
@@ -414,12 +415,7 @@ export async function sendTableRequest(request: TableRequest, token: string, fet
   return response.ok ? null : (result.error || 'Unable to send the reservation request.');
 }
 
-/** "Message host": the conversation for this listing (created when new). */
-export async function openConversation(client: SupabaseClient, listing: BookingListing, clientId: string): Promise<string> {
-  const { data, error } = await client.from('conversations')
-    .upsert({ listing_id: listing.id, host_id: listing.host_id, client_id: clientId }, { onConflict: 'listing_id,client_id' })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return (data as { id: string }).id;
+/** "Message host": the chat with the host, ready to ask about this listing (lib/chat/startChat). */
+export function openConversation(listing: Pick<BookingListing, 'id'>): Promise<string> {
+  return startListingChat(listing.id);
 }

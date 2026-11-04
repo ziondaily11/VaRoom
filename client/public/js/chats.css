@@ -757,6 +757,28 @@
     line-height:1.35; max-height:2.7em;
   }
   .composer-reply-preview[hidden]{ display:none; }
+  /* The listing a question is about ("Chat" on a listing), Marketplace style:
+     above the message in the thread, compact above the composer before sending. */
+  .chat-enquiry-card{ display:block; width:260px; max-width:100%; margin:0 0 10px; border-radius:12px; overflow:hidden; background:rgba(0,0,0,.16); cursor:pointer; }
+  .chat-enquiry-card:focus-visible{ outline:2px solid currentColor; outline-offset:2px; }
+  .chat-enquiry-media{ position:relative; display:block; aspect-ratio:16 / 10; background:rgba(0,0,0,.12); }
+  .chat-enquiry-media img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .chat-enquiry-media::after{ content:""; position:absolute; inset:auto 0 0; height:62%; background:linear-gradient(transparent, rgba(8,11,14,.8)); pointer-events:none; }
+  .chat-enquiry-card.is-compact .chat-enquiry-media::after{ content:none; }
+  .chat-enquiry-overlay{ position:absolute; left:12px; right:12px; bottom:10px; z-index:1; color:#fff; }
+  .chat-enquiry-overlay strong{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:700; line-height:1.3; }
+  .chat-enquiry-overlay small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; opacity:.88; }
+  .chat-enquiry-price{ display:block; padding:7px 12px; font-size:12.5px; font-weight:700; }
+  .chat-enquiry-card.is-compact{ display:flex; align-items:center; gap:10px; width:auto; flex:1; min-width:0; margin:0; background:transparent; }
+  .chat-enquiry-card.is-compact .chat-enquiry-media{ flex-shrink:0; width:52px; height:52px; aspect-ratio:auto; border-radius:8px; overflow:hidden; }
+  .chat-enquiry-text{ display:block; min-width:0; }
+  .chat-enquiry-text em{ display:block; font-style:normal; font-size:10.5px; font-weight:700; color:var(--mint-dark); }
+  .chat-enquiry-text strong{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700; color:var(--text-dark); }
+  .chat-enquiry-text small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:var(--text-gray-2); }
+  .composer-listing-preview{ display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:6px 8px; border:1px solid var(--border); border-left:2px solid var(--mint-dark); border-radius:10px; }
+  .composer-listing-preview > button{ flex-shrink:0; width:28px; height:28px; padding:0; border:0; border-radius:50%; display:flex; align-items:center; justify-content:center; background:transparent; color:var(--text-gray-2); cursor:pointer; }
+  .composer-listing-preview > button:hover{ background:var(--bg-soft); }
+  .composer-listing-preview > button .icon{ width:14px; height:14px; }
   .msg-row.reply-target-highlight .bubble{ animation:reply-target-highlight 1.6s ease-out; }
   @keyframes reply-target-highlight{
     0%,35%{ box-shadow:0 0 0 3px var(--mint); }
@@ -1620,6 +1642,8 @@
     }
     .composer-note[hidden]{ display:none; }
     .composer-reply-preview{ grid-column:1 / -1; grid-row:2; margin:0 0 8px; }
+    .composer-listing-preview{ grid-column:1 / -1; grid-row:1; margin:0 0 8px; }
+    .chat-enquiry-card{ width:min(260px, 64vw); }
 
     /* pending attachments */
     .composer-tray{

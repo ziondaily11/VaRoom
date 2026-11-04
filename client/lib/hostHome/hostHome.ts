@@ -233,12 +233,5 @@ export async function submitReport(client: SupabaseClient, report: { reporterId:
   return error ? error.message : null;
 }
 
-/** "Chat": the conversation about this listing (created when new). */
-export async function openChat(client: SupabaseClient, listingId: string, hostId: string, clientId: string): Promise<string> {
-  const { data, error } = await client.from('conversations')
-    .upsert({ listing_id: listingId, host_id: hostId, client_id: clientId }, { onConflict: 'listing_id,client_id' })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return (data as { id: string }).id;
-}
+/** "Chat": the chat with this listing's host, ready to ask about the listing (lib/chat/startChat). */
+export { startListingChat as openChat } from '../chat/startChat';

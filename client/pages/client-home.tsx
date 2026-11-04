@@ -40,6 +40,7 @@ import {
 
 interface LikeSummary { listing_id: string; like_count: number | string | null; liked_by_current_user: boolean | null }
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
+import { startListingChat } from '../lib/chat/startChat';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
@@ -1549,16 +1550,17 @@ export default function ClientHome() {
     }
   };
 
+  // "Chat": the chat with the host, ready to ask about this listing.
   const onChat = async (listing: Listing) => {
     if (!user) return;
-    const result = await getSupabaseClient()!.from('conversations')
-      .upsert({ listing_id: listing.id, host_id: listing.host_id, client_id: user.id }, { onConflict: 'listing_id,client_id' })
-      .select().single();
-    if (result.error) {
-      setError(`Couldn't start that chat: ${result.error.message}`);
+    let path: string;
+    try {
+      path = await startListingChat(listing.id);
+    } catch (error) {
+      setError(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
-    await router.push(`/chats?c=${encodeURIComponent(result.data.id)}`);
+    await router.push(path);
   };
 
   const submitReport = async () => {

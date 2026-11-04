@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Booking } from './format';
+import { startListingChat } from '../chat/startChat';
 
 // The client's bookings: list pages, the 48-hour expiry of unanswered
 // requests, cancelling, reviews and opening the host conversation. Ported
@@ -108,15 +109,9 @@ export async function cancelClientBooking(
   }
 }
 
-/** The conversation with the booking's host (created on first use). */
-export async function openBookingConversation(client: SupabaseClient, { listingId, hostId, clientId }: { listingId: string; hostId: string; clientId: string }): Promise<string> {
-  const { data, error } = await client
-    .from('conversations')
-    .upsert({ listing_id: listingId, host_id: hostId, client_id: clientId }, { onConflict: 'listing_id,client_id' })
-    .select('id')
-    .single();
-  if (error) throw error;
-  return (data as { id: string }).id;
+/** The chat with the booking's host, ready to ask about its listing (lib/chat/startChat). */
+export function openBookingConversation(listingId: string): Promise<string> {
+  return startListingChat(listingId);
 }
 
 export interface BookingReview { id?: string; rating: number; comment: string | null }

@@ -131,8 +131,7 @@ export default function BookingPage() {
     if (!client || !listing || !userId) return;
     setMessaging(true);
     try {
-      const conversationId = await openConversation(client, listing, userId);
-      void router.push(`/chats?c=${conversationId}`);
+      void router.push(await openConversation(listing));
     } catch (error) {
       window.alert(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
