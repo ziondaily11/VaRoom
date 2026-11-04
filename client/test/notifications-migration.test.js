@@ -48,9 +48,7 @@ test('1. Native React route resolution and legacy catch-all exclusion', () => {
   assert.match(pageSource, /import \{ useRouter \} from 'next\/router'/);
 
   // The native route is guarded from legacy catch-all resolution.
-  const slugSource = fs.readFileSync(slugPath, 'utf8');
-  assert.match(slugSource, /'notifications'/);
-  assert.doesNotMatch(slugSource, /notifications\.html/);
+  assert.equal(fs.existsSync(slugPath), false, 'the legacy catch-all is retired (E1)');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'notifications.html')), false);
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-page.js')), false);
 });
@@ -334,11 +332,8 @@ test('12. Complete legacy unwiring verification', () => {
   const vercelConfig = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8'));
   assert.ok(vercelConfig.redirects.some(({ source, destination }) => source === '/:page.html' && destination === '/:page'));
 
-  // 2. [...slug].js guards the native route without registering a legacy template.
-  const slugSource2 = fs.readFileSync(slugPath2, 'utf8');
-  assert.match(slugSource2, /notFound.*true/, 'getStaticProps must return notFound:true for notifications');
-  assert.match(slugSource2, /notifications/, 'getStaticProps guard must reference notifications');
-  assert.doesNotMatch(slugSource2, /notifications\.html/);
+  // 2. No legacy template route remains (the catch-all is retired).
+  assert.equal(fs.existsSync(slugPath2), false);
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'notifications.html')), false);
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-page.js')), false);
 

@@ -40,11 +40,9 @@ test('native Client Home shell preserves the legacy column and responsive breakp
 
 test('native page compatibility redirects remain configured after legacy templates retire', () => {
   assert.equal(fs.existsSync(legacyHomePath), false);
-  const catchAll = fs.readFileSync(catchAllPath, 'utf8');
+  assert.equal(fs.existsSync(catchAllPath), false, 'the legacy catch-all is retired (E1)');
   const vercelConfig = fs.readFileSync(vercelConfigPath, 'utf8');
   const nextConfig = fs.readFileSync(nextConfigPath, 'utf8');
-  assert.match(catchAll, /client-home\.html/);
-  assert.match(catchAll, /'client-home\.html'\]\.includes\(file\)/);
   assert.match(vercelConfig, /"source": "\/:page\.html", "destination": "\/:page", "permanent": true/);
   assert.match(nextConfig, /source:\s*'\/property-news\.html',\s*destination:\s*'\/property-news'/);
   assert.match(nextConfig, /source:\s*'\/legacy-pages\/property-news\.html',\s*destination:\s*'\/property-news'/);
@@ -52,12 +50,10 @@ test('native page compatibility redirects remain configured after legacy templat
 
 test('Client Home opens the native AuthPanel and never routes through retired login HTML', () => {
   const page = fs.readFileSync(pagePath, 'utf8');
-  const catchAll = fs.readFileSync(catchAllPath, 'utf8');
+  assert.equal(fs.existsSync(catchAllPath), false, 'the legacy catch-all is retired (E1)');
   const nextConfig = fs.readFileSync(nextConfigPath, 'utf8');
 
   assert.match(page, /pathname:\s*'\/',\s*query:\s*\{\s*auth:\s*'login',\s*redirect:\s*'\/client-home'/);
-  assert.doesNotMatch(catchAll, /login\.html'\s*:\s*'login\.html'/);
-  assert.doesNotMatch(catchAll, /slug:\s*\['login\.html'\]/);
   assert.match(nextConfig, /source:\s*'\/login\.html',\s*destination:\s*'\/\?auth=login'/);
   assert.match(nextConfig, /source:\s*'\/legacy-pages\/login\.html',\s*destination:\s*'\/\?auth=login'/);
 });

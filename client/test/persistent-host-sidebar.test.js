@@ -94,24 +94,20 @@ test('HostSidebar defers browser-specific account data until after hydration', (
 
 test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', () => {
   const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
-  const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
+  assert.equal(fs.existsSync(path.join(clientDir, 'pages', '[...slug].js')), false, 'the legacy catch-all is retired (E1)');
 
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.host-profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content #sidebar/);
-  assert.doesNotMatch(slugCode, /purgeDuplicateSidebars/);
-  assert.doesNotMatch(slugCode, /querySelectorAll\(selector\)\.forEach\(\(el\) => el\.remove\(\)\)/);
 });
 
 test('Host Home renders only its content inside the persistent host shell', () => {
   const hostHome = fs.readFileSync(path.join(clientDir, 'pages', 'host-home.tsx'), 'utf8');
-  const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
   const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   assert.doesNotMatch(hostHome, /<aside className="sidebar"|account-identity|more-menu|bottom-bar/, 'the shell provides the sidebar, account menu and mobile nav');
   assert.doesNotMatch(hostHome, /getLayout/, '_app wraps /host-home in the host shell');
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar[\s\S]*?display:\s*none\s*!important/);
-  assert.match(slugCode, /parseTemplate\(source\)/);
 });
 
 test('R2 avatar keys use the application photo route rather than Supabase Storage', () => {
@@ -198,8 +194,6 @@ test('one mobile navigation: client items have no host tools and Client Home kee
   const clientItems = navCode.match(/export const CLIENT_MOBILE_ITEMS[\s\S]*?\];/)[0];
   assert.doesNotMatch(clientItems, /\/list|create/);
   assert.match(navCode, /\['\/booking', '\/chat-settings', '\/pricing', '\/list', '\/properties', '\/client-home'\]/);
-  const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
-  assert.doesNotMatch(slugCode, /varoom-mobile-nav\.js/, 'The legacy script nav is retired');
-  assert.match(slugCode, /LegacyPage\.appNavigation = true;/);
-  assert.match(slugCode, /await waitForShellReady\(document\);/, 'Legacy scripts wait for the shell to settle');
+  assert.equal(fs.existsSync(path.join(clientDir, 'public', 'js', 'varoom-mobile-nav.js')), false, 'The legacy script nav is retired');
+  assert.equal(fs.existsSync(path.join(clientDir, 'pages', '[...slug].js')), false, 'the legacy catch-all is retired (E1)');
 });

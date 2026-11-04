@@ -97,14 +97,8 @@ test('chat prefetch cooldown survives a hard page load (sessionStorage stamp)', 
   afterReload.cancelPrefetch();
 });
 
-test('the catch-all loads the bundled chat cache and skips public/js copies of bundled caches', () => {
-  const source = fs.readFileSync(path.join(root, 'pages', '[...slug].js'), 'utf8');
-  assert.match(source, /import\('\.\.\/lib\/chatCache'\)/);
-  assert.doesNotMatch(source, /src = '\/js\/chat-cache\.js'/);
-  assert.match(source, /'\/js\/listing-feed-cache\.js': 'VaRoomListingFeedCache'/);
-  assert.match(source, /if \(isProvidedByBundle\(script\.src\)\) continue;/);
-  assert.match(source, /!window\.VaRoomDataCache && !document\.querySelector\('script\[data-varoom-data-cache\]'\)/);
-
+test('no page loads public/js copies of the bundled caches (the legacy catch-all is retired)', () => {
+  assert.equal(fs.existsSync(path.join(root, 'pages', '[...slug].js')), false);
   const listingFeed = fs.readFileSync(path.join(root, 'lib', 'listingFeedCache.ts'), 'utf8');
   assert.doesNotMatch(listingFeed, /createElement\('script'\)/, 'Client Home no longer injects the feed cache script');
 });

@@ -34,9 +34,7 @@ test('native Client Home keeps lifecycle work page-scoped and avoids stale state
 });
 
 test('Host Home is native; the legacy page lifecycle is retired', () => {
-  const catchAll = fs.readFileSync(path.join(root, 'pages', '[...slug].js'), 'utf8');
-  assert.doesNotMatch(catchAll, /legacyPageLifecycle|__VaRoomLegacyPageLifecycle|host-home\.html/);
-  assert.match(catchAll, /runLegacyScripts\(containerRef\.current, scripts, \(\) => cancelled\)/, 'a page left mid-load stops its scripts');
+  assert.equal(fs.existsSync(path.join(root, 'pages', '[...slug].js')), false, 'the legacy catch-all is retired (E1)');
   for (const file of ['lib/legacyPageLifecycle.js', 'legacy-pages/host-home.html']) assert.equal(fs.existsSync(path.join(root, file)), false, file);
   assert.ok(fs.existsSync(path.join(root, 'pages', 'host-home.tsx')));
 });
