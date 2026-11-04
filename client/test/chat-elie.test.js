@@ -123,7 +123,7 @@ test('the page: Elie thread, history from the header, Elie info panel, new searc
   assert.match(source, /if \(!isSameConversation\) elieResetRef\.current\(\);/);
   assert.match(source, /id="elieHistoryMore"\s*title="Search history"/);
   assert.match(source, /<ElieHistoryPanel/);
-  assert.match(source, /'Your VaRoom search assistant' : typingInConversation === activeId \? 'typing…' : presenceKnownId/);
+  assert.match(source, /'Your VaRoom search assistant' : activeId && typingInConversation === activeId \? 'typing…' : presenceKnownId/);
   assert.match(source, /<span className="label">About Elie<\/span>/);
   assert.doesNotMatch(source, /Recent search history is preserved on this device/);
   const thread = fs.readFileSync(path.join(root, 'components', 'chat', 'ElieThread.tsx'), 'utf8');

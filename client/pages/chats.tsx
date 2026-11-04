@@ -48,6 +48,13 @@ import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChat
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
+/** Chats' stylesheet has loaded and applies (it is in the page when /chats is opened directly). */
+function chatsStylesheetApplied(): boolean {
+  return Array.from(document.styleSheets).some((sheet) => {
+    try { return Boolean(sheet.href) && new URL(sheet.href as string).pathname === chatsCssHref; } catch { return false; }
+  });
+}
+
 const ELIE_ID = 'elie';
 /** How far above the newest message (px) the thread must be to offer "back to latest". */
 const SCROLL_LATEST_THRESHOLD = 400;
@@ -915,6 +922,36 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Bubble colours (Chat Settings → Theme): the account's theme, or this
   // browser's copy of it until the account's settings have loaded.
   const [storedTheme, setStoredTheme] = useState<ChatThemeId>(DEFAULT_CHAT_THEME);
+
+  // Chats' stylesheet: part of the page when /chats is opened directly.
+  // Arriving from another page it loads now, and the page stays hidden until
+  // it applies, so the unstyled page never shows. Released on leaving.
+  const [stylesReady, setStylesReady] = useState(() => typeof document === 'undefined' || chatsStylesheetApplied());
+  const addedStylesheetRef = useRef<HTMLLinkElement | null>(null);
+  useEffect(() => () => { addedStylesheetRef.current?.remove(); }, []);
+  useEffect(() => {
+    if (stylesReady) return undefined;
+    let link = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).find((l) => l.getAttribute('href') === chatsCssHref);
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = chatsCssHref;
+      document.head.appendChild(link);
+      addedStylesheetRef.current = link;
+    }
+    const element = link;
+    const ready = () => setStylesReady(true);
+    element.addEventListener('load', ready);
+    element.addEventListener('error', ready);
+    if (element.sheet) ready();
+    // Never stay hidden: show the page after 4 s whatever happens.
+    const fallback = window.setTimeout(ready, 4000);
+    return () => {
+      element.removeEventListener('load', ready);
+      element.removeEventListener('error', ready);
+      window.clearTimeout(fallback);
+    };
+  }, [stylesReady]);
   useEffect(() => {
     try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
   }, []);
@@ -923,7 +960,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     try { writeStored(window.localStorage, 'chatTheme', chatPrefs.chatTheme); } catch { /* Kept for this visit. */ }
   }, [chatPrefs]);
   const bubbleTheme = chatPrefs ? chatPrefs.chatTheme : storedTheme;
-  const bubbleThemeStyle = useMemo(() => chatThemeStyle(bubbleTheme), [bubbleTheme]);
+  const bubbleThemeStyle = useMemo(() => ({ ...chatThemeStyle(bubbleTheme), ...(stylesReady ? {} : { visibility: 'hidden' as const }) }), [bubbleTheme, stylesReady]);
 
   // Tell the other person "typing…" (at most every 2.5 s), unless turned off.
   const announceTyping = () => {
@@ -1415,7 +1452,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       <Head>
         <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} · Messages` : 'Messenger Dashboard'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="stylesheet" href={chatsCssHref} />
       </Head>
 
       {/* Inline SVG sprite for clean icon resolution */}
@@ -1673,6 +1709,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         {/* 3. CHAT COLUMN */}
         <main className={`chat-col${isElie ? ' is-elie' : ''}${!activeId ? ' empty-conversation' : ''}${mobileView === 'conversation' ? ' mobile-visible' : ''}`}>
           {/* Header */}
+          {/* Header: only with a conversation open (none: the empty state fills the column) */}
+          {activeId && (
           <header className="chat-header">
             <button
               className="mobile-back"
@@ -1731,7 +1769,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />
-                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : typingInConversation === activeId ? 'typing…' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
+                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : activeId && typingInConversation === activeId ? 'typing…' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
                 </div>
               </div>
             </div>
@@ -1775,6 +1813,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               )}
             </div>
           </header>
+          )}
 
           {/* Elie search history */}
           {isElie && (

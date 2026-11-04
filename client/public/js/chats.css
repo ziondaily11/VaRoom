@@ -1841,10 +1841,12 @@
   [data-theme="dark"] .chat-col.mobile-visible{
     background-color:#000000 !important;
     background-image:url("/assets/chatbackground.png") !important;
+    background-image:image-set(url("/assets/chat-bg/chat-dark-v1.webp") type("image/webp"), url("/assets/chatbackground.png") type("image/png")) !important;
   }
   html:not([data-theme="dark"]) .chat-col{
     background-color:var(--white) !important;
     background-image:url("/assets/chatbackground-light.png") !important;
+    background-image:image-set(url("/assets/chat-bg/chat-light-v1.webp") type("image/webp"), url("/assets/chatbackground-light.png") type("image/png")) !important;
   }
   html:not([data-theme="dark"]) .chat-header{
     background-color:var(--white) !important;
