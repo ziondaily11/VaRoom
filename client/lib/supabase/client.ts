@@ -4,10 +4,9 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config';
 import { installR2PhotoStorage } from './r2PhotoStorage';
 
 // The one browser Supabase client. React code calls getSupabaseClient();
-// legacy pages and public/js scripts keep reading window.supabaseClient,
-// which is this same instance. _app initializes it before any page renders,
-// so legacy scripts that load public/js/supabase-client.js adopt it instead
-// of creating a second GoTrueClient on the same storage key.
+// the remaining public/js scripts (account-auth, account-switcher,
+// google-sign-in) read window.supabaseClient, which is this same instance.
+// _app initializes it before any page renders.
 
 export type VaRoomSupabaseClient = SupabaseClient;
 
@@ -18,7 +17,7 @@ interface LegacyAwareClient extends SupabaseClient {
 }
 
 // The add-account OAuth callback must run on an isolated temporary client so
-// the primary session is never replaced. Mirrors public/js/supabase-client.js.
+// the primary session is never replaced.
 function resolveClientOptions(): ClientOptions | undefined {
   const params = new URLSearchParams(window.location.search || '');
   const isAddAccountCallback = params.get('add_account_callback') === '1' || params.get('addAccount') === 'true';

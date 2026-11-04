@@ -1,10 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Port of the storage patch in public/js/supabase-client.js. Photo buckets
-// resolve through the server's /api/photos route and upload through the signed
-// R2 flow; older Supabase Storage paths keep resolving from Supabase. Both
-// implementations share the __varoomR2PhotoStoragePatched flag so a client is
-// never patched twice.
+// The client's storage patch: photo buckets resolve through the server's
+// /api/photos route and upload through the signed R2 flow; older Supabase
+// Storage paths keep resolving from Supabase. The __varoomR2PhotoStoragePatched
+// flag keeps a client from being patched twice.
 
 type StorageBucket = ReturnType<SupabaseClient['storage']['from']>;
 

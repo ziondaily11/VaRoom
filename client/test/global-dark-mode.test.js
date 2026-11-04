@@ -26,15 +26,6 @@ test('varoom-dark-theme.css defines true #000000 canvas and X Lights Out tokens'
   assert.doesNotMatch(css, /--white:\s*#241C1A;/, 'Old #241C1A must not be in tokens');
 });
 
-test('varoom-sidebar.css and varoom-sidebar.js use Lights Out black tokens', () => {
-  const sidebarCss = fs.readFileSync(path.join(clientRoot, 'public', 'js', 'varoom-sidebar.css'), 'utf8');
-  assert.match(sidebarCss, /\[data-theme="dark"\]\s*\{\s*--white:\s*#000000;\s*--paper:\s*#000000;/, 'Sidebar dark mode must use #000000');
-  assert.match(sidebarCss, /--muted:\s*#71767b;/, 'Sidebar dark muted text must be #71767b');
-
-  const sidebarJs = fs.readFileSync(path.join(clientRoot, 'public', 'js', 'varoom-sidebar.js'), 'utf8');
-  assert.match(sidebarJs, /\[data-theme="dark"\]\{--nav-badge-bg:#2f3336;--nav-badge-color:#E7E9EA;\}/, 'Sidebar badge styles must use clean dark tokens');
-});
-
 test('_document.js and _app.js avoid FOUC with true black background', () => {
   const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.tsx'), 'utf8');
   assert.match(docJs, /html\[data-theme="dark"\]\{background:#000000;color-scheme:dark\}/, '_document.js anti-FOUC must use #000000');
@@ -100,8 +91,6 @@ test('Legacy pages define consistent true black tokens', () => {
 });
 
 test('Light mode tokens remain intact and untouched', () => {
-  const sidebarCss = fs.readFileSync(path.join(clientRoot, 'public', 'js', 'varoom-sidebar.css'), 'utf8');
-  assert.match(sidebarCss, /:root\s*\{[\s\S]*--white:\s*#FFFFFF;[\s\S]*--paper:\s*#F7F6F3;/, 'Light mode sidebar tokens must remain intact');
 
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
   assert.match(appJs, /:root\s*\{[\s\S]*--color-bg:\s*#f7f3ec;[\s\S]*--color-surface:\s*#fffdfb;/, 'Light mode design tokens in _app.js must remain intact');

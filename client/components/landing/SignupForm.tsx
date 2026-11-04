@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
-import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } from '../../public/js/auth-flow-utils';
+import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
 import { OtpCodeInput } from './OtpCodeInput';
 import type { OtpCodeInputHandle } from './OtpCodeInput';
 import { GoogleSignInButton } from './GoogleSignInButton';

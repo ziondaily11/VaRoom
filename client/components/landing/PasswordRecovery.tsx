@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import { createEmptyOtpCode, createSubmissionGate } from '../../public/js/auth-flow-utils';
+import { createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
 import { OtpCodeInput, OtpCodeInputHandle } from './OtpCodeInput';
 
 type RecoveryStep = 'email' | 'otp' | 'password' | 'success';

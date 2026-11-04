@@ -131,9 +131,8 @@ test('Client Home redirects to onboarding only after an explicit successful prof
 test('Client Home uses the shared valid Supabase credentials and legacy R2 photo route', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
   const styles = fs.readFileSync(stylesPath, 'utf8');
-  const legacySource = fs.readFileSync(path.join(root, 'public', 'js', 'supabase-client.js'), 'utf8');
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'supabase-client.js')), false, 'one typed client (E2)');
 
-  assert.match(legacySource, new RegExp(FALLBACK_ANON_KEY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.equal(SUPABASE_ANON_KEY, FALLBACK_ANON_KEY);
   assert.match(source, /import \{ getSupabaseClient \} from '\.\.\/lib\/supabase\/client';/);
   assert.match(source, /\/api\/photos\//);

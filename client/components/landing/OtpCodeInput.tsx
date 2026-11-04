@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { applyOtpInput, clearOtpCode, notifyOtpCompletion } from '../../public/js/auth-flow-utils';
+import { applyOtpInput, clearOtpCode, notifyOtpCompletion } from '../../lib/auth/authFlow';
 
 export interface OtpCodeInputHandle {
   clearAndFocus: () => void;

@@ -159,10 +159,8 @@ test('booking counts page through more than 1000 unread booking notifications', 
   assert.equal(h.client.log.bookingPages, 3);
 });
 
-test('legacy varoom-sidebar.js and Chats use the shared store inside the app', () => {
-  const legacy = fs.readFileSync(path.join(root, 'public', 'js', 'varoom-sidebar.js'), 'utf8');
-  assert.match(legacy, /if \(window\.VaRoomCounts && client === window\.supabaseClient\)/);
-  assert.match(legacy, /return window\.VaRoomCounts\.refreshIfStale\(\);/);
+test('Chats and the sidebars use the shared counts store', () => {
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'varoom-sidebar.js')), false, 'the legacy sidebar script is retired (E2)');
   const chats = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
   assert.match(chats, /void window\.VaRoomCounts\.refresh\(\);/);
   for (const file of ['shell/HostSidebar.tsx', 'shell/ClientSidebar.tsx']) {

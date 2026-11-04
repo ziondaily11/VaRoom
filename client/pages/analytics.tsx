@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
@@ -13,27 +13,7 @@ interface HostProfile {
   verified: boolean;
 }
 
-interface AnalyticsWindow extends Window {
-  supabaseClient?: SupabaseClient;
-  VaroomSidebar?: {
-    mount(options: {
-      container: HTMLElement;
-      role: 'host';
-      activeNav: 'analytics';
-      profile: HostProfile;
-      supabaseClient: SupabaseClient;
-    }): void;
-    initCounts(options: { supabaseClient: SupabaseClient }): Promise<void>;
-  };
-}
-
-function sharedClientWindow() {
-  return window as AnalyticsWindow;
-}
-
 export default function AnalyticsPage() {
-  const sidebarRef = useRef<HTMLElement>(null);
-  const [sidebarReady, setSidebarReady] = useState(false);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [profile, setProfile] = useState<HostProfile | null>(null);
   const [error, setError] = useState<string | null>(null);

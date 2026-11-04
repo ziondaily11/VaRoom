@@ -1,11 +1,8 @@
 import { CACHE_NAMESPACES } from './cache/namespaces';
 
-// Paged listing-feed cache shared by Client Home and the legacy dashboards
-// (window.VaRoomListingFeedCache). TypeScript port of
-// public/js/listing-feed-cache.js with the same API and the same stored
-// format, so feeds cached by either implementation stay readable. The public
-// script remains as a fallback for pages served outside the Next app; inside
-// it, this module defines the global first and the script steps aside.
+// Paged listing-feed cache shared by the home feeds and the listing pages
+// (window.VaRoomListingFeedCache). It replaced public/js/listing-feed-cache.js
+// with the same API and stored format.
 //
 // Callers include the user id in their feed key, so one account's cached
 // listings are never served to another.

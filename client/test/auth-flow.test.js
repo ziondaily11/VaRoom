@@ -10,7 +10,7 @@ const {
   notifyOtpCompletion,
   normalizeSignupRole,
   normalizeUsername,
-} = require('../public/js/auth-flow-utils');
+} = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'auth', 'authFlow.ts'));
 
 test('account type selection defaults to Client while retaining explicit Host selection', () => {
   assert.equal(normalizeSignupRole(), 'client');

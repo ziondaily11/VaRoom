@@ -23,11 +23,6 @@ import {
 function syncSidebarUnreadCount(count: number) {
   if (typeof window === 'undefined') return;
   try {
-    if ((window as any).VaroomSidebar && typeof (window as any).VaroomSidebar.setUnreadCount === 'function') {
-      (window as any).VaroomSidebar.setUnreadCount(count);
-    }
-  } catch (e) {}
-  try {
     window.dispatchEvent(new CustomEvent('varoom_notification_count', { detail: { count } }));
   } catch (e) {}
 }
@@ -104,9 +99,6 @@ export default function NotificationsPage() {
   // Helper to open sidebar on mobile
   const handleOpenMobileSidebar = () => {
     if (typeof window === 'undefined') return;
-    if ((window as any).VaroomSidebar && typeof (window as any).VaroomSidebar.open === 'function') {
-      (window as any).VaroomSidebar.open();
-    }
     window.dispatchEvent(new CustomEvent('varoom-toggle-sidebar'));
     window.dispatchEvent(new CustomEvent('open-client-sidebar'));
     window.dispatchEvent(new CustomEvent('open-host-sidebar'));

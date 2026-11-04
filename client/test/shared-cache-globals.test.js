@@ -6,7 +6,6 @@ const vm = require('node:vm');
 const { loadTs } = require('./helpers/loadTs');
 
 const root = path.join(__dirname, '..');
-const dataCacheSource = fs.readFileSync(path.join(root, 'public', 'js', 'varoom-data-cache.js'), 'utf8');
 
 function memoryStorage(values = new Map()) {
   return {
@@ -19,18 +18,13 @@ function memoryStorage(values = new Map()) {
   };
 }
 
-function jsDataCache(storage) {
-  const window = { sessionStorage: storage, addEventListener() {} };
-  vm.runInNewContext(dataCacheSource, { window, Date, Object, Promise, JSON, encodeURIComponent, decodeURIComponent });
-  return window.VaRoomDataCache;
-}
 
 function tsDataCache(storage, now) {
   const { createDataCache } = loadTs(path.join(root, 'lib', 'cache', 'dataCache.ts'), { globals: { window: undefined } });
   return createDataCache({ getStorage: () => storage, now });
 }
 
-for (const [name, create] of [['public/js fallback', (s) => jsDataCache(s)], ['lib/cache/dataCache.ts', (s) => tsDataCache(s)]]) {
+for (const [name, create] of [['lib/cache/dataCache.ts', (s) => tsDataCache(s)]]) {
   test(`[${name}] VaRoomDataCache serves within the TTL, shares in-flight loads and never caches error results`, async () => {
     const cache = create(memoryStorage());
     let calls = 0;
@@ -60,22 +54,6 @@ for (const [name, create] of [['public/js fallback', (s) => jsDataCache(s)], ['l
   });
 }
 
-test('the bundled data cache and the public/js fallback read each other’s entries', async () => {
-  const storage = memoryStorage();
-  await jsDataCache(storage).get('account:u1:feed', async () => ({ from: 'js' }));
-  let calls = 0;
-  const fromTs = await tsDataCache(storage).get('account:u1:feed', async () => { calls += 1; return null; });
-  assert.deepEqual(fromTs, { from: 'js' });
-  assert.equal(calls, 0);
-});
-
-test('the public/js data cache steps aside when the bundle already defined the global', () => {
-  const existing = { marker: true };
-  const window = { sessionStorage: memoryStorage(), addEventListener() {}, VaRoomDataCache: existing };
-  vm.runInNewContext(dataCacheSource, { window, Date, Object, Promise, JSON, encodeURIComponent, decodeURIComponent });
-  assert.equal(window.VaRoomDataCache, existing);
-});
-
 test('chat prefetch cooldown survives a hard page load (sessionStorage stamp)', async () => {
   const sessionStorage = memoryStorage();
   const load = () => loadTs(path.join(root, 'lib', 'chatCache.ts'), { globals: { sessionStorage, window: undefined } });
@@ -98,6 +76,9 @@ test('chat prefetch cooldown survives a hard page load (sessionStorage stamp)', 
 });
 
 test('no page loads public/js copies of the bundled caches (the legacy catch-all is retired)', () => {
+  for (const file of ['varoom-data-cache.js', 'listing-feed-cache.js', 'varoom-account-profile-cache.js']) {
+    assert.equal(fs.existsSync(path.join(root, 'public', 'js', file)), false, `${file} is retired (E2)`);
+  }
   assert.equal(fs.existsSync(path.join(root, 'pages', '[...slug].js')), false);
   const listingFeed = fs.readFileSync(path.join(root, 'lib', 'listingFeedCache.ts'), 'utf8');
   assert.doesNotMatch(listingFeed, /createElement\('script'\)/, 'Client Home no longer injects the feed cache script');

@@ -2,9 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'listing-feed-cache.js'), 'utf8');
 
 function sessionStorageFor(values) {
   return {
@@ -16,12 +14,6 @@ function sessionStorageFor(values) {
 }
 
 // The public/js fallback, run as a browser script.
-function createJsFeedCache(storage) {
-  const values = storage || new Map();
-  const window = { sessionStorage: sessionStorageFor(values) };
-  vm.runInNewContext(source, { window, Date, Math, Object, Array, Promise, String, Number });
-  return { api: window.VaRoomListingFeedCache, storage: values };
-}
 
 // The bundled TypeScript implementation the Next app uses.
 const { createListingFeedCache } = require('./helpers/loadTs').loadTs(
@@ -157,22 +149,5 @@ function runSuite(name, createFeedCache) {
   });
 }
 
-runSuite('public/js fallback', createJsFeedCache);
 runSuite('lib/listingFeedCache.ts', createTsFeedCache);
 
-test('both implementations read each other stored feeds (same key and format)', async () => {
-  const storage = new Map();
-  const key = 'client:account-a:home:all::';
-  await createJsFeedCache(storage).api.fetchPage(key, 0, async () => [{ id: 'from-js' }]);
-  assert.equal(createTsFeedCache(storage).api.snapshot(key).items[0].id, 'from-js');
-  const other = 'host:account-b:all:all:';
-  await createTsFeedCache(storage).api.fetchPage(other, 0, async () => [{ id: 'from-ts' }]);
-  assert.equal(createJsFeedCache(storage).api.snapshot(other).items[0].id, 'from-ts');
-});
-
-test('the public/js fallback steps aside when the bundle already defined the global', () => {
-  const existing = { marker: true };
-  const window = { sessionStorage: sessionStorageFor(new Map()), VaRoomListingFeedCache: existing };
-  vm.runInNewContext(source, { window, Date, Math, Object, Array, Promise, String, Number });
-  assert.equal(window.VaRoomListingFeedCache, existing);
-});

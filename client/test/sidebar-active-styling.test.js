@@ -47,39 +47,6 @@ test('varoom-dark-theme.css removes red completely from active navigation items'
   );
 });
 
-test('varoom-sidebar.css provides consistent subtle grey active-state styling for light and dark modes', () => {
-  const css = fs.readFileSync(path.join(clientRoot, 'public', 'js', 'varoom-sidebar.css'), 'utf8');
-
-  // Verify light mode active background is subtle light-grey #E9E7E2
-  assert.match(css, /--nav-active-bg:\s*#E9E7E2;/, 'Light mode nav-active-bg must be subtle light-grey #E9E7E2');
-
-  // Verify dark mode active background is subtle dark-grey (not faint .06)
-  assert.match(css, /\[data-theme="dark"\]\s*\{[\s\S]*?--nav-active-bg:\s*rgba\(255,\s*255,\s*255,\s*0?\.14\);/, 'Dark mode nav-active-bg must be subtle dark-grey');
-
-  // Verify active nav items have no red background or border
-  assert.doesNotMatch(
-    css,
-    /\.sidebar\s+\.nav-item\.active\s*\{[^}]*(#c41e3a|#8f1229|rgba\(196|var\(--red\))/i,
-    '.sidebar .nav-item.active must not contain red'
-  );
-
-  // Verify beta-pill in sidebar does not use red-tinted active pill
-  assert.doesNotMatch(
-    css,
-    /\.sidebar\s+\.beta-pill\s*\{[^}]*#FBE4E7/i,
-    '.sidebar .beta-pill must not use red background #FBE4E7'
-  );
-  assert.doesNotMatch(
-    css,
-    /\[data-theme="dark"\]\s+\.sidebar\s+\.beta-pill\s*\{[^}]*rgba\(196/i,
-    '.sidebar .beta-pill in dark mode must not use red tint rgba(196,...)'
-  );
-
-  // Verify VaRoom red branding is preserved for logo and list-space CTA button
-  assert.match(css, /\.sidebar\s+\.logo\s+\.va\s*\{\s*color:\s*var\(--red\);/, 'Logo va must preserve red branding');
-  assert.match(css, /\.list-space-btn[\s\S]*?var\(--red/i, 'List a space CTA must preserve red branding');
-});
-
 test('HostLayout and ClientLayout enforce non-red subtle grey active navigation states', () => {
   const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   const clientLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
@@ -116,4 +83,8 @@ test('Legacy pages define consistent non-red active navigation background tokens
       `${page} dark mode must define subtle dark-grey --nav-active-bg: rgba(255,255,255,.14)`
     );
   }
+});
+
+test('the legacy sidebar script and styles are retired (E2)', () => {
+  for (const file of ['varoom-sidebar.js', 'varoom-sidebar.css']) assert.equal(fs.existsSync(path.join(clientRoot, 'public', 'js', file)), false, file);
 });

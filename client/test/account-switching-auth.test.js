@@ -29,10 +29,6 @@ const callbackSource = fs.readFileSync(
   path.join(__dirname, '../lib/auth/authCallback.ts'),
   'utf8'
 );
-const supabaseClientSource = fs.readFileSync(
-  path.join(__dirname, '../public/js/supabase-client.js'),
-  'utf8'
-);
 
 function createSwitcher(storage = new Map(), memberIds = []) {
   const localStorage = {
@@ -311,7 +307,7 @@ test('normal login remains on the primary client and refresh-token rotation stay
   assert.match(authPanelSource, /const client = \(window as any\)\.supabaseClient;[\s\S]*?client\.auth\.signInWithPassword/);
   assert.match(authPanelSource, /const googleClient = [\s\S]*?\.supabaseClient \|\| null;/);
   assert.doesNotMatch(authPanelSource, /VaRoomAccountAuth\.createClient/);
-  assert.match(supabaseClientSource, /add_account_callback/);
+  assert.match(supabaseBrowserClientSource, /add_account_callback/);
   assert.match(fs.readFileSync(path.join(__dirname, '../../supabase/config.toml'), 'utf8'), /enable_refresh_token_rotation\s*=\s*true/);
 });
 
