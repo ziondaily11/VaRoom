@@ -105,3 +105,16 @@ test('copy confirms with a status note', () => {
   assert.match(css, /\.chat-status-note\{/);
   assert.match(source, /<symbol id="i-copy"/);
 });
+
+test('the pinned banner opens the pinned message, by click or keyboard', () => {
+  assert.match(source, /className="pinned-message"[\s\S]*?role="button"\s*tabIndex=\{0\}[\s\S]*?onClick=\{\(\) => scrollToMessage\(pinnedMessage\.id\)\}\s*onKeyDown=\{replyKeyHandler\(pinnedMessage\.id\)\}/);
+});
+
+test('"back to latest" appears above the composer once the thread is scrolled up, and returns to the newest message', () => {
+  assert.match(source, /const SCROLL_LATEST_THRESHOLD = 400;/);
+  assert.match(source, /setShowScrollLatest\(list\.scrollHeight - list\.scrollTop - list\.clientHeight > SCROLL_LATEST_THRESHOLD\);/);
+  assert.match(source, /ref=\{messagesRef\}\s*onScroll=\{onMessagesScroll\}/);
+  assert.match(source, /hidden=\{!showScrollLatest\}\s*onClick=\{\(\) => scrollToBottom\(true\)\}/);
+  assert.match(source, /<div className="scroll-latest-anchor">[\s\S]*?\{\/\* Composer Input Area \*\/\}/, 'placed just before the composer');
+  assert.match(source, /useEffect\(\(\) => \{ setShowScrollLatest\(false\); \}, \[activeId\]\);/);
+});

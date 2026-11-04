@@ -46,6 +46,8 @@ import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChat
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
 const ELIE_ID = 'elie';
+/** How far above the newest message (px) the thread must be to offer "back to latest". */
+const SCROLL_LATEST_THRESHOLD = 400;
 
 function resolveChatAvatarUrl(url?: string | null, client?: SupabaseClient | null): string | null {
   if (!url) return null;
@@ -311,6 +313,23 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
     }
   }, []);
+
+  // "Back to latest" shows once the thread is scrolled well above the newest
+  // message; the state changes only when that crosses the threshold.
+  const [showScrollLatest, setShowScrollLatest] = useState(false);
+  const scrollFrameRef = useRef<number | null>(null);
+  const onMessagesScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const list = messagesRef.current;
+      if (!list) return;
+      setShowScrollLatest(list.scrollHeight - list.scrollTop - list.clientHeight > SCROLL_LATEST_THRESHOLD);
+    });
+  }, []);
+  useEffect(() => () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); }, []);
+  // A newly opened conversation starts at its latest message.
+  useEffect(() => { setShowScrollLatest(false); }, [activeId]);
 
   // Keep the newest Elie entry in view.
   useEffect(() => {
@@ -1223,6 +1242,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4.5"/><path d="M5 5c3-2 5 2 8 0s5 2 6 0v9c-1 2-3-2-6 0s-5-2-8 0"/></symbol>
           <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
           <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+          <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></symbol>
           <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
           <symbol id="i-user-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.2a6 6 0 0 1 11.6 0"/></symbol>
           <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.8L6 21V4.5Z"/></symbol>
@@ -1516,7 +1536,17 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
           {/* Pinned Message Banner */}
           {pinnedMessage && (
-            <div className="pinned-message" id="pinnedMessage" aria-live="polite">
+            // Opens the pinned message in the thread, as a reply quote does.
+            <div
+              className="pinned-message"
+              id="pinnedMessage"
+              aria-live="polite"
+              role="button"
+              tabIndex={0}
+              title="Go to pinned message"
+              onClick={() => scrollToMessage(pinnedMessage.id)}
+              onKeyDown={replyKeyHandler(pinnedMessage.id)}
+            >
               <svg className="icon" aria-hidden="true"><use href="#i-pin" /></svg>
               <span>{messageSummary(pinnedMessage).text || 'Message'}</span>
             </div>
@@ -1525,6 +1555,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           {/* Messages Stream */}
           <div
             ref={messagesRef}
+            onScroll={onMessagesScroll}
             className={`messages${loadingMessages ? ' chat-loading' : ''}${!activeId ? ' empty-state' : ''}`}
             aria-busy={loadingMessages || undefined}
           >
@@ -1721,6 +1752,22 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Back to the latest message, just above the composer */}
+          {activeId && (
+            <div className="scroll-latest-anchor">
+              <button
+                type="button"
+                className="scroll-latest-btn"
+                aria-label="Scroll to latest messages"
+                title="Latest messages"
+                hidden={!showScrollLatest}
+                onClick={() => scrollToBottom(true)}
+              >
+                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+              </button>
+            </div>
+          )}
 
           {/* Composer Input Area */}
           <div
