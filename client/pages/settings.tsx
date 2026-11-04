@@ -172,6 +172,7 @@ export default function SettingsPage() {
           username={profile?.username || null}
           fullName={profile?.full_name || null}
           phone={prefs?.phone || null}
+          isHost={role === 'host'}
           token={token}
           verified={verified}
           onVerified={() => setVerified(true)}

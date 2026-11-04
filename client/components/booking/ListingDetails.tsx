@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { BookingKind, BookingListing, ReviewsResult } from '../../lib/booking/bookingListing';
+import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
 import { commercialDetails, commercialLabel, SUBTYPE_LABELS } from '../../lib/booking/commercial';
 import { descriptionPreviewChars, getCleanTruncatedDescription, visibleParagraphs } from '../../lib/booking/description';
 import {
@@ -13,7 +14,9 @@ import Svg from './Svg';
 // The booking page's main column under the gallery: title and Share, rating,
 // location, host phone, badges and chips, the host card, the description,
 // amenities (or the commercial sections) and reviews. Markup unchanged from
-// legacy-pages/booking.html. `reviews` is null while they load.
+// legacy-pages/booking.html. `reviews` is null while they load. The phone line
+// and the WhatsApp / email / phone controls follow the host's Reach Out
+// settings: a channel that is off or has no value isn't shown.
 
 export interface RatingInfo { count: number; text: string; countText: string }
 
@@ -80,11 +83,12 @@ interface Props {
   reviews: ReviewsResult | null;
   hostAvatarUrl: string | null;
   resolveAvatar: (value: string | null | undefined) => string | null;
+  contact: ListingContact;
   messaging: boolean;
   onMessageHost: () => void;
 }
 
-export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, resolveAvatar, messaging, onMessageHost }: Props) {
+export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, resolveAvatar, contact, messaging, onMessageHost }: Props) {
   const { details, isHotel, isOfficeShop, officeShop, propertyPurpose } = kind;
   const [copied, setCopied] = useState(false);
   const rating = ratingInfo(reviews);
@@ -104,7 +108,8 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
   if (details.size_or_type) chips.push(details.size_or_type);
 
   const hostName = listing.host.full_name || 'Host';
-  const hostPhone = String(listing.host.phone || '').trim();
+  const hostPhone = String(contact.phone || '').trim();
+  const enquiry = { title: listing.title, url: listingUrl(typeof window === 'undefined' ? '' : window.location.origin, listing.id), forSale: propertyPurpose === 'sale' };
   const locationText = (isOfficeShop ? [listing.neighborhood, listing.city].filter(Boolean).join(', ') : '') || listing.location_text || '';
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationText || listing.title)}`;
   const amenities = Array.isArray(details.amenities) ? details.amenities : [];
@@ -132,7 +137,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
         {!rating ? <span>Loading reviews…</span> : rating.count ? <><Svg markup={ICON_STAR} /><span>{rating.text}</span><span>{rating.countText}</span></> : <span>{rating.text}</span>}
       </div>
       <p className="listing-loc"><Svg markup={ICON_LOCATION} /><span>{locationText}</span><a className="map-link-inline" href={mapUrl} target="_blank" rel="noopener">View on map</a></p>
-      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} /><a href={`tel:${hostPhone.replace(/[^+\d]/g, '')}`}>{hostPhone}</a></p>}
+      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} /><a href={telHref(hostPhone)}>{hostPhone}</a></p>}
       {badges.length > 0 && <div className="badge-row">{badges.map((badge) => <span className="mini-badge" key={badge}><Svg markup={ICON_VERIFIED} />{badge}</span>)}</div>}
       {chips.length > 0 && <div className="info-chip-row">{chips.map((chip, index) => <span className="info-chip" key={index}>{chip}</span>)}</div>}
       <hr className="divider" />
@@ -145,9 +150,9 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
             </Link>
           </div>
           <div className="contact-controls" role="group" aria-label="Contact host options">
-            <button type="button" className="contact-control" aria-disabled="true" aria-label="WhatsApp (display only)" title="WhatsApp — display only"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></button>
-            <button type="button" className="contact-control" aria-disabled="true" aria-label="Gmail (display only)" title="Gmail — display only"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></button>
-            <button type="button" className="contact-control" aria-disabled="true" aria-label="Phone (display only)" title="Phone — display only"><Svg markup={ICON_PHONE} /></button>
+            {contact.whatsapp && <a className="contact-control" href={whatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp the host" title="WhatsApp"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
+            {contact.email && <a className="contact-control" href={mailtoHref(contact.email, enquiry)} aria-label="Email the host" title="Email"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
+            {hostPhone && <a className="contact-control" href={telHref(hostPhone)} aria-label="Call the host" title="Call"><Svg markup={ICON_PHONE} /></a>}
             <button type="button" className="contact-control" id="contact-host-btn" aria-label="Message host" title={isHotel ? 'Message hotel' : 'Message host'} disabled={messaging} onClick={onMessageHost}><Svg markup={ICON_MESSAGE} /></button>
           </div>
         </div>

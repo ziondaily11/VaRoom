@@ -1,13 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCache } from '../cache/createCache';
 import { CACHE_NAMESPACES } from '../cache/namespaces';
+import { fetchListingContact, type ListingContact } from '../reachOut/reachOut';
 
 // The booking page (migrated from legacy-pages/booking.html): what it loads
 // about a listing, the rules that decide which booking widget it shows, the
 // calendar and price arithmetic, and what it writes. The same queries,
 // wording and payloads as before.
 
-export interface ListingHost { full_name: string | null; verified: boolean | null; avatar_url: string | null; username: string | null; phone: string | null }
+export interface ListingHost { full_name: string | null; verified: boolean | null; avatar_url: string | null; username: string | null }
 
 /** listing_booking_details (one row); office_shop_details holds the commercial form. */
 export interface BookingDetails {
@@ -69,7 +70,7 @@ export interface ReviewsResult { reviews: Review[]; summary: ReviewSummary; erro
 export interface DocumentsResult { documents: ListingDocument[]; loaded: boolean }
 
 export const LISTING_SELECT = 'id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,'
-  + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),'
+  + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path),'
   + 'listing_booking_details(*)';
 
 export const MESSAGES = {
@@ -90,7 +91,7 @@ export async function fetchBookingListing(client: SupabaseClient, listingId: str
   return data ? withHost(data as unknown as BookingListing) : null;
 }
 
-const NO_HOST: ListingHost = { full_name: null, verified: null, avatar_url: null, username: null, phone: null };
+const NO_HOST: ListingHost = { full_name: null, verified: null, avatar_url: null, username: null };
 
 /** The host's profile can come back empty (deleted, or not visible to this account): show "Host". */
 export const withHost = (listing: BookingListing): BookingListing => (listing.host ? listing : { ...listing, host: NO_HOST });
@@ -130,8 +131,11 @@ export async function fetchReviews(listingId: string, fetchFn: typeof fetch = fe
   }
 }
 
-/** The listing (and, for hotels taking tables, the dining setup): what the page needs before it can show. */
-export interface ListingBundle { listing: BookingListing | null; diningConfig: DiningConfig | null }
+/**
+ * The listing (and, for hotels taking tables, the dining setup) and the
+ * host's contact options (Reach Out): what the page needs before it can show.
+ */
+export interface ListingBundle { listing: BookingListing | null; diningConfig: DiningConfig | null; contact: ListingContact }
 
 const listingCache = createCache<ListingBundle>({
   namespace: CACHE_NAMESPACES.bookingListing,
@@ -151,9 +155,9 @@ export function peekListingBundle(userId: string, listingId: string): ListingBun
 
 export function loadListingBundle(client: SupabaseClient, userId: string, listingId: string, fetchFn: typeof fetch = fetch): Promise<ListingBundle> {
   return listingCache.load(bundleKey(userId, listingId), async () => {
-    const listing = await fetchBookingListing(client, listingId);
+    const [listing, contact] = await Promise.all([fetchBookingListing(client, listingId), fetchListingContact(client, listingId)]);
     const takesTables = Boolean(listing && listing.category === 'hotel' && listing.supports_table_reservation === true);
-    return { listing, diningConfig: takesTables ? await fetchDiningConfig(listingId, fetchFn) : null };
+    return { listing, diningConfig: takesTables ? await fetchDiningConfig(listingId, fetchFn) : null, contact };
   });
 }
 

@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { getListingFeedCache } from '../lib/listingFeedCache';
+import { NO_CONTACT } from '../lib/reachOut/reachOut';
 import { loadListingVideo, getCachedVideo, type ListingVideo } from '../lib/media/listingVideo';
 import { useListingLike } from '../lib/listings/listingLikes';
 import {
@@ -201,6 +202,7 @@ export default function BookingPage() {
                     reviews={reviews}
                     hostAvatarUrl={resolveAvatar(listing.host.avatar_url)}
                     resolveAvatar={resolveAvatar}
+                    contact={bundle ? bundle.contact : NO_CONTACT}
                     messaging={messaging}
                     onMessageHost={() => { void messageHost(); }}
                   />
