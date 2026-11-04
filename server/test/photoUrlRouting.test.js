@@ -4,7 +4,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const landingPageSource = fs.readFileSync(
   path.resolve(__dirname, '../../client/pages/index.tsx'),
@@ -31,12 +30,10 @@ function patchedStorage(fetchImpl = () => { throw new Error('Unexpected network 
       },
     },
   };
-  const window = { supabaseClient: client };
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../../client/public/js/supabase-client.js'),
-    'utf8',
-  );
-  vm.runInNewContext(source, { window, fetch: fetchImpl });
+  // The typed storage patch (public/js/supabase-client.js is retired).
+  const { loadTs } = require('../../client/test/helpers/loadTs');
+  const { installR2PhotoStorage } = loadTs(path.resolve(__dirname, '../../client/lib/supabase/r2PhotoStorage.ts'), { globals: { fetch: fetchImpl } });
+  installR2PhotoStorage(client);
   return { client, legacyCalls, legacyUploadCalls };
 }
 

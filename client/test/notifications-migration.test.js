@@ -279,7 +279,7 @@ test('10. Existing sidebar unread-count behavior and synchronization', () => {
 
   // Page dispatches sync
   assert.match(pageSource, /syncSidebarUnreadCount/);
-  assert.match(pageSource, /VaroomSidebar\.setUnreadCount\(count\)/);
+  assert.doesNotMatch(pageSource, /VaroomSidebar/, 'the legacy sidebar global is gone (E2)');
   assert.match(pageSource, /varoom_notification_count/);
 
   // The shared counts store receives varoom_notification_count; both sidebars

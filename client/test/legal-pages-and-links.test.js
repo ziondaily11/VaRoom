@@ -93,30 +93,12 @@ test('Settings page policy links open in a new tab', () => {
   assert.match(content, /external \? \{ target: '_blank', rel: 'noopener noreferrer' \}/);
 });
 
-test('Legacy signup pages consent links open in a new tab', () => {
-  const clientSignupPath = path.join(clientRoot, 'legacy-pages', 'signup-client.html');
-  const clientContent = fs.readFileSync(clientSignupPath, 'utf8');
-  assert.match(
-    clientContent,
-    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer">Privacy Policy<\/a>/
-  );
-  assert.match(
-    clientContent,
-    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer">Terms of Service<\/a>/
-  );
-
-  const hostSignupPath = path.join(clientRoot, 'legacy-pages', 'signup-host.html');
-  const hostContent = fs.readFileSync(hostSignupPath, 'utf8');
-  assert.match(
-    hostContent,
-    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer">Privacy Policy<\/a>/
-  );
-  assert.match(
-    hostContent,
-    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer">Terms of Service<\/a>/
-  );
+test('the sign-up consent links open the legal pages in a new tab', () => {
+  const form = fs.readFileSync(path.join(clientRoot, 'components', 'landing', 'SignupForm.tsx'), 'utf8');
+  assert.match(form, /<a href="\/privacy" target="_blank" rel="noopener noreferrer"[^>]*>Privacy Policy<\/a>/);
+  assert.match(form, /<a href="\/terms" target="_blank" rel="noopener noreferrer"[^>]*>Terms of Service<\/a>/);
+  for (const file of ['signup-client.html', 'signup-host.html']) assert.equal(fs.existsSync(path.join(clientRoot, 'legacy-pages', file)), false, `${file} is retired (E2)`);
 });
-
 test('Next.js config contains permanent redirects for /terms.html and /privacy.html', () => {
   const nextConfigPath = path.join(clientRoot, 'next.config.js');
   const configContent = fs.readFileSync(nextConfigPath, 'utf8');

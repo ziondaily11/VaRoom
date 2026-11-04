@@ -12,7 +12,7 @@ import { Footer } from '../components/landing/Footer';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
-import { normalizeSignupRole } from '../public/js/auth-flow-utils';
+import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';

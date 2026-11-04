@@ -1,9 +1,8 @@
 import { createCache, type Cache } from './createCache';
 
-// window.VaRoomDataCache, built on the shared cache core. Same API, key
-// prefix, key encoding and stored entry format as public/js/varoom-data-cache.js,
-// which remains as a fallback for pages served outside the Next app.
-// Legacy pages namespace keys themselves: "account:<id>:..." or "public:...".
+// window.VaRoomDataCache, built on the shared cache core (it replaced
+// public/js/varoom-data-cache.js with the same keys and stored format).
+// Callers namespace keys themselves: "account:<id>:..." or "public:...".
 
 export const DATA_CACHE_NAMESPACE = 'varoom:data-cache:v1:';
 const DEFAULT_TTL_MS = 2 * 60 * 1000;

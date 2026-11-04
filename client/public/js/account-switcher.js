@@ -466,8 +466,7 @@
           email: account.email || '',
           role: account.role || 'client'
         };
-        if (window.VaRoomAccountProfileCache) window.VaRoomAccountProfileCache.write(cached);
-        else localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
+        localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
       } catch (storageError) {
         throw new Error('Could not save the selected account in this browser. Please try again.');
       }
@@ -866,8 +865,7 @@
         email: account.email,
         role: account.role
       };
-      if (window.VaRoomAccountProfileCache) window.VaRoomAccountProfileCache.write(cached);
-      else localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
+      localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
     } catch (e) {}
     return account;
   }
