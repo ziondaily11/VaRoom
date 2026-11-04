@@ -4,6 +4,7 @@ import type { LegacyProfileStoreApi } from '../lib/auth/profileStore';
 import type { DataCacheApi } from '../lib/cache/dataCache';
 import type { AccountSwitcher } from '../lib/account/accountActions';
 import type { LegacyCountsApi } from '../lib/counts/CountsBridge';
+import type { ChatCacheApi } from '../lib/chatCache';
 
 // Browser globals shared between the React app and the legacy public/js
 // scripts. Extend this as more legacy globals gain typed React consumers.
@@ -47,12 +48,12 @@ declare global {
     __varoomAddAccountModalMounted?: boolean;
     /** Client Home's Saved view, when that page defines it. */
     showSavedView?: () => void;
-    VaRoomChatCache?: {
-      clearUser(userId: string): Promise<void>;
-      clearMedia(): Promise<void>;
-      clearAll(): Promise<void>;
-    };
+    VaRoomChatCache?: ChatCacheApi;
   }
+
+  // lib/chatCache.ts publishes itself on globalThis (window in the browser).
+  // eslint-disable-next-line no-var
+  var VaRoomChatCache: ChatCacheApi | undefined;
 }
 
 export {};

@@ -1,7 +1,24 @@
+// Client Home's scroll restoration: the feed scrolls inside its own area on
+// desktop and as the document on phones; a position is kept as an anchor card
+// and its offset so it survives cards loading above it.
+
 const MOBILE_SCROLL_QUERY = '(max-width: 860px)';
 
-function isClientHomePageExit(currentUrl, nextUrl) {
-  const pathname = (value) => {
+export interface ScrollPosition {
+  windowY: number;
+  areaY: number;
+  anchorId: string | null;
+  anchorOffset: number | null;
+}
+
+/** The parts of `window` these helpers use (tests pass a stand-in). */
+export type ScrollWindow = Pick<Window, 'matchMedia' | 'innerHeight' | 'scrollY' | 'scrollTo'> & {
+  ResizeObserver?: typeof ResizeObserver;
+  MutationObserver?: typeof MutationObserver;
+};
+
+export function isClientHomePageExit(currentUrl: string, nextUrl: string): boolean {
+  const pathname = (value: string) => {
     try {
       return new URL(value, 'http://varoom.local').pathname.replace(/\/+$/, '') || '/';
     } catch {
@@ -11,16 +28,18 @@ function isClientHomePageExit(currentUrl, nextUrl) {
   return pathname(currentUrl) === '/client-home' && pathname(nextUrl) !== '/client-home';
 }
 
-function isDocumentScroll(windowObject) {
+function isDocumentScroll(windowObject: ScrollWindow): boolean {
   return windowObject.matchMedia(MOBILE_SCROLL_QUERY).matches;
 }
 
-function captureScrollPosition(windowObject, feedElement) {
+const mediaCards = (feedElement: HTMLElement) => Array.from(feedElement.querySelectorAll<HTMLElement>('[data-media]'));
+
+export function captureScrollPosition(windowObject: ScrollWindow, feedElement: HTMLElement | null | undefined): ScrollPosition {
   const documentScroll = isDocumentScroll(windowObject);
   const viewportTop = documentScroll ? 0 : feedElement?.getBoundingClientRect().top || 0;
   const viewportBottom = documentScroll ? windowObject.innerHeight : viewportTop + (feedElement?.clientHeight || 0);
   const anchor = feedElement
-    ? Array.from(feedElement.querySelectorAll('[data-media]')).find((element) => {
+    ? mediaCards(feedElement).find((element) => {
       const bounds = element.getBoundingClientRect();
       return bounds.bottom > viewportTop && bounds.top < viewportBottom;
     })
@@ -33,15 +52,14 @@ function captureScrollPosition(windowObject, feedElement) {
   };
 }
 
-function restoreScrollPosition(windowObject, feedElement, position) {
+export function restoreScrollPosition(windowObject: ScrollWindow, feedElement: HTMLElement | null | undefined, position: Partial<ScrollPosition> | null | undefined): void {
   if (!position || typeof position !== 'object') return;
   const documentScroll = isDocumentScroll(windowObject);
   if (feedElement && position.anchorId && Number.isFinite(position.anchorOffset)) {
-    const anchor = Array.from(feedElement.querySelectorAll('[data-media]'))
-      .find((element) => element.dataset.media === position.anchorId);
+    const anchor = mediaCards(feedElement).find((element) => element.dataset.media === position.anchorId);
     if (anchor) {
       const viewportTop = documentScroll ? 0 : feedElement.getBoundingClientRect().top;
-      const delta = anchor.getBoundingClientRect().top - viewportTop - position.anchorOffset;
+      const delta = anchor.getBoundingClientRect().top - viewportTop - Number(position.anchorOffset);
       if (documentScroll) windowObject.scrollTo(0, Math.max(0, windowObject.scrollY + delta));
       else feedElement.scrollTop = Math.max(0, feedElement.scrollTop + delta);
       return;
@@ -54,16 +72,20 @@ function restoreScrollPosition(windowObject, feedElement, position) {
   if (feedElement) feedElement.scrollTop = Math.max(0, Number(position.areaY) || 0);
 }
 
-function preserveAnchorPosition(windowObject, feedElement, position, onUserScroll) {
-  if (!feedElement || !position?.anchorId || !Number.isFinite(position.anchorOffset) ||
-      (typeof windowObject.ResizeObserver !== 'function' && typeof windowObject.MutationObserver !== 'function')) return () => {};
+/** Keeps the anchor card in place while cards above it change size; stops once the user scrolls. */
+export function preserveAnchorPosition(windowObject: ScrollWindow, feedElement: HTMLElement | null | undefined, position: Partial<ScrollPosition> | null | undefined, onUserScroll: () => boolean): () => void {
+  if (!feedElement || !position?.anchorId || !Number.isFinite(position.anchorOffset)
+      || (typeof windowObject.ResizeObserver !== 'function' && typeof windowObject.MutationObserver !== 'function')) return () => {};
   const documentScroll = isDocumentScroll(windowObject);
-  const cards = Array.from(feedElement.querySelectorAll('[data-media]'));
+  const cards = mediaCards(feedElement);
   const anchorIndex = cards.findIndex((element) => element.dataset?.media === position.anchorId);
   if (anchorIndex <= 0) return () => {};
 
   const anchor = cards[anchorIndex];
-  const viewportTop = () => documentScroll ? 0 : feedElement.getBoundingClientRect().top;
+  const anchorOffset = Number(position.anchorOffset);
+  const viewportTop = () => (documentScroll ? 0 : feedElement.getBoundingClientRect().top);
+  let resizeObserver: ResizeObserver | null = null;
+  let mutationObserver: MutationObserver | null = null;
   const reconcile = () => {
     if (onUserScroll()) {
       resizeObserver?.disconnect();
@@ -76,17 +98,13 @@ function preserveAnchorPosition(windowObject, feedElement, position, onUserScrol
       mutationObserver?.disconnect();
       return;
     }
-    const delta = anchor.getBoundingClientRect().top - viewportTop() - position.anchorOffset;
+    const delta = anchor.getBoundingClientRect().top - viewportTop() - anchorOffset;
     if (Math.abs(delta) < 1) return;
     if (documentScroll) windowObject.scrollTo(0, Math.max(0, windowObject.scrollY + delta));
     else feedElement.scrollTop = Math.max(0, feedElement.scrollTop + delta);
   };
-  const resizeObserver = typeof windowObject.ResizeObserver === 'function'
-    ? new windowObject.ResizeObserver(reconcile)
-    : null;
-  const mutationObserver = typeof windowObject.MutationObserver === 'function'
-    ? new windowObject.MutationObserver(reconcile)
-    : null;
+  resizeObserver = typeof windowObject.ResizeObserver === 'function' ? new windowObject.ResizeObserver(reconcile) : null;
+  mutationObserver = typeof windowObject.MutationObserver === 'function' ? new windowObject.MutationObserver(reconcile) : null;
   resizeObserver?.observe(feedElement);
   cards.slice(0, anchorIndex).forEach((element) => resizeObserver?.observe(element));
   mutationObserver?.observe(feedElement, { childList: true, subtree: true, characterData: true });
@@ -95,10 +113,3 @@ function preserveAnchorPosition(windowObject, feedElement, position, onUserScrol
     mutationObserver?.disconnect();
   };
 }
-
-module.exports = {
-  captureScrollPosition,
-  isClientHomePageExit,
-  preserveAnchorPosition,
-  restoreScrollPosition,
-};

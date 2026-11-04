@@ -16,7 +16,7 @@ import { installAccountActions } from '../lib/account/accountActions';
 import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
 import { installAppLinks } from '../lib/navigation/appLinks';
 import { applyTheme } from '../lib/theme';
-const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
+import { getAccountLayout, getSessionBoundCachedRole } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/privacy.css';
 const { chatsThemeCssHref } = require('../lib/chatsCssAssets');

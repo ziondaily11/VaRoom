@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
 const { resolveAvatarUrl, resolveStoredPhotoUrl } = loadTs(path.join(__dirname, '..', 'components', 'resolveStoredPhotoUrl.ts'));
-const { getAccountLayout } = require('../lib/accountRoleLayout');
+const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 const clientDir = path.join(__dirname, '..');
 

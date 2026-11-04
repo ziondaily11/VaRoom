@@ -3,6 +3,8 @@ import type { Session } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { switchAccount, type LinkResult } from '../lib/account/accountActions';
 
+const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message) || fallback;
+
 // Message posted by the /auth-callback popup (lib/auth/authCallback.ts).
 interface AddAccountMessage {
   type?: string;
@@ -107,7 +109,7 @@ export default function AddAccountModal() {
           const linked = await registerAdditionalSession(session);
           await finishAdded(linked, session.user?.id);
         } catch (err) {
-          setError(err.message || 'Could not link Google account.');
+          setError(errorText(err, 'Could not link Google account.'));
         } finally {
           setIsGoogleLoading(false);
         }
@@ -167,10 +169,10 @@ export default function AddAccountModal() {
       if (!session) throw new Error('Sign in to your current account before adding another.');
       // Store the current session's latest tokens first, as the vanilla modal does.
       if (switcher.upsertFromSession) await switcher.upsertFromSession(window.supabaseClient, session);
-      await switcher.loadLinkedAccounts(window.supabaseClient, session, { force: true });
-      if (!switcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
+      if (switcher.loadLinkedAccounts) await switcher.loadLinkedAccounts(window.supabaseClient, session, { force: true });
+      if (switcher.canAddAccount && !switcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
     } catch (e) {
-      setError(e.message || 'Unable to verify the linked-account group.');
+      setError(errorText(e, 'Unable to verify the linked-account group.'));
       return;
     }
 
@@ -186,8 +188,10 @@ export default function AddAccountModal() {
     googleSucceededRef.current = false;
 
     try {
-      const accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
-      const tempClient = window.VaRoomAccountAuth.createClient(
+      const accountAuth = window.VaRoomAccountAuth;
+      if (!accountAuth) throw new Error('Could not initiate Google authentication.');
+      const accountAuthFlow = accountAuth.createFlowId();
+      const tempClient = accountAuth.createClient(
         window.supabase, supabaseUrl, supabaseAnonKey, { usesRedirect: true, flowId: accountAuthFlow }
       );
 
@@ -238,7 +242,7 @@ export default function AddAccountModal() {
         throw new Error('Could not initiate Google authentication.');
       }
     } catch (err) {
-      setError(err?.message || 'Could not connect to Google. Please try again.');
+      setError(errorText(err, 'Could not connect to Google. Please try again.'));
       setIsGoogleLoading(false);
     }
   };
@@ -277,8 +281,10 @@ export default function AddAccountModal() {
 
       // Use a flow-specific auth storage key so this temporary sign-in cannot
       // share auth state or the cross-tab lock namespace with the active user.
-      const accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
-      const tempClient = window.VaRoomAccountAuth.createClient(
+      const accountAuth = window.VaRoomAccountAuth;
+      if (!accountAuth) throw new Error('Authentication service is initializing. Please try again.');
+      const accountAuthFlow = accountAuth.createFlowId();
+      const tempClient = accountAuth.createClient(
         window.supabase,
         supabaseUrl,
         supabaseAnonKey,
@@ -307,7 +313,7 @@ export default function AddAccountModal() {
       const linked = await registerAdditionalSession(data.session, tempClient);
       await finishAdded(linked, data.user.id);
     } catch (err) {
-      setError(err?.message || 'Failed to add account. Please check your credentials.');
+      setError(errorText(err, 'Failed to add account. Please check your credentials.'));
     } finally {
       setIsLoading(false);
     }

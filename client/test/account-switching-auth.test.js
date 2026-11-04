@@ -288,8 +288,8 @@ test('Google add-account callback rejects missing, rejected, or cross-identity r
 });
 
 test('email and Google add-account flows use isolated auth clients; callback links accounts without replacing the active session', () => {
-  assert.match(addAccountModalSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
-  assert.match(accountSwitcherSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/);
+  assert.match(addAccountModalSource, /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
+  assert.match(accountSwitcherSource, /(?:VaRoomAccountAuth|accountAuth)\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/);
   assert.match(addAccountModalSource, /\{ usesRedirect: true, flowId: accountAuthFlow \}/);
   assert.match(addAccountModalSource, /\/auth-callback\?addAccount=true&account_auth_flow=\$\{encodeURIComponent\(accountAuthFlow\)\}/);
   assert.match(supabaseBrowserClientSource, /params\.get\('addAccount'\) === 'true'/);
@@ -304,7 +304,7 @@ test('email and Google add-account flows use isolated auth clients; callback lin
 
 test('normal login remains on the primary client and refresh-token rotation stays enabled', async () => {
   // Email and Google sign-in use the one primary client, never an add-account client.
-  assert.match(authPanelSource, /const client = \(window as any\)\.supabaseClient;[\s\S]*?client\.auth\.signInWithPassword/);
+  assert.match(authPanelSource, /const client = window\.supabaseClient;[\s\S]*?client\.auth\.signInWithPassword/);
   assert.match(authPanelSource, /const googleClient = [\s\S]*?\.supabaseClient \|\| null;/);
   assert.doesNotMatch(authPanelSource, /VaRoomAccountAuth\.createClient/);
   assert.match(supabaseBrowserClientSource, /add_account_callback/);

@@ -10,7 +10,7 @@ import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { DifferentiatorSection } from '../components/landing/DifferentiatorSection';
 import { Footer } from '../components/landing/Footer';
 import { AuthPanel } from '../components/landing/AuthPanel';
-import { Listing } from '../components/landing/types';
+import type { LandingListingRow, Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { getSupabaseClient } from '../lib/supabase/client';
@@ -19,6 +19,29 @@ import { resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';
 
 interface LandingPageProps {
   initialListings: Listing[];
+}
+
+
+// New listing photos live in private R2 and resolve through the server media
+// route; the same resolver serves the pre-rendered and the refreshed cards.
+function toLandingListing(row: LandingListingRow, sb: Parameters<typeof resolveStoredPhotoUrl>[2]): Listing {
+  const photo = (row.listing_photos || []).find((item) => item && item.storage_path);
+  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
+  const details = Array.isArray(row.listing_booking_details) ? row.listing_booking_details[0] : row.listing_booking_details;
+  return {
+    id: row.id,
+    title: row.title || 'VaRoom Space',
+    category: row.category || 'property',
+    location: row.location_text || 'Kenya',
+    photoUrl,
+    price: details ? details.price_amount ?? null : null,
+    priceUnit: details ? details.price_unit || 'night' : 'night',
+    guests: details ? details.max_guests ?? null : null,
+    sizeOrType: details ? details.size_or_type ?? null : null,
+    amenities: details && Array.isArray(details.amenities) ? (details.amenities as string[]) : [],
+    verified: Boolean(row.verified || (row.host && row.host.verified)),
+    hostName: row.host ? (row.host.full_name || row.host.username || 'VaRoom Host') : 'VaRoom Host',
+  };
 }
 
 export default function LandingPage({ initialListings }: LandingPageProps) {
@@ -96,25 +119,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .limit(12);
 
         if (!error && data && data.length > 0 && isMounted) {
-          const mapped: Listing[] = data.map((l: any) => {
-            const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-            const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
-            const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
-            return {
-              id: l.id,
-              title: l.title || 'VaRoom Space',
-              category: l.category || 'property',
-              location: l.location_text || 'Kenya',
-              photoUrl,
-              price: details ? details.price_amount : null,
-              priceUnit: details ? details.price_unit || 'night' : 'night',
-              guests: details ? details.max_guests : null,
-              sizeOrType: details ? details.size_or_type : null,
-              amenities: details && Array.isArray(details.amenities) ? details.amenities : [],
-              verified: Boolean(l.verified || (l.host && l.host.verified)),
-              hostName: l.host ? (l.host.full_name || l.host.username || 'VaRoom Host') : 'VaRoom Host',
-            };
-          });
+          const mapped: Listing[] = (data as LandingListingRow[]).map((row) => toLandingListing(row, sb));
 
           const validWithPhotos = mapped.filter((m) => Boolean(m.photoUrl));
           if (validWithPhotos.length > 0) {
@@ -707,28 +712,7 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
       };
     }
 
-    const initialListings: Listing[] = data.map((l: any) => {
-      const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-      // New listing photos live in private R2 and must be resolved through the
-      // server media route. The Supabase public URL only works for legacy
-      // objects, so use the same resolver as the client-side refresh path.
-      const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
-      const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
-      return {
-        id: l.id,
-        title: l.title || 'VaRoom Space',
-        category: l.category || 'property',
-        location: l.location_text || 'Kenya',
-        photoUrl,
-        price: details ? details.price_amount : null,
-        priceUnit: details ? details.price_unit || 'night' : 'night',
-        guests: details ? details.max_guests : null,
-        sizeOrType: details ? details.size_or_type : null,
-        amenities: details && Array.isArray(details.amenities) ? details.amenities : [],
-        verified: Boolean(l.verified || (l.host && l.host.verified)),
-        hostName: l.host ? (l.host.full_name || l.host.username || 'VaRoom Host') : 'VaRoom Host',
-      };
-    });
+    const initialListings: Listing[] = (data as LandingListingRow[]).map((row) => toLandingListing(row, sb));
 
     return {
       props: {

@@ -185,12 +185,13 @@ export type ReturnStatus =
 
 /** One check of a returned payment against the server. Throws when it cannot be verified yet. */
 export async function checkReturnedPayment(token: string, reference: string | null, fetchFn: FetchFn = fetch): Promise<ReturnStatus> {
-  let payment: { status?: string; plan_id?: string } | null = null;
+  type ReturnedPayment = { status?: string; plan_id?: string };
+  let payment: ReturnedPayment | null = null;
   if (reference) {
     const paymentResponse = await fetchFn(`/api/billing/payments/${encodeURIComponent(reference)}`, { headers: authHeaders(token) });
     const paymentResult = await readJson(paymentResponse);
     if (!paymentResponse.ok) throw new Error((paymentResult.error as string) || 'Unable to verify payment');
-    payment = (paymentResult.payment as typeof payment) || null;
+    payment = (paymentResult.payment as ReturnedPayment | undefined) || null;
   }
   const response = await fetchFn('/api/billing/entitlements', { headers: authHeaders(token) });
   const result = await readJson(response);

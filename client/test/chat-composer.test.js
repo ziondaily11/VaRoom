@@ -56,7 +56,7 @@ test('files: images go to the photo preview, phones hold other files for the sen
 
 test('share-listing sheet: account-scoped listings, multi-select, one message per listing, stays open on failure', () => {
   assert.match(sheet, /const listingsByUser = new Map<string, Promise<ChatListingSummary\[\]>>\(\);/);
-  assert.match(sheet, /api\('\/api\/chat\/listings'\)/);
+  assert.match(sheet, /api(?:<[^>]+>)?\('\/api\/chat\/listings'\)/);
   assert.match(sheet, /No listings available/);
   assert.match(sheet, /disabled=\{!selected\.size \|\| sharing\}/);
   assert.match(sheet, /catch \{\s*\/\/ The page reports the failure; the sheet stays open to retry\./);

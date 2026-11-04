@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
+const { getAccountLayout, getSessionBoundCachedRole } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 test('role cache is usable only after the authenticated session matches its account id', () => {
   const clientProfile = { id: 'client-a', role: 'client' };
@@ -48,5 +48,5 @@ test('native Client Home restores cache before profile refresh and keeps widget 
   assert.match(source, /const profileResult = await profileRequest/);
   assert.match(source, /setFeedReady\(true\);/);
   assert.match(source, /PropertyNewsList items=\{news\} loading=\{newsLoading\} failed=\{newsFailed\}/);
-  assert.match(source, /cache\.current\.revalidate\(key, fetcher\)/);
+  assert.match(source, /cache\.current\.revalidate(?:<Listing>)?\(key, fetcher\)/);
 });

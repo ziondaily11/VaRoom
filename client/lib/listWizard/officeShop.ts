@@ -297,7 +297,7 @@ export function collectOfficeShopDetails(form: CollectForm, kind: OfficeShopKind
   const num = (id: string) => readNumber(fields, id, kind);
   const on = (id: string) => readChecked(fields, id, kind);
   const layout = (group: LayoutGroup) => (inapplicable(group, kind) ? [] : layoutKeys(fields, group)
-    .map((key) => LAYOUT_OPTIONS[group].find((option) => option[0] === key)[1]));
+    .map((key) => { const option = LAYOUT_OPTIONS[group].find((item) => item[0] === key); return option ? option[1] : key; }));
 
   const checks: Record<string, boolean | string | null> = {};
   OFFICE_SHOP_AMENITY_KEYS.forEach((key) => { checks[key] = form.officeShopAmenitySelections[key] === true; });
@@ -473,7 +473,8 @@ export function officeShopFromControls(controls: CapturedControl[] | null | unde
   });
   const fields: Fields = {};
   (Object.keys(layouts) as LayoutGroup[]).forEach((group) => {
-    fields[group] = LAYOUT_OPTIONS[group].map((option) => option[0]).filter((key) => layouts[group].has(key)).join(',');
+    const chosen = layouts[group];
+    fields[group] = LAYOUT_OPTIONS[group].map((option) => option[0]).filter((key) => Boolean(chosen && chosen.has(key))).join(',');
   });
   const patch: OfficeShopPatch = {};
   if (Object.keys(fields).length) patch.fields = fields;
@@ -519,7 +520,7 @@ export function listingDocumentMimeType(file: DocumentFileLike | null | undefine
   const mimeType = (file && file.type) || byExtension[extension];
   const accepted: Record<string, string[]> = { 'application/pdf': ['pdf'], 'image/jpeg': ['jpg', 'jpeg'], 'image/png': ['png'], 'image/webp': ['webp'], 'image/gif': ['gif'] };
   if (!mimeType || !accepted[mimeType] || !accepted[mimeType].includes(extension)) throw new Error(DOCUMENT_TYPE_ERROR);
-  if (!file.size || file.size > 15 * 1024 * 1024) throw new Error(DOCUMENT_SIZE_ERROR);
+  if (!file || !file.size || file.size > 15 * 1024 * 1024) throw new Error(DOCUMENT_SIZE_ERROR);
   return mimeType;
 }
 

@@ -84,7 +84,7 @@ export function createListingDraftCache(options: { indexedDBRef?: IDBFactory | n
       if (!draft || typeof draft.cacheKey !== 'string' || !draft.cacheKey) return Promise.reject(new Error('A valid listing draft key is required.'));
       return transact(draft.cacheKey, (store) => store.put(safeDraftCopy(draft))).then(() => undefined);
     },
-    load<T extends StoredDraft = StoredDraft>(cacheKey: string | null | undefined) {
+    load<T extends StoredDraft = StoredDraft>(cacheKey: string | null | undefined): Promise<T | null> {
       if (typeof cacheKey !== 'string' || !cacheKey) return Promise.resolve(null);
       return transact<T>(cacheKey, (store, key) => store.get(key)).then((value) => value || null);
     },

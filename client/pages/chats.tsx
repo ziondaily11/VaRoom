@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RealtimeChannel, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
@@ -28,7 +28,7 @@ import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
-import { messageMetaText } from '../lib/chat/chatMedia';
+import { messageMetaText, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
 import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
@@ -43,7 +43,7 @@ const { chatsCssHref } = require('../lib/chatsCssAssets');
 
 const ELIE_ID = 'elie';
 
-function resolveChatAvatarUrl(url?: string | null, client?: any): string | null {
+function resolveChatAvatarUrl(url?: string | null, client?: SupabaseClient | null): string | null {
   if (!url) return null;
   if (/^(data:|blob:)/i.test(url)) return url;
   try {
@@ -162,7 +162,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const router = useRouter();
 
   // Session & User
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<'host' | 'client'>('client');
 
@@ -214,7 +214,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Refs for Realtime & Lifecycle Guards
   const selectionGenerationRef = useRef<number>(0);
   const channelGenerationRef = useRef<number>(0);
-  const activeChannelRef = useRef<any>(null);
+  const activeChannelRef = useRef<RealtimeChannel | null>(null);
   const mountedRef = useRef<boolean>(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const desktopEditorRef = useRef<HTMLDivElement | null>(null);
@@ -230,7 +230,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const composerRef = useRef<HTMLDivElement | null>(null);
 
   // Active state synchronization refs to break cyclic dependencies
-  const sessionRef = useRef<any>(session);
+  const sessionRef = useRef<Session | null>(session);
   sessionRef.current = session;
   const userIdRef = useRef<string | null>(userId);
   userIdRef.current = userId;
@@ -242,8 +242,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   routerRef.current = router;
 
   // Authenticated fetch helper
-  const api = useCallback(async (url: string, options: any = {}) => {
-    const token = sessionRef.current?.access_token || ((window as any).supabaseClient ? (await (window as any).supabaseClient.auth.getSession())?.data?.session?.access_token : null);
+  const api = useCallback<ChatApi>(async (url: string, options: RequestInit = {}) => {
+    const token = sessionRef.current?.access_token || (window.supabaseClient ? (await window.supabaseClient.auth.getSession())?.data?.session?.access_token : null);
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -328,7 +328,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, []);
 
   // Fetch conversations list
-  const loadConversations = useCallback(async (targetUserId?: string, targetSession?: any) => {
+  const loadConversations = useCallback(async (targetUserId?: string, targetSession?: Session | null) => {
     const currentUserId = targetUserId || userIdRef.current;
     const currentSession = targetSession || sessionRef.current;
     if (!currentUserId) return;
@@ -341,7 +341,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           fetchFn: (url) => api(url),
         });
       } else {
-        const res = await api('/api/chat/conversations');
+        const res = await api<{ conversations?: ChatConversation[] }>('/api/chat/conversations');
         list = res.conversations || [];
       }
 
@@ -464,7 +464,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         const newest = cached && cached.length ? cached[cached.length - 1] : null;
         let url = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
         if (newest?.created_at) url += `?since=${encodeURIComponent(newest.created_at)}`;
-        const res = await api(url);
+        const res = await api<{ messages?: ChatMessage[] }>(url);
         finalMsgs = res.messages || [];
       }
 
@@ -491,7 +491,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!client) return;
     const channelGen = ++channelGenerationRef.current;
     const channel = client.channel(`chat:${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: { new?: { id?: string } }) => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         const msgId = payload.new?.id;
         // Messages this page already shows (our own sends) need no request.
@@ -502,7 +502,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           const newest = [...messagesStateRef.current].reverse().find((m) => !(m as OptimisticChatMessage)._optimistic && m.created_at);
           let url = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
           if (newest) url += `?since=${encodeURIComponent(newest.created_at)}`;
-          const res = await api(url);
+          const res = await api<{ messages?: ChatMessage[] }>(url);
           if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current || !mountedRef.current) return;
           const incoming: ChatMessage[] = (res.messages || []).filter((m: ChatMessage) => !messagesStateRef.current.some((existing) => existing.id === m.id));
           if (!incoming.length) return;
@@ -599,8 +599,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         setLoadingInbox(true);
         if (activeChannelRef.current) {
           try {
-            const client = (window as any).supabaseClient;
-            if (client) client.removeChannel(activeChannelRef.current);
+            const client = window.supabaseClient;
+            if (client && activeChannelRef.current) client.removeChannel(activeChannelRef.current);
           } catch {}
           activeChannelRef.current = null;
         }
@@ -615,8 +615,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       window.removeEventListener('varoom_active_account_changed', handleAccountChange);
       if (activeChannelRef.current) {
         try {
-          const client = (window as any).supabaseClient;
-          if (client) client.removeChannel(activeChannelRef.current);
+          const client = window.supabaseClient;
+          if (client && activeChannelRef.current) client.removeChannel(activeChannelRef.current);
         } catch {}
         activeChannelRef.current = null;
       }
@@ -724,12 +724,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         setPendingFile(null);
         void handleUploadAttachment(fileToSend, 'file', plainText ? content : fileToSend.name);
       } else if (!currentReply && plainText.toLowerCase() === '@reply') {
-        res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
+        res = await api<{ message?: ChatMessage; messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
           method: 'POST',
           body: JSON.stringify({ command: '@reply' }),
         });
       } else {
-        res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+        res = await api<{ message?: ChatMessage; messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
           method: 'POST',
           body: JSON.stringify({
             content: content,
@@ -799,7 +799,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!conversationId || conversationId === ELIE_ID || !isHost) return;
     try {
       for (const listing of listings) {
-        const res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+        const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
           method: 'POST',
           body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
         });
@@ -870,7 +870,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     try {
       const fileMimeType = inferMimeType(file);
       // 1. Init upload
-      const initRes = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/upload-init`, {
+      const initRes = await api<{ uploadUrl: string; attachmentId: string }>(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/upload-init`, {
         method: 'POST',
         body: JSON.stringify({
           filename: file.name,
@@ -895,7 +895,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       });
 
       // 4. Send attachment message
-      const res = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
+      const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({
           content: captionAtSend,
@@ -904,18 +904,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         }),
       });
 
-      if (res?.message && mountedRef.current) {
+      const sent = res?.message;
+      if (sent && mountedRef.current) {
         // Replace the optimistic message with the real one; dedup against Realtime
         setMessagesState((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempId);
-          if (withoutTemp.some((m) => m.id === res.message.id)) return withoutTemp;
-          return [...withoutTemp, res.message];
+          if (withoutTemp.some((m) => m.id === sent.id)) return withoutTemp;
+          return [...withoutTemp, sent];
         });
         if (userId) {
-          appendMessage(userId, activeId, res.message).catch(() => {});
-          updateInboxConversation(userId, activeId, { lastMessage: res.message }).catch(() => {});
+          appendMessage(userId, activeId, sent).catch(() => {});
+          updateInboxConversation(userId, activeId, { lastMessage: sent }).catch(() => {});
         }
-        bumpConversation(activeId, res.message);
+        bumpConversation(activeId, sent);
         // The persisted message fetches its own signed URL. It must not reuse this
         // local blob URL, because it is about to be released.
         URL.revokeObjectURL(localObjectUrl);
@@ -1041,7 +1042,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // A full fetch: pins and deletions change existing messages, which the
   // cache's `since` delta sync does not return. The cache is rewritten too.
   const refreshConversation = async (conversationId: string) => {
-    const res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
+    const res = await api<{ messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
     const list: ChatMessage[] = res.messages || [];
     const currentUserId = userIdRef.current;
     if (currentUserId) setMessages(currentUserId, conversationId, list).catch(() => {});
@@ -1176,7 +1177,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // route needs the session token and returns that URL as JSON.
   const openAttachment = async (attachmentId: string) => {
     try {
-      const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+      const result = await api<{ url?: string }>(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
       if (result?.url) window.open(result.url, '_blank', 'noopener');
     } catch (err) {
       console.error('Attachment unavailable:', err);
@@ -1723,8 +1724,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               aria-label="Write a message"
               data-placeholder={isElie ? 'Ask Elie about spaces, prices, amenities...' : 'Write a message...'}
               ref={desktopEditorRef}
-              onInput={(e: any) => {
-                const text = e.target.textContent || '';
+              onInput={(e: React.FormEvent<HTMLDivElement>) => {
+                const text = e.currentTarget.textContent || '';
                 setComposerText(text);
               }}
               onKeyDown={(e) => {

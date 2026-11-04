@@ -5,6 +5,7 @@ import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } fro
 import { OtpCodeInput } from './OtpCodeInput';
 import type { OtpCodeInputHandle } from './OtpCodeInput';
 import { GoogleSignInButton } from './GoogleSignInButton';
+import { errorMessage } from '../../lib/errors';
 
 type AccountRole = 'host' | 'client';
 type PasswordCriteria = {
@@ -92,7 +93,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
     if (!agreed) setAlert('Please agree to the Privacy Policy and Terms of Service.');
     if (Object.values(nextErrors).some(Boolean) || !agreed) return;
 
-    const client = (window as any).supabaseClient;
+    const client = window.supabaseClient;
     if (!client) {
       setAlert('Authentication is unavailable right now. Please try again.');
       return;
@@ -125,8 +126,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
       setVerificationEmail(email.trim());
       setVerificationCode(createEmptyOtpCode());
       setIsVerifying(true);
-    } catch (error: any) {
-      setAlert(error?.message || 'Something went wrong. Please try again.');
+    } catch (error) {
+      setAlert(errorMessage(error) || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -138,7 +139,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
       return;
     }
 
-    const client = (window as any).supabaseClient;
+    const client = window.supabaseClient;
     if (!client) {
       setAlert('Authentication is unavailable right now. Please try again.');
       return;
@@ -158,8 +159,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
         return;
       }
       window.location.assign(`/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
-    } catch (error: any) {
-      setAlert(error?.message || 'That code is invalid or expired. Please try again.');
+    } catch (error) {
+      setAlert(errorMessage(error) || 'That code is invalid or expired. Please try again.');
       otpInputRef.current?.clearAndFocus();
     } finally {
       setIsLoading(false);
@@ -186,8 +187,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) setAlert(result.error || 'Could not resend the verification code.');
-    } catch (error: any) {
-      setAlert(error?.message || 'Could not resend the verification code.');
+    } catch (error) {
+      setAlert(errorMessage(error) || 'Could not resend the verification code.');
     } finally {
       setIsLoading(false);
       window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());

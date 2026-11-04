@@ -7,7 +7,7 @@ const {
   isClientHomePageExit,
   preserveAnchorPosition,
   restoreScrollPosition,
-} = require('../lib/clientHomeScroll');
+} = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'clientHomeScroll.ts'));
 
 const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
 

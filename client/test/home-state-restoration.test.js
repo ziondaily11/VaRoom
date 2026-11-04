@@ -9,7 +9,7 @@ test('native Client Home uses account-scoped feed caches before revalidation', (
   const source = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
   assert.match(source, /loadListingFeedCache\(\)/);
   assert.match(source, /cache\.current\.snapshot/);
-  assert.match(source, /cache\.current\.revalidate\(key, fetcher\)/);
+  assert.match(source, /cache\.current\.revalidate(?:<Listing>)?\(key, fetcher\)/);
   assert.match(source, /\['client', user\.id, view, category/);
   assert.match(source, /feedContextKey\.current !== key/);
 });

@@ -15,6 +15,7 @@ import {
 import { toExcerpt } from '../lib/propertyNewsExcerpt';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
+import { errorMessage } from '../lib/errors';
 
 interface StatusResult {
   label: string;
@@ -119,8 +120,9 @@ function extractImages(item: PropertyNewsItem): ArticleImageItem[] {
     for (const img of item.images) {
       if (typeof img === 'string') {
         add(img);
-      } else if (img && typeof img === 'object' && (img as any).url) {
-        add((img as any).url, (img as any).caption, (img as any).credit);
+      } else if (img && typeof img === 'object' && (img as { url?: string }).url) {
+        const image = img as { url: string; caption?: string; credit?: string };
+        add(image.url, image.caption, image.credit);
       }
     }
   }
@@ -323,9 +325,9 @@ export default function PropertyNewsPage() {
         setListLoading(false);
         setListError(false);
       }
-    } catch (err: any) {
+    } catch (err) {
       if (signal?.aborted) return;
-      console.warn('Property news fetch notice:', err?.message || err);
+      console.warn('Property news fetch notice:', errorMessage(err) || err);
       setListError(true);
       setListLoading(false);
     }
@@ -370,9 +372,9 @@ export default function PropertyNewsPage() {
         setCachedArticle(id, fullItem);
         setDetailLoading(false);
       }
-    } catch (err: any) {
+    } catch (err) {
       if (signal?.aborted) return;
-      console.warn('Property news article detail notice:', err?.message || err);
+      console.warn('Property news article detail notice:', errorMessage(err) || err);
       if (!preview) {
         setDetailError(true);
       }

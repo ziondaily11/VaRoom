@@ -8,7 +8,7 @@ const chatsPagePath = path.join(root, 'pages', 'chats.tsx');
 const slugPath = path.join(root, 'pages', '[...slug].js');
 const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
-const { getAccountLayout } = require('../lib/accountRoleLayout');
+const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
 
 test('Phase 1 & 2: Chats is a native React page in client/pages/chats.tsx', () => {
   assert.ok(fs.existsSync(chatsPagePath), 'chats.tsx must exist');

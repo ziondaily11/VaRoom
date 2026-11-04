@@ -10,7 +10,7 @@ const legacyHomePath = path.join(root, 'legacy-pages', 'client-home.html');
 const catchAllPath = path.join(root, 'pages', '[...slug].js');
 const nextConfigPath = path.join(root, 'next.config.js');
 const vercelConfigPath = path.join(root, 'vercel.json');
-const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
+const { resolveClientHomeProfile } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'clientHomeAccount.ts'));
 const { loadTs } = require('./helpers/loadTs');
 const { FALLBACK_SUPABASE_ANON_KEY: FALLBACK_ANON_KEY, SUPABASE_ANON_KEY } = loadTs(path.join(root, 'lib', 'supabase', 'config.ts'), {
   globals: { process: { env: {} } },

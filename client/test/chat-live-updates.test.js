@@ -20,7 +20,7 @@ test('inbox: newest conversation first, preview from its last message (legacy up
   // Every path that changes a thread updates the inbox.
   assert.match(source, /if \(sent\.length\) bumpConversation\(conversationId, sent\[sent\.length - 1\]\);/);
   assert.match(source, /bumpConversation\(conversationId, sent\);/);
-  assert.match(source, /bumpConversation\(activeId, res\.message\);/);
+  assert.match(source, /bumpConversation\(activeId, sent\);/);
   assert.match(source, /bumpConversation\(conversationId, list\.length \? list\[list\.length - 1\] : null\);/);
   assert.match(source, /if \(finalMsgs\.length\) bumpConversation\(id, finalMsgs\[finalMsgs\.length - 1\]\);/);
   assert.match(source, /bumpConversation\(id, latest\);/);
@@ -30,7 +30,7 @@ test('realtime insert: no request for messages already shown; otherwise one requ
   const insert = between("event: 'INSERT', schema: 'public', table: 'messages'", "event: 'UPDATE'");
   assert.match(insert, /if \(!msgId \|\| messagesStateRef\.current\.some\(\(m\) => m\.id === msgId\)\) return;/);
   assert.match(insert, /url \+= `\?since=\$\{encodeURIComponent\(newest\.created_at\)\}`/);
-  assert.equal((insert.match(/await api\(/g) || []).length, 1, 'a single request');
+  assert.equal((insert.match(/await api(?:<[^>]+>)?\(/g) || []).length, 1, 'a single request');
   assert.match(insert, /!\(m as OptimisticChatMessage\)\._optimistic/, 'optimistic uploads are not used as the since point');
 });
 

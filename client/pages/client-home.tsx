@@ -4,6 +4,8 @@ import { hostProfilePath } from '../lib/profile/hostProfile';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
+import type { Session, User } from '@supabase/supabase-js';
+import { errorMessage } from '../lib/errors';
 import { profileStore } from '../lib/auth/session';
 import { completedClientProfile } from '../lib/types/profile';
 import { Music2, X } from 'lucide-react';
@@ -13,9 +15,12 @@ import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedC
 import { getCachedNewsPreview, setCachedNewsPreview } from '../lib/propertyNewsCache';
 import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
-const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
-const { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
+import { resolveClientHomeProfile } from '../lib/clientHomeAccount';
+import { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } from '../lib/clientHomeScroll';
 import { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
+
+interface LikeSummary { listing_id: string; like_count: number | string | null; liked_by_current_user: boolean | null }
+interface MediaItem { id?: string; type?: string; width?: number | null; height?: number | null }
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -800,7 +805,7 @@ export default function ClientHome() {
   const toastTimer = useRef<number | null>(null);
   const newsRequestVersion = useRef(0);
   const newsAbortController = useRef<AbortController | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [feedReady, setFeedReady] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
@@ -895,7 +900,7 @@ export default function ClientHome() {
     const client = getSupabaseClient();
     if (!client) return;
 
-    const resolveSession = async (session: any) => {
+    const resolveSession = async (session: Session | null) => {
       const sessionUser = session?.user;
       const epoch = ++authEpoch.current;
       loadVersion.current += 1;
@@ -996,7 +1001,7 @@ export default function ClientHome() {
 
     let initialSessionResolved = false;
     let hasPendingInitialSession = false;
-    let pendingInitialSession: any = null;
+    let pendingInitialSession: Session | null = null;
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (!initialSessionResolved) {
         hasPendingInitialSession = true;
@@ -1039,7 +1044,7 @@ export default function ClientHome() {
     feedContextVersion.current += 1;
   }
 
-  const fetcher = useCallback(async (offset: number, limit: number) => {
+  const fetcher = useCallback(async (offset: number, limit: number): Promise<{ data?: Listing[]; hasMore?: boolean; error?: Error }> => {
     const client = getSupabaseClient();
     if (!client) throw new Error('Supabase is unavailable.');
     const listingQuery = () => {
@@ -1051,9 +1056,10 @@ export default function ClientHome() {
     };
 
     if (!term) {
-      return listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false })
+      const page = await listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false })
         .range(offset, offset + limit - 1)
         .overrideTypes<Listing[], { merge: false }>();
+      return page.error ? { error: page.error } : { data: page.data || [] };
     }
     if (offset > 0) return { data: [], hasMore: false };
 
@@ -1093,7 +1099,7 @@ export default function ClientHome() {
       setLoadingMore(false);
     }
     const currentVersion = ++loadVersion.current;
-    const snapshot = cache.current.snapshot<Listing>(key) as any;
+    const snapshot = cache.current.snapshot<Listing>(key);
     if (!nextPage && snapshot.hasCachedPage) {
       setItems(snapshot.items as Listing[]);
       setLoadedFeedKey(key);
@@ -1102,7 +1108,7 @@ export default function ClientHome() {
       setError('');
       if (snapshot.isStale) {
         const contextVersion = feedContextVersion.current;
-        void cache.current.revalidate(key, fetcher).then((result: any) => {
+        void cache.current.revalidate<Listing>(key, fetcher).then((result) => {
           if (contextVersion !== feedContextVersion.current || feedContextKey.current !== key) return;
           setItems((result.items || []) as Listing[]);
           setHasMore(Boolean(result.hasMore));
@@ -1128,7 +1134,7 @@ export default function ClientHome() {
       const result = nextPage
         ? await cache.current.prefetchNext(key, fetcher)
         : await cache.current.fetchPage(key, 0, fetcher);
-      const payload = result as any;
+      const payload = result;
       if (currentVersion !== loadVersion.current) return;
       setItems((payload.items || []) as Listing[]);
       setLoadedFeedKey(key);
@@ -1166,9 +1172,9 @@ export default function ClientHome() {
       .in('id', Array.from(saved))
       .eq('moderation_status', 'active')
       .eq('availability_status', 'available')
-      .then(({ data, error: savedError }: any) => {
+      .then(({ data, error: savedError }) => {
         if (!active) return;
-        setItems(data || []);
+        setItems((data || []) as unknown as Listing[]);
         setLoadedFeedKey(key);
         setHasMore(false);
         setLoading(false);
@@ -1190,11 +1196,11 @@ export default function ClientHome() {
         setLikes((current) => {
           const next = { ...current };
           const summaries = Array.isArray(result.data) ? result.data : [];
-          const byId = new Map(summaries.map((summary: any) => [summary.listing_id, summary]));
+          const byId = new Map((summaries as LikeSummary[]).map((summary) => [summary.listing_id, summary]));
           const complete = !result.error && ids.every((id) => {
-            const summary: any = byId.get(id);
+            const summary = byId.get(id);
             return Number.isSafeInteger(Number(summary?.like_count))
-              && Number(summary.like_count) >= 0
+              && Number(summary?.like_count) >= 0
               && typeof summary?.liked_by_current_user === 'boolean';
           });
           if (!complete) {
@@ -1203,7 +1209,7 @@ export default function ClientHome() {
             });
           } else {
             ids.forEach((id) => {
-              const summary: any = byId.get(id);
+              const summary = byId.get(id) as LikeSummary;
               if (!next[summary.listing_id]?.loading) {
                 next[summary.listing_id] = {
                   liked: summary.liked_by_current_user === true,
@@ -1241,7 +1247,7 @@ export default function ClientHome() {
         if (sessionResult.data.session?.user?.id !== accountId) {
           throw new Error('Video metadata request no longer matches the active account.');
         }
-        const headers = sessionResult.data.session
+        const headers: Record<string, string> = sessionResult.data.session
           ? { Authorization: `Bearer ${sessionResult.data.session.access_token}` }
           : {};
         const settle = (listingIds: string[], state: 'none' | 'unavailable') => {
@@ -1284,9 +1290,9 @@ export default function ClientHome() {
               if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
               const result = await response.json();
               if (!Array.isArray(result?.media)) throw new Error('Video media response was invalid.');
-              const videoMedia = result.media.find((mediaItem: any) => mediaItem?.type === 'video' && typeof mediaItem.id === 'string');
+              const videoMedia = (result.media as MediaItem[]).find((mediaItem) => mediaItem?.type === 'video' && typeof mediaItem.id === 'string');
               discovered[id] = videoMedia
-                ? { mediaId: videoMedia.id, width: videoMedia.width, height: videoMedia.height }
+                ? { mediaId: videoMedia.id || null, width: videoMedia.width, height: videoMedia.height }
                 : { mediaId: null };
             } catch (fallbackError) {
               console.error(`Video media for listing ${id} could not be loaded:`, fallbackError);
@@ -1772,10 +1778,10 @@ export default function ClientHome() {
       if (!response.ok) throw new Error(body.error || 'Unable to submit report.');
       setReportMessage('Report submitted. Thank you for helping keep VaRoom trustworthy.');
       window.setTimeout(() => setReport(null), 1800);
-    } catch (submitError: any) {
-      setReportMessage(submitError.name === 'AbortError'
+    } catch (submitError) {
+      setReportMessage(submitError instanceof Error && submitError.name === 'AbortError'
         ? 'The report service took too long to respond. Please try again.'
-        : submitError.message || 'Unable to submit report.');
+        : errorMessage(submitError) || 'Unable to submit report.');
     } finally {
       window.clearTimeout(timeout);
       setSubmittingReport(false);

@@ -45,7 +45,7 @@ export const AMENITY_OPTIONS: AmenityOption[] = [
   ['hair_dryer', 'Hair dryer', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h8a4 4 0 1 0 0-8H8v5M8 10v9m0 0H5m3 0h3"/></svg>']
 ];
 
-const iconOf = (key: string): string => AMENITY_OPTIONS.find((option) => option[0] === key)[2];
+const iconOf = (key: string): string => { const option = AMENITY_OPTIONS.find((item) => item[0] === key); return option ? option[2] : ''; };
 
 // Hotel amenities deliberately use their own keys and labels. They are not a
 // filtered version of the home-stay checklist, so hotel selections remain
