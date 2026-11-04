@@ -34,8 +34,9 @@ function MediaLoader() {
 /**
  * A photo message bubble. The image shows a loader until it loads, then the
  * bubble narrows to the rendered width (440 px desktop, 340 px phone), as legacy.
+ * Without a caption the time and ticks sit over the image in a thin frame.
  */
-export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children, footer }: {
+export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children, footer, overlay }: {
   attachmentId: string | null;
   localUrl?: string;
   alt: string;
@@ -45,6 +46,8 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
   children?: React.ReactNode;
   /** Rendered below the image (caption, send state, meta). */
   footer?: React.ReactNode;
+  /** Rendered over the image's corner (time and ticks of a photo without a caption). */
+  overlay?: React.ReactNode;
 }) {
   const remote = useAttachmentUrl(localUrl ? null : attachmentId, api);
   const src = localUrl || remote.url;
@@ -64,7 +67,7 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
   };
 
   return (
-    <div className="bubble bubble-media" style={width ? { maxWidth: width + 8 } : undefined}>
+    <div className="bubble bubble-media" style={width ? { maxWidth: width + 6 } : undefined}>
       {children}
       <div className="chat-media-wrap" style={width ? { width } : undefined}>
         {!loaded && !remote.failed && <MediaLoader />}
@@ -79,10 +82,17 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
             onClick={() => onOpen(src, alt)}
           />
         )}
+        {overlay}
       </div>
       {footer}
     </div>
   );
+}
+
+/** A replied-to photo, small, beside the quote's text (nothing until it loads). */
+export function ReplyThumb({ attachmentId, api }: { attachmentId: string; api: ChatApi }) {
+  const { url } = useAttachmentUrl(attachmentId, api);
+  return url ? <img className="reply-thumb" src={url} alt="" /> : null;
 }
 
 /** Image thumbnail for the info panel's shared media grid. */

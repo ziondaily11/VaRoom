@@ -366,12 +366,13 @@
   .msg-row.has-media{
     max-width:min(72%, 460px);
   }
+  /* A thin frame around the image (3px). */
   .bubble.bubble-media{
-    padding:4px 4px 6px 4px;
+    padding:3px;
     display:flex;
     flex-direction:column;
     width:fit-content;
-    max-width:min(448px, 100%);
+    max-width:min(446px, 100%);
     box-sizing:border-box;
     overflow:hidden;
   }
@@ -407,8 +408,9 @@
     user-select:none;
   }
   .bubble-media .chat-message-caption{
+    display:flow-root;
     margin:0;
-    padding:6px 8px 2px 8px;
+    padding:6px 8px 6px 8px;
     font-size:13.5px;
     line-height:1.45;
     word-break:break-word;
@@ -416,11 +418,17 @@
     color:inherit;
     font-weight:500;
   }
-  .bubble-media > .msg-meta{
-    align-self:flex-end;
-    margin:2px 6px 0 auto;
-    padding:0;
-    color:inherit;
+  /* Caption: the time sits on its last line when it fits, as in text bubbles. */
+  .chat-message-caption > .msg-meta{ float:right; position:relative; top:6px; margin:0 -4px 0 12px; color:inherit; }
+  .chat-message-caption > .msg-meta .msg-time,
+  .chat-message-caption > .msg-meta:not(.msg-status-read) .msg-status{ opacity:.68; }
+  .msg-row.out .chat-message-caption > .msg-meta{ --msg-read-tick:#4ADE80; }
+  /* No caption: time and ticks over the image's corner. */
+  .chat-media-wrap > .msg-meta{
+    position:absolute; z-index:2; right:6px; bottom:6px; margin:0;
+    padding:3px 7px; border-radius:10px;
+    background:rgba(0,0,0,.45); color:#fff; --msg-read-tick:#4ADE80;
+    pointer-events:none;
   }
   .bubble-media .message-reply-reference{
     margin:4px 4px 6px 4px;
@@ -432,7 +440,7 @@
       max-width:85%;
     }
     .bubble.bubble-media{
-      max-width:min(348px, 100%);
+      max-width:min(346px, 100%);
     }
     .chat-message-image{
       max-width:min(340px, 78vw);
@@ -570,6 +578,10 @@
     cursor:pointer;
   }
   .message-reply-reference strong{ display:block; font-size:10px; }
+  /* A replied-to photo: its thumbnail beside the quote. */
+  .message-reply-reference.has-thumb{ display:flex; align-items:center; gap:8px; }
+  .message-reply-reference .reply-text{ flex:1; min-width:0; }
+  .reply-thumb{ width:36px; height:36px; border-radius:6px; object-fit:cover; flex-shrink:0; }
   .message-reply-reference span{
     display:-webkit-box; overflow:hidden; overflow-wrap:anywhere;
     -webkit-box-orient:vertical; -webkit-line-clamp:2;
@@ -1695,7 +1707,9 @@
   [data-theme="dark"] .link-row .l-sub { color:var(--text-gray) !important; }
   [data-theme="dark"] .msg-row.in .bubble { background:#16181c !important; color:var(--text-dark) !important; border:1px solid var(--border); }
   [data-theme="dark"] .msg-row.out .bubble { background:#2563EB !important; color:#fff !important; }
-  [data-theme="dark"] .msg-row.out .bubble > .msg-meta { color:inherit !important; }
+  [data-theme="dark"] .msg-row.out .bubble > .msg-meta,
+  [data-theme="dark"] .msg-row.out .chat-message-caption > .msg-meta { color:inherit !important; }
+  [data-theme="dark"] .chat-media-wrap > .msg-meta { color:#fff !important; }
   [data-theme="dark"] .msg-meta,
   [data-theme="dark"] .chat-header-status,
   [data-theme="dark"] .profile-block .p-line { color:#9CA3AF !important; }

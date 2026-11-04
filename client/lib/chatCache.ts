@@ -50,6 +50,9 @@ export interface ChatReplyMessage {
   sender_id: string;
   body?: string | null;
   deleted_at?: string | null;
+  message_type?: string | null;
+  attachment?: Pick<ChatAttachment, 'id' | 'kind' | 'original_filename'> | null;
+  listing?: Pick<ChatListingSummary, 'id' | 'title'> | null;
 }
 
 export interface ChatMessage {
