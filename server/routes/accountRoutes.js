@@ -5,6 +5,8 @@ const supabaseDefault = require('../lib/supabaseClient');
 const { createPaystackClient } = require('../lib/paystackClient');
 const { sendError } = require('../lib/apiResponse');
 const { deactivateAccount, reactivateAccount } = require('../lib/accountDeactivation');
+const { createClient } = require('@supabase/supabase-js');
+const { verifiedTokenClaims, securityStatus, recordStepUp, passwordMatches, createAttemptLimiter } = require('../lib/stepUp');
 
 // Settings → Your Account → Account Status. "Delete account" deactivates the
 // account for 30 days before it is permanently deleted; "Deactivate account"
@@ -22,8 +24,15 @@ const DELETE_REASONS = [
   'Other',
 ];
 
-function createAccountRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient() } = {}) {
+/** A client that checks a password without keeping (or replacing) any session. */
+function defaultAnonClient() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY is not configured');
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+function createAccountRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient(), createAnonClient = defaultAnonClient, attempts = createAttemptLimiter() } = {}) {
   const router = express.Router();
+  setInterval(() => attempts.prune(), 15 * 60 * 1000).unref();
 
   async function authenticated(req, res) {
     const header = req.headers.authorization || '';
@@ -71,6 +80,40 @@ function createAccountRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     } catch (error) {
       console.error('Account reactivation failed:', error);
       return sendError(res, 500, 'Unable to reactivate the account');
+    }
+  });
+
+  // Settings → Your Account: locked only when there is a risk (lib/stepUp.js).
+  router.get('/account/security-status', async (req, res) => {
+    const auth = await authenticated(req, res); if (!auth) return;
+    res.set('Cache-Control', 'private, no-store');
+    try {
+      return res.json(await securityStatus(supabaseAdmin, { userId: auth.user.id, claims: verifiedTokenClaims(auth.token) }));
+    } catch (error) {
+      console.error('Account security status failed:', error.message);
+      return sendError(res, 502, 'Unable to check your account security right now');
+    }
+  });
+
+  // Verify with the account password; this session then stays unlocked.
+  router.post('/account/verify-password', async (req, res) => {
+    const auth = await authenticated(req, res); if (!auth) return;
+    const password = typeof (req.body && req.body.password) === 'string' ? req.body.password : '';
+    if (!password || password.length > 200) return sendError(res, 400, 'Enter your password');
+    if (!auth.user.email) return sendError(res, 400, 'This account has no password to verify with');
+    if (attempts.blocked(auth.user.id)) return sendError(res, 429, 'Too many attempts. Please wait a few minutes and try again.');
+    try {
+      const check = await passwordMatches(createAnonClient, supabaseAdmin, { email: auth.user.email, password, userId: auth.user.id });
+      if (check.unavailable) return sendError(res, 503, 'Password verification is temporarily unavailable');
+      if (!check.ok) {
+        attempts.fail(auth.user.id);
+        return sendError(res, 401, 'Incorrect password. Please try again.');
+      }
+      attempts.reset(auth.user.id);
+      return res.json(await recordStepUp(supabaseAdmin, { userId: auth.user.id, claims: verifiedTokenClaims(auth.token), method: 'password' }));
+    } catch (error) {
+      console.error('Password verification failed:', error.message);
+      return sendError(res, 502, 'Unable to verify your password right now');
     }
   });
 

@@ -77,22 +77,74 @@ export function applyFontSize(doc: Document, index: number): (typeof FONT_SIZES)
   return size;
 }
 
-// ---- Your Account re-check ----
+// ---- Your Account lock (risk-based) ----
+//
+// The server decides (server/lib/stepUp.js): a session signed into within
+// 12 hours, or verified within 24 hours, is unlocked; otherwise it asks once.
+// What it answered is remembered for this session in sessionStorage, keyed
+// by the session id, so returning to Settings doesn't ask (or wait) again.
+// That memory only decides what the page shows; the server and database
+// enforce the lock.
 
-/**
- * Check the current password on a throwaway client that keeps no session,
- * so the signed-in session is never replaced.
- */
-export async function verifyPassword(
-  createClient: () => SupabaseClient,
-  { email, password, userId }: { email: string; password: string; userId: string },
-): Promise<boolean> {
+export interface SecurityStatus {
+  unlocked: boolean;
+  reason: 'fresh_sign_in' | 'verified' | 'stale_session';
+  unlockedUntil: string | null;
+}
+
+export const UNLOCK_STORAGE_PREFIX = 'varoom:account-unlock:v1:';
+
+/** The session id inside an access token (a cache key only; the server checks the token). */
+export function tokenSessionId(token: string | null): string | null {
+  if (!token) return null;
   try {
-    const { data, error } = await createClient().auth.signInWithPassword({ email, password });
-    return Boolean(!error && data && data.user && data.user.id === userId);
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(payload)) as { session_id?: unknown };
+    return typeof claims.session_id === 'string' ? claims.session_id : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Until when this session was last known to be unlocked (ms), or null. */
+export function rememberedUnlock(storage: Pick<Storage, 'getItem'> | null, sessionId: string | null, now = Date.now()): number | null {
+  if (!storage || !sessionId) return null;
+  try {
+    const until = Number(storage.getItem(UNLOCK_STORAGE_PREFIX + sessionId));
+    return Number.isFinite(until) && until > now ? until : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberUnlock(storage: Pick<Storage, 'setItem'> | null, sessionId: string | null, unlockedUntil: string | null): void {
+  const until = unlockedUntil ? Date.parse(unlockedUntil) : NaN;
+  if (!storage || !sessionId || !Number.isFinite(until)) return;
+  try { storage.setItem(UNLOCK_STORAGE_PREFIX + sessionId, String(until)); } catch { /* This visit only. */ }
+}
+
+export async function loadSecurityStatus(token: string, fetchFn: typeof fetch = fetch): Promise<SecurityStatus> {
+  const response = await fetchFn('/api/account/security-status', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+  const result = await json(response);
+  if (!response.ok) throw new Error((result.error as string) || 'Could not check your account security.');
+  return result as unknown as SecurityStatus;
+}
+
+/** Verify with the account password (checked by the server); resolves until when this session is unlocked. */
+export async function verifyPassword(token: string, password: string, fetchFn: typeof fetch = fetch): Promise<{ ok: true; unlockedUntil: string | null } | { ok: false; error: string }> {
+  let response: Response;
+  try {
+    response = await fetchFn('/api/account/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ password }),
+    });
+  } catch {
+    return { ok: false, error: 'Network error — please try again.' };
+  }
+  const result = await json(response);
+  if (response.ok && result.unlocked) return { ok: true, unlockedUntil: (result.unlockedUntil as string) || null };
+  return { ok: false, error: (result.error as string) || 'Incorrect password. Please try again.' };
 }
 
 export const VERIFICATION_SESSION_KEY = 'varoom_account_verification_session';
@@ -117,11 +169,11 @@ export async function startGoogleVerification(token: string, fetchFn: typeof fet
 }
 
 /** Whether Google returned the same VaRoom user who started (server-checked). */
-export async function completeGoogleVerification(token: string, fetchFn: typeof fetch = fetch): Promise<{ verified: boolean; error: string | null }> {
+export async function completeGoogleVerification(token: string, fetchFn: typeof fetch = fetch): Promise<{ verified: boolean; error: string | null; unlockedUntil: string | null }> {
   const response = await fetchFn('/api/account-information/google-verification/complete', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
   const result = await json(response);
-  if (response.ok && result.verified) return { verified: true, error: null };
-  return { verified: false, error: (result.error as string) || 'The Google account does not match this VaRoom account.' };
+  if (response.ok && result.verified) return { verified: true, error: null, unlockedUntil: (result.unlockedUntil as string) || null };
+  return { verified: false, error: (result.error as string) || 'The Google account does not match this VaRoom account.', unlockedUntil: null };
 }
 
 // ---- Delete account ----

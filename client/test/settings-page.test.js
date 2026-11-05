@@ -43,14 +43,54 @@ test('display: saved theme and font size, applied app-wide', () => {
   assert.deepEqual({ props, attrs }, { props: { '--varoom-font-scale': '1.1' }, attrs: { 'data-font-size': 'large' } });
 });
 
-test('your account unlocks only for the same user, on a client that keeps no session', async () => {
-  const signIn = (user, error = null) => () => ({ auth: { signInWithPassword: async () => ({ data: { user }, error }) } });
-  assert.equal(await st.verifyPassword(signIn({ id: 'u1' }), { email: 'a@b.c', password: 'x', userId: 'u1' }), true);
-  assert.equal(await st.verifyPassword(signIn({ id: 'other' }), { email: 'a@b.c', password: 'x', userId: 'u1' }), false);
-  assert.equal(await st.verifyPassword(signIn(null, { message: 'Invalid login' }), { email: 'a@b.c', password: 'x', userId: 'u1' }), false);
-  assert.equal(await st.verifyPassword(() => { throw new Error('offline'); }, { email: 'a@b.c', password: 'x', userId: 'u1' }), false);
+test('your account: locked only on risk; a verification lasts for the session; password checked by the server', async () => {
+  // Status comes from the server.
+  let asked;
+  const status = await st.loadSecurityStatus('tok', async (url, init) => { asked = { url, init }; return json(200, { unlocked: false, reason: 'stale_session', unlockedUntil: null }); });
+  assert.equal(asked.url, '/api/account/security-status');
+  assert.equal(asked.init.headers.Authorization, 'Bearer tok');
+  assert.equal(status.unlocked, false);
+  await assert.rejects(st.loadSecurityStatus('t', async () => json(502, { error: 'Unable to check' })), /Unable to check/);
+
+  // The password goes to the server, never checked in the browser.
+  let sent;
+  const ok = await st.verifyPassword('tok', 'secret', async (url, init) => { sent = { url, init }; return json(200, { unlocked: true, reason: 'verified', unlockedUntil: '2026-11-06T12:00:00.000Z' }); });
+  assert.equal(sent.url, '/api/account/verify-password');
+  assert.deepEqual(JSON.parse(sent.init.body), { password: 'secret' });
+  assert.deepEqual({ ...ok }, { ok: true, unlockedUntil: '2026-11-06T12:00:00.000Z' });
+  assert.deepEqual({ ...(await st.verifyPassword('t', 'x', async () => json(401, { error: 'Incorrect password. Please try again.' }))) }, { ok: false, error: 'Incorrect password. Please try again.' });
+  assert.match((await st.verifyPassword('t', 'x', async () => json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' }))).error, /Too many attempts/);
+  assert.equal((await st.verifyPassword('t', 'x', async () => { throw new Error('offline'); })).ok, false);
+
+  // Remembered per session, until it runs out.
+  const token = (claims) => `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  assert.equal(st.tokenSessionId(token({ session_id: 'sess-1' })), 'sess-1');
+  assert.equal(st.tokenSessionId('not-a-token'), null);
+  assert.equal(st.tokenSessionId(null), null);
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  st.rememberUnlock(storage, 'sess-1', '2026-11-06T12:00:00.000Z');
+  const until = Date.parse('2026-11-06T12:00:00.000Z');
+  assert.equal(st.rememberedUnlock(storage, 'sess-1', until - 1000), until);
+  assert.equal(st.rememberedUnlock(storage, 'sess-1', until + 1), null, 'expired');
+  assert.equal(st.rememberedUnlock(storage, 'sess-2', until - 1000), null, 'another session asks again');
+  assert.equal(st.rememberedUnlock({ getItem() { throw new Error('blocked'); } }, 'sess-1'), null);
+
   const section = read('components', 'settings', 'AccountSection.tsx');
-  assert.match(section, /persistSession: false, autoRefreshToken: false/);
+  assert.doesNotMatch(section, /signInWithPassword|createClient\(SUPABASE_URL/, 'no browser-side password check');
+  assert.match(section, /: props\.checking\n\s+\? <div className="settings-section" aria-busy="true">/, 'no lock flash while the server decides');
+  assert.match(section, /\(error as \{ code\?: string \}\)\.code === 'reauthentication_needed'/, 'old sessions change the password with an emailed code');
+  assert.match(section, /client\.auth\.updateUser\(codeSent \? \{ password: newPassword, nonce: code\.trim\(\) \} : \{ password: newPassword \}\)/);
+  const page = read('pages', 'settings.tsx');
+  assert.match(page, /const remembered = rememberedUnlock\(sessionStore\(\), sessionId\);/);
+  assert.match(page, /\}, \[sessionId, unlock\]\);/, 'asked once per session, not on every token refresh');
+  assert.match(page, /window\.setTimeout\(\(\) => setLock\('locked'\), Math\.max\(0, unlockedUntil - Date\.now\(\)\)\)/);
+
+  const ro = loadTs(path.join(root, 'lib', 'reachOut', 'reachOut.ts'));
+  const refusing = { from: () => ({ upsert: async () => ({ error: { code: '42501', message: 'new row violates row-level security policy for table "profile_contact_settings"' } }) }) };
+  assert.equal(await ro.saveReachOut(refusing, 'u1', { phone: '0700000000' }), ro.CONTACT_STEP_UP_MESSAGE);
+  const failing = { from: () => ({ upsert: async () => ({ error: { message: 'network down' } }) }) };
+  assert.equal(await ro.saveReachOut(failing, 'u1', { phone: '0700000000' }), 'network down');
 });
 
 test('google re-verification: offered by the server; unlocked only when the server confirms', async () => {
@@ -58,7 +98,7 @@ test('google re-verification: offered by the server; unlocked only when the serv
   assert.equal(await st.googleVerificationEligible('t', async () => json(200, { eligible: false })), false);
   assert.equal(await st.googleVerificationEligible('t', async () => { throw new Error('x'); }), false);
   await assert.rejects(st.startGoogleVerification('t', async () => json(403, { error: 'Google verification is not available for this account' })), /not available/);
-  assert.deepEqual({ ...(await st.completeGoogleVerification('t', async () => json(200, { verified: true }))) }, { verified: true, error: null });
+  assert.deepEqual({ ...(await st.completeGoogleVerification('t', async () => json(200, { verified: true, unlockedUntil: '2026-11-06T12:00:00.000Z' }))) }, { verified: true, error: null, unlockedUntil: '2026-11-06T12:00:00.000Z' });
   assert.equal((await st.completeGoogleVerification('t', async () => json(403, { error: 'The Google account does not match this VaRoom account' }))).verified, false);
   const page = read('pages', 'settings.tsx');
   assert.match(page, /client\.auth\.setSession\(\{ access_token: saved\.access_token, refresh_token: saved\.refresh_token \}\)/, 'the account that started is restored');
