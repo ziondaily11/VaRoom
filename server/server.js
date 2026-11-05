@@ -19,6 +19,7 @@ const { createAdminRoutes } = require('./routes/adminRoutes');
 const createAccountGroupRoutes = require('./routes/accountGroupRoutes');
 const { createAccountRoutes } = require('./routes/accountRoutes');
 const { runDeactivationMaintenance } = require('./lib/accountDeactivation');
+const { recordStepUp, verifiedTokenClaims } = require('./lib/stepUp');
 const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
@@ -220,7 +221,14 @@ app.post('/api/account-information/google-verification/complete', async (req, re
   if (!state || !user || tokenIat === null || tokenIat < state.notBefore || state.userId !== user.id || !hasGoogleProvider(user) || hasPasswordProvider(user)) {
     return sendError(res, 403, 'The Google account does not match this VaRoom account', ERROR_CODES.UNAUTHORIZED);
   }
-  return res.json({ verified: true });
+  // The verification belongs to this session: Your Account stays unlocked in it (lib/stepUp.js).
+  try {
+    const status = await recordStepUp(supabaseAdmin, { userId: user.id, claims: verifiedTokenClaims(bearerToken(req)), method: 'google' });
+    return res.json({ verified: true, unlockedUntil: status.unlockedUntil });
+  } catch (error) {
+    console.error('Recording Google verification failed:', error.message);
+    return res.json({ verified: true, unlockedUntil: null });
+  }
 });
 
 // A narrow authenticated read endpoint keeps account_controls private while

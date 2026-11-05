@@ -71,11 +71,17 @@ export async function loadReachOut(client: SupabaseClient, userId: string): Prom
   return data ? { ...DEFAULT_REACH_OUT, ...(data as Partial<ReachOutSettings>) } : DEFAULT_REACH_OUT;
 }
 
+/** Contact changes need a session signed into or verified recently (migration 20261105_000062). */
+export const CONTACT_STEP_UP_MESSAGE = 'For your security, verify your identity again to change your contact details: reopen Your Account in Settings.';
+
 /** Writes only the given columns; resolves the error message, or null. */
 export async function saveReachOut(client: SupabaseClient, userId: string, patch: Partial<ReachOutSettings>): Promise<string | null> {
   const { error } = await client.from('profile_contact_settings')
     .upsert({ profile_id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' });
-  return error ? error.message || 'Could not save.' : null;
+  if (!error) return null;
+  // Refused by the database because this session must verify first.
+  if (/row-level security/i.test(error.message || '') || error.code === '42501') return CONTACT_STEP_UP_MESSAGE;
+  return error.message || 'Could not save.';
 }
 
 /** What the fields show: the saved value, else the account's. WhatsApp follows the phone. */

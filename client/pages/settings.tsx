@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -8,7 +8,7 @@ import { accountRole } from '../lib/types/profile';
 import { loginUrl } from '../lib/safeRedirect';
 import { logout } from '../lib/account/accountActions';
 import {
-  completeGoogleVerification, deactivateAccount, deleteAccount, loadPreferences, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
+  completeGoogleVerification, deactivateAccount, deleteAccount, loadPreferences, loadSecurityStatus, rememberedUnlock, rememberUnlock, tokenSessionId, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
 } from '../lib/settings/settings';
 import AccountSection from '../components/settings/AccountSection';
 import PlansSection, { PLANS_STYLES } from '../components/settings/PlansSection';
@@ -43,7 +43,12 @@ export default function SettingsPage() {
   const [view, setView] = useState<View>('account');
   const [mobileDetail, setMobileDetail] = useState(false);
   const [prefs, setPrefs] = useState<Preferences | null>(null);
-  const [verified, setVerified] = useState(false);
+  // Your Account opens without asking unless the server sees a risk (lib/settings/settings.ts).
+  const [lock, setLock] = useState<'checking' | 'unlocked' | 'locked'>('checking');
+  const [unlockedUntil, setUnlockedUntil] = useState<number | null>(null);
+  const sessionId = useMemo(() => tokenSessionId(token), [token]);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const [openPassword, setOpenPassword] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState({ text: '', shown: false });
@@ -85,6 +90,38 @@ export default function SettingsPage() {
     return () => { cancelled = true; };
   }, [userId]);
 
+  const sessionStore = () => { try { return window.sessionStorage; } catch { return null; } };
+  const unlock = useCallback((until: string | null) => {
+    rememberUnlock(sessionStore(), tokenSessionId(tokenRef.current), until);
+    const at = until ? Date.parse(until) : NaN;
+    setUnlockedUntil(Number.isFinite(at) ? at : null);
+    setLock('unlocked');
+  }, []);
+
+  // Once per session: remembered, else asked of the server (a refreshed token keeps its session id).
+  useEffect(() => {
+    if (!sessionId || !tokenRef.current) return undefined;
+    const remembered = rememberedUnlock(sessionStore(), sessionId);
+    if (remembered) { setUnlockedUntil(remembered); setLock('unlocked'); return undefined; }
+    let cancelled = false;
+    setLock('checking');
+    loadSecurityStatus(tokenRef.current).then((status) => {
+      if (cancelled) return;
+      if (status.unlocked) unlock(status.unlockedUntil); else setLock('locked');
+    }).catch((error) => {
+      console.error('Account security check failed:', error);
+      if (!cancelled) setLock('locked');
+    });
+    return () => { cancelled = true; };
+  }, [sessionId, unlock]);
+
+  // The unlock runs out while the page is open: lock again.
+  useEffect(() => {
+    if (lock !== 'unlocked' || !unlockedUntil) return undefined;
+    const timer = window.setTimeout(() => setLock('locked'), Math.max(0, unlockedUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [lock, unlockedUntil]);
+
   // Back from Google re-verification (?account_verification=google).
   useEffect(() => {
     if (!router.isReady || router.query.account_verification !== 'google' || !token || verificationHandled.current) return;
@@ -96,7 +133,7 @@ export default function SettingsPage() {
       try {
         const result = await completeGoogleVerification(token);
         if (result.verified) {
-          setVerified(true);
+          unlock(result.unlockedUntil);
         } else if (client) {
           // Another Google identity may have replaced the session: put the
           // account that started back before keeping the page locked.
@@ -122,7 +159,7 @@ export default function SettingsPage() {
         router.replace('/settings', undefined, { shallow: true });
       }
     })();
-  }, [router, router.isReady, router.query.account_verification, token]);
+  }, [router, router.isReady, router.query.account_verification, token, unlock]);
 
   const show = useCallback((next: View) => {
     setView(next);
@@ -187,8 +224,9 @@ export default function SettingsPage() {
           phone={prefs?.phone || null}
           isHost={role === 'host'}
           token={token}
-          verified={verified}
-          onVerified={() => setVerified(true)}
+          verified={lock === 'unlocked'}
+          checking={lock === 'checking'}
+          onVerified={unlock}
           openPassword={openPassword}
           onPasswordOpened={passwordOpened}
           onBack={back}

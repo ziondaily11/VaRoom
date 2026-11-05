@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import * as supabaseJs from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../lib/supabase/config';
 import {
   googleVerificationEligible, startGoogleVerification, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, verifyPassword,
 } from '../../lib/settings/settings';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
 import ReachOutSection from './ReachOutSection';
 
-// Your Account (legacy #view-account): locked behind the current password
-// (or a server-checked Google re-sign-in for Google-only accounts), then the
-// account details, email and password changes, Reach Out (hosts) and
-// account status.
+// Your Account (legacy #view-account): the account details, email and
+// password changes, Reach Out (hosts) and account status. Locked only when
+// the server sees a risk (a session not signed into recently): then the
+// current password, or a server-checked Google re-sign-in for Google-only
+// accounts, unlocks it for the rest of the session (lib/settings/settings.ts).
 
 type Msg = { text: string; kind: '' | 'success' | 'error' };
 
@@ -26,7 +25,10 @@ interface Props {
   isHost: boolean;
   token: string | null;
   verified: boolean;
-  onVerified: () => void;
+  /** The server is still deciding whether to ask (shown as a quiet placeholder, not the lock). */
+  checking?: boolean;
+  /** Verified: unlocked until the given time for this session. */
+  onVerified: (unlockedUntil: string | null) => void;
   /** Open the password panel once unlocked (from Privacy & Security). */
   openPassword: boolean;
   onPasswordOpened: () => void;
@@ -69,12 +71,10 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
     if (!password) return;
     setBusy(true);
     setError('');
-    const ok = await verifyPassword(
-      () => supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } }),
-      { email, password, userId },
-    );
-    if (ok) { onVerified(); return; }
-    setError('Incorrect password. Please try again.');
+    if (!token) { setError('Your session has expired. Please sign in again.'); setBusy(false); return; }
+    const result = await verifyPassword(token, password);
+    if (result.ok) { onVerified(result.unlockedUntil); return; }
+    setError(result.error);
     setBusy(false);
     inputRef.current?.select();
   };
@@ -176,6 +176,9 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [passwordMsg, setPasswordMsg] = useState<Msg>({ text: '', kind: '' });
+  // Supabase asks for an emailed code to change the password from a session older than 24 hours.
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState('');
   const toggle = (key: string) => setOpen((current) => ({ ...current, [key]: !current[key] }));
 
   useEffect(() => {
@@ -200,11 +203,21 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
     if (newPassword !== confirm) { setPasswordMsg({ text: "Passwords don't match.", kind: 'error' }); return; }
     const client = getSupabaseClient();
     if (!client) return;
-    const { error } = await client.auth.updateUser({ password: newPassword });
+    if (codeSent && !code.trim()) { setPasswordMsg({ text: 'Enter the code we emailed you.', kind: 'error' }); return; }
+    const { error } = await client.auth.updateUser(codeSent ? { password: newPassword, nonce: code.trim() } : { password: newPassword });
+    if (error && (error as { code?: string }).code === 'reauthentication_needed') {
+      const { error: sendError } = await client.auth.reauthenticate();
+      if (sendError) { setPasswordMsg({ text: sendError.message, kind: 'error' }); return; }
+      setCodeSent(true);
+      setPasswordMsg({ text: `For your security, we emailed a code to ${email}. Enter it to change your password.`, kind: 'success' });
+      return;
+    }
     if (error) { setPasswordMsg({ text: error.message, kind: 'error' }); return; }
     setPasswordMsg({ text: 'Password updated.', kind: 'success' });
     setNewPassword('');
     setConfirm('');
+    setCodeSent(false);
+    setCode('');
   };
 
   return (
@@ -244,6 +257,12 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
               <label htmlFor="confirm-password-input">Confirm new password</label>
               <input type="password" id="confirm-password-input" minLength={8} value={confirm} onChange={(event) => setConfirm(event.target.value)} />
             </div>
+            {codeSent && (
+              <div className="field">
+                <label htmlFor="password-code-input">Code from your email</label>
+                <input type="text" id="password-code-input" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} />
+              </div>
+            )}
             <button type="button" className="btn" onClick={savePassword}>Update password</button>
             <p className={`inline-msg${passwordMsg.kind ? ` ${passwordMsg.kind}` : ''}`}>{passwordMsg.text}</p>
           </div>
@@ -278,7 +297,9 @@ export default function AccountSection(props: Props) {
     <div id="view-account">
       {props.verified
         ? <AccountDetails {...props} />
-        : <VerifyGate userId={props.userId} email={props.email} token={props.token} onVerified={props.onVerified} onBack={props.onBack} />}
+        : props.checking
+          ? <div className="settings-section" aria-busy="true"><DetailHead title="Your Account" onBack={props.onBack} /></div>
+          : <VerifyGate userId={props.userId} email={props.email} token={props.token} onVerified={props.onVerified} onBack={props.onBack} />}
     </div>
   );
 }
