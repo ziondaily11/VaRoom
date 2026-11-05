@@ -12,6 +12,7 @@ const mediaStorageService = require('../lib/mediaStorageService');
 const { notifyNewMessage } = require('../lib/chatNotifications');
 const { previewsFor } = require('../lib/chatPreviews');
 const { clearedAtByConversation, visibleAfterClear, clearChat, conversationsBetween } = require('../lib/chatClears');
+const { MESSAGES_OFF, MESSAGES_OFF_ERROR, acceptsNewConversations } = require('../lib/privacySettings');
 
 const router = express.Router();
 
@@ -464,6 +465,11 @@ router.post('/chat/conversations/start', async (req, res) => {
         conversationId = newest && newest[0] ? newest[0].id : existing[0];
       }
       return res.json({ conversationId, created: false });
+    }
+
+    // "Who can message you: No one" stops new conversations; existing ones carry on.
+    if (!(await acceptsNewConversations(supabaseAdmin, listing.host_id))) {
+      return res.status(403).json({ error: MESSAGES_OFF_ERROR, code: MESSAGES_OFF });
     }
 
     const { data: created, error: createError } = await supabaseAdmin

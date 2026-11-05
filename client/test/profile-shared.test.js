@@ -161,8 +161,8 @@ test('host profile: by id or username, hosts only; categories with their listing
     profile_categories: { data: [{ id: 'C1', name: 'Beach', sort_order: 0 }, { id: 'C2', name: 'City', sort_order: 1 }], error: null },
     profile_category_listings: { data: [{ category_id: 'C1', listing_id: 'L1' }, { category_id: 'C1', listing_id: 'L2' }], error: null },
   });
-  await hp.fetchHostProfile(client, { username: 'amazingstays' });
-  assert.deepEqual(client.calls[0].ops.filter((op) => op[0] === 'eq' || op[0] === 'ilike'), [['eq', 'role', 'host'], ['ilike', 'username', 'amazingstays']], 'usernames match ignoring case');
+  const profile = await hp.fetchHostProfile({ username: 'amazingstays' }, null, async (url) => { assert.equal(url, '/api/host-profiles/amazingstays'); return json(200, { profile: { id: 'H1', role: 'host' } }); });
+  assert.equal(profile.id, 'H1', 'through the server, which applies Profile visibility');
   const categories = await hp.fetchProfileCategories(client, 'H1');
   assert.deepEqual(categories.map((c) => [c.name, c.listingIds]), [['Beach', ['L1', 'L2']], ['City', []]]);
   const reviews = await hp.fetchHostReviews('H1', async (url) => { assert.equal(url, '/api/hosts/H1/reviews'); return json(200, { reviews: [{ id: 'r', rating: 5 }], summary: { average_rating: 5, review_count: 1, distribution: [{ star: 5, count: 1 }] } }); });
