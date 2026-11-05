@@ -11,8 +11,8 @@ export const HOST_SHELL_STYLES = `
     --layout-muted: #536471;
     --layout-line: #EFF3F4;
     --layout-line-soft: #EFF3F4;
-    --layout-control-hover: #F2F5F7;
-    --layout-control-active: #E1E8ED;
+    --layout-control-hover: #EFEDE8;
+    --layout-control-active: #E9E7E2;
     --layout-popover-bg: #FFFFFF;
     --layout-popover-border: rgba(0, 0, 0, 0.08);
     --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.15);
@@ -324,8 +324,8 @@ export const CLIENT_SHELL_STYLES = `
     --layout-muted: #536471;
     --layout-line: #EFF3F4;
     --layout-line-soft: #EFF3F4;
-    --layout-control-hover: #F2F5F7;
-    --layout-control-active: #E1E8ED;
+    --layout-control-hover: #EFEDE8;
+    --layout-control-active: #E9E7E2;
     --layout-popover-bg: #FFFFFF;
     --layout-popover-border: rgba(0, 0, 0, 0.08);
     --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.15);
@@ -350,8 +350,8 @@ export const CLIENT_SHELL_STYLES = `
     --line: #D4D8DA;
     --line-soft: #DDE1E3;
     --control-bg: #EFF3F4;
-    --control-active: #E1E8ED;
-    --control-hover: #F2F5F7;
+    --control-active: #E9E7E2;
+    --control-hover: #EFEDE8;
     --control-strong: #0F1419;
     --control-strong-text: #FFFFFF;
     --client-control-bg: #F7F6F3;

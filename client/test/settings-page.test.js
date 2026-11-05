@@ -78,7 +78,7 @@ test('your account: locked only on risk; a verification lasts for the session; p
 
   const section = read('components', 'settings', 'AccountSection.tsx');
   assert.doesNotMatch(section, /signInWithPassword|createClient\(SUPABASE_URL/, 'no browser-side password check');
-  assert.match(section, /: props\.checking\n\s+\? <div className="settings-section" aria-busy="true">/, 'no lock flash while the server decides');
+  assert.match(section, /: props\.checking\r?\n\s+\? <div className="settings-section" aria-busy="true">/, 'no lock flash while the server decides');
   assert.match(section, /\(error as \{ code\?: string \}\)\.code === 'reauthentication_needed'/, 'old sessions change the password with an emailed code');
   assert.match(section, /client\.auth\.updateUser\(codeSent \? \{ password: newPassword, nonce: code\.trim\(\) \} : \{ password: newPassword \}\)/);
   const page = read('pages', 'settings.tsx');

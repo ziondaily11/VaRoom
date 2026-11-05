@@ -6,7 +6,7 @@
 export const SETTINGS_STYLES = `
   .settings-page{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
-    --muted:#5c584f; --line:rgba(26,18,16,.12);
+    --muted:#5c584f; --line:rgba(26,18,16,.12); --row-hover:rgba(26,18,16,.035);
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Sidebar tokens shared with /client-home and /host-home. */
     --glass-bg:rgba(255,255,255,.55);
@@ -14,7 +14,7 @@ export const SETTINGS_STYLES = `
     --glass-shadow:0 24px 55px #E4E1DA;
   }
   html[data-theme="dark"] .settings-page{
-    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --line:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.14);
+    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --line:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.14); --row-hover:rgba(255,255,255,.05);
     --glass-bg:#000000;
     --glass-border:rgba(255,255,255,.14);
     --glass-shadow:none;
@@ -145,8 +145,12 @@ export const SETTINGS_STYLES = `
     border:none; border-bottom:1px solid var(--line); border-radius:0; padding:1rem .75rem; text-align:left; width:100%;
   }
   .settings-page .cat-row:last-child{ border-bottom:none; }
-  .settings-page .cat-row:hover{ background:rgba(255,255,255,.05); }
-  .settings-page .cat-row.active{ background:rgba(255,255,255,.1); }
+  .settings-page .cat-row{ position:relative; transition:background .15s ease; }
+  .settings-page .cat-row:hover{ background:var(--row-hover); }
+  .settings-page .cat-row.active{ background:var(--nav-active-bg); }
+  .settings-page .cat-row.active::before{ content:''; position:absolute; left:0; top:.6rem; bottom:.6rem; width:3px; border-radius:0 3px 3px 0; background:var(--red); }
+  .settings-page .cat-row.active .cat-title{ font-weight:700; }
+  .settings-page .cat-row.active .cat-icon{ color:var(--red); }
   .settings-page .cat-row.disabled{ opacity:.55; cursor:default; }
   .settings-page .cat-row.disabled:hover{ background:transparent; }
   .settings-page .cat-icon{
