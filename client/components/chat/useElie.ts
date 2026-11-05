@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import {
   ElieRequestError,
   askElie,
+  beginElieQuestion,
   createElieRecorder,
   elieEntryId,
   elieResponseEntries,
@@ -42,11 +43,8 @@ export function useElie(userId: string | null) {
     if (!question) return;
     const generation = generationRef.current;
     const recorder = recorderRef.current;
-    if (!retry) {
-      setEntries((prev) => [...prev, { id: elieEntryId(), kind: 'user', text: question }]);
-      historyRef.current.push({ role: 'user', text: question });
-      void recorder.record('user', question);
-    }
+    const asked = beginElieQuestion(question, { retry, history: historyRef.current, recorder });
+    if (asked) setEntries((prev) => [...prev, asked]);
     setThinking(true);
     try {
       const client = getSupabaseClient();

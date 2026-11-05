@@ -169,3 +169,19 @@ export function createElieRecorder(client: SupabaseClient | null, userId: string
     get sessionId() { return sessionId; },
   };
 }
+
+/**
+ * A question sent to Elie is added to the thread (the entry returned), the
+ * history sent with the next questions, and the saved session. A retry asks
+ * the same question again without adding it a second time (null).
+ */
+export function beginElieQuestion(question: string, { retry, history, recorder }: {
+  retry: boolean;
+  history: ElieTurn[];
+  recorder: { record: (role: ElieTurn['role'], text: string) => Promise<void> };
+}): ElieEntry | null {
+  if (retry) return null;
+  history.push({ role: 'user', text: question });
+  void recorder.record('user', question);
+  return { id: elieEntryId(), kind: 'user', text: question };
+}

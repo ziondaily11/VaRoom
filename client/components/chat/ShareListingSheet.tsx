@@ -2,30 +2,14 @@ import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ChatListingSummary } from '../../lib/chatCache';
 import { cachedImageUrl, listingVideo, type ChatApi, type ListingVideo } from '../../lib/chat/chatMedia';
 import { getSupabaseClient } from '../../lib/supabase/client';
+import { filterShareListings, hostListings, submitThenClose } from '../../lib/chat/sheets';
 
 // Host "Share listings" dialog, centred over the conversation: the host's
 // listings as tiles (photo or video, title and location over it), picked
 // like files in an explorer, then one listing message per selection.
+// The listings load once per account (lib/chat/sheets hostListings).
 
-// Each host's listings, loaded once per page session (legacy kept them in
-// state). Keyed by account so another sign-in never sees them.
-const listingsByUser = new Map<string, Promise<ChatListingSummary[]>>();
-
-function hostListings(userId: string, api: ChatApi): Promise<ChatListingSummary[]> {
-  let promise = listingsByUser.get(userId);
-  if (!promise) {
-    promise = api<{ listings?: ChatListingSummary[] }>('/api/chat/listings')
-      .then((result) => (result && result.listings) || [])
-      .catch((error) => {
-        listingsByUser.delete(userId);
-        throw error;
-      });
-    listingsByUser.set(userId, promise);
-  }
-  return promise;
-}
-
-function ListingTile({ listing, selected, api, onToggle }: {
+export function ListingTile({ listing, selected, api, onToggle }: {
   listing: ChatListingSummary;
   selected: boolean;
   api: ChatApi;
@@ -122,20 +106,14 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
     return next;
   });
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!listings || !q) return listings || [];
-    return listings.filter((listing) => `${listing.title || ''} ${listing.location_text || ''}`.toLowerCase().includes(q));
-  }, [listings, query]);
+  const visible = useMemo(() => filterShareListings(listings, query), [listings, query]);
 
   const share = async () => {
     if (!listings || !selected.size || sharing) return;
     setSharing(true);
     try {
-      await onShare(listings.filter((listing) => selected.has(listing.id)));
-      onClose();
-    } catch {
-      // The page reports the failure; the dialog stays open to retry.
+      // Closes once shared; on failure it stays open to retry.
+      await submitThenClose(() => onShare(listings.filter((listing) => selected.has(listing.id))), onClose);
     } finally {
       setSharing(false);
     }
