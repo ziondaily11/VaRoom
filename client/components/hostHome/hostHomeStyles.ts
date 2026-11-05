@@ -19,8 +19,8 @@ export const HOST_HOME_STYLES = `
     --line:#CFD9DE;
     --line-soft:#E1E8ED;
     --control-bg:#EFF3F4;
-    --control-active:#E1E8ED;
-    --control-hover:#F2F5F7;
+    --control-active:#E9E7E2;
+    --control-hover:#EFEDE8;
     --control-strong:#0F1419;
     --control-strong-text:#FFFFFF;
     --neutral-icon:#536471;
@@ -981,8 +981,8 @@ export const HOST_HOME_STYLES = `
    */
   :root{
     --control-bg:#EFF3F4;
-    --control-active:#E1E8ED;
-    --control-hover:#F2F5F7;
+    --control-active:#E9E7E2;
+    --control-hover:#EFEDE8;
     --control-strong:#0F1419;
     --control-strong-text:#FFFFFF;
     --neutral-icon:#536471;

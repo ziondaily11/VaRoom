@@ -20,7 +20,7 @@ export const PLANS_STYLES = `
   .settings-page{ --plan-box:#EEECE7; --plan-box-head:#E3E0DA; --plan-box-line:rgba(26,18,16,.08); }
   html[data-theme="dark"] .settings-page{ --plan-box:#141414; --plan-box-head:#232323; --plan-box-line:rgba(255,255,255,.07); }
   .settings-page .plan-box{ background:var(--plan-box); border-radius:16px; overflow:hidden; margin-bottom:1.1rem; }
-  .settings-page .plan-box-head{ display:flex; align-items:center; gap:.55rem; padding:.7rem 1.4rem; background:var(--plan-box-head); font-size:.9rem; font-weight:700; }
+  .settings-page .plan-box-head{ display:flex; align-items:center; gap:.55rem; padding:.85rem 1.4rem; border-bottom:1px solid var(--plan-box-line); font-size:.9rem; font-weight:700; }
   .settings-page .plan-box-head svg{ color:var(--muted); flex-shrink:0; }
   .settings-page .plan-box-body{ padding:1.3rem 1.4rem 1.4rem; }
   .settings-page .plan-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
@@ -281,12 +281,12 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
             </div>
           </section>
 
-          <section className="plan-box">
+          <section className="plan-box" id="billing-information">
+            <header className="plan-box-head">{INFO_ICONS.receipt}<span>Billing Information</span></header>
             <div className="plan-box-body">
               <div className="plan-row">
                 <div className="plan-row-main">
-                  <div className="box-title">Billing Information</div>
-                  <p className="box-sub">View your billing history and download receipts.</p>
+                  <p className="box-sub" style={{ marginTop: 0 }}>View your billing history and download receipts.</p>
                 </div>
                 <button type="button" className="box-btn" aria-expanded={historyOpen} aria-controls="billing-history" onClick={() => setHistoryOpen((open) => !open)}>{INFO_ICONS.receipt} {historyOpen ? 'Hide' : 'Invoices'}</button>
               </div>

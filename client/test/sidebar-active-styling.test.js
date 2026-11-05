@@ -53,7 +53,7 @@ test('HostLayout and ClientLayout enforce non-red subtle grey active navigation 
 
   for (const [name, code] of [['HostLayout', hostLayout], ['ClientLayout', clientLayout]]) {
     // Light mode subtle grey token
-    assert.match(code, /--layout-control-active:\s*#E1E8ED;/, `${name} must define light mode subtle grey token`);
+    assert.match(code, /--layout-control-active:\s*#E9E7E2;/, `${name} must define the light mode warm neutral token`);
 
     // Dark mode subtle grey token
     assert.match(code, /--layout-control-active:\s*rgba\(239,\s*243,\s*244,\s*0\.15\);/, `${name} must define dark mode subtle grey token`);
