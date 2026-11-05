@@ -81,3 +81,13 @@ export function chatThemeStyle(id: unknown): CSSProperties {
   });
   return vars as CSSProperties;
 }
+
+/** The bubbles' theme in Chats: the account's, or this browser's copy until the account's settings load. */
+export function activeChatTheme(accountSettings: { chatTheme: ChatThemeId } | null, stored: ChatThemeId): ChatThemeId {
+  return accountSettings ? accountSettings.chatTheme : stored;
+}
+
+/** The Chats shell's style: the theme's variables, hidden until Chats' stylesheet applies. */
+export function chatShellStyle(id: ChatThemeId, stylesReady: boolean): CSSProperties {
+  return { ...chatThemeStyle(id), ...(stylesReady ? {} : { visibility: 'hidden' as const }) };
+}

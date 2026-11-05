@@ -52,13 +52,22 @@ test('a theme becomes light and dark CSS variables; chats.css picks the mode for
 });
 
 test('Chat Settings shows the themes and saves the choice to the account; Chats applies it at once', () => {
-  const component = read('components', 'chat', 'ChatSettings.tsx');
-  assert.match(component, /<Section title="THEME">\s*<ThemePicker value=\{settings\.chatTheme\} onChange=\{setTheme\} \/>/);
-  assert.match(component, /role="radio"\s*aria-checked=\{selected\}/);
-  assert.match(component, /void saveProfileSetting\(getSupabaseClient\(\), userId, 'chatTheme', chatTheme, storage\(\)\);/);
+  const { loadChats, renderChatsPage, render } = require('./helpers/chatsPage');
+  const ChatSettings = loadChats('components/chat/ChatSettings.tsx', { user: { id: 'u1' } }).default;
+  const html = render(ChatSettings, { role: 'client', onOpenArchived() {} });
+  const picker = html.match(/<div class="cs-themes" role="radiogroup" aria-label="Message bubble colours">([\s\S]*?)<\/div><\/section>/)[1];
+  assert.deepEqual([...picker.matchAll(/role="radio" aria-checked="(true|false)" class="cs-theme( is-selected)?" style="--bubble-out-l:([^;]+);/g)].map((m) => [m[1], m[3]]), [
+    ['true', '#3A3A3C'], ['false', themes.chatTheme('teal').light.sent], ['false', '#4F4A9E'], ['false', themes.chatTheme('beige').light.sent], ['false', themes.chatTheme('coral').light.sent],
+  ], 'five previews in their own colours; Charcoal selected by default');
+  assert.match(read('components', 'chat', 'ChatSettings.tsx'), /void saveProfileSetting\(getSupabaseClient\(\), userId, 'chatTheme', chatTheme, storage\(\)\);/);
+
+  assert.equal(themes.activeChatTheme({ chatTheme: 'coral' }, 'teal'), 'coral', 'the account\'s choice');
+  assert.equal(themes.activeChatTheme(null, 'teal'), 'teal', 'this browser\'s copy until the account loads');
+  assert.equal(themes.chatShellStyle('indigo', true)['--bubble-out-l'], '#4F4A9E');
+  assert.match(renderChatsPage().html, /<div class="app-shell view-inbox" style="--bubble-out-l:#3A3A3C;/, 'the shell carries the theme');
   const page = read('pages', 'chats.tsx');
-  assert.match(page, /const bubbleTheme = chatPrefs \? chatPrefs\.chatTheme : storedTheme;/);
-  assert.match(page, /className=\{`app-shell [^`]*`\} style=\{bubbleThemeStyle\}>/);
+  assert.match(page, /const bubbleTheme = activeChatTheme\(chatPrefs, storedTheme\);/);
+  assert.match(page, /writeStored\(window\.localStorage, 'chatTheme', chatPrefs\.chatTheme\)/, 'this browser keeps a copy');
   const migration = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261104_000055_chat_theme.sql'), 'utf8');
   assert.match(migration, /add column if not exists chat_theme text not null default 'charcoal'/);
   assert.match(migration, /check \(chat_theme in \('charcoal', 'teal', 'indigo', 'beige', 'coral'\)\)/);

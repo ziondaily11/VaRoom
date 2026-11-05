@@ -83,12 +83,23 @@ test('message ticks: sending, sent, delivered, read', () => {
 });
 
 test("bubbles show the time on every message and ticks only on the user's own", () => {
+  const { loadChats, render } = require('./helpers/chatsPage');
+  const thread = loadTs(path.join(root, 'lib', 'chat', 'thread.ts'));
+  const at = '2026-11-02T09:14:00Z';
+  assert.equal(thread.bubbleStatus({ read_at: at }, { isOut: true, isDeleted: false, sending: false }), 'read');
+  assert.equal(thread.bubbleStatus({}, { isOut: true, isDeleted: false, sending: true }), 'sending');
+  assert.equal(thread.bubbleStatus({ read_at: at }, { isOut: false, isDeleted: false, sending: false }), null, 'not on theirs');
+  assert.equal(thread.bubbleStatus({}, { isOut: true, isDeleted: true, sending: false }), null, 'not once deleted');
+  assert.equal(thread.bubbleStatus({ _optimistic: true, _failed: true }, { isOut: true, isDeleted: false, sending: false }), null, 'not on a failed upload');
+
+  const MessageMeta = loadChats('components/chat/MessageMeta.tsx').default;
+  assert.equal(render(MessageMeta, { time: '09:14', status: null }), '<span class="msg-meta"><span class="msg-time">09:14</span></span>');
+  for (const [status, label] of [['sending', 'Sending'], ['sent', 'Sent'], ['delivered', 'Delivered'], ['read', 'Read']]) {
+    assert.match(render(MessageMeta, { time: '09:14', status }), new RegExp(`^<span class="msg-meta msg-status-${status}"><span class="msg-time">09:14</span><span class="msg-status" role="img" aria-label="${label}" title="${label}">`), status);
+  }
   const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
-  assert.match(source, /status=\{isOut && !isDeleted && !optimistic\._failed \? messageStatus\(m, sending\) : null\}/);
-  assert.match(source, /className=\{`bubble bubble-text\$\{m\.listing \? ' has-enquiry' : ''\}`\}/);
+  assert.match(source, /status=\{bubbleStatus\(m, \{ isOut, isDeleted, sending \}\)\}/);
   assert.doesNotMatch(source, /Read \$\{|msg-sending/);
-  const meta = fs.readFileSync(path.join(root, 'components', 'chat', 'MessageMeta.tsx'), 'utf8');
-  for (const label of ["sending: 'Sending'", "sent: 'Sent'", "delivered: 'Delivered'", "read: 'Read'"]) assert.ok(meta.includes(label), label);
   const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
   assert.doesNotMatch(css, /same-sender \.msg-meta\{ display:none/);
   assert.match(css, /\.bubble-text > \.msg-meta\{ float:right;/);
@@ -96,16 +107,25 @@ test("bubbles show the time on every message and ticks only on the user's own", 
 });
 
 test('thread and inbox states match legacy', () => {
+  const { renderChatsPage } = require('./helpers/chatsPage');
+  const inbox = loadTs(path.join(root, 'lib', 'chat', 'inbox.ts'));
+  const thread = loadTs(path.join(root, 'lib', 'chat', 'thread.ts'));
+  assert.deepEqual({ ...inbox.emptyInboxCopy('host') }, { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' });
+  assert.deepEqual({ ...inbox.emptyInboxCopy('client') }, { heading: 'Start a conversation', detail: 'Chat with a host and your conversations will appear here.' });
+  assert.equal(thread.showsLoadError(null), true);
+  assert.equal(thread.showsLoadError([]), true);
+  assert.equal(thread.showsLoadError([{ id: 'm1' }]), false, 'error only when nothing cached could be shown');
+
+  const first = renderChatsPage().html;
+  assert.match(first, /<div class="chat-empty-state" role="status"><h2>Select a conversation<\/h2><p>Choose a conversation from your inbox to view messages\.<\/p><\/div>/);
+  assert.equal((first.match(/<li class="inbox-skeleton" aria-hidden="true">/g) || []).length, 6, 'the inbox loads with skeleton rows');
+  assert.match(first, /<div class="contact-preview">Your VaRoom search assistant<\/div>/);
+  assert.match(renderChatsPage({ initialConversationId: 'c1' }).html, /<div class="messages"><div class="system-notice">Your messages are encrypted and private\.<\/div>/);
+
+  // Rendered only once data arrives (not in a first paint).
   const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
-  assert.match(source, /Your messages are encrypted and private\./);
   assert.match(source, /Unable to load messages\. Please check your connection\./);
-  assert.match(source, /if \(!cached \|\| cached\.length === 0\) setMessagesError\(true\);/, 'error only when nothing cached could be shown');
-  assert.match(source, /'No conversations yet', detail: 'When clients reach out, your conversations will appear here\.'/);
-  assert.match(source, /'Start a conversation', detail: 'Chat with a host and your conversations will appear here\.'/);
-  assert.match(source, /<h2>Select a conversation<\/h2><p>Choose a conversation from your inbox to view messages\.<\/p>/);
-  assert.match(source, /className="inbox-skeleton" aria-hidden="true"/);
   assert.match(source, /className=\{`chat-skeleton-row \$\{side\}`\}/);
-  assert.match(source, /Your VaRoom search assistant<\/div>/);
   assert.match(source, /<ListingCard listing=\{m\.listing\}/);
   assert.match(source, /<VoiceCard attachmentId=\{attachmentId\}/);
   assert.match(source, /<ImagePreview key=\{`[^`]*`\} items=\{selectedPhotoPreview\.items\} index=\{selectedPhotoPreview\.index\}/);
