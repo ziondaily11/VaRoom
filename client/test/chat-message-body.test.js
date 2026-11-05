@@ -55,10 +55,25 @@ test('only bodies with formatting tags are parsed (legacy rule)', () => {
   assert.equal(hasMessageMarkup('<div>x</div>'), true);
 });
 
-test('Chats renders bodies without innerHTML and sends from the button', () => {
+test('bubbles: plain text keeps its line breaks; formatting is rebuilt as elements; nothing is injected as HTML', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const { renderMessageBody } = loadTs(path.join(__dirname, '..', 'components', 'chat', 'MessageBody.tsx'));
+  const html = (body) => renderToStaticMarkup(React.createElement(React.Fragment, null, renderMessageBody(body)));
+  assert.equal(html(''), '');
+  assert.equal(html('Line 1\nplain <3 text'), '<span style="white-space:pre-wrap;word-break:break-word">Line 1\nplain &lt;3 text</span>');
+  assert.equal(html('<b onclick="x()">Hi</b><br>there<ul><li>One</li></ul>'), '<span style="word-break:break-word"><b>Hi</b><br/>there<ul><li>One</li></ul></span>');
+  assert.equal(html('<img src=x onerror=alert(1)><i>x</i>'), '<span style="word-break:break-word"><i>x</i></span>');
   const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'chats.tsx'), 'utf8');
   assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'components', 'chat', 'MessageBody.tsx'), 'utf8'), /dangerouslySetInnerHTML/);
+});
+
+test('Chats sends from the button and, on phones, with Enter; no garbled characters', () => {
+  const composer = loadTs(path.join(__dirname, '..', 'lib', 'chat', 'composer.ts'));
+  const enter = { key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false };
+  assert.equal(composer.composerKeyAction(enter, { editor: 'phone', isElie: false, replying: false, isPhone: () => true }), 'send', 'mobile Enter sends');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'chats.tsx'), 'utf8');
   assert.match(source, /onSend=\{\(\) => \{ void handleSendMessage\(\); \}\}/, 'the click event is not passed as the text');
-  assert.match(source, /e\.key === 'Enter' && !e\.shiftKey && window\.matchMedia\('\(max-width: 760px\)'\)\.matches/, 'mobile Enter sends');
   assert.doesNotMatch(source, /Â|â€/);
 });

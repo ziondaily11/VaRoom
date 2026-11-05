@@ -1,9 +1,16 @@
-// Loads a lib/*.ts module for node:test without a build step. Relative
-// imports resolve to sibling .ts files through the same loader; bare package
-// imports come from `mocks`. Browser globals are injected via `globals`.
+// Loads a lib/*.ts module (or a .tsx component) for node:test without a
+// build step. Relative imports resolve to sibling .ts / .tsx files through
+// the same loader; bare package imports, and any specifier listed, come from
+// `mocks`. Browser globals are injected via `globals`. JSX compiles to
+// React.createElement, so components render with react-dom/server.
 const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
+
+function resolveFile(resolved) {
+  return ['.ts', '.tsx', '', '.js'].map((extension) => resolved + extension)
+    .find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) || resolved;
+}
 
 function loadTs(entryPath, { mocks = {}, globals = {} } = {}) {
   const cache = new Map();
@@ -14,16 +21,14 @@ function loadTs(entryPath, { mocks = {}, globals = {} } = {}) {
     if (cache.has(filePath)) return cache.get(filePath).exports;
     const source = fs.readFileSync(filePath, 'utf8');
     const compiled = ts.transpileModule(source, {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
+      fileName: filePath,
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.React },
     }).outputText;
     const module = { exports: {} };
     cache.set(filePath, module);
     const localRequire = (specifier) => {
       if (Object.prototype.hasOwnProperty.call(mocks, specifier)) return mocks[specifier];
-      if (specifier.startsWith('.')) {
-        const resolved = path.resolve(path.dirname(filePath), specifier);
-        return load(fs.existsSync(resolved + '.ts') ? resolved + '.ts' : resolved);
-      }
+      if (specifier.startsWith('.')) return load(resolveFile(path.resolve(path.dirname(filePath), specifier)));
       return require(specifier);
     };
     const fn = new Function('module', 'exports', 'require', ...globalNames, compiled);

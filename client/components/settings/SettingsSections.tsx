@@ -263,7 +263,7 @@ export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: 
           <button type="button" className="btn" onClick={save}>Save privacy settings</button>
           <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
         </div>
-        <div className="note-box">These preferences are saved now for when messaging and location-based search fully enforce them.</div>
+        <div className="note-box">Private: only people you already have a chat or booking with can open your host profile. No one: nobody can start a new chat with you, and chats you already have carry on. Location visibility is saved for when location-based search uses it.</div>
       </div>
       <div className="settings-section">
         <p className="section-title">Security</p>

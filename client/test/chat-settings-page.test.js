@@ -87,14 +87,31 @@ test('back from the phone page stays on this site and never loops to the setting
 });
 
 test('component: legacy sections and wording; away mode only for hosts; legacy page retired', () => {
-  const component = read('components', 'chat', 'ChatSettings.tsx');
-  for (const text of ['AWAY MODE', 'NOTIFICATIONS', 'PRIVACY & MESSAGING', 'CONVERSATIONS', 'Away message', 'Message notifications', 'Message previews', 'Read receipts', 'Typing indicators', 'Archived conversations', 'Edit away message']) {
-    assert.ok(component.includes(text), text);
+  const { loadChats, render, fakeRouter } = require('./helpers/chatsPage');
+  const ChatSettings = loadChats('components/chat/ChatSettings.tsx', { user: { id: 'h1' } }).default;
+  const sections = (html) => [...html.matchAll(/<h2 class="cs-section__title"[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
+  const host = render(ChatSettings, { role: 'host', onOpenArchived() {} });
+  assert.deepEqual(sections(host), ['AWAY MODE', 'THEME', 'NOTIFICATIONS', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS']);
+  for (const text of ['Away Mode', 'Away message', 'Message notifications', 'Message previews', 'Read receipts', 'Typing indicators', 'Archived conversations']) {
+    assert.match(host, new RegExp(`<span class="cs-row__label"[^>]*>${text}</span>`), text);
   }
-  assert.match(component, /\{role === 'host' && \(/);
-  const page = read('pages', 'chat-settings.tsx');
-  assert.match(page, /Chat Settings · VaRoom/);
-  assert.match(page, /router\.push\(backDestination\(router\.query\.returnTo, origin\)\)/);
+  assert.match(host, new RegExp(cs.DEFAULT_AWAY_MESSAGE.replace(/[.?]/g, '\\$&')), 'the default away message until one is set');
+  // Defaults on the first paint (this browser's and the account's values follow once mounted).
+  assert.equal((host.match(/role="switch" aria-checked="true"/g) || []).length, 4, 'notifications, previews, receipts, typing');
+  assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 1, 'away mode off');
+  const client = render(ChatSettings, { role: 'client', onOpenArchived() {} });
+  assert.deepEqual(sections(client), ['THEME', 'NOTIFICATIONS', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS'], 'no away mode for clients');
+
+  const page = loadChats('pages/chat-settings.tsx', { router: fakeRouter({ pathname: '/chat-settings', query: { role: 'client' } }) }).default;
+  const html = render(page, {});
+  assert.match(html, /<title>Chat Settings · VaRoom<\/title>/);
+  assert.match(html, /<button type="button" class="cs-header__back" aria-label="Back">/);
+  assert.match(html, /<h1 class="cs-header__title">Chat Settings<\/h1>/);
+  assert.doesNotMatch(html, /AWAY MODE/, 'the ?role hint before the account is known');
+  assert.match(render(loadChats('pages/chat-settings.tsx', { router: fakeRouter({ query: {} }) }).default, {}), /AWAY MODE/, 'hosts by default, as before');
+  assert.equal(page.appNavigation, true);
+  assert.match(read('pages', 'chat-settings.tsx'), /router\.push\(backDestination\(router\.query\.returnTo, origin\)\)/);
+
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'chat-settings.html')), false);
   assert.match(read('next.config.js'), /source: '\/chat-settings\.html',\s*destination: '\/chat-settings'/);
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');

@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { canSubmitReport, submitThenClose } from '../../lib/chat/sheets';
 
 // "Report User": a small dialog centred over the conversation (reported to
 // /api/chat/reports with one of the fixed reasons and optional details).
@@ -40,10 +41,8 @@ export default function ReportSheet({ open, personName, onClose, onSubmit }: {
     if (!reason || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(reason, details.trim());
-      onClose();
-    } catch {
-      // The page reports the failure; the dialog stays open to retry.
+      // Closes once accepted; on failure it stays open to retry.
+      await submitThenClose(() => onSubmit(reason, details.trim()), onClose);
     } finally {
       setSubmitting(false);
     }
@@ -89,7 +88,7 @@ export default function ReportSheet({ open, personName, onClose, onSubmit }: {
           <span className="chat-report-count" aria-hidden="true">{details.length} / {DETAILS_MAX}</span>
           <footer className="chat-modal-actions">
             <button className="chat-btn chat-btn-secondary" type="button" onClick={onClose}>Cancel</button>
-            <button className="chat-btn chat-btn-primary" type="submit" disabled={!reason || submitting}>
+            <button className="chat-btn chat-btn-primary" type="submit" disabled={!canSubmitReport(reason, submitting)}>
               {submitting ? 'Submitting…' : 'Submit report'}
             </button>
           </footer>

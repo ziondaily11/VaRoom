@@ -8,6 +8,9 @@ const root = path.join(__dirname, '..');
 const { messageActionItems, messageCopyText, messageSummary, pastedImage, photoCaption } = loadTs(path.join(root, 'lib', 'chat', 'messageActions.ts'));
 const { messagePlainText } = loadTs(path.join(root, 'lib', 'chat', 'messageBody.ts'));
 const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
+const thread = loadTs(path.join(root, 'lib', 'chat', 'thread.ts'));
+const composer = () => loadTs(path.join(root, 'lib', 'chat', 'composer.ts'));
+const { renderChatsPage } = require('./helpers/chatsPage');
 
 const labels = (items) => items.map((item) => item.label);
 
@@ -65,32 +68,66 @@ test('copied and quoted text is plain text with line breaks, like the legacy pre
 });
 
 test('actions apply to every kind of message in person-to-person chats', () => {
-  assert.match(source, /!isElie\s*&& m\.message_type !== 'system'\s*&& !m\.deleted_at\s*&& !\(m as OptimisticChatMessage\)\._optimistic/);
+  for (const type of ['text', 'photo', 'file', 'voice', 'listing', undefined]) {
+    assert.equal(thread.canActOnMessage({ id: 'm', message_type: type }, false), true, String(type));
+  }
+  assert.equal(thread.canActOnMessage({ id: 'm', message_type: 'text' }, true), false, 'not in Elie');
+  assert.equal(thread.canActOnMessage({ id: 'm', message_type: 'system' }, false), false);
+  assert.equal(thread.canActOnMessage({ id: 'm', deleted_at: 't' }, false), false);
+  assert.equal(thread.canActOnMessage({ id: 'optimistic-1', _optimistic: true }, false), false, 'not while uploading');
   assert.match(source, /canCopy: Boolean\(messageCopyText\(messageMenu\.message\)\)/);
   assert.match(source, /\{actionable && \(\s*<div className="msg-action-wrap"/);
 });
 
 test('right-click on desktop, 500 ms long-press with a 12 px move tolerance on touch', () => {
-  assert.match(source, /if \(window\.matchMedia\('\(max-width: 760px\)'\)\.matches\) \{\s*event\.preventDefault\(\);\s*return;\s*\}/);
-  assert.match(source, /closest\('a,button,input,textarea,video,audio'\)/);
-  assert.match(source, /openMessageMenu\(message, press\.x, press\.y\);\s*\}, 500\);/);
-  assert.match(source, /Math\.hypot\(touch\.clientX - press\.x, touch\.clientY - press\.y\) > 12/);
+  const target = (insideControl) => ({ closest: (selector) => { assert.equal(selector, 'a,button,input,textarea,video,audio'); return insideControl ? {} : null; } });
+  assert.equal(thread.messageContextMenu(false, target(false)), 'open');
+  assert.equal(thread.messageContextMenu(false, target(true)), 'native', 'links, players and fields keep their own menu');
+  assert.equal(thread.messageContextMenu(true, { closest() { throw new Error('not asked'); } }), 'suppress', 'phones use the long-press');
+  assert.equal(thread.LONG_PRESS_MS, 500);
+  assert.equal(thread.movedTooFar({ x: 100, y: 100 }, { clientX: 108, clientY: 108 }), false, '11.3 px');
+  assert.equal(thread.movedTooFar({ x: 100, y: 100 }, { clientX: 109, clientY: 109 }), true, '12.7 px');
+  assert.match(source, /openMessageMenu\(message, press\.x, press\.y\);\s*\}, LONG_PRESS_MS\);/);
+  assert.match(source, /if \(movedTooFar\(press, touch\)\) cancelLongPress\(\);/);
 });
 
-test('delete for everyone confirms; failures are shown; the thread and cache are refreshed in full', () => {
-  assert.match(source, /window\.confirm\('Delete this message for everyone\? This cannot be undone\.'\)/);
-  assert.match(source, /window\.alert\(\(err instanceof Error && err\.message\) \|\| 'Unable to update message'\)/);
-  assert.match(source, /setMessages\(currentUserId, conversationId, list\)/);
+test('pin, delete for me and delete for everyone (confirmed); failures are shown; the thread and cache are refreshed in full', async () => {
+  const run = async ({ action = 'pin', confirmAnswer = true, fail = null, conversationId = 'c 1' } = {}) => {
+    const log = [];
+    await thread.runServerMessageAction({
+      action,
+      messageId: 'm 1',
+      conversationId: () => conversationId,
+      api: async (url, init) => { log.push(['api', url, JSON.parse(init.body)]); if (fail) throw fail; return {}; },
+      confirm: (question) => { log.push(['confirm', question]); return confirmAnswer; },
+      alert: (text) => log.push(['alert', text]),
+      refresh: async (id) => { log.push(['refresh', id]); },
+    });
+    return log;
+  };
+  assert.deepEqual(await run(), [['api', '/api/chat/conversations/c%201/messages/m%201/actions', { action: 'pin' }], ['refresh', 'c 1']]);
+  assert.deepEqual((await run({ action: 'delete_for_me' })).map((e) => e[0]), ['api', 'refresh'], 'no question for "for me"');
+  assert.deepEqual(await run({ action: 'delete_for_everyone', confirmAnswer: false }), [['confirm', 'Delete this message for everyone? This cannot be undone.']]);
+  assert.deepEqual((await run({ action: 'delete_for_everyone' })).map((e) => e[0]), ['confirm', 'api', 'refresh']);
+  assert.deepEqual((await run({ fail: new Error('Only the sender can do that') })).slice(1), [['alert', 'Only the sender can do that']]);
+  assert.deepEqual((await run({ fail: new Error('') })).slice(1), [['alert', 'Unable to update message']]);
+  assert.deepEqual(await run({ conversationId: null }), [], 'no conversation open');
+  assert.match(source, /setMessages\(currentUserId, conversationId, list\)/, 'the cache is rewritten');
   assert.doesNotMatch(source, /await syncConversationMessages\(currentUserId, conversationId/, 'a since-delta sync would miss pins and deletions');
 });
 
 test('reply quotes scroll to the original; the composer preview uses legacy text and Escape cancels', () => {
+  const composer = loadTs(path.join(root, 'lib', 'chat', 'composer.ts'));
+  const escape = { key: 'Escape', shiftKey: false, ctrlKey: false, metaKey: false };
+  for (const editor of ['desktop', 'phone']) {
+    assert.equal(composer.composerKeyAction(escape, { editor, isElie: false, replying: true, isPhone: () => true }), 'cancel-reply', editor);
+  }
   assert.match(source, /const summary = messageSummary\(original\);/);
   assert.match(source, /\{summary\.photoAttachmentId && <ReplyThumb attachmentId=\{summary\.photoAttachmentId\} api=\{api\} \/>\}/);
   assert.match(source, /onClick=\{\(\) => scrollToMessage\(m\.reply_to_message_id as string\)\}/);
   assert.match(source, /'Replying to you' : 'Replying to message'/);
-  assert.equal((source.match(/if \(e\.key === 'Escape' && replyTo\) \{\s*setReplyTo\(null\);/g) || []).length, 2);
-  assert.match(source, /highlightedMessageId === m\.id \? 'reply-target-highlight' : ''/);
+  assert.equal(thread.messageRowClass({ isSystem: false, isOut: true, isElieMessage: false, sameSender: false, isDeleted: false, highlighted: true }), 'msg-row out reply-target-highlight');
+  assert.match(source, /highlighted: highlightedMessageId === m\.id,/);
 });
 
 test('pinned banner and deleted messages match legacy', () => {
@@ -98,12 +135,26 @@ test('pinned banner and deleted messages match legacy', () => {
   assert.match(source, /\{isDeleted \? \(\s*\/\* Deleted message, any type/);
 });
 
-test('copy confirms with a status note', () => {
+test('copy: the Clipboard API, else a selected hidden field; confirmed with a status note', async () => {
+  const written = [];
+  assert.equal(await composer().copyText('Hello', { clipboard: { writeText: async (text) => { written.push(text); } }, doc: null }), true);
+  assert.deepEqual(written, ['Hello']);
+
+  const made = [];
+  const doc = {
+    body: { appendChild: (el) => made.push(el) },
+    createElement: (tag) => ({ tag, style: {}, attributes: {}, setAttribute(k, v) { this.attributes[k] = v; }, select() { this.selected = true; }, remove() { this.removed = true; } }),
+    execCommand: (command) => command === 'copy',
+  };
+  assert.equal(await composer().copyText('Hi', { clipboard: { writeText: async () => { throw new Error('denied'); } }, doc }), true);
+  assert.deepEqual({ value: made[0].value, readonly: made[0].attributes.readonly, position: made[0].style.position, opacity: made[0].style.opacity, selected: made[0].selected, removed: made[0].removed }, { value: 'Hi', readonly: '', position: 'fixed', opacity: '0', selected: true, removed: true });
+  assert.equal(await composer().copyText('Hi', { clipboard: undefined, doc: { ...doc, execCommand: () => { throw new Error('no'); } } }), false);
+
   assert.match(source, /showStatusNote\(copied \? 'Copied' : 'Unable to copy'\)/);
-  assert.match(source, /className="chat-status-note" role="status" aria-live="polite"/);
-  const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
-  assert.match(css, /\.chat-status-note\{/);
-  assert.match(source, /<symbol id="i-copy"/);
+  const { html } = renderChatsPage();
+  assert.match(html, /<div class="chat-status-note" role="status" aria-live="polite" hidden=""><\/div>/);
+  assert.match(html, /<symbol id="i-copy"/);
+  assert.match(fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8'), /\.chat-status-note\{/);
 });
 
 test('the pinned banner opens the pinned message, by click or keyboard', () => {
@@ -111,10 +162,13 @@ test('the pinned banner opens the pinned message, by click or keyboard', () => {
 });
 
 test('"back to latest" appears above the composer once the thread is scrolled up, and returns to the newest message', () => {
-  assert.match(source, /const SCROLL_LATEST_THRESHOLD = 400;/);
-  assert.match(source, /setShowScrollLatest\(list\.scrollHeight - list\.scrollTop - list\.clientHeight > SCROLL_LATEST_THRESHOLD\);/);
+  assert.equal(thread.SCROLL_LATEST_THRESHOLD, 400);
+  assert.equal(thread.farFromLatest({ scrollHeight: 2000, scrollTop: 1200, clientHeight: 400 }), false, '400px up');
+  assert.equal(thread.farFromLatest({ scrollHeight: 2000, scrollTop: 1199, clientHeight: 400 }), true);
+  const { html } = renderChatsPage({ initialConversationId: 'c1' });
+  assert.match(html, /<div class="scroll-latest-anchor"><button type="button" class="scroll-latest-btn" aria-label="Scroll to latest messages" title="Latest messages" hidden="">[\s\S]*?<\/button><\/div><div class="chat-input-area/, 'hidden at first, just before the composer');
+  assert.doesNotMatch(renderChatsPage().html, /scroll-latest-anchor/, 'only with a conversation open');
   assert.match(source, /ref=\{messagesRef\}\s*onScroll=\{onMessagesScroll\}/);
   assert.match(source, /hidden=\{!showScrollLatest\}\s*onClick=\{\(\) => scrollToBottom\(true\)\}/);
-  assert.match(source, /<div className="scroll-latest-anchor">[\s\S]*?\{\/\* Composer Input Area \*\/\}/, 'placed just before the composer');
   assert.match(source, /useEffect\(\(\) => \{ setShowScrollLatest\(false\); \}, \[activeId\]\);/);
 });

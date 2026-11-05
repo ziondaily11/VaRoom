@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  hostProfilePath, invalidateHostProfile, isUuid, loadHostListings, loadHostProfile, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile,
+  hostProfilePath, invalidateHostProfile, isPrivateProfileError, isUuid, loadHostListings, loadHostProfile, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile,
   type HostProfileRow, type HostReview, type ListingDraft, type ProfileCategory, type ProfileListing,
 } from '../lib/profile/hostProfile';
 import { deleteCategory, displayName, loadClientBookingsCached, profileShareUrl, type ProfileBooking } from '../lib/profile/profilePage';
@@ -71,14 +71,18 @@ export default function ProfilePage() {
     (async () => {
       let host: HostProfileRow | null = null;
       try {
-        host = await loadHostProfile(client, userId, isUuid(visit) ? { id: visit } : { username: visit });
-      } catch { host = null; }
+        host = await loadHostProfile(token, userId, isUuid(visit) ? { id: visit } : { username: visit });
+      } catch (error) {
+        // A private profile: its page says so.
+        if (!cancelled && isPrivateProfileError(error)) { void router.replace(hostProfilePath(visit)); return; }
+        host = null;
+      }
       if (cancelled) return;
       if (host && host.id !== userId) void router.replace(hostProfilePath(host.id, host.username));
       else { setResolvingVisit(false); toOwn(); }
     })();
     return () => { cancelled = true; };
-  }, [router, router.isReady, visit, userId]);
+  }, [router, router.isReady, visit, userId, token]);
 
   // The account's own profile row (the parts AuthProvider doesn't hold).
   useEffect(() => {

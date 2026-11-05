@@ -3,8 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
+const { loadChats, renderChatsPage, render, section } = require('./helpers/chatsPage');
 
 const root = path.join(__dirname, '..');
+const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 const elie = loadTs(path.join(root, 'lib', 'chat', 'elie.ts'));
 
 function jsonResponse(status, body) {
@@ -117,24 +119,58 @@ test('a resumed session gets new turns without creating another', async () => {
   assert.equal(calls.find(([op, name]) => op === 'insert' && name === 'elie_messages')[2].session_id, 'old');
 });
 
-test('the page: Elie thread, history from the header, Elie info panel, new search on selection', () => {
-  const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
-  assert.match(source, /<ElieThread entries=\{elie\.entries\} thinking=\{elie\.thinking\}/);
-  assert.match(source, /if \(!isSameConversation\) elieResetRef\.current\(\);/);
-  assert.match(source, /id="elieHistoryMore"\s*title="Search history"/);
-  assert.match(source, /<ElieHistoryPanel/);
-  assert.match(source, /'Your VaRoom search assistant' : activeId && typingInConversation === activeId \? 'typing…' : presenceKnownId/);
-  assert.match(source, /<span className="label">About Elie<\/span>/);
-  assert.doesNotMatch(source, /Recent search history is preserved on this device/);
-  const thread = fs.readFileSync(path.join(root, 'components', 'chat', 'ElieThread.tsx'), 'utf8');
-  assert.match(thread, /Ask Elie to find you a space\./);
-  assert.match(thread, /href=\{`\/booking\?listing=\$\{encodeURIComponent\(listing\.id\)\}`\}/);
-  assert.match(thread, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(thread, /\{listing\.verified && <em>GPS verified<\/em>\}/);
+test('the page in Elie mode: Elie thread, history from the header, the Elie information panel', () => {
+  const { html } = renderChatsPage({ initialConversationId: 'elie' });
+  const header = section(html, '<header class="chat-header">', '</header>');
+  assert.match(header, /id="elieHistoryToggle" aria-label="Search history" title="Search history" aria-expanded="false"/);
+  assert.match(header, /id="elieHistoryMore" title="Search history" aria-label="Search history" aria-expanded="false"/);
+  assert.match(header, /<span id="statusText">Your VaRoom search assistant<\/span>/);
+  assert.match(html, /<h2>Ask Elie to find you a space\.<\/h2>/);
+  const info = section(html, '<aside class="info-col', '</aside>');
+  assert.match(info, /<div class="p-name">Elie<\/div><div class="p-line">Your VaRoom search assistant<\/div>/);
+  assert.match(info, /<span class="label">About Elie<\/span>/);
+  assert.doesNotMatch(html, /Recent search history is preserved on this device/);
+  assert.match(html, /<div class="contact-name">Elie<\/div><\/div><div class="contact-bottom"><div class="contact-preview">Your VaRoom search assistant<\/div>/, 'its permanent inbox row');
+  // A new search each time Elie is opened from another conversation; the information column stays closed.
+  assert.match(read('pages', 'chats.tsx'), /if \(!isSameConversation\) elieResetRef\.current\(\);\s*setElieHistoryOpen\(false\);\s*setInfoCollapsed\(true\);/);
+});
+
+test('the Elie thread: questions, replies, news and listings (GPS verified), errors with Retry, thinking', () => {
+  const { ElieThread, ElieHistoryPanel } = loadChats('components/chat/ElieThread.tsx');
+  const html = render(ElieThread, {
+    entries: [
+      { id: '1', kind: 'user', text: 'Two bedroom in Kilimani' },
+      { id: '2', kind: 'elie', text: 'Here is what I found' },
+      { id: '3', kind: 'news', items: [{ title: 'Rates rise', source_url: 'https://news.example/a' }] },
+      { id: '4', kind: 'listings', items: [{ id: 'l 1', title: 'Garden flat', location_text: 'Kilimani', verified: true }, { id: 'l2', title: 'Loft' }] },
+      { id: '5', kind: 'error', text: 'Search index offline', retryText: 'Two bedroom in Kilimani' },
+    ],
+    thinking: true, onPrompt() {}, onRetry() {},
+  });
+  assert.doesNotMatch(html, /Ask Elie to find you a space/);
+  assert.match(html, /<div class="msg-row out elie-message"><div class="bubble">Two bedroom in Kilimani<\/div><\/div>/);
+  assert.match(html, /<a class="elie-result-card" href="https:\/\/news\.example\/a" target="_blank" rel="noopener noreferrer"><strong>Rates rise<\/strong>/);
+  assert.match(html, /<a class="elie-result-card elie-listing-card" href="\/booking\?listing=l%201"><strong>Garden flat<\/strong><span>Kilimani<\/span><em>GPS verified<\/em><\/a>/);
+  assert.match(html, /href="\/booking\?listing=l2"><strong>Loft<\/strong><span><\/span><\/a>/, 'no badge when not verified');
+  assert.match(html, /<div>Search index offline<\/div><button type="button" class="elie-retry-btn" aria-label="Retry searching with Elie"/);
+  assert.match(html, /role="status" aria-label="Elie is thinking"/);
+  const intro = render(ElieThread, { entries: [], thinking: false, onPrompt() {}, onRetry() {} });
+  assert.match(intro, /<button type="button">Airbnbs in Nairobi<\/button>/);
+  assert.equal(render(ElieHistoryPanel, { open: false, onClose() {}, listSessions: async () => [], onOpenSession() {}, ignoreSelector: '' }), '');
+  assert.match(render(ElieHistoryPanel, { open: true, onClose() {}, listSessions: async () => [], onOpenSession() {}, ignoreSelector: '' }), /Loading past searches…/);
 });
 
 test('Retry asks again without repeating the question in the thread, history or saved session', () => {
-  const hook = fs.readFileSync(path.join(root, 'components', 'chat', 'useElie.ts'), 'utf8');
-  assert.match(hook, /if \(!retry\) \{\s*setEntries\(\(prev\) => \[\.\.\.prev, \{ id: elieEntryId\(\), kind: 'user', text: question \}\]\);\s*historyRef\.current\.push\(\{ role: 'user', text: question \}\);\s*void recorder\.record\('user', question\);\s*\}/);
-  assert.match(hook, /void send\(entry\.retryText, \{ retry: true \}\);/);
+  const recorded = [];
+  const recorder = { record: async (role, text) => { recorded.push([role, text]); } };
+  const history = [{ role: 'elie', text: 'Hi' }];
+  const entry = elie.beginElieQuestion('Offices in Westlands', { retry: false, history, recorder });
+  assert.equal(entry.kind, 'user');
+  assert.equal(entry.text, 'Offices in Westlands');
+  assert.deepEqual(history.map((turn) => turn.role), ['elie', 'user']);
+  assert.deepEqual(recorded, [['user', 'Offices in Westlands']]);
+  assert.equal(elie.beginElieQuestion('Offices in Westlands', { retry: true, history, recorder }), null);
+  assert.equal(history.length, 2);
+  assert.equal(recorded.length, 1);
+  assert.match(read('components', 'chat', 'useElie.ts'), /void send\(entry\.retryText, \{ retry: true \}\);/);
 });

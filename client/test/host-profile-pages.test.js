@@ -15,6 +15,12 @@ test('Message opens the visitor’s chat with the host, ready to ask about one o
   assert.deepEqual(asked, ['L1']);
   assert.equal(await chat.hostChatPath('H1', null, start), '/chats?host=H1', 'no listing: Chats');
   assert.equal(await chat.hostChatPath('H1', 'L1', async () => { throw new Error('denied'); }), '/chats?host=H1');
+  // The host chose "Who can message you: No one": the visitor is told, not sent to an empty Chats.
+  const off = Object.assign(new Error('This host isn’t accepting new messages.'), { status: 403, body: { code: 'messages_off' } });
+  await assert.rejects(chat.hostChatPath('H1', 'L1', async () => { throw off; }), /accepting new messages/);
+  for (const file of ['HostProfileView.tsx', 'PublicHostProfile.tsx']) {
+    assert.match(read('components', 'hostProfile', file), /catch \(error\) \{\n\s+window\.alert\(/, `${file} shows why the chat did not open`);
+  }
 });
 
 test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner in place, reviews channel cleaned up', () => {
@@ -22,7 +28,7 @@ test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner
   assert.match(view, /useAuth\(\)/);
   assert.doesNotMatch(view, /window\.supabaseClient|\.select\("role"\)|select\('role'\)/, 'no second session or role lookup');
   assert.match(view, /const by = keyIsId \? \{ id: hostKey \} : \{ username: hostKey \};/);
-  assert.match(view, /loadHostProfile\(client, viewerId, by\)/);
+  assert.match(view, /loadHostProfile\(token, viewerId, by\)/);
   assert.match(view, /loadHostReviews\(viewerId, hostId, force\)/);
   assert.match(view, /return \(\) => \{ cancelled = true; void client\.removeChannel\(channel\); \};/, 'the realtime channel is always removed');
   assert.doesNotMatch(view + read('components', 'hostProfile', 'ProfileBanner.tsx'), /coverHeader/, 'the owner sees the same banner and identity as visitors');
@@ -56,17 +62,26 @@ test('host page addresses use the username (unique, any case); id addresses keep
   assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'amazingstays'), '/host/amazingstays');
   assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', '@Amazing Stays'), '/host/Amazing%20Stays');
   assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', null), '/host/53f971b0-8489-4886-834f-bcc37a2469cd');
-  assert.equal(hp.literalIlike('a_b%c'), 'a\\_b\\%c', 'no wildcards from the address');
-
+  // Read through the server (which applies Profile visibility), with the viewer's session when there is one.
   const calls = [];
   const row = { id: 'H1', role: 'host', username: 'amazingstays' };
-  const client = { from: () => { const entry = []; calls.push(entry); const chain = new Proxy({}, { get: (_t, prop) => (prop === 'maybeSingle' ? async () => ({ data: row, error: null }) : (...args) => { entry.push([prop, ...args]); return chain; }) }); return chain; } };
-  await hp.loadHostProfile(client, 'V1', { username: 'AmazingStays' });
-  assert.deepEqual(calls[0].filter((op) => op[0] === 'ilike'), [['ilike', 'username', 'AmazingStays']], 'matched ignoring case');
+  const fetchFn = async (url, init) => { calls.push([url, init && init.headers ? init.headers.Authorization : null]); return { ok: true, status: 200, json: async () => ({ profile: row }) }; };
+  await hp.loadHostProfile('tok', 'V1', { username: '@AmazingStays' }, false, fetchFn);
+  assert.deepEqual(calls[0], ['/api/host-profiles/AmazingStays', 'Bearer tok']);
   assert.equal(hp.peekHostProfile('V1', { id: 'H1' }), row, 'cached under the id too');
-  await hp.loadHostProfile(client, 'V2', { id: 'H1' });
+  await hp.loadHostProfile(null, 'V2', { id: 'H1' }, false, fetchFn);
+  assert.deepEqual(calls[1], ['/api/host-profiles/H1', null], 'signed out: no session sent');
   assert.equal(hp.peekHostProfile('V2', { username: 'AMAZINGSTAYS' }), row, 'an id load is reused by the username address');
   assert.equal(calls.length, 2);
+
+  const answer = (status, body) => async () => ({ ok: status < 300, status, json: async () => body });
+  assert.equal(await hp.fetchHostProfile({ username: 'nobody' }, null, answer(404, { error: 'Host not found' })), null);
+  await assert.rejects(hp.fetchHostProfile({ id: 'H2' }, null, answer(403, { code: 'profile_private' })), (error) => hp.isPrivateProfileError(error));
+  await assert.rejects(hp.fetchHostProfile({ id: 'H2' }, null, answer(502, { error: 'Could not load this host profile.' })), /Could not load/);
+  assert.equal(hp.isPrivateProfileError(new Error('x')), false);
+  for (const file of ['HostProfileView.tsx', 'PublicHostProfile.tsx']) {
+    assert.match(read('components', 'hostProfile', file), /isPrivateProfileError\(error\)\) \{ setProfile\(null\); setLoadError\('This profile is private\.'\);/, `${file}: a private profile replaces the cached one`);
+  }
 
   const view = read('components', 'hostProfile', 'HostProfileView.tsx');
   assert.match(view, /router\.replace\(hostProfilePath\(profile\.id, profile\.username\), undefined, \{ shallow: true, scroll: false \}\)/);

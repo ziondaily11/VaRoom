@@ -50,6 +50,27 @@ export function albumStatus(statuses: (MessageStatus | null)[]): MessageStatus |
   return known.reduce((least, status) => (STATUS_ORDER.indexOf(status) < STATUS_ORDER.indexOf(least) ? status : least));
 }
 
+/** A photo in the thread fits this width (px): 330 on desktop, 340 on phones. */
+export function photoMaxWidth(isPhone: boolean): number {
+  return isPhone ? 340 : 330;
+}
+
+/** A swipe shorter than this (px) does not page the viewer. */
+export const SWIPE_MIN_PX = 40;
+
+/** The photo viewer pages through an album: → and ← keys (1, -1), or none. */
+export function viewerKeyStep(key: string, count: number): 1 | -1 | 0 {
+  if (count > 1 && key === 'ArrowRight') return 1;
+  if (count > 1 && key === 'ArrowLeft') return -1;
+  return 0;
+}
+
+/** A swipe in the viewer: left shows the next photo, right the previous; short swipes and single photos do nothing. */
+export function swipeStep(start: number | null, end: number | undefined, count: number): 1 | -1 | 0 {
+  if (count < 2 || start === null || end === undefined || Math.abs(end - start) < SWIPE_MIN_PX) return 0;
+  return end < start ? 1 : -1;
+}
+
 /** The album's caption: the first photo's (the one written in the preview). */
 export function albumCaption(members: ChatMessage[]): string {
   for (const member of members) {

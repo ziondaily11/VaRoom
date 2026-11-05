@@ -106,16 +106,33 @@ export function hostProfilePath(hostId: string, username?: string | null): strin
   return `/host/${encodeURIComponent(name || hostId)}`;
 }
 
-/** `value` matched literally by ilike (its own % _ \ are escaped). */
-export const literalIlike = (value: string) => value.replace(/[\\%_]/g, (char) => `\\${char}`);
 
-/** A host by id or username, ignoring the username's case (null when there is no such host). */
-export async function fetchHostProfile(client: SupabaseClient, by: { id?: string; username?: string }): Promise<HostProfileRow | null> {
-  let query = client.from('profiles').select(HOST_PROFILE_COLUMNS).eq('role', 'host');
-  query = by.id ? query.eq('id', by.id) : query.ilike('username', literalIlike((by.username || '').replace(/^@/, '')));
-  const { data, error } = await query.maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as HostProfileRow | null) || null;
+/** A host's profile the host has made private (Settings → Privacy) and this viewer may not see. */
+export class PrivateProfileError extends Error {
+  readonly code = 'profile_private';
+  constructor() {
+    super('This profile is private.');
+    this.name = 'PrivateProfileError';
+  }
+}
+
+export const isPrivateProfileError = (error: unknown): boolean =>
+  Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === 'profile_private');
+
+/**
+ * A host by id or username, ignoring the username's case (null when there is
+ * no such host). Read through the server, which applies the host's
+ * "Profile visibility": a private profile throws PrivateProfileError.
+ */
+export async function fetchHostProfile(by: { id?: string; username?: string }, token: string | null, fetchFn: FetchFn = fetch): Promise<HostProfileRow | null> {
+  const lookup = by.id || (by.username || '').replace(/^@/, '');
+  if (!lookup) return null;
+  const response = await fetchFn(`/api/host-profiles/${encodeURIComponent(lookup)}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+  if (response.status === 404) return null;
+  const body = (await response.json().catch(() => ({}))) as { profile?: HostProfileRow; code?: string; error?: string };
+  if (response.status === 403 && body.code === 'profile_private') throw new PrivateProfileError();
+  if (!response.ok) throw new Error(body.error || `Host profile could not be loaded (${response.status})`);
+  return body.profile || null;
 }
 
 /** Any account's own profile row (the signed-in user's /profile). */
@@ -218,9 +235,9 @@ export const loadListingDrafts = (viewerId: string, token: string | null, force 
 const usernameKey = (username: string) => `@${username.replace(/^@/, '').toLowerCase()}`;
 
 /** Cached under both the id and the username, so either address reuses it. */
-export function loadHostProfile(client: SupabaseClient, viewerId: string | null, by: { id?: string; username?: string }, force = false): Promise<HostProfileRow | null> {
+export function loadHostProfile(token: string | null, viewerId: string | null, by: { id?: string; username?: string }, force = false, fetchFn: FetchFn = fetch): Promise<HostProfileRow | null> {
   const lookup = by.id || usernameKey(by.username || '');
-  return cached(key(viewerId, lookup, 'profile'), () => fetchHostProfile(client, by), force).then((row) => {
+  return cached(key(viewerId, lookup, 'profile'), () => fetchHostProfile(by, token, fetchFn), force).then((row) => {
     if (row) {
       if (by.id && row.username) cache.write(key(viewerId, usernameKey(row.username), 'profile'), row);
       if (!by.id) cache.write(key(viewerId, row.id, 'profile'), row);

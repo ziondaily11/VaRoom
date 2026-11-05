@@ -1,51 +1,52 @@
+'use strict';
+
+// Chats (pages/chats.tsx): the page's first paint, its layout and routing.
+// The page is rendered on the server with Next and Supabase faked
+// (helpers/chatsPage); the rules it applies live in lib/chat/ and are tested
+// directly. What remains as a source check is wiring inside effects that a
+// first paint cannot show (Realtime channel lifecycle, effect dependencies).
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { loadTs } = require('./helpers/loadTs');
+const { loadChats, renderChatsPage, render, section } = require('./helpers/chatsPage');
 
 const root = path.join(__dirname, '..');
-const chatsPagePath = path.join(root, 'pages', 'chats.tsx');
-const slugPath = path.join(root, 'pages', '[...slug].js');
-const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
-const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
-const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:path').join(__dirname, '..', 'lib', 'accountRoleLayout.ts'));
+const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
+const { getAccountLayout } = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts'));
+const thread = loadTs(path.join(root, 'lib', 'chat', 'thread.ts'));
+const inbox = loadTs(path.join(root, 'lib', 'chat', 'inbox.ts'));
 
-test('Phase 1 & 2: Chats is a native React page in client/pages/chats.tsx', () => {
-  assert.ok(fs.existsSync(chatsPagePath), 'chats.tsx must exist');
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-
-  // Default export
-  assert.match(source, /export default function ChatsPage/);
-  // Self-contained layout assignment bypassing ClientLayout/HostLayout
-  assert.match(source, /ChatsPage\.getLayout\s*=/);
-  // Next.js Head usage
-  assert.match(source, /import Head from 'next\/head'/);
-  assert.match(source, /import \{ useRouter \} from 'next\/router'/);
-  // Cache integration
-  assert.match(source, /import chatCache/);
-  // Component integrations
-  assert.match(source, /import ChatComposerActions from '\.\.\/components\/ChatComposerActions'/);
-  assert.match(source, /import ElieComposerBeam from '\.\.\/components\/ElieComposerBeam'/);
-  assert.match(source, /import ElieIcon from '\.\.\/components\/ElieIcon'/);
+test('Chats is a native React page with its own full-screen shell and the app navigation', () => {
+  const { html, page } = renderChatsPage();
+  assert.equal(typeof page.default, 'function');
+  const element = { marker: true };
+  assert.equal(page.default.getLayout(element), element, 'outside ClientLayout and HostLayout');
+  assert.equal(page.default.appNavigation, true, 'the mobile navigation shows on the inbox');
+  assert.match(html, /<title>Messenger Dashboard<\/title>/);
+  assert.match(html, /<div class="app-shell view-inbox" style="--bubble-out-l:/);
+  assert.match(html, /<nav class="icon-rail" id="chatRoleNavigation" data-role="client" aria-label="Client navigation">/);
+  assert.match(html, /<aside class="contacts-col">[\s\S]*<main class="chat-col empty-conversation">[\s\S]*<aside class="info-col collapsed" id="infoCol">/);
 });
 
 test('CH5: chats.html, elie.html and chat-data.js are retired; old URLs redirect to native Chats', () => {
-  assert.equal(fs.existsSync(slugPath), false, 'the legacy catch-all is retired (E1)');
+  assert.equal(fs.existsSync(path.join(root, 'pages', '[...slug].js')), false, 'the legacy catch-all is retired (E1)');
   for (const file of ['legacy-pages/chats.html', 'legacy-pages/elie.html', 'public/js/chat-data.js', 'public/js/chat-cache.js']) {
     assert.equal(fs.existsSync(path.join(root, file)), false, `${file} is deleted`);
   }
-  // The catch-all never serves these URLs.
-  const config = fs.readFileSync(path.join(root, 'next.config.js'), 'utf8');
+  const config = read('next.config.js');
   assert.match(config, /source: '\/elie',\s*destination: '\/chats\?c=elie'/);
   assert.match(config, /source: '\/chat',\s*destination: '\/chats'/);
   assert.match(config, /source: '\/chats\.html',\s*destination: '\/chats'/);
   assert.match(config, /source: '\/elie\.html',\s*destination: '\/chats\?c=elie'/);
-  const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  const vercel = JSON.parse(read('vercel.json'));
   assert.ok(vercel.redirects.some((r) => r.source === '/:page.html' && r.destination === '/:page'), '/chats.html and /elie.html reach the routes above');
-  assert.doesNotMatch(fs.readFileSync(path.join(root, 'pages', 'profile.tsx'), 'utf8'), /chats\.html/);
+  assert.doesNotMatch(read('pages', 'profile.tsx'), /chats\.html/);
 });
 
-test('Phase 2: Chats route resolves to none layout, preserving full-screen dashboard app shell', () => {
+test('Chats route resolves to none layout, preserving full-screen dashboard app shell', () => {
   assert.equal(getAccountLayout('/chats', '/chats', null), 'none');
   assert.equal(getAccountLayout('/chats', '/chats', 'client'), 'none');
   assert.equal(getAccountLayout('/chats', '/chats', 'host'), 'none');
@@ -53,268 +54,190 @@ test('Phase 2: Chats route resolves to none layout, preserving full-screen dashb
   assert.equal(getAccountLayout('/[...slug]', '/chats', 'host'), 'none');
 });
 
-test('Phase 2: both shells navigate to /chats client-side through the shared link handler', () => {
-  const { HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES, isInternalHref } = require('./helpers/loadTs').loadTs(
-    path.join(__dirname, '..', 'lib', 'navigation', 'appLinks.ts'),
-  );
+test('both shells navigate to /chats client-side through the shared link handler', () => {
+  const { HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES, isInternalHref } = loadTs(path.join(root, 'lib', 'navigation', 'appLinks.ts'));
   assert.equal(isInternalHref('/chats', HOST_INTERNAL_ROUTES), true);
   assert.equal(isInternalHref('/chats?id=1', CLIENT_INTERNAL_ROUTES), true);
-  const appSource = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
-  assert.match(appSource, /installAppLinks\(\{ doc: document, push: \(href\) => Router\.push\(href\)/);
+  assert.match(read('pages', '_app.tsx'), /installAppLinks\(\{ doc: document, push: \(href\) => Router\.push\(href\)/);
 });
 
-test('Phase 3: Lifecycle and Realtime safety patterns in chats.tsx', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
+test('deep links open the requested conversation once; opening one puts it in the URL without reloading', () => {
+  assert.equal(inbox.requestedConversation('c1', undefined, null), 'c1');
+  assert.equal(inbox.requestedConversation(undefined, 'c2', null), 'c2', 'legacy ?conversation=');
+  assert.equal(inbox.requestedConversation('c1', 'c2', null), 'c1');
+  assert.equal(inbox.requestedConversation('c1', undefined, 'c1'), null, 'already open: not selected (or subscribed) again');
+  assert.equal(inbox.requestedConversation(undefined, undefined, 'c1'), null);
 
-  // Page-owned channel ref and cleanup on unmount or selection switch
-  assert.match(source, /activeChannelRef\.current/);
+  assert.deepEqual(inbox.conversationRouteQuery({ archived: '1', conversation: 'old' }, 'c9'), { archived: '1', c: 'c9' });
+  assert.equal(inbox.conversationRouteQuery({ c: 'c9' }, 'c9'), null, 'the URL already names it: no navigation');
+  assert.equal(inbox.conversationRouteQuery({ conversation: 'c9' }, 'c9'), null);
+  assert.doesNotMatch(read('pages', 'chats.tsx'), /Record<string, any>/);
+});
+
+test('effects: auth once, the inbox per account, deep links on the query; Realtime channels are released', () => {
+  // Wiring inside effects (not visible in a first paint).
+  const source = read('pages', 'chats.tsx');
+  assert.match(source, /initAuth\(\);[\s\S]*?\}\s*,\s*\[\]\);/, 'auth runs once');
+  assert.match(source, /getInbox\(userId\)[\s\S]*?loadConversations\(userId[\s\S]*?\}\s*,\s*\[userId,\s*loadConversations\]\);/, 'cached inbox, then a sync');
+  assert.match(source, /\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*selectConversation\]\);/, 'no router object in the dependencies');
   assert.match(source, /client\.removeChannel\(activeChannelRef\.current\)/);
-
-  // Selection generation counter guarding against rapid conversation switching
-  assert.match(source, /selectionGenerationRef\.current/);
-
-  // Instant cache read from chatCache
-  assert.match(source, /getInbox/);
-  assert.match(source, /getMessages/);
-
-  // Presence and online status tracking
-  assert.match(source, /channel\.presenceState\(\)/);
-  assert.match(source, /channel\.track\(\{ user_id:/);
-
-  // Multi-account switcher isolation
-  assert.match(source, /varoom_active_account_changed/);
+  assert.match(source, /selectionGen !== selectionGenerationRef\.current/, 'a newer selection makes older results stale');
+  assert.match(source, /channel\.track\(\{ user_id: currentUserId \}\)/, 'presence');
+  assert.match(source, /addEventListener\('varoom_active_account_changed', handleAccountChange\)/, 'account switches reset the page');
 });
 
-test('Stage 1: Lifecycle and routing separation protects against freeze and duplicate subscriptions', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
+test('avatars: the photo fills its 46px circle; data and blob URLs as they are; initials otherwise', () => {
+  const css = read('public', 'js', 'chats.css');
+  for (const rule of [/width:\s*46px;/, /height:\s*46px;/, /flex-shrink:\s*0;/, /border-radius:\s*50%;/, /overflow:\s*hidden;/]) {
+    assert.match(css, new RegExp(`\\.avatar-wrap\\s*\\{[\\s\\S]*?${rule.source}`));
+  }
+  for (const rule of [/width:\s*100%;/, /height:\s*100%;/, /object-fit:\s*cover;/, /display:\s*block;/]) {
+    assert.match(css, new RegExp(`\\.avatar-wrap\\s+img\\s*\\{[\\s\\S]*?${rule.source}`));
+  }
 
-  // Auth initialization effect runs independently with empty dependency array
-  assert.match(source, /initAuth\(\);[\s\S]*?\}\s*,\s*\[\]\);/);
+  const resolved = [];
+  const avatar = loadChats('components/chat/ConversationAvatar.tsx', {
+    mocks: { '../resolveStoredPhotoUrl': { resolveAvatarUrl: (url) => { resolved.push(url); return url === 'avatars/u1.jpg' ? 'https://cdn/avatars/u1.jpg' : null; } } },
+  });
+  assert.equal(avatar.resolveChatAvatarUrl(null), null);
+  assert.equal(avatar.resolveChatAvatarUrl('data:image/png;base64,xx'), 'data:image/png;base64,xx');
+  assert.equal(avatar.resolveChatAvatarUrl('blob:abc'), 'blob:abc');
+  assert.deepEqual(resolved, [], 'never resolved through storage');
+  assert.equal(avatar.resolveChatAvatarUrl('avatars/u1.jpg', {}), 'https://cdn/avatars/u1.jpg');
+  assert.equal(avatar.resolveChatAvatarUrl('https://x/y.png', {}), 'https://x/y.png', 'unresolvable: as given');
+  assert.equal(avatar.avatarInitials('Billionaire Zion'), 'BZ');
+  assert.equal(avatar.avatarInitials('zion'), 'ZI');
+  assert.equal(avatar.avatarInitials(''), 'VA');
 
-  // Inbox loading runs separately on userId change
-  assert.match(source, /getInbox\(userId\)[\s\S]*?loadConversations\(userId[\s\S]*?\}\s*,\s*\[userId,\s*loadConversations\]\);/);
-
-  // Deep-link selection runs on primitive query changes without router in dependencies
-  assert.match(source, /requested !== activeIdRef\.current[\s\S]*?selectConversation\(requested,\s*false\)[\s\S]*?\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*selectConversation\]\);/);
-
-  // selectConversation guards against duplicate subscription if already active
-  assert.match(source, /const previousConversationId = activeIdRef\.current;\s*const isSameConversation = previousConversationId === id;/);
-
-  // URL updating only triggers when query actually differs
-  assert.match(source, /currentQuery\.c !== id && currentQuery\.conversation !== id/);
+  const img = render(avatar.default, { url: 'blob:abc', name: 'Zion' });
+  assert.match(img, /<img src="blob:abc" alt="Zion" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block"\/>/);
+  const fallback = render(avatar.default, { url: null, name: 'Billionaire Zion', fontSize: 12 });
+  assert.match(fallback, /<div class="avatar-fallback" style="[^"]*font-size:12px[^"]*">BZ<\/div>/);
+  // A photo that fails to load falls back to the initials (no broken-image icon).
+  assert.match(read('components', 'chat', 'ConversationAvatar.tsx'), /onError=\{\(\) => setHasError\(true\)\}/);
 });
 
-test('Stage 2: Avatar wrapper is strictly constrained to 46x46px with overflow hidden', () => {
-  const cssPath = path.join(root, 'public', 'js', 'chats.css');
-  assert.ok(fs.existsSync(cssPath), 'chats.css must exist');
-  const cssSource = fs.readFileSync(cssPath, 'utf8');
-
-  // .avatar-wrap explicit dimensions and containment
-  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?width:\s*46px;/);
-  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?height:\s*46px;/);
-  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?flex-shrink:\s*0;/);
-  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?border-radius:\s*50%;/);
-  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?overflow:\s*hidden;/);
-
-  // .avatar-wrap img containment
-  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?width:\s*100%;/);
-  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?height:\s*100%;/);
-  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
-  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?display:\s*block;/);
-
-  // chats.tsx conversation item img properties in ConversationAvatar
-  const pageSource = fs.readFileSync(chatsPagePath, 'utf8');
-  assert.match(pageSource, /<ConversationAvatar\s+url=\{participant\?\.avatar_url\}/);
-  assert.match(pageSource, /objectFit:\s*'cover'/);
-  assert.match(pageSource, /display:\s*'block'/);
+test('avatars appear in the inbox, the chat header and the information column', () => {
+  const header = section(renderChatsPage({ initialConversationId: 'c1' }).html, '<div class="chat-header-avatar-wrap">', '</div></div>');
+  assert.match(header, /<div class="avatar-fallback" style="[^"]*font-size:12px[^"]*">US<\/div>/, 'the header, before the conversation loads');
+  const source = read('pages', 'chats.tsx');
+  assert.match(source, /<div className="avatar-wrap">\s*<ConversationAvatar url=\{participant\?\.avatar_url\}/, 'inbox rows');
+  assert.match(source, /<ConversationInfo[\s\S]*?avatar=\{\(\s*<ConversationAvatar\s+url=\{activeConversation\.participant\?\.avatar_url\}/, 'information column');
 });
 
-test('Stage 3: Avatar URL resolution and error fallback in chats.tsx', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-
-  // Integrates existing resolveStoredPhotoUrl module
-  assert.match(source, /resolveAvatarUrl/);
-  assert.match(source, /components\/resolveStoredPhotoUrl/);
-
-  // Handles data, blob, and storage keys through existing resolution mechanism
-  assert.match(source, /resolveChatAvatarUrl/);
-  assert.match(source, /\/\^\(data:\|blob:\)\/i/);
-
-  // ConversationAvatar provides reliable onError fallback preventing broken-image icons
-  assert.match(source, /function ConversationAvatar/);
-  assert.match(source, /onError=\{[\s\S]*?setHasError\(true\)/);
-
-  // Applied consistently to all three avatar locations
-  // 1. Conversation list
-  assert.match(source, /<div className="avatar-wrap">[\s\S]*?<ConversationAvatar\s+url=\{participant\?\.avatar_url\}/);
-  // 2. Chat header
-  assert.match(source, /<div className="chat-header-avatar-wrap">[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
-  // 3. Conversation info panel
-  // The information column's avatar is passed to ConversationInfo (components/chat).
-  assert.match(source, /<ConversationInfo[\s\S]*?avatar=\{\(\s*<ConversationAvatar\s+url=\{activeConversation\.participant\?\.avatar_url\}/);
+test('columns: phones show one screen at a time; the shell marks an open conversation', () => {
+  const classes = (overrides) => thread.chatLayoutClasses({ mobileView: 'inbox', activeId: null, isElie: false, infoCollapsed: true, chatSettingsEmbedded: false, ...overrides });
+  assert.deepEqual({ ...classes() }, { shell: 'app-shell view-inbox', contacts: 'contacts-col', chat: 'chat-col empty-conversation', info: 'info-col collapsed' });
+  assert.deepEqual({ ...classes({ mobileView: 'conversation', activeId: 'c1', infoCollapsed: false }) }, {
+    shell: 'app-shell view-chat has-conversation', contacts: 'contacts-col mobile-hidden', chat: 'chat-col mobile-visible', info: 'info-col ',
+  });
+  assert.deepEqual({ ...classes({ mobileView: 'info', activeId: 'elie', isElie: true, chatSettingsEmbedded: true }) }, {
+    shell: 'app-shell view-info has-conversation', contacts: 'contacts-col mobile-hidden', chat: 'chat-col is-elie', info: 'info-col collapsed chat-settings-open mobile-visible',
+  });
+  // Back from a conversation returns to the inbox and drops ?c= from the URL.
+  assert.match(read('pages', 'chats.tsx'), /setMobileView\('inbox'\);\s*routerRef\.current\?\.replace\(\{ pathname: '\/chats' \}, undefined, \{ shallow: true \}\);/);
+  // The unread badge (the server sends no count) and the conversation menu stubs stay removed.
+  assert.doesNotMatch(read('pages', 'chats.tsx'), /unread_count|className="conversation-menu"/);
 });
 
-test('Stage 4: CSS parity class names and mobile view toggling in chats.tsx', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-
-  // Correct class names
-  assert.match(source, /className="contact-body"/);
-  assert.match(source, /className="contact-time"/);
-  assert.match(source, /className="contact-preview"/);
-  assert.doesNotMatch(source, /className="contact-info"/);
-  assert.doesNotMatch(source, /className="msg-time"/);
-  assert.doesNotMatch(source, /className="last-msg"/);
-
-  // The unread badge (the server sends no count) and the conversation menu
-  // stubs ("Mark as read" was local only, "Delete" deleted nothing) are removed.
-  assert.doesNotMatch(source, /unread_count/);
-  assert.doesNotMatch(source, /className="conversation-menu"/);
-
-  // Mobile class toggling
-  assert.match(source, /contacts-col.*mobile-hidden/);
-  assert.match(source, /chat-col.*mobile-visible/);
-
-  // Mobile back button updates URL
-  assert.match(source, /setMobileView\('inbox'\)/);
-  assert.match(source, /routerRef\.current\?\.replace\(\{ pathname: '\/chats' \}/);
+test('compact phone chat header: identity in a row, 38px avatar', () => {
+  const css = read('public', 'js', 'chats.css');
+  assert.match(css, /\.chat-header-identity\s*\{[\s\S]*?flex-direction:\s*row;/);
+  assert.match(css, /\.chat-header-identity\s*\{[\s\S]*?align-items:\s*center;/);
+  assert.match(css, /\.chat-header-avatar-wrap\s*\{[\s\S]*?width:\s*38px;/);
+  assert.match(css, /\.chat-header-avatar-wrap\s*\{[\s\S]*?height:\s*38px;/);
+  assert.match(css, /\.chat-header-avatar-wrap\s*\{[\s\S]*?border-radius:\s*50%;/);
+  assert.match(css, /\.chat-header-avatar-wrap\s*\{[\s\S]*?overflow:\s*hidden;/);
+  assert.match(css, /\.chat-header-avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
 });
 
-
-test('Stage 4 extension: Compact mobile chat header layout and avatar sizing', () => {
-  const cssPath = path.join(root, 'public', 'js', 'chats.css');
-  const cssSource = fs.readFileSync(cssPath, 'utf8');
-
-  // Mobile chat-header-identity is horizontal flex with alignment
-  assert.match(cssSource, /\.chat-header-identity\s*\{[\s\S]*?flex-direction:\s*row;/);
-  assert.match(cssSource, /\.chat-header-identity\s*\{[\s\S]*?align-items:\s*center;/);
-
-  // Mobile chat-header-avatar-wrap is explicitly constrained to 38px
-  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?width:\s*38px;/);
-  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?height:\s*38px;/);
-  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?border-radius:\s*50%;/);
-  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?overflow:\s*hidden;/);
-
-  // Mobile chat-header-avatar-wrap img is contained
-  assert.match(cssSource, /\.chat-header-avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
-});
-test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-
-  // Attachment upload init, R2 PUT, and complete
-  assert.match(source, /\/api\/chat\/conversations\/.*?\/attachments\/upload-init/);
-  assert.match(source, /\/api\/chat\/conversations\/.*?\/attachments\/.*?\/complete/);
-
-  // Elie assistant mode & composer beam
-  // Elie's request and thread live in lib/chat/elie.ts and components/chat (test/chat-elie.test.js).
-  assert.match(source, /<ElieThread entries=\{elie\.entries\}/);
-  assert.match(source, /<ElieComposerBeam isElie=\{isElie\}/);
-  assert.match(fs.readFileSync(path.join(root, 'components', 'chat', 'ElieThread.tsx'), 'utf8'), /ThinkingOrb/);
+test('Elie: its thread, the composer beam and the header in Elie mode', () => {
+  const { html } = renderChatsPage({ initialConversationId: 'elie' });
+  assert.match(html, /<main class="chat-col is-elie">/);
+  assert.match(html, /<h2>Ask Elie to find you a space\.<\/h2>/, 'ElieThread, empty');
+  assert.match(html, /<div class="chat-header-name" id="chatName">Elie<\/div>/);
+  assert.match(html, /data-placeholder="Ask Elie about spaces, prices, amenities\.\.\."/);
+  assert.match(html, /<textarea placeholder="Ask Elie\.\.\."><\/textarea>/);
+  assert.doesNotMatch(html, /id="mobileAttachMenu"/, 'no attachments for Elie');
+  const { ElieThread } = loadChats('components/chat/ElieThread.tsx');
+  assert.doesNotMatch(render(ElieThread, { entries: [], thinking: true, onPrompt() {}, onRetry() {} }), /Ask Elie to find you a space/, 'the intro gives way while Elie thinks');
 });
 
-test('Stage 5A: Composer send wiring, attachment actions, and formatting controls', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-  const actionsSource = fs.readFileSync(path.join(root, 'components', 'ChatComposerActions.tsx'), 'utf8');
-
-  // Send button wired via onSend prop
-  // The click event must not be passed as the message text.
-  assert.match(source, /onSend=\{\(\) => \{ void handleSendMessage\(\); \}\}/);
-  assert.match(source, /canSend=\{!!/);
-
-  // Attachment callbacks passed
-  assert.match(source, /onPhotoClick=/);
-  assert.match(source, /onFileClick=/);
-  assert.match(source, /onMobileAttach=/);
-
-  // Mobile attach menu rendered in JSX
-  assert.match(source, /className="mobile-attach-menu"/);
-  assert.match(source, /className="mobile-attach-item"/);
-
-  // SVG symbols present
-  assert.match(source, /id="i-list-dot"/);
-  assert.match(source, /id="i-list-sq"/);
-
-  // Format buttons restored
-  assert.match(source, /className="fmt-ul"/);
-  assert.match(source, /className="fmt-ol"/);
-  assert.match(source, /className="divider"/);
-
-  // mobileAttachMenuOpen state present
-  assert.match(source, /mobileAttachMenuOpen/);
-
-  // ChatComposerActions has onSend and canSend props wired
-  assert.match(actionsSource, /onSend/);
-  assert.match(actionsSource, /canSend/);
-
-  // No hardcoded aria-disabled="true" remains
-  assert.doesNotMatch(actionsSource, /aria-disabled="true"/);
-
-  // Attachment callbacks consumed in ChatComposerActions
-  assert.match(actionsSource, /onPhotoClick/);
-  assert.match(actionsSource, /onFileClick/);
-  assert.match(actionsSource, /onMobileAttach/);
+test('composer: the formatting buttons, the attachment menu and its icons', () => {
+  const { html } = renderChatsPage({ initialConversationId: 'c1' });
+  const composer = section(html, '<div class="chat-input-area', '<input type="file"');
+  assert.match(composer, /<button type="button" class="fmt-b" aria-label="Bold">B<\/button><button type="button" class="fmt-i" aria-label="Italic">I<\/button><button type="button" class="fmt-u" aria-label="Underline">U<\/button><span class="divider"><\/span><button type="button" class="fmt-ul" aria-label="Bulleted list"><svg class="icon"><use href="#i-list-dot"><\/use><\/svg><\/button><button type="button" class="fmt-ol" aria-label="Numbered list"><svg class="icon"><use href="#i-list-sq"><\/use><\/svg><\/button>/);
+  assert.match(composer, /<div class="mobile-attach-menu" id="mobileAttachMenu" role="menu" aria-label="Attach" hidden="">/, 'closed until the + is tapped');
+  assert.equal((composer.match(/class="mobile-attach-item"/g) || []).length, 3);
+  assert.match(composer, /class="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true"/, 'nothing to send yet');
+  for (const icon of ['i-list-dot', 'i-list-sq', 'i-image', 'i-file-text', 'i-store']) assert.match(html, new RegExp(`<symbol id="${icon}"`), icon);
+  // The send button's click event is never sent as the message text.
+  assert.match(read('pages', 'chats.tsx'), /onSend=\{\(\) => \{ void handleSendMessage\(\); \}\}/);
 });
 
-test('Stage 5B: Message rendering, context actions, and mobile nav suppression', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-  const cssSource = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
-
-  // Uses correct CSS class msg-row (not message-row)
+test('message rows: classes by side and state', () => {
+  const row = (overrides) => thread.messageRowClass({ isSystem: false, isOut: false, isElieMessage: false, sameSender: false, isDeleted: false, highlighted: false, ...overrides });
+  assert.equal(row(), 'msg-row in');
+  assert.equal(row({ isOut: true, sameSender: true }), 'msg-row out same-sender');
+  assert.equal(row({ isSystem: true, isOut: true }), 'msg-row system');
+  assert.equal(row({ isElieMessage: true }), 'msg-row in elie-message');
+  assert.equal(row({ isElieMessage: true, isOut: true }), 'msg-row out', 'only Elie\'s replies');
+  assert.equal(row({ isDeleted: true, highlighted: true }), 'msg-row in msg-deleted reply-target-highlight');
+  const source = read('pages', 'chats.tsx');
   assert.match(source, /className=\{rowClass\}/);
-  assert.match(source, /'msg-row'/);
-
-  // Uses correct bubble class (not message-bubble)
-  assert.match(source, /className="bubble"/);
-
-  // renderMessageBody handles HTML safely
-  assert.match(source, /renderMessageBody/);
-  // Rebuilt from allowlisted elements; never injected as HTML (test/chat-message-body.test.js).
-  assert.match(source, /parseMessageBody\(body\)/);
-  assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
-  assert.match(source, /allowlist|hasMarkup/);
-
-  // Message menu: right-click, long-press and the ⋯ button open one menu
-  // (test/chat-message-actions.test.js covers the items and behaviour).
-  assert.match(source, /onContextMenu=\{actionable \? \(e\) => onMessageContextMenu\(e, m\) : undefined\}/);
+  assert.doesNotMatch(source, /dangerouslySetInnerHTML/, 'bodies are rebuilt, never injected');
+  assert.match(source, /onContextMenu=\{actionable \? \(e\) => onMessageContextMenu\(e, m\) : undefined\}/, 'rows without actions have no menu');
   assert.match(source, /onTouchStart=\{actionable \? \(e\) => onMessageTouchStart\(e, m\) : undefined\}/);
-  assert.match(source, /<MessageActionMenu/);
-
-  // The app's bottom navigation shows with the inbox only: on phones whenever a
-  // conversation screen is up; side by side (761–860px) whenever one is open.
-  assert.match(source, /const conversationShowing = phone\.matches \? mobileView !== 'inbox' : Boolean\(activeId\);/);
-  assert.match(source, /document\.body\.classList\.toggle\('chat-page-context', conversationShowing\);/);
-  assert.match(source, /phone\.addEventListener\?\.\('change', update\);/, 'rechecked when the screen rotates');
-  assert.match(source, /\}, \[mobileView, activeId\]\);/);
-  assert.match(source, /classList\.remove\('chat-page-context'\)/);
 });
 
-test('Stage 5B.1: Clean inbox previews, opaque composer background, and in-conversation media preview layout', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-  const cssSource = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+test('the bottom navigation shows with the inbox only, rechecked on rotation and released on leaving', () => {
+  assert.equal(thread.conversationShowing(true, 'inbox', 'c1'), false, 'phones: the inbox screen');
+  assert.equal(thread.conversationShowing(true, 'conversation', 'c1'), true);
+  assert.equal(thread.conversationShowing(true, 'info', 'c1'), true);
+  assert.equal(thread.conversationShowing(false, 'inbox', 'c1'), true, '761–860px: side by side, a conversation is open');
+  assert.equal(thread.conversationShowing(false, 'inbox', null), false);
 
-  // formatConversationPreview helper cleanly strips HTML tags and avoids literal HTML
-  assert.match(source, /formatConversationPreview/);
-  assert.match(source, /formatConversationPreview\(c\.lastMessage\)/);
-
-  // In-conversation media preview is inside chat-col (before </main>)
-  assert.match(source, /<MediaPreviewComposer[\s\S]*?<\/main>/);
-
-  // Does not use full-screen fixed positioning covering sidebar/inbox
-  const previewSource = fs.readFileSync(path.join(root, 'components', 'chat', 'MediaPreviewComposer.tsx'), 'utf8');
-  assert.match(previewSource, /className="chat-media-preview-composer"/);
-  assert.doesNotMatch(previewSource, /position:\s*'fixed'/);
-
-  // Composer has opaque background rules in both light and dark modes
-  assert.match(cssSource, /html:not\(\[data-theme="dark"\]\)\s+\.chat-input-area\s*\{[\s\S]*?background/);
-  assert.match(cssSource, /\[data-theme="dark"\]\s+\.chat-input-area\s*\{[\s\S]*?background/);
+  const listeners = [];
+  const media = { matches: true, addEventListener: (type, fn) => listeners.push([type, fn]), removeEventListener: (type, fn) => listeners.splice(listeners.findIndex((l) => l[1] === fn), 1) };
+  const classes = new Set();
+  const body = { classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) } };
+  const stop = thread.followConversationScreen({ matchMedia: (query) => { assert.equal(query, '(max-width: 760px)'); return media; } }, body, 'conversation', 'c1');
+  assert.ok(classes.has('chat-page-context'));
+  media.matches = false;
+  listeners[0][1]();
+  assert.ok(classes.has('chat-page-context'), 'rotated wider: still open beside the inbox');
+  stop();
+  assert.equal(listeners.length, 0);
+  const source = read('pages', 'chats.tsx');
+  assert.match(source, /useEffect\(\(\) => followConversationScreen\(window, document\.body, mobileView, activeId\), \[mobileView, activeId\]\);/);
+  assert.match(source, /useEffect\(\(\) => \(\) => document\.body\.classList\.remove\('chat-page-context'\), \[\]\);/);
 });
 
+test('inbox previews are plain text; the media preview sits in the chat column; the composer is opaque', () => {
+  const preview = inbox.conversationPreview;
+  assert.equal(preview(null), '');
+  assert.equal(preview({ deleted_at: 't', body: 'x' }), 'This message was deleted');
+  assert.equal(preview({ body: '<b>Hello</b><br>there <script>x</script>' }), 'Hello there x', 'tags removed (server rendering has no DOMParser)');
+  assert.equal(preview({ body: '', message_type: 'photo' }), 'Photo');
+  assert.equal(preview({ body: '', message_type: 'file', attachment: { kind: 'file', original_filename: 'lease.pdf' } }), 'lease.pdf');
+  assert.equal(preview({ body: '', message_type: 'file' }), 'Attachment');
+  assert.equal(preview({ body: '', attachment: { kind: 'voice', original_filename: '' } }), 'Attachment');
+  assert.equal(preview({ body: '', message_type: 'text' }), '');
+
+  assert.match(read('pages', 'chats.tsx'), /<MediaPreviewComposer[\s\S]*?<\/main>/, 'inside the chat column');
+  const MediaPreviewComposer = loadChats('components/chat/MediaPreviewComposer.tsx').default;
+  const html = render(MediaPreviewComposer, { images: ['blob:x'], maxImages: 4, sending: false, onCancel() {}, onSend() {}, onRemove() {}, onAdd() {} });
+  assert.match(html, /class="chat-media-preview-composer"/);
+  assert.doesNotMatch(html, /position:fixed/, 'never covers the sidebar or inbox');
+  const css = read('public', 'js', 'chats.css');
+  assert.match(css, /html:not\(\[data-theme="dark"\]\)\s+\.chat-input-area\s*\{[\s\S]*?background/);
+  assert.match(css, /\[data-theme="dark"\]\s+\.chat-input-area\s*\{[\s\S]*?background/);
+});
 
 test('the bottom navigation never covers a conversation: CSS hides it after the chat page as well as the body class', () => {
-  const source = fs.readFileSync(chatsPagePath, 'utf8');
-  assert.match(source, /\$\{activeId \? ' has-conversation' : ''\}`\} style=\{bubbleThemeStyle\}>/);
-  const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+  const css = read('public', 'js', 'chats.css');
   assert.match(css, /@media \(max-width:760px\)\{\s*\.app-shell\.view-chat ~ \.varoom-mobile-nav,\s*\.app-shell\.view-info ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
   assert.match(css, /@media \(min-width:761px\) and \(max-width:860px\)\{\s*\.app-shell\.has-conversation ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
-  const app = fs.readFileSync(path.join(root, 'pages', '_app.tsx'), 'utf8');
-  assert.match(app, /\{layout\}\s*<MobileNav enabled=/, 'the navigation follows the page, so the sibling rule reaches it');
+  assert.match(renderChatsPage({ initialConversationId: 'c1' }).html, /<div class="app-shell view-inbox has-conversation"/);
+  assert.match(read('pages', '_app.tsx'), /\{layout\}\s*<MobileNav enabled=/, 'the navigation follows the page, so the sibling rule reaches it');
 });
