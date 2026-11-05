@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import type { ChatListingSummary } from '../../lib/chatCache';
 import { attachmentUrl, cachedImageUrl, listingVideo, type ChatApi, type ListingVideo } from '../../lib/chat/chatMedia';
 import { listingPriceText, listingSubtitle } from '../../lib/chat/listingEnquiry';
+import { photoMaxWidth, swipeStep, viewerKeyStep } from '../../lib/chat/photoAlbums';
 
 // Media message parts, ported from public/js/chat-data.js messageRow: same
 // classes as legacy so chats.css styles them unchanged.
@@ -62,7 +63,7 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
     setLoaded(true);
     const image = imageRef.current;
     if (!image || !image.naturalWidth) return;
-    const maxAllowed = window.matchMedia('(max-width: 760px)').matches ? 340 : 330;
+    const maxAllowed = photoMaxWidth(window.matchMedia('(max-width: 760px)').matches);
     const rendered = Math.min(image.offsetWidth || image.naturalWidth, maxAllowed);
     if (rendered > 0) setWidth(rendered);
   };
@@ -363,8 +364,10 @@ export function ImagePreview({ items, index: startIndex = 0, onClose }: { items:
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
-      else if (count > 1 && event.key === 'ArrowRight') go(1);
-      else if (count > 1 && event.key === 'ArrowLeft') go(-1);
+      else {
+        const step = viewerKeyStep(event.key, count);
+        if (step) go(step);
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -381,9 +384,8 @@ export function ImagePreview({ items, index: startIndex = 0, onClose }: { items:
       onTouchEnd={(event) => {
         const start = touchStartRef.current;
         touchStartRef.current = null;
-        const end = event.changedTouches[0]?.clientX;
-        if (count < 2 || start === null || end === undefined || Math.abs(end - start) < 40) return;
-        go(end < start ? 1 : -1);
+        const step = swipeStep(start, event.changedTouches[0]?.clientX, count);
+        if (step) go(step);
       }}
     >
       <img src={current.url} alt={current.alt} />

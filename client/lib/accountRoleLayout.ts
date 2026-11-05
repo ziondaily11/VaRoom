@@ -40,6 +40,19 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
 }
 
 /**
+ * The shell a home route is drawn in while a signed-in (or still loading)
+ * session's role is unknown, so the sidebars and rails show at once instead
+ * of an empty page. Only the static frame follows the route: the page itself
+ * still redirects an account of the other role, and once the verified role is
+ * known it replaces this hint without remounting the page (same AppShell).
+ */
+export function homeShellHint(pathname: string | null | undefined): ShellRole | null {
+  if (pathname === '/host-home') return 'host';
+  if (pathname === '/client-home') return 'client';
+  return null;
+}
+
+/**
  * Routes that keep the host shell but collapse its sidebar to an icon-only
  * rail, so wide pages get the room. The sidebar stays mounted either way.
  */

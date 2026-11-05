@@ -174,7 +174,9 @@ function CardVideoStage({ listing, video, hostName, username, avatarUrl, actions
     element.addEventListener('error', failed);
     element.addEventListener('varoomautoplayblocked', blocked);
     element.addEventListener('varoomvideoplaying', playing);
-    if (!(video.width && video.height)) element.addEventListener('loadedmetadata', size);
+    // Always re-fit once the video's own size is known (it can differ from the stored one).
+    element.addEventListener('loadedmetadata', size);
+    if (element.readyState >= 1) size();
     if (element.readyState >= 2) loaded();
     return () => {
       element.removeEventListener('loadeddata', loaded);

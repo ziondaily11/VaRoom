@@ -95,7 +95,8 @@ test('client sidebar active item follows the route; Saved is a Client Home view'
 test('_app.tsx wraps designated account routes with the persistent AppShell', () => {
   // Wiring in _app (outside this group); the route/role decision itself is tested below.
   const appCode = fs.readFileSync(path.join(clientDir, 'pages', '_app.tsx'), 'utf8');
-  assert.match(appCode, /getAccountLayout\(path, asPath, role\)/, 'Uses the tested role-aware route selector');
+  assert.match(appCode, /getAccountLayout\(path, asPath, shownRole\)/, 'Uses the tested role-aware route selector');
+  assert.match(appCode, /const shownRole: ShellRole = role \|\| \(status === 'signed-out' \? null : homeShellHint\(path\)\);/, 'Home routes draw their shell while the role loads, never for signed-out visitors');
   assert.match(appCode, /<AppShell variant=\{accountLayout === 'none' \? null : accountLayout\} rail=\{usesIconRail\(path, asPath\)\}>\{pageElement\}<\/AppShell>/, 'Mounts AppShell, pending until the role is known; the rail is only a prop');
   assert.match(appCode, /<MobileNav enabled=\{isShellRoute \|\| Boolean\(Component\.appNavigation\)\} \/>/, 'One persistent mobile navigation');
   assert.match(appCode, /const role: ShellRole = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
@@ -186,11 +187,11 @@ test('R2 avatar keys use the application photo route rather than Supabase Storag
 
   assert.equal(
     resolveAvatarUrl(key, supabaseClient),
-    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg'
+    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg?w=192'
   );
   assert.equal(
     resolveAvatarUrl(`https://project.supabase.co/storage/v1/object/public/avatars/${key}`, supabaseClient),
-    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg'
+    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg?w=192'
   );
 });
 

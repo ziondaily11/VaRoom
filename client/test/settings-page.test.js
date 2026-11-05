@@ -117,7 +117,7 @@ test('deactivate / delete: 30 days then deletion as the Privacy Policy says; sig
   const provider = read('lib', 'auth', 'AuthProvider.tsx');
   assert.match(provider, /restoreIfDeactivated\(user\.id, result\.data\)/, 'checked when the profile loads');
   assert.match(provider, /restoreIfDeactivated\(userId, profile\)/, 'and when a fresh profile arrives');
-  assert.match(read('lib', 'auth', 'profileStore.ts'), /verified,deactivated_at'/, 'the shared profile read carries the flag (no extra request)');
+  assert.match(read('lib', 'auth', 'profileStore.ts'), /,deactivated_at';/, 'the shared profile read carries the flag (no extra request)');
   assert.match(read('components', 'landing', 'AuthPanel.tsx'), /deactivationNotice\(router\.query\)/);
   const chats = read('pages', 'chats.tsx');
   assert.match(chats, /const participantDeactivated = Boolean\(!isElie && activeConversation\?\.participant\?\.deactivated\);/);

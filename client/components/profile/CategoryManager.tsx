@@ -5,7 +5,7 @@ import type { ProfileCategory, ProfileListing } from '../../lib/profile/hostProf
 import {
   CATEGORY_NAME_ERROR, categoryLimit, categoryLimitMessage, cleanCategoryName, renameCategory, saveCategory,
 } from '../../lib/profile/profilePage';
-import { resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 
 // Owner tools for profile categories (legacy-pages/profile.html): the
 // manager (name a new category, then pick its listings; or change an
@@ -154,7 +154,7 @@ export function CategoryManager({ state, setState, categories, listings, notify,
             {filtered.map((listing) => {
               const isSelected = selected.has(listing.id);
               const cachedVideo = getCachedVideo(listing.id);
-              const image = (listing.photo && resolveStoredPhotoUrl(listing.photo, 'listing-photos', client)) || (cachedVideo && cachedVideo.thumbnailUrl) || FALLBACK;
+              const image = (listing.photo && resolveStoredPhotoUrl(listing.photo, 'listing-photos', client, PHOTO_WIDTH.thumb)) || (cachedVideo && cachedVideo.thumbnailUrl) || FALLBACK;
               return (
                 <article className="category-listing-card" key={listing.id}>
                   <img src={image} alt={listing.title || 'Listing photo'} loading="lazy" onError={(event) => { const img = event.currentTarget; if (!img.src.includes(FALLBACK)) img.src = FALLBACK; }} />

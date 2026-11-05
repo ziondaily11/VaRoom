@@ -136,7 +136,7 @@ test('Client Home uses the shared valid Supabase credentials and legacy R2 photo
   assert.equal(SUPABASE_ANON_KEY, FALLBACK_ANON_KEY);
   assert.match(source, /import \{ getSupabaseClient \} from '\.\.\/lib\/supabase\/client';/);
   assert.match(source, /\/api\/photos\//);
-  assert.match(source, /photoUrl\('listing-photos', path\)/);
+  assert.match(source, /photoUrl\('listing-photos', path, width\)/);
   assert.match(source, /calculateMediaFrames\(/);
   assert.match(styles, /blur\(24px\) saturate\(1\.12\)/);
   assert.doesNotMatch(FALLBACK_ANON_KEY, /2102096444/);

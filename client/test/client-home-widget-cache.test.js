@@ -203,7 +203,9 @@ test('fresh cached Property News renders without a request; Refresh forces an un
   assert.deepEqual(harness.events, [['news', [article(1)]], ['failed', false], ['loading', false]]);
   assert.equal(harness.requests.length, 0);
 
+  harness.events.length = 0;
   await harness.loadClientHomeNews(true, harness.context());
+  assert.deepEqual(harness.events[0], ['loading', true], 'Refresh shows the spinner first');
   assert.equal(harness.requests.length, 1);
   assert.equal(harness.requests[0].url, '/api/news/latest?limit=5');
   assert.equal(harness.requests[0].init.cache, 'no-store');
@@ -305,4 +307,10 @@ test('sidebar panels have terminal loading, empty, and error rendering branches'
   assert.match(newsList, /items\.length === 0[\s\S]*failed \? 'Property News could not be loaded\.'/);
   assert.match(newsList, /Property News could not be refreshed\./);
   assert.match(source, /destinationsFailed && <p className=\{styles\.widgetMessage\} role="status">Destination counts could not be refreshed\./);
+});
+
+test('a failed Refresh brings back the articles already shown, with the notice', async () => {
+  const harness = loadNews({ cached: { items: [article(1)], isFresh: true }, fetchImpl: async () => { throw new Error('offline'); } });
+  await harness.loadClientHomeNews(true, harness.context({ minimumRefreshMs: 5 }));
+  assert.deepEqual(harness.events, [['loading', true], ['failed', true], ['loading', false]]);
 });

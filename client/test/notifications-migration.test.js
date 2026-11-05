@@ -485,7 +485,7 @@ test('12. Complete legacy unwiring verification', () => {
   // 6. _app resolves the layout role from the verified session, never from
   // unscoped event payloads.
   const appSource = fs.readFileSync(path.join(root, 'pages', '_app.tsx'), 'utf8');
-  assert.match(appSource, /const \{ session, profile \} = useAuth\(\);/, '_app must take the role from AuthProvider');
+  assert.match(appSource, /const \{ status, session, profile \} = useAuth\(\);/, '_app must take the role from AuthProvider');
   assert.doesNotMatch(appSource, /event\??\.detail\??\.role/, '_app must not trust role event payloads');
 });
 

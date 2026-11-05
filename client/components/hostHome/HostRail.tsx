@@ -3,6 +3,7 @@ import Link from 'next/link';
 import HostListingMenu from '../listings/HostListingMenu';
 import { GLANCE_META, glanceSub, glanceTiles, newsDate, newsSource, updatePhotos, type GlanceListing, type NewsItem, type VaroomUpdate } from '../../lib/hostHome/hostHome';
 import { ICONS, Svg } from './hostHomeIcons';
+import { PHOTO_WIDTH, type PhotoWidth } from '../resolveStoredPhotoUrl';
 
 // Host home's right rail (and the blocks the phone feed repeats), markup
 // unchanged from legacy-pages/host-home.html. Each block is null while
@@ -32,6 +33,12 @@ export function PropertyNewsList({ news, idSuffix = '' }: { news: Loadable<NewsI
   );
 }
 
+/** Property News' Refresh link (as on Client Home); the list shows its spinner while it reloads. */
+export function NewsRefreshButton({ onRefresh, busy }: { onRefresh?: () => void; busy?: boolean }) {
+  if (!onRefresh) return null;
+  return <button type="button" className="property-news-refresh" onClick={onRefresh} disabled={busy} aria-busy={busy || undefined}>Refresh</button>;
+}
+
 export function VaroomUpdatesContent({ updates, id }: { updates: Loadable<VaroomUpdate[]>; id: string }) {
   return (
     <div id={id} className="home-widget-content" data-loading={updates === null ? 'true' : 'false'}>
@@ -53,8 +60,10 @@ export function VaroomUpdatesContent({ updates, id }: { updates: Loadable<Varoom
 
 interface RailProps {
   listings: Loadable<GlanceListing[]>;
-  photoUrl: (storagePath: string) => string | null;
+  photoUrl: (storagePath: string, width?: PhotoWidth) => string | null;
   news: Loadable<NewsItem[]>;
+  onRefreshNews?: () => void;
+  newsRefreshing?: boolean;
   updates: Loadable<VaroomUpdate[]>;
   notify: (message: string) => void;
   onStatus: (id: string, status: string) => void;
@@ -62,7 +71,7 @@ interface RailProps {
   onViewAll: () => void;
 }
 
-export default function HostRail({ listings, photoUrl, news, updates, notify, onStatus, onDeleted, onViewAll }: RailProps) {
+export default function HostRail({ listings, photoUrl, news, onRefreshNews, newsRefreshing, updates, notify, onStatus, onDeleted, onViewAll }: RailProps) {
   const none = Array.isArray(listings) && listings.length === 0;
   const { tiles, showAdd } = Array.isArray(listings) ? glanceTiles(listings) : { tiles: [], showAdd: false };
   return (
@@ -87,7 +96,7 @@ export default function HostRail({ listings, photoUrl, news, updates, notify, on
                 {tiles.map((listing) => {
                   const meta = GLANCE_META[listing.category || ''] || { icon: 'home' as const };
                   const photo = (listing.listing_photos || [])[0];
-                  const thumb = photo && photo.storage_path ? photoUrl(photo.storage_path) : null;
+                  const thumb = photo && photo.storage_path ? photoUrl(photo.storage_path, PHOTO_WIDTH.thumb) : null;
                   const icon = meta.icon === 'building' ? ICONS.glanceBuilding : meta.icon === 'store' ? ICONS.glanceStore : ICONS.glanceHome;
                   return (
                     <div className="glance-tile" data-listing-card={listing.id} style={{ position: 'relative' }} key={listing.id}>
@@ -107,7 +116,7 @@ export default function HostRail({ listings, photoUrl, news, updates, notify, on
       </div>
 
       <section className="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title">
-        <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
+        <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={onRefreshNews} busy={newsRefreshing} /></div>
         <PropertyNewsList news={news} />
         <Link className="property-news-view-all" href="/property-news">View all news →</Link>
       </section>

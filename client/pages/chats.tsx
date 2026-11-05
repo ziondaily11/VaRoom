@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import type { RealtimeChannel, Session, SupabaseClient } from '@supabase/supabase-js';
+import type { RealtimeChannel, Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
@@ -9,7 +9,6 @@ import { accountRole } from '../lib/types/profile';
 import chatCache, {
   ChatConversation,
   ChatMessage,
-  ChatAttachment,
   ChatListingSummary,
   getInbox,
   setInbox,
@@ -24,18 +23,36 @@ import chatCache, {
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
-import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
-import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
+import ConversationAvatar from '../components/chat/ConversationAvatar';
+import { renderMessageBody } from '../components/chat/MessageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
 import { localUrls, mergeServerMessages, messageKey, reconcileThread, type OptimisticChatMessage } from '../lib/chat/optimisticMessages';
 import { AttachmentThumb, ImagePreview, ListingCard, ListingEnquiryCard, PhotoAlbum, PhotoBubble, ReplyThumb, VoiceCard, type ViewerImage } from '../components/chat/MessageMedia';
 import { loadEnquiryListing } from '../lib/chat/listingEnquiry';
-import { ALBUM_MAX, addToSelection, albumAt, albumCaption, albumStatus, isImageFile } from '../lib/chat/photoAlbums';
+import { ALBUM_MAX, addToSelection, albumAt, albumCaption, albumStatus } from '../lib/chat/photoAlbums';
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
-import { chatThemeStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
+import { activeChatTheme, chatShellStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
+import {
+  archiveOnServer, archiveStatusNote, bumpInbox, conversationPreview, conversationRouteQuery, deleteChatsQuestion,
+  deleteOnServer, deleteStatusNote, emptyInboxCopy, filterInbox, inboxMenuItems, requestedConversation, restoreChats,
+  toggleSelection,
+} from '../lib/chat/inbox';
+import {
+  alreadyShown, appendUnseen, bubbleStatus, canActOnMessage as canActOnThreadMessage, chatLayoutClasses, chatSettingsHref,
+  endsTyping, farFromLatest, followConversationScreen, headerStatus, lastMessage, LONG_PRESS_MS, messageContextMenu,
+  messageRowClass, messagesUrl, movedTooFar, newerMessagesUrl, postChatReport, railClick, railItems, runServerMessageAction,
+  shouldAnnounceTyping, showsLoadError, showsTypingFrom, typingEnabled, TYPING_SHOW_MS, unseenMessages, uploadFailed,
+  uploadSending,
+} from '../lib/chat/thread';
+import {
+  clearActiveFormatting, composerKeyAction, copyText, fileDestination, newAlbumId, optimisticUpload, pendingFileLabel,
+  postListingMessage, previewUrlFor, releasePreviewUrls, saveAttachmentMessages, sendComposerMessage, uploadAttachment,
+  uploadContent,
+} from '../lib/chat/composer';
+import { awaitStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
 import { readStored, resolveSettings, writeStored } from '../lib/chat/chatSettings';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
@@ -46,125 +63,17 @@ import ReportSheet from '../components/chat/ReportSheet';
 import ChatSettings, { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import { useCounts } from '../lib/counts/countsStore';
 import { isModifiedClick } from '../lib/navigation/clicks';
-import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChatViewport';
+import { useChatViewport } from '../components/chat/useChatViewport';
+import { keepsKeyboardOpen } from '../lib/chat/chatViewport';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
 /** Chats' stylesheet has loaded and applies (it is in the page when /chats is opened directly). */
 function chatsStylesheetApplied(): boolean {
-  return Array.from(document.styleSheets).some((sheet) => {
-    try { return Boolean(sheet.href) && new URL(sheet.href as string).pathname === chatsCssHref; } catch { return false; }
-  });
+  return stylesheetApplied(document.styleSheets, chatsCssHref);
 }
 
 const ELIE_ID = 'elie';
-/** How far above the newest message (px) the thread must be to offer "back to latest". */
-const SCROLL_LATEST_THRESHOLD = 400;
-/** "typing…": announced at most this often (ms) while typing, and shown this long after the last one. */
-const TYPING_SEND_INTERVAL = 2500;
-const TYPING_SHOW_MS = 4000;
-
-function resolveChatAvatarUrl(url?: string | null, client?: SupabaseClient | null): string | null {
-  if (!url) return null;
-  if (/^(data:|blob:)/i.test(url)) return url;
-  try {
-    const sb = client || (typeof window !== 'undefined' ? (getSupabaseClient()) : null);
-    return resolveAvatarUrl(url, sb) || url;
-  } catch {
-    return url;
-  }
-}
-
-function ConversationAvatar({
-  url,
-  name,
-  size = 46,
-  className = 'avatar-fallback',
-  fontSize = 14,
-}: {
-  url?: string | null;
-  name: string;
-  size?: number;
-  className?: string;
-  fontSize?: number;
-}) {
-  const [hasError, setHasError] = useState(false);
-
-  const resolvedUrl = useMemo(() => {
-    return resolveChatAvatarUrl(url);
-  }, [url]);
-
-  useEffect(() => {
-    setHasError(false);
-  }, [resolvedUrl]);
-
-  const initials = useMemo(() => {
-    if (!name) return 'VA';
-    const clean = name.replace(/[^\w\s]/gi, '').trim();
-    if (!clean) return name.slice(0, 2).toUpperCase();
-    const parts = clean.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return clean.slice(0, 2).toUpperCase();
-  }, [name]);
-
-  if (resolvedUrl && !hasError) {
-    return (
-      <img
-        src={resolvedUrl}
-        alt={name}
-        onError={() => setHasError(true)}
-        style={{
-          width: '100%',
-          height: '100%',
-          borderRadius: '50%',
-          objectFit: 'cover',
-          display: 'block',
-        }}
-      />
-    );
-  }
-
-  return (
-    <div
-      className={className}
-      style={{
-        width: '100%',
-        height: '100%',
-        borderRadius: '50%',
-        background: '#24211e',
-        color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 'bold',
-        fontSize: `${fontSize}px`,
-        flexShrink: 0,
-        userSelect: 'none',
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-/** Extension-to-MIME-type map — defined at module level to avoid re-creation per call. */
-const MIME_EXT_MAP: Record<string, string> = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-  gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
-  pdf: 'application/pdf', txt: 'text/plain', zip: 'application/zip',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xls: 'application/vnd.ms-excel',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-};
-
-function inferMimeType(file: File): string {
-  if (file.type && file.type !== 'application/octet-stream') return file.type;
-  const ext = (file.name.split('.').pop() || '').toLowerCase();
-  return MIME_EXT_MAP[ext] || 'application/octet-stream';
-}
 
 
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
@@ -317,25 +226,17 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   useChatViewport({ shellRef: appShellRef, messagesRef, composerRef, textareaRef: mobileTextareaRef });
 
-  const emptyCopy = role === 'host'
-    ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
-    : { heading: 'Start a conversation', detail: 'Chat with a host and your conversations will appear here.' };
+  const emptyCopy = emptyInboxCopy(role);
 
   const closePhotoPreview = useCallback(() => setSelectedPhotoPreview(null), []);
 
   // The photo waiting to be shared: one object URL, released when it changes.
   const previewUrlsRef = useRef(new Map<File, string>());
-  const pendingPreviewUrls = useMemo(() => pendingPreviewFiles.map((file) => {
-    const known = previewUrlsRef.current.get(file);
-    if (known) return known;
-    const url = URL.createObjectURL(file);
-    previewUrlsRef.current.set(file, url);
-    return url;
-  }), [pendingPreviewFiles]);
+  const pendingPreviewUrls = useMemo(() => pendingPreviewFiles.map((file) => (
+    previewUrlFor(file, previewUrlsRef.current, (f) => URL.createObjectURL(f))
+  )), [pendingPreviewFiles]);
   useEffect(() => {
-    previewUrlsRef.current.forEach((url, file) => {
-      if (!pendingPreviewFiles.includes(file)) { URL.revokeObjectURL(url); previewUrlsRef.current.delete(file); }
-    });
+    releasePreviewUrls(previewUrlsRef.current, pendingPreviewFiles, (url) => URL.revokeObjectURL(url));
   }, [pendingPreviewFiles]);
   useEffect(() => {
     const urls = previewUrlsRef.current;
@@ -372,7 +273,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       scrollFrameRef.current = null;
       const list = messagesRef.current;
       if (!list) return;
-      setShowScrollLatest(list.scrollHeight - list.scrollTop - list.clientHeight > SCROLL_LATEST_THRESHOLD);
+      setShowScrollLatest(farFromLatest(list));
     });
   }, []);
   useEffect(() => () => { if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current); }, []);
@@ -430,18 +331,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // The inbox follows the newest message: preview updated, newest first
   // (legacy updateConversationPreview). `null` when a thread is empty.
   const bumpConversation = useCallback((conversationId: string, lastMessage: ChatMessage | null) => {
-    setConversations((prev) => {
-      const index = prev.findIndex((c) => c.id === conversationId);
-      if (index < 0) return prev;
-      const current = prev[index];
-      const unchanged = (current.lastMessage?.id || null) === (lastMessage?.id || null)
-        && (current.lastMessage?.deleted_at || null) === (lastMessage?.deleted_at || null);
-      if (unchanged) return prev;
-      const next = prev.slice();
-      next[index] = { ...current, lastMessage };
-      const time = (c: ChatConversation) => new Date(c.lastMessage?.created_at || c.created_at || 0).getTime();
-      return next.sort((a, b) => time(b) - time(a));
-    });
+    setConversations((prev) => bumpInbox(prev, conversationId, lastMessage));
   }, []);
 
   // Select conversation & establish Realtime channel
@@ -484,12 +374,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
     // Update URL query without full page reload if requested
     if (updateRoute) {
-      const currentQuery = routerRef.current.query;
-      if (currentQuery.c !== id && currentQuery.conversation !== id) {
-        const nextQuery: Record<string, any> = { ...currentQuery, c: id };
-        delete nextQuery.conversation;
-        routerRef.current.replace({ pathname: '/chats', query: nextQuery }, undefined, { shallow: true });
-      }
+      const nextQuery = conversationRouteQuery(routerRef.current.query, id);
+      if (nextQuery) routerRef.current.replace({ pathname: '/chats', query: nextQuery }, undefined, { shallow: true });
     }
 
     if (id === ELIE_ID) {
@@ -546,9 +432,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         });
       } else {
         const newest = cached && cached.length ? cached[cached.length - 1] : null;
-        let url = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
-        if (newest?.created_at) url += `?since=${encodeURIComponent(newest.created_at)}`;
-        const res = await api<{ messages?: ChatMessage[] }>(url);
+        const res = await api<{ messages?: ChatMessage[] }>(messagesUrl(id, newest?.created_at));
         finalMsgs = res.messages || [];
       }
 
@@ -562,7 +446,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       console.error('Message sync failed:', err);
       if (selectionGen === selectionGenerationRef.current && mountedRef.current) {
         setLoadingMessages(false);
-        if (!cached || cached.length === 0) setMessagesError(true);
+        if (showsLoadError(cached)) setMessagesError(true);
       }
     }
 
@@ -578,19 +462,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: { new?: { id?: string; sender_id?: string } }) => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         // Their message arrived: they have stopped typing.
-        if (payload.new?.sender_id && payload.new.sender_id !== currentUserId) clearTyping();
-        const msgId = payload.new?.id;
+        if (endsTyping(payload.new, currentUserId)) clearTyping();
         // Messages this page already shows (our own sends) need no request.
-        if (!msgId || messagesStateRef.current.some((m) => m.id === msgId)) return;
+        if (alreadyShown(messagesStateRef.current, payload.new?.id)) return;
 
         try {
           // Everything after the newest message shown: one request.
-          const newest = [...messagesStateRef.current].reverse().find((m) => !(m as OptimisticChatMessage)._optimistic && m.created_at);
-          let url = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
-          if (newest) url += `?since=${encodeURIComponent(newest.created_at)}`;
-          const res = await api<{ messages?: ChatMessage[] }>(url);
+          const res = await api<{ messages?: ChatMessage[] }>(newerMessagesUrl(id, messagesStateRef.current));
           if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current || !mountedRef.current) return;
-          const incoming: ChatMessage[] = (res.messages || []).filter((m: ChatMessage) => !messagesStateRef.current.some((existing) => existing.id === m.id));
+          const incoming: ChatMessage[] = unseenMessages(messagesStateRef.current, res.messages || []);
           if (!incoming.length) return;
           // Our own upload's copy takes the optimistic row's place.
           setMessagesState((prev) => mergeServerMessages(prev, incoming));
@@ -622,7 +502,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       // The other person is typing (sent by announceTyping on their side).
       .on('broadcast', { event: 'typing' }, ({ payload }: { payload?: { user_id?: string } }) => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
-        if (!payload?.user_id || payload.user_id === currentUserId || !typingOnRef.current) return;
+        if (!showsTypingFrom(payload, currentUserId, typingOnRef.current)) return;
         showTyping(id);
       })
       .on('presence', { event: 'sync' }, () => {
@@ -770,8 +650,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   useEffect(() => {
     if (!userId) return;
-    const requested = routerQueryC || routerQueryConversation || null;
-    if (requested && requested !== activeIdRef.current) {
+    const requested = requestedConversation(routerQueryC, routerQueryConversation, activeIdRef.current);
+    if (requested) {
       selectConversation(requested, false);
     }
   }, [userId, routerQueryC, routerQueryConversation, selectConversation]);
@@ -794,16 +674,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // with the inbox only, never over a conversation's composer. Up to 760px the
   // inbox and a conversation are separate screens; from 761px they sit side by
   // side, so it hides whenever a conversation is open. Rechecked on rotation.
-  useEffect(() => {
-    const phone = window.matchMedia('(max-width: 760px)');
-    const update = () => {
-      const conversationShowing = phone.matches ? mobileView !== 'inbox' : Boolean(activeId);
-      document.body.classList.toggle('chat-page-context', conversationShowing);
-    };
-    update();
-    phone.addEventListener?.('change', update);
-    return () => phone.removeEventListener?.('change', update);
-  }, [mobileView, activeId]);
+  useEffect(() => followConversationScreen(window, document.body, mobileView, activeId), [mobileView, activeId]);
   useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
 
   // Search placeholder as legacy: "Search" on desktop.
@@ -837,60 +708,41 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       return;
     }
 
-    // Standard conversation message send (legacy sendText). Text is cleared
-    // only after the server accepts it; one send at a time.
+    // Standard conversation message send (lib/chat/composer sendComposerMessage):
+    // one at a time; the composer is cleared only after the server accepts it.
     if (sendingRef.current) return;
-    sendingRef.current = true;
     const conversationId = activeId;
     const currentReply = replyTo;
     const currentEnquiry = enquiry && enquiry.conversationId === activeId ? enquiry : null;
     const fileToSend = pendingFile;
     const textareaHadFocus = document.activeElement === mobileTextareaRef.current;
     try {
-      let res: { message?: ChatMessage; messages?: ChatMessage[] } | null = null;
-      if (fileToSend) {
-        // The upload shows its own sending and failed states in the thread.
-        setPendingFile(null);
-        void handleUploadAttachment(fileToSend, 'file', plainText ? content : fileToSend.name);
-      } else if (!currentReply && plainText.toLowerCase() === '@reply') {
-        res = await api<{ message?: ChatMessage; messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
-          method: 'POST',
-          body: JSON.stringify({ command: '@reply' }),
-        });
-      } else {
-        res = await api<{ message?: ChatMessage; messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-          method: 'POST',
-          body: JSON.stringify({
-            content: content,
-            messageType: 'text',
-            replyToMessageId: currentReply?.id || undefined,
-            listingId: currentEnquiry ? currentEnquiry.listing.id : undefined,
-          }),
-        });
-      }
-
-      // Accepted: clear the composer (also if the user has switched conversation).
-      if (currentEnquiry) dropEnquiry();
-      setComposerText('');
-      resetDesktopComposer();
-      if (currentReply) setReplyTo(null);
-      if (textareaHadFocus) mobileTextareaRef.current?.focus();
-
-      const sent = res ? (res.messages || (res.message ? [res.message] : [])) : [];
-      if (sent.length && currentReply && res?.message) {
-        // Show the quote at once; the server row has only the id.
-        res.message.reply_to_message = {
-          id: currentReply.id,
-          sender_id: currentReply.sender_id,
-          body: currentReply.body,
-          deleted_at: currentReply.deleted_at,
-          message_type: currentReply.message_type,
-          attachment: currentReply.attachment,
-          listing: currentReply.listing,
-        };
-      }
+      const sent = await sendComposerMessage({
+        conversationId,
+        content,
+        plainText,
+        reply: currentReply,
+        listingId: currentEnquiry ? currentEnquiry.listing.id : undefined,
+        file: fileToSend,
+      }, {
+        api,
+        lock: sendingRef,
+        uploadFile: (file, caption) => {
+          setPendingFile(null);
+          void handleUploadAttachment(file, 'file', caption);
+        },
+        onAccepted: () => {
+          // Accepted: clear the composer (also if the user has switched conversation).
+          if (currentEnquiry) dropEnquiry();
+          setComposerText('');
+          resetDesktopComposer();
+          if (currentReply) setReplyTo(null);
+          if (textareaHadFocus) mobileTextareaRef.current?.focus();
+        },
+      });
+      if (!sent) return;
       if (sent.length && mountedRef.current && activeIdRef.current === conversationId) {
-        setMessagesState((prev) => [...prev, ...sent.filter((m) => !prev.some((existing) => existing.id === m.id))]);
+        setMessagesState((prev) => appendUnseen(prev, sent));
         setTimeout(() => scrollToBottom(true), 50);
       }
       if (sent.length && userId) {
@@ -922,9 +774,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       range.collapse(true);
       selection.addRange(range);
     }
-    ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'].forEach((command) => {
-      if (document.queryCommandState(command)) document.execCommand(command, false);
-    });
+    clearActiveFormatting(document);
   };
 
   // Share listings (host): one listing message each, as legacy.
@@ -933,11 +783,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!conversationId || conversationId === ELIE_ID || !isHost) return;
     try {
       for (const listing of listings) {
-        const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-          method: 'POST',
-          body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
-        });
-        const sent: ChatMessage | undefined = res?.message;
+        const sent = await postListingMessage(api, conversationId, listing);
         if (!sent) continue;
         if (mountedRef.current && activeIdRef.current === conversationId) {
           setMessagesState((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
@@ -959,19 +805,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Files chosen with the file button: images go to the photo preview; on
   // phones other files wait for the send button; on desktop they upload at once.
   const onFileChosen = (file: File) => {
-    if (!isHost) return;
-    if (isImageFile(file)) {
-      addPreviewImages([file]);
-    } else if (window.matchMedia('(max-width: 760px)').matches) {
-      setPendingFile(file);
-    } else {
-      void handleUploadAttachment(file, 'file');
-    }
+    const destination = fileDestination(file, isHost, () => window.matchMedia('(max-width: 760px)').matches);
+    if (destination === 'preview') addPreviewImages([file]);
+    else if (destination === 'hold') setPendingFile(file);
+    else if (destination === 'upload') void handleUploadAttachment(file, 'file');
   };
 
   // Chat Settings that act here: typing indicators.
   const chatPrefs = useProfileChatSettings(userId);
-  typingOnRef.current = chatPrefs ? chatPrefs.typingIndicators : true;
+  typingOnRef.current = typingEnabled(chatPrefs);
   useEffect(() => { if (chatPrefs && !chatPrefs.typingIndicators) clearTyping(); }, [chatPrefs, clearTyping]);
 
   // Bubble colours (Chat Settings → Theme): the account's theme, or this
@@ -986,26 +828,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   useEffect(() => () => { addedStylesheetRef.current?.remove(); }, []);
   useEffect(() => {
     if (stylesReady) return undefined;
-    let link = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).find((l) => l.getAttribute('href') === chatsCssHref);
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = chatsCssHref;
-      document.head.appendChild(link);
-      addedStylesheetRef.current = link;
-    }
-    const element = link;
-    const ready = () => setStylesReady(true);
-    element.addEventListener('load', ready);
-    element.addEventListener('error', ready);
-    if (element.sheet) ready();
-    // Never stay hidden: show the page after 4 s whatever happens.
-    const fallback = window.setTimeout(ready, 4000);
-    return () => {
-      element.removeEventListener('load', ready);
-      element.removeEventListener('error', ready);
-      window.clearTimeout(fallback);
-    };
+    // Never stays hidden: shown after 4 s whatever happens (lib/chat/chatsStylesheet).
+    const { added, stop } = awaitStylesheet(document, chatsCssHref, () => setStylesReady(true), window);
+    if (added) addedStylesheetRef.current = added;
+    return stop;
   }, [stylesReady]);
   useEffect(() => {
     try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
@@ -1014,15 +840,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!chatPrefs) return;
     try { writeStored(window.localStorage, 'chatTheme', chatPrefs.chatTheme); } catch { /* Kept for this visit. */ }
   }, [chatPrefs]);
-  const bubbleTheme = chatPrefs ? chatPrefs.chatTheme : storedTheme;
-  const bubbleThemeStyle = useMemo(() => ({ ...chatThemeStyle(bubbleTheme), ...(stylesReady ? {} : { visibility: 'hidden' as const }) }), [bubbleTheme, stylesReady]);
+  const bubbleTheme = activeChatTheme(chatPrefs, storedTheme);
+  const bubbleThemeStyle = useMemo(() => chatShellStyle(bubbleTheme, stylesReady), [bubbleTheme, stylesReady]);
 
   // Tell the other person "typing…" (at most every 2.5 s), unless turned off.
   const announceTyping = () => {
     const channel = activeChannelRef.current;
-    if (isElie || !channel || !typingOnRef.current) return;
     const now = Date.now();
-    if (now - lastTypingSentRef.current < TYPING_SEND_INTERVAL) return;
+    if (!channel || !shouldAnnounceTyping({ isElie, hasChannel: true, typingOn: typingOnRef.current, lastSent: lastTypingSentRef.current, now })) return;
     lastTypingSentRef.current = now;
     void channel.send({ type: 'broadcast', event: 'typing', payload: { user_id: userIdRef.current } });
   };
@@ -1035,18 +860,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       if (userId) ids.forEach((id) => { updateInboxConversation(userId, id, { archived: value }).catch(() => {}); });
     };
     apply(conversationIds, archived);
-    const results = await Promise.allSettled(conversationIds.map((id) => (
-      api(`/api/chat/conversations/${encodeURIComponent(id)}/archive`, { method: 'POST', body: JSON.stringify({ archived }) })
-    )));
-    const failed = conversationIds.filter((_, index) => results[index].status === 'rejected');
+    const failed = await archiveOnServer(api, conversationIds, archived);
     if (failed.length) {
       console.error('Unable to update the archive for', failed.length, 'chats');
       apply(failed, !archived);
     }
     const done = conversationIds.length - failed.length;
-    const noun = (count: number) => (count === 1 ? 'Chat' : `${count} chats`);
-    if (!failed.length) showStatusNote(`${noun(done)} ${archived ? 'archived' : 'unarchived'}`);
-    else showStatusNote(`${noun(failed.length)} not ${archived ? 'archived' : 'unarchived'}. Please try again.`, 3500);
+    const note = archiveStatusNote(done, failed.length, archived);
+    showStatusNote(note.text, note.ms);
     if (done) updateSidebarCounts();
   };
   const setConversationArchived = (conversationId: string, archived: boolean) => archiveChats([conversationId], archived);
@@ -1068,23 +889,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // the other person); it comes back with the next new message.
   const deleteChats = async (chats: ChatConversation[]) => {
     if (!chats.length) return;
-    const nameOf = (c: ChatConversation) => c.participant?.full_name || c.participant?.username || 'this person';
-    const question = chats.length === 1
-      ? `Delete your chat with ${nameOf(chats[0])}? Its messages will be cleared for you. ${nameOf(chats[0])} keeps their copy.`
-      : `Delete ${chats.length} chats? Their messages will be cleared for you. The other people keep their copies.`;
-    if (!window.confirm(question)) return;
+    if (!window.confirm(deleteChatsQuestion(chats))) return;
     const ids = chats.map((c) => c.id);
     setConversations((prev) => prev.filter((c) => !ids.includes(c.id)));
-    const results = await Promise.allSettled(chats.map((c) => (
-      api<{ conversationIds?: string[] }>(`/api/chat/conversations/${encodeURIComponent(c.id)}/delete`, { method: 'POST', body: '{}' })
-    )));
-    const cleared: string[] = [];
-    const failed: ChatConversation[] = [];
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') { failed.push(chats[index]); return; }
-      const returned = result.value.conversationIds;
-      cleared.push(...(returned && returned.length ? returned : [chats[index].id]));
-    });
+    const { cleared, failed } = await deleteOnServer(api, chats);
     if (cleared.length) {
       if (activeIdRef.current && cleared.includes(activeIdRef.current)) closeConversation();
       if (userId) {
@@ -1096,21 +904,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (failed.length) {
       console.error('Unable to delete', failed.length, 'chats');
       // The chats the server refused go back to the inbox.
-      setConversations((prev) => [...prev, ...failed.filter((f) => !prev.some((c) => c.id === f.id))]
-        .sort((a, b) => new Date(b.lastMessage?.created_at || b.created_at || 0).getTime() - new Date(a.lastMessage?.created_at || a.created_at || 0).getTime()));
-      showStatusNote(`${failed.length === 1 ? 'Chat' : `${failed.length} chats`} not deleted. Please try again.`, 3500);
-    } else {
-      showStatusNote(chats.length === 1 ? 'Chat deleted' : `${chats.length} chats deleted`);
+      setConversations((prev) => restoreChats(prev, failed));
     }
+    const note = deleteStatusNote(chats.length, failed.length);
+    showStatusNote(note.text, note.ms);
   };
 
   // Selection mode: tick chats, then archive or delete them together.
   const toggleChatSelection = (conversationId: string) => {
-    setSelectedChats((current) => {
-      const next = new Set(current || []);
-      if (next.has(conversationId)) next.delete(conversationId); else next.add(conversationId);
-      return next.size ? next : null;
-    });
+    setSelectedChats((current) => toggleSelection(current, conversationId));
   };
   const selectedConversations = selectedChats ? conversations.filter((c) => selectedChats.has(c.id)) : [];
   // Another view or account: start again.
@@ -1138,7 +940,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       longPressRef.current = null;
       inboxPressOpenedRef.current = true;
       setInboxMenu({ conversation, x: press.x, y: press.y });
-    }, 500);
+    }, LONG_PRESS_MS);
     longPressRef.current = press;
   };
   const closeInboxMenu = useCallback(() => setInboxMenu(null), []);
@@ -1167,32 +969,25 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const sendAttachments = async (files: File[], kind: 'photo' | 'file', caption?: string) => {
     if (!activeId || isUploading || !files.length) return;
     const conversationId = activeId;
-    const albumId = kind === 'photo' && files.length > 1 ? crypto.randomUUID() : undefined;
+    const albumId = newAlbumId(kind, files.length, () => crypto.randomUUID());
     const uploads = files.map((file, index) => ({
       file,
       tempId: `optimistic-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
       // The caption belongs to the first photo; the others carry their file name.
-      content: (index === 0 ? (caption || '').trim() : '') || file.name,
+      content: uploadContent(index, caption, file.name),
       localUrl: URL.createObjectURL(file),
     }));
     const createdAt = Date.now();
-    setMessagesState((prev) => [...prev, ...uploads.map(({ file, tempId, content, localUrl }, index): OptimisticChatMessage => ({
-      id: tempId,
-      conversation_id: conversationId,
-      sender_id: userId || '',
-      body: content,
-      created_at: new Date(createdAt + index).toISOString(),
-      message_type: kind,
-      album_id: albumId || null,
-      // attachment is null initially; the image is shown via its local URL
-      attachment: kind === 'photo' ? ({
-        id: tempId,
-        original_filename: file.name,
-        kind: 'photo',
-        status: 'pending',
-      } as ChatAttachment) : null,
-      _optimistic: true,
-      _localUrl: localUrl,
+    setMessagesState((prev) => [...prev, ...uploads.map(({ file, tempId, content, localUrl }, index) => optimisticUpload({
+      tempId,
+      conversationId,
+      senderId: userId || '',
+      content,
+      createdAt: new Date(createdAt + index).toISOString(),
+      kind,
+      albumId,
+      fileName: file.name,
+      localUrl,
     }))]);
     setPendingPreviewFiles([]);
     setTimeout(() => scrollToBottom(true), 50);
@@ -1202,67 +997,40 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       : m)));
 
     // 1–3: each file uploads straight to storage, all at once.
-    const uploaded = uploads.map(async ({ file, tempId }) => {
-      const fileMimeType = inferMimeType(file);
-      const initRes = await api<{ uploadUrl: string; attachmentId: string }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
-        method: 'POST',
-        body: JSON.stringify({
-          filename: file.name,
-          mimeType: fileMimeType,
-          fileSize: file.size,
-          kind: kind,
-        }),
-      });
+    const uploaded = uploads.map(({ file, tempId }) => uploadAttachment({
+      api,
+      fetchFn: (input, init) => fetch(input, init),
+      conversationId,
+      file,
+      kind,
       // The server's copy of this message is recognised by its attachment.
-      setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: initRes.attachmentId } : m)));
-      const putRes = await fetch(initRes.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': fileMimeType },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error('R2 direct upload failed');
-      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(initRes.attachmentId)}/complete`, {
-        method: 'POST',
-        body: '{}',
-      });
-      return initRes.attachmentId;
-    });
+      onReserved: (attachmentId) => setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: attachmentId } : m))),
+    }));
     // Nothing waits on a failed upload before its turn below.
     uploaded.forEach((promise) => { promise.catch(() => {}); });
 
     setIsUploading(true);
     try {
       // 4: the messages are saved in the chosen order.
-      for (let index = 0; index < uploads.length; index += 1) {
-        const { tempId, content } = uploads[index];
-        try {
-          const attachmentId = await uploaded[index];
-          const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-            method: 'POST',
-            body: JSON.stringify({
-              content,
-              attachmentId,
-              messageType: kind,
-              ...(albumId ? { albumId } : {}),
-            }),
-          });
-          const sent = res?.message;
-          if (sent && mountedRef.current) {
-            // The real message takes the optimistic one's place (or Realtime already
-            // put it there), keeping the local image so the photo holds its size.
-            if (activeIdRef.current === conversationId) setMessagesState((prev) => mergeServerMessages(prev, [sent]));
-            if (userId) {
-              appendMessage(userId, conversationId, sent).catch(() => {});
-              updateInboxConversation(userId, conversationId, { lastMessage: sent }).catch(() => {});
-            }
-            bumpConversation(conversationId, sent);
+      await saveAttachmentMessages({
+        api,
+        conversationId,
+        kind,
+        albumId,
+        uploads: uploads.map(({ tempId, content }, index) => ({ tempId, content, upload: uploaded[index] })),
+        onSent: (sent) => {
+          if (!mountedRef.current) return;
+          // The real message takes the optimistic one's place (or Realtime already
+          // put it there), keeping the local image so the photo holds its size.
+          if (activeIdRef.current === conversationId) setMessagesState((prev) => mergeServerMessages(prev, [sent]));
+          if (userId) {
+            appendMessage(userId, conversationId, sent).catch(() => {});
+            updateInboxConversation(userId, conversationId, { lastMessage: sent }).catch(() => {});
           }
-        } catch (err) {
-          console.error('Attachment upload failed:', err);
-          // Marked failed so the user can dismiss it.
-          markFailed(tempId);
-        }
-      }
+          bumpConversation(conversationId, sent);
+        },
+        onFailed: markFailed,
+      });
       setTimeout(() => scrollToBottom(true), 50);
     } finally {
       setIsUploading(false);
@@ -1274,12 +1042,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // Person-to-person chats only (Elie messages are not stored there).
   // Every kind of message: text, photos, files, voice notes and listings.
-  const canActOnMessage = (m: ChatMessage): boolean => (
-    !isElie
-    && m.message_type !== 'system'
-    && !m.deleted_at
-    && !(m as OptimisticChatMessage)._optimistic
-  );
+  const canActOnMessage = (m: ChatMessage): boolean => canActOnThreadMessage(m, isElie);
 
   const openMessageMenu = (message: ChatMessage, x: number, y: number) => {
     if (!canActOnMessage(message)) return;
@@ -1289,13 +1052,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Desktop right-click; on phones the long-press below opens the menu.
   const onMessageContextMenu = (event: React.MouseEvent, message: ChatMessage) => {
     if (!canActOnMessage(message)) return;
-    if (window.matchMedia('(max-width: 760px)').matches) {
-      event.preventDefault();
-      return;
-    }
-    if ((event.target as Element).closest('a,button,input,textarea,video,audio')) return;
+    const response = messageContextMenu(window.matchMedia('(max-width: 760px)').matches, event.target as Element);
+    if (response === 'native') return;
     event.preventDefault();
-    openMessageMenu(message, event.clientX, event.clientY);
+    if (response === 'open') openMessageMenu(message, event.clientX, event.clientY);
   };
 
   const cancelLongPress = () => {
@@ -1311,7 +1071,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     press.timer = window.setTimeout(() => {
       longPressRef.current = null;
       openMessageMenu(message, press.x, press.y);
-    }, 500);
+    }, LONG_PRESS_MS);
     longPressRef.current = press;
   };
 
@@ -1319,7 +1079,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const press = longPressRef.current;
     if (!press || !event.touches.length) return;
     const touch = event.touches[0];
-    if (Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > 12) cancelLongPress();
+    if (movedTooFar(press, touch)) cancelLongPress();
   };
 
   // Scroll to a replied-to message and replay its highlight.
@@ -1347,23 +1107,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   };
 
   const copyMessage = async (message: ChatMessage) => {
-    const text = messageCopyText(message);
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch {
-      // Clipboard API unavailable or denied: fall back to a selected textarea.
-      const area = document.createElement('textarea');
-      area.value = text;
-      area.setAttribute('readonly', '');
-      area.style.position = 'fixed';
-      area.style.opacity = '0';
-      document.body.appendChild(area);
-      area.select();
-      try { copied = document.execCommand('copy'); } catch { copied = false; }
-      area.remove();
-    }
+    // Clipboard API unavailable or denied: copied from a selected textarea.
+    const copied = await copyText(messageCopyText(message), { clipboard: navigator.clipboard, doc: document });
     showStatusNote(copied ? 'Copied' : 'Unable to copy');
   };
 
@@ -1378,14 +1123,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // A full fetch: pins and deletions change existing messages, which the
   // cache's `since` delta sync does not return. The cache is rewritten too.
   const refreshConversation = async (conversationId: string) => {
-    const res = await api<{ messages?: ChatMessage[] }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
+    const res = await api<{ messages?: ChatMessage[] }>(messagesUrl(conversationId));
     const list: ChatMessage[] = res.messages || [];
     const currentUserId = userIdRef.current;
     if (currentUserId) setMessages(currentUserId, conversationId, list).catch(() => {});
     // Uploads in progress stay; a sent photo keeps its local image and size.
     if (mountedRef.current && activeIdRef.current === conversationId) setMessagesState((prev) => reconcileThread(prev, list));
-    bumpConversation(conversationId, list.length ? list[list.length - 1] : null);
-    if (currentUserId) updateInboxConversation(currentUserId, conversationId, { lastMessage: list.length ? list[list.length - 1] : null }).catch(() => {});
+    bumpConversation(conversationId, lastMessage(list));
+    if (currentUserId) updateInboxConversation(currentUserId, conversationId, { lastMessage: lastMessage(list) }).catch(() => {});
   };
 
   const performMessageAction = async (message: ChatMessage, action: MessageAction) => {
@@ -1398,20 +1143,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       await copyMessage(message);
       return;
     }
-    if (action === 'delete_for_everyone'
-      && !window.confirm('Delete this message for everyone? This cannot be undone.')) return;
-    const conversationId = activeIdRef.current;
-    if (!conversationId) return;
-    try {
-      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(message.id)}/actions`, {
-        method: 'POST',
-        body: JSON.stringify({ action }),
-      });
-      await refreshConversation(conversationId);
-    } catch (err) {
-      console.error('Unable to perform message action:', err);
-      window.alert((err instanceof Error && err.message) || 'Unable to update message');
-    }
+    // Pin, delete for me, delete for everyone (confirmed): then a full refresh.
+    await runServerMessageAction({
+      action,
+      messageId: message.id,
+      conversationId: () => activeIdRef.current,
+      api,
+      confirm: (question) => window.confirm(question),
+      alert: (text) => window.alert(text),
+      refresh: refreshConversation,
+    });
   };
 
   const closeMessageMenu = useCallback(() => setMessageMenu(null), []);
@@ -1421,10 +1162,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const conversationId = activeIdRef.current;
     if (!conversationId || conversationId === ELIE_ID) return;
     try {
-      await api('/api/chat/reports', {
-        method: 'POST',
-        body: JSON.stringify({ conversationId, reason, details: details || undefined }),
-      });
+      await postChatReport(api, conversationId, reason, details);
       showStatusNote('Report submitted. Thank you.', 3500);
     } catch (err) {
       console.error('Unable to submit report:', err);
@@ -1437,7 +1175,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // page on phones (returning to this conversation).
   const openChatSettings = () => {
     if (window.matchMedia('(max-width: 760px)').matches) {
-      void router.push(`/chat-settings?returnTo=${encodeURIComponent(router.asPath || '/chats')}`);
+      void router.push(chatSettingsHref(router.asPath));
       return;
     }
     setInfoCollapsed(false);
@@ -1445,72 +1183,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   };
 
   // Generate clean, readable plain-text previews for inbox rows (no literal HTML tags)
-  const formatConversationPreview = useCallback((m?: ChatMessage | null): string => {
-    if (!m) return '';
-    if (m.deleted_at) return 'This message was deleted';
-
-    const raw = m.body || '';
-    let plain = '';
-    if (raw) {
-      if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
-        try {
-          const doc = new DOMParser().parseFromString(raw, 'text/html');
-          doc.querySelectorAll('script, style, template').forEach((el) => el.remove());
-          doc.querySelectorAll('br').forEach((el) => el.replaceWith(' '));
-          doc.querySelectorAll('p, div, li').forEach((el) => el.appendChild(doc.createTextNode(' ')));
-          plain = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-        } catch {
-          plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        }
-      } else {
-        plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      }
-    }
-
-    if (plain) return plain;
-
-    // Handle media / attachment previews when there is no text caption
-    if (m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo')) {
-      return 'Photo';
-    }
-    if (m.message_type === 'file' || (m.attachment && m.attachment.kind === 'file')) {
-      return m.attachment?.original_filename || 'Attachment';
-    }
-    if (m.attachment) {
-      return m.attachment.original_filename || 'Attachment';
-    }
-
-    return '';
-  }, []);
-
   // Filtered inbox contacts
   const archivedCount = useMemo(() => conversations.filter((c) => c.archived).length, [conversations]);
-  const filteredConversations = useMemo(() => {
-    const inView = conversations.filter((c) => Boolean(c.archived) === (inboxView === 'archived'));
-    if (!searchQuery.trim()) return inView;
-    const q = searchQuery.toLowerCase();
-    return inView.filter((c) => {
-      const name = c.participant?.full_name?.toLowerCase() || '';
-      const username = c.participant?.username?.toLowerCase() || '';
-      const last = formatConversationPreview(c.lastMessage).toLowerCase();
-      return name.includes(q) || username.includes(q) || last.includes(q);
-    });
-  }, [conversations, inboxView, searchQuery, formatConversationPreview]);
-
-  // Message body: plain text unless it carries the editor's formatting, which
-  // is rebuilt from allowlisted elements with no attributes (lib/chat/messageBody).
-  const renderMessageBody = (body: string): React.ReactNode => {
-    if (!body) return null;
-    if (!hasMessageMarkup(body)) {
-      return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{body}</span>;
-    }
-    const renderNodes = (nodes: MessageBodyNode[]): React.ReactNode[] => nodes.map((node, index) => (
-      typeof node === 'string'
-        ? node
-        : React.createElement(node.tag, { key: index }, node.tag === 'br' ? undefined : renderNodes(node.children))
-    ));
-    return <span style={{ wordBreak: 'break-word' }}>{renderNodes(parseMessageBody(body))}</span>;
-  };
+  const filteredConversations = useMemo(() => filterInbox(conversations, inboxView, searchQuery), [conversations, inboxView, searchQuery]);
 
   // Attachments are served through a short-lived signed URL; the download
   // route needs the session token and returns that URL as JSON.
@@ -1523,6 +1198,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       alert('Unable to open this file. Please try again.');
     }
   };
+
+  const layoutClasses = chatLayoutClasses({ mobileView, activeId, isElie, infoCollapsed, chatSettingsEmbedded });
 
   return (
     <>
@@ -1574,7 +1251,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </defs>
       </svg>
 
-      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}${activeId ? ' has-conversation' : ''}`} style={bubbleThemeStyle}>
+      <div ref={appShellRef} className={layoutClasses.shell} style={bubbleThemeStyle}>
         
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>
@@ -1588,9 +1265,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 aria-label={item.label}
                 aria-current={item.href === '/chats' ? 'page' : undefined}
                 onClick={(e) => {
-                  if (item.href === '/chats' || isModifiedClick(e)) { if (item.href === '/chats') e.preventDefault(); return; }
+                  const click = railClick(item.href, isModifiedClick(e));
+                  if (click === 'native') return;
                   e.preventDefault();
-                  void router.push(item.href);
+                  if (click === 'navigate') void router.push(item.href);
                 }}
               >
                 <svg className="icon"><use href={`#${item.icon}`} /></svg>
@@ -1615,7 +1293,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </nav>
 
         {/* 2. CONTACTS / INBOX COLUMN */}
-        <aside className={`contacts-col${mobileView !== 'inbox' ? ' mobile-hidden' : ''}`}>
+        <aside className={layoutClasses.contacts}>
           <div className="mobile-inbox-title">
             Messages
             <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={openChatSettings}>
@@ -1738,7 +1416,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const participant = c.participant;
                 const name = participant?.full_name || participant?.username || 'User';
                 const timeStr = c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                const lastPreview = formatConversationPreview(c.lastMessage);
+                const lastPreview = conversationPreview(c.lastMessage);
                 const isSelected = Boolean(selectedChats && selectedChats.has(c.id));
 
                 return (
@@ -1784,7 +1462,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </aside>
 
         {/* 3. CHAT COLUMN */}
-        <main className={`chat-col${isElie ? ' is-elie' : ''}${!activeId ? ' empty-conversation' : ''}${mobileView === 'conversation' ? ' mobile-visible' : ''}`}>
+        <main className={layoutClasses.chat}>
           {/* Header */}
           {/* Header: only with a conversation open (none: the empty state fills the column) */}
           {activeId && (
@@ -1846,7 +1524,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />
-                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : activeId && typingInConversation === activeId ? 'typing…' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
+                  <span id="statusText">{headerStatus({ isElie, activeId, typingIn: typingInConversation, presenceKnownId, online: isCurrentOnline })}</span>
                 </div>
               </div>
             </div>
@@ -1952,29 +1630,29 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const sameSender = prev && prev.sender_id === m.sender_id;
                 const isDeleted = !!m.deleted_at;
 
-                const rowClass = [
-                  'msg-row',
-                  isSystem ? 'system' : isOut ? 'out' : 'in',
-                  isElieMsg && !isOut ? 'elie-message' : '',
-                  sameSender ? 'same-sender' : '',
-                  isDeleted ? 'msg-deleted' : '',
-                  highlightedMessageId === m.id ? 'reply-target-highlight' : '',
-                ].filter(Boolean).join(' ');
+                const rowClass = messageRowClass({
+                  isSystem,
+                  isOut,
+                  isElieMessage: isElieMsg,
+                  sameSender: Boolean(sameSender),
+                  isDeleted,
+                  highlighted: highlightedMessageId === m.id,
+                });
 
                 const hasMedia = m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo');
                 const attachmentId = m.attachment_id || m.attachment?.id || null;
                 // Uploads in progress or failed (photos and files).
                 const optimistic = m as OptimisticChatMessage;
-                const sending = Boolean(optimistic._optimistic && !optimistic._failed);
+                const sending = uploadSending(m);
                 // Time on every message; ticks on the user's own (none once deleted or failed).
                 const meta = (
                   <MessageMeta
                     time={new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    status={isOut && !isDeleted && !optimistic._failed ? messageStatus(m, sending) : null}
+                    status={bubbleStatus(m, { isOut, isDeleted, sending })}
                   />
                 );
                 // Sending shows as the clock in the meta; a failed upload can be dismissed.
-                const uploadState = optimistic._optimistic && optimistic._failed ? (
+                const uploadState = uploadFailed(m) ? (
                   <div className="msg-failed">
                     Failed
                     <button
@@ -2187,12 +1865,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             style={participantDeactivated ? { position: 'relative', display: 'none' } : { position: 'relative' }}
             onMouseDown={(e) => {
               // Phones: tapping composer buttons keeps the keyboard open.
-              if (window.matchMedia('(max-width: 760px)').matches && (e.target as Element).closest(KEEP_FOCUS_SELECTOR)) e.preventDefault();
+              if (keepsKeyboardOpen(window.matchMedia('(max-width: 760px)').matches, e.target as Element)) e.preventDefault();
             }}
           >
             {/* Phone: a file waiting to be sent with the text */}
             <div className={`mobile-preview${pendingFile && !isElie ? ' has-content' : ''}`} id="mobileComposerPreview">
-              {pendingFile && !isElie ? `File: ${pendingFile.name}` : ''}
+              {pendingFileLabel(pendingFile, isElie)}
             </div>
             <ElieComposerBeam isElie={isElie} />
 
@@ -2212,15 +1890,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 if (text.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
-                if (isElie && (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+                const action = composerKeyAction(e, { editor: 'desktop', isElie, replying: Boolean(replyTo), isPhone: () => window.matchMedia('(max-width: 760px)').matches });
+                if (action === 'block') {
                   e.preventDefault();
                   return;
                 }
-                if (e.key === 'Escape' && replyTo) {
+                if (action === 'cancel-reply') {
                   setReplyTo(null);
                   return;
                 }
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (action === 'send') {
                   e.preventDefault();
                   handleSendMessage();
                 }
@@ -2239,11 +1918,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 if (e.target.value.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Escape' && replyTo) {
+                const action = composerKeyAction(e, { editor: 'phone', isElie, replying: Boolean(replyTo), isPhone: () => window.matchMedia('(max-width: 760px)').matches });
+                if (action === 'cancel-reply') {
                   setReplyTo(null);
                   return;
                 }
-                if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(max-width: 760px)').matches) {
+                if (action === 'send') {
                   e.preventDefault();
                   handleSendMessage(e.currentTarget.value);
                 }
@@ -2408,7 +2088,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </main>
 
         {/* 4. INFORMATION COLUMN (Collapsible) */}
-        <aside className={`info-col ${infoCollapsed ? 'collapsed' : ''}${chatSettingsEmbedded ? ' chat-settings-open' : ''}${mobileView === 'info' ? ' mobile-visible' : ''}`} id="infoCol">
+        <aside className={layoutClasses.info} id="infoCol">
           {chatSettingsEmbedded ? (
             <>
               <div className="chat-settings-panel-head">
@@ -2497,13 +2177,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           x={inboxMenu.x}
           y={inboxMenu.y}
           label="Chat actions"
-          items={[
-            inboxMenu.conversation.archived
-              ? { action: 'unarchive' as const, icon: 'i-archive', label: 'Unarchive chat' }
-              : { action: 'archive' as const, icon: 'i-archive', label: 'Archive chat' },
-            { action: 'delete' as const, icon: 'i-trash', label: 'Delete chat' },
-            { action: 'select' as const, icon: 'i-check', label: 'Select chats' },
-          ]}
+          items={inboxMenuItems(inboxMenu.conversation.archived)}
           onSelect={(action) => {
             const conversation = inboxMenu.conversation;
             setInboxMenu(null);
@@ -2525,17 +2199,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
     </>
   );
-}
-
-// The icon rail (legacy chats.html): Home, Messages, Calendar, and Analytics for hosts.
-type RailItem = { label: string; href: string; icon: string; count?: 'chats' | 'bookings' };
-function railItems(role: 'host' | 'client'): RailItem[] {
-  return [
-    { label: 'Home', href: role === 'host' ? '/host-home' : '/client-home', icon: 'i-home' },
-    { label: 'Messages', href: '/chats', icon: 'i-chat', count: 'chats' },
-    { label: 'Calendar', href: '/bookings', icon: 'i-calendar', count: 'bookings' },
-    ...(role === 'host' ? [{ label: 'Analytics', href: '/analytics', icon: 'i-chart' }] : []),
-  ];
 }
 
 // The app's mobile navigation shows on the inbox (legacy loaded it on Chats).

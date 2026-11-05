@@ -8,7 +8,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import { errorMessage } from '../lib/errors';
 import { profileStore } from '../lib/auth/session';
 import { completedClientProfile } from '../lib/types/profile';
-import { Music2, X } from 'lucide-react';
+import Svg from '../components/booking/Svg';
+import { SOCIAL_ICONS } from '../components/shell/socialIcons';
 import AppShell from '../components/shell/AppShell';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
@@ -97,17 +98,18 @@ function getSessionStorageSafe(): Storage | null {
   }
 }
 
-function photoUrl(bucket: string, path: string) {
-  return `/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`;
+// Sizes served by /api/photos?w= (see components/resolveStoredPhotoUrl.ts).
+function photoUrl(bucket: string, path: string, width: number) {
+  return `/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}?w=${width}`;
 }
 
-function listingPhoto(path?: string) {
-  return path ? photoUrl('listing-photos', path) : '';
+function listingPhoto(path?: string, width = 1200) {
+  return path ? photoUrl('listing-photos', path, width) : '';
 }
 
 function avatarPhoto(path?: string | null) {
   if (!path) return '';
-  return /^https?:\/\//i.test(path) ? path : photoUrl('avatars', path);
+  return /^https?:\/\//i.test(path) ? path : photoUrl('avatars', path, 192);
 }
 
 function safeCssUrl(value: string) {
@@ -742,7 +744,7 @@ function MobileFeedWidgets({
             <div className={styles.recommendedGrid}>
               {recommended.slice(0, 6).map((item) => (
                 <a className={styles.recommendedCard} href={`/booking?listing=${encodeURIComponent(item.id)}`} key={item.id}>
-                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path)} alt="" loading="lazy" />}
+                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path, 480)} alt="" loading="lazy" />}
                   <span><strong>{item.title || 'Listing'}</strong><small>{item.location_text || ''}</small></span>
                 </a>
               ))}
@@ -1456,6 +1458,7 @@ export default function ClientHome() {
     setNews,
     setNewsFailed,
     setNewsLoading,
+    minimumRefreshMs: 450,
   }), [user?.id]);
 
   useEffect(() => {
@@ -1791,10 +1794,10 @@ export default function ClientHome() {
           </section>
           <footer className={styles.railFooter} aria-label="Sidebar footer">
             <div className={styles.socialLinks} aria-label="Social media">
-              <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.6" r="1.1" /></svg></a>
-              <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Music2 aria-hidden="true" /></a>
-              <a href="#" aria-label="X (formerly Twitter)" onClick={(event) => event.preventDefault()}><X aria-hidden="true" /></a>
-              <a href="#" aria-label="Facebook" onClick={(event) => event.preventDefault()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-8.5h2.8l.4-3.2h-3.2V7.2c0-.9.3-1.6 1.7-1.6H16V2.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.3v2.4H7v3.2h2.5V21h4Z" /></svg></a>
+              <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Svg markup={SOCIAL_ICONS.instagram} /></a>
+              <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Svg markup={SOCIAL_ICONS.tiktok} /></a>
+              <a href="#" aria-label="X (formerly Twitter)" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.x} /></a>
+              <a href="#" aria-label="Facebook" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.facebook} /></a>
             </div>
             <div className={styles.legalLinks}>
               <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>

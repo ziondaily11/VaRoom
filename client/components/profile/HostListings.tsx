@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import { loadListingVideo, setCachedVideo, type ListingVideo } from '../../lib/media/listingVideo';
 import type { HostReview, ListingDraft, ProfileCategory, ProfileListing } from '../../lib/profile/hostProfile';
 import { CATEGORY_LABELS, draftTitle, listingPrice, listingStatus } from '../../lib/profile/profilePage';
-import { resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import VideoPlayer, { type VideoDetails } from '../media/VideoPlayer';
 import HostListingMenu from '../listings/HostListingMenu';
 import { EmptyListingsIcon } from './ProfileIcons';
@@ -17,7 +17,7 @@ export type Tab = { kind: 'all' } | { kind: 'category'; id: string } | { kind: '
 function ListingMedia({ listing, token, details }: { listing: ProfileListing; token: string | null; details: VideoDetails }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [video, setVideo] = useState<ListingVideo | null>(null);
-  const photo = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient()) : null;
+  const photo = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
 
   useEffect(() => {
     const node = ref.current;

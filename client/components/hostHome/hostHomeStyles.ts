@@ -258,7 +258,7 @@ export const HOST_HOME_STYLES = `
   }
 
   /* ---------- DASHBOARD HEADER ---------- */
-  .dash-header{ padding:.65rem 1rem 0; width:100%; box-sizing:border-box; }
+  .dash-header{ padding:.65rem 0 0; width:100%; box-sizing:border-box; }
 
   /* dash-body is a pass-through wrapper only — display:contents lifts
      dash-main/host-rail up to be direct grid items of .main-col (row 2),
@@ -326,6 +326,9 @@ export const HOST_HOME_STYLES = `
   .stats-head h2{ font-size:.95rem; font-weight:800; color:var(--ink); letter-spacing:-.01em; }
   .stats-head a{ font-size:.82rem; font-weight:600; color:var(--red); text-decoration:none; }
   .stats-head a:hover{ text-decoration:underline; }
+  .property-news-refresh{ border:0; background:transparent; color:var(--red); font:inherit; font-size:.78rem; font-weight:600; cursor:pointer; padding:0; }
+  .property-news-refresh:hover{ text-decoration:underline; }
+  .property-news-refresh:disabled{ cursor:default; opacity:.6; text-decoration:none; }
 
   @media (max-width:1360px){
     .main-col{ grid-template-columns: minmax(580px, 1.25fr) 1px minmax(360px, 1fr); }
@@ -337,7 +340,8 @@ export const HOST_HOME_STYLES = `
     .host-rail{ display:none; }
     .col-divider{ display:none; }
     .main-col{ grid-template-columns: minmax(0, 760px); }
-    .dash-main{ margin:0 auto; min-width:0; }
+    /* Fill the column: auto margins alone sized it to the tabs (594px on a 390px phone). */
+    .dash-main{ margin:0 auto; min-width:0; width:100%; }
     .dash-header,
     .feed-area{ min-width:0; }
   }
@@ -556,7 +560,7 @@ export const HOST_HOME_STYLES = `
     scrollbar-width:none;
     -webkit-overflow-scrolling:touch;
     gap:.45rem;
-    padding-bottom:.65rem;
+    padding:0 1rem .65rem;
     border-bottom:1px solid var(--line);
     margin-bottom:0;
   }
@@ -585,12 +589,12 @@ export const HOST_HOME_STYLES = `
 
   .skel-card{
     background:transparent;
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding:1rem 1.15rem .85rem;
-    margin:.75rem 1rem;
+    border:0;
+    border-bottom:1px solid var(--line);
+    border-radius:0;
+    padding:1rem 1.25rem .85rem;
+    margin:0;
   }
-  .skel-card:first-child{ margin-top:.75rem; }
   .skel-card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
   .skel-avatar{ width:38px; height:38px; border-radius:50%; flex-shrink:0; }
   .skel-card-head-body{ flex:1; min-width:0; }
@@ -599,7 +603,8 @@ export const HOST_HOME_STYLES = `
   .skel-loc{ width:190px; height:9px; }
   .skel-line{ height:9px; margin-bottom:.4rem; }
   .skel-line.short{ width:55%; margin-bottom:.75rem; }
-  .skel-media{ width:min(100%, 650px); height:auto; aspect-ratio:1 / 1; border-radius:16px; margin-bottom:.75rem; }
+  .skel-media{ width:auto; max-width:460px; height:auto; aspect-ratio:4 / 3; border-radius:16px; margin:0 0 .75rem 56px; }
+  .skel-line{ margin-left:56px; }
   .skel-actions{ display:flex; gap:.5rem; }
   .skel-pill{ width:58px; height:24px; border-radius:999px; }
 
@@ -623,15 +628,15 @@ export const HOST_HOME_STYLES = `
 
   .card{
     background:transparent;
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding:1rem 1.15rem .85rem;
-    margin:.75rem 1rem;
+    border:0;
+    border-bottom:1px solid var(--line);
+    border-radius:0;
+    padding:1rem 1.25rem .85rem;
+    margin:0;
     color:var(--ink);
     display:flex;
     flex-direction:column;
   }
-  .card:first-child{ margin-top:.75rem; }
   [data-theme="dark"] .card{ color:var(--ink); }
   .card-head{ position:relative; z-index:10; display:flex; align-items:center; gap:.65rem; margin-bottom:.45rem; }
   .card-avatar{ width:38px; height:38px; border-radius:50%; background:var(--red-deep); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; overflow:hidden; }
@@ -815,7 +820,7 @@ export const HOST_HOME_STYLES = `
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
   #feed-list.discover-media-feed .card-video .varoom-video-player > video{
-    display:block; width:100%; height:auto; object-fit:initial; background:transparent;
+    display:block; width:100%; height:auto; object-fit:contain; background:transparent;
   }
   #feed-list.discover-media-feed .card-video .varoom-video-player{ height:100%; display:flex; align-items:center; justify-content:center; }
   #feed-list.discover-media-feed .media-slide img{ position:relative; z-index:1; margin:0; }
@@ -832,29 +837,6 @@ export const HOST_HOME_STYLES = `
     height:auto; min-height:0; padding:1.4rem; margin-left:var(--discover-content-inset); width:calc(100% - var(--discover-content-inset)); background:transparent;
   }
 
-  /* Reserve the dashboard's final footprint while account data is loading. */
-  .dash-main.is-loading > :not(.host-home-skeleton){ display:none; }
-  .host-home-skeleton{ padding:1rem 1rem 4rem; }
-  .host-skel-tabs{ display:flex; gap:.55rem; overflow:hidden; margin:0 1rem 1.5rem; }
-  .host-skel-tabs .skel{ flex:0 0 78px; height:34px; border-radius:999px; }
-  .host-skel-card{ margin:.75rem 1rem; padding:1rem 1.15rem .85rem; border:1px solid var(--line); border-radius:16px; }
-  .host-skel-card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.7rem; }
-  .host-skel-avatar{ width:38px; height:38px; flex:0 0 38px; border-radius:50%; }
-  .host-skel-profile{ display:grid; gap:.4rem; flex:1; }
-  .host-skel-name{ width:min(140px, 60%); height:12px; }
-  .host-skel-location{ width:min(190px, 75%); height:9px; }
-  .host-skel-menu{ width:24px; height:24px; border-radius:50%; }
-  .host-skel-caption{ width:88%; height:10px; margin:.75rem 0 .4rem; }
-  .host-skel-caption.short{ width:55%; margin-top:0; }
-  .host-skel-media{ width:min(100%, 650px); aspect-ratio:1 / 1; border-radius:16px; margin:.75rem 0; }
-  .host-skel-actions{ display:flex; gap:.5rem; padding-top:.35rem; }
-  .host-skel-actions .skel{ width:58px; height:24px; border-radius:999px; }
-  @media (max-width:860px){
-    .host-home-skeleton .host-skel-media{
-      width:100%; height:clamp(220px, 52vw, 460px); aspect-ratio:auto;
-    }
-  }
-  @media (max-width:700px){ .host-home-skeleton{ padding:1rem 0 6rem; }.host-skel-card{ margin:.6rem 0; padding:.9rem 0 .8rem; border-left:0; border-right:0; border-radius:0; }.host-skel-media{ width:100%; } }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.9rem; }
 
   .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
@@ -901,9 +883,9 @@ export const HOST_HOME_STYLES = `
     .dash-main{ overflow-y:visible; height:auto; padding:0; }
     .host-rail{ padding:0 0 6rem; overflow-y:visible; height:auto; }
     .feed-area{ padding:.75rem .7rem 1.4rem; }
-    .card{ border:none; border-radius:0; border-bottom:1px solid var(--line); margin:0; padding:1rem 0 .85rem; }
+    .card{ border:none; border-radius:0; border-bottom:1px solid var(--line); margin:0 -.7rem; padding:1rem .7rem .85rem; }
     .action-row{ padding-right:1rem; }
-    .skel-card{ border:none; border-radius:0; border-bottom:1px solid var(--line); margin:0; padding:1rem 0 .85rem; }
+    .skel-card{ border:none; border-radius:0; border-bottom:1px solid var(--line); margin:0 -.7rem; padding:1rem .7rem .85rem; }
     .card-photos{ gap:.3rem; }
     .card-photos img{ height:clamp(220px, 52vw, 460px); }
     .card-photos.single img{ height:clamp(250px, 60vw, 520px); }
@@ -915,7 +897,7 @@ export const HOST_HOME_STYLES = `
     #feed-list.discover-media-feed .media-slide img{ height:auto; object-fit:initial; }
     #feed-list.discover-media-feed .card-video video,
     #feed-list.discover-media-feed .card-video .varoom-video-player,
-    #feed-list.discover-media-feed .card-video .varoom-video-player > video{ height:auto; object-fit:initial; }
+    #feed-list.discover-media-feed .card-video .varoom-video-player > video{ height:auto; object-fit:contain; }
     #feed-list.discover-media-feed .media-carousel,
     #feed-list.discover-media-feed .card-video{
       width:var(--discover-media-width, calc(100% - 2 * var(--discover-content-inset)));
@@ -951,7 +933,7 @@ export const HOST_HOME_STYLES = `
     /* Category filters: one scrollable row, never wrap */
     .tabs{
       flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-      scrollbar-width:none; margin:0 -1rem 1.4rem; padding:0 1rem;
+      scrollbar-width:none; margin:0 0 1.4rem; padding:0 .7rem;
     }
     .tabs::-webkit-scrollbar{ display:none; }
     .tab{ flex-shrink:0; white-space:nowrap; }

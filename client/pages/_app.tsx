@@ -16,7 +16,7 @@ import { installAccountActions } from '../lib/account/accountActions';
 import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
 import { installAppLinks } from '../lib/navigation/appLinks';
 import { applyTheme } from '../lib/theme';
-import { getAccountLayout, getSessionBoundCachedRole, usesIconRail } from '../lib/accountRoleLayout';
+import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRail } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/privacy.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
@@ -413,11 +413,14 @@ type ShellRole = 'host' | 'client' | null;
 // the role resolves, so the page is mounted once.
 function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps: AppProps['pageProps'] }) {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { status, session, profile } = useAuth();
   const role: ShellRole = getSessionBoundCachedRole(session, profile);
   const path = router.pathname || '';
   const asPath = router.asPath || '';
-  const accountLayout = getAccountLayout(path, asPath, role);
+  // Until the role is known, a home route draws its own shell (sidebar and
+  // rails) rather than an empty frame; signed-out visitors get no shell.
+  const shownRole: ShellRole = role || (status === 'signed-out' ? null : homeShellHint(path));
+  const accountLayout = getAccountLayout(path, asPath, shownRole);
   const isShellRoute = getAccountLayout(path, asPath, 'host') !== 'none';
   const pageElement = <Component {...pageProps} />;
 
