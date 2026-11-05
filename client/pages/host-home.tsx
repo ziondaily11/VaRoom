@@ -19,7 +19,7 @@ import {
 import { MOBILE_QUERY } from '../lib/hostHome/mediaStage';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH, type PhotoWidth } from '../components/resolveStoredPhotoUrl';
 import FeedCard, { type CardVideo, type MediaState } from '../components/hostHome/FeedCard';
-import HostRail, { PropertyNewsList, VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
+import HostRail, { NewsRefreshButton, PropertyNewsList, VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
 import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialogs';
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
@@ -60,24 +60,7 @@ function SkeletonCard() {
   );
 }
 
-function PageSkeleton({ layout }: { layout: string }) {
-  const card = (
-    <div className="host-skel-card">
-      <div className="host-skel-card-head"><div className="skel host-skel-avatar" /><div className="host-skel-profile"><div className="skel host-skel-name" /><div className="skel host-skel-location" /></div><div className="skel host-skel-menu" /></div>
-      <div className="skel host-skel-caption" /><div className="skel host-skel-caption short" />
-      <div className="skel host-skel-media" /><div className="host-skel-actions"><div className="skel" /><div className="skel" /><div className="skel" /></div>
-    </div>
-  );
-  return (
-    <div className="host-home-skeleton" id="host-home-skeleton" aria-label="Loading host dashboard" role="status" data-skeleton-layout={layout}>
-      <div className="host-skel-tabs">{Array.from({ length: 7 }, (_, index) => <div className="skel" key={index} />)}</div>
-      {card}{card}
-    </div>
-  );
-}
-
 const sessionStorageSafe = () => { try { return window.sessionStorage; } catch { return null; } };
-const isMobileNow = () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 
 export default function HostHomePage() {
   const router = useRouter();
@@ -109,7 +92,7 @@ export default function HostHomePage() {
   const [toast, setToast] = useState('');
   const [mobile, setMobile] = useState(false);
   const [layoutVersion, setLayoutVersion] = useState(0);
-  const [skeletonLayout, setSkeletonLayout] = useState('desktop');
+  const [newsRefreshing, setNewsRefreshing] = useState(false);
 
   const feedList = useRef<HTMLDivElement>(null);
   const dashMain = useRef<HTMLDivElement>(null);
@@ -119,10 +102,10 @@ export default function HostHomePage() {
   const lastLoadScroll = useRef(-1);
   const revalidateNext = useRef(false);
   const toastTimer = useRef<number | null>(null);
+  const reloadNews = useRef<(() => Promise<void>) | null>(null);
 
   // What this browser already has (read after hydration, so the first render matches the page's HTML).
   useLayoutEffect(() => {
-    setSkeletonLayout(isMobileNow() ? 'mobile' : 'desktop');
     const cachedNews = getCachedNewsPreview();
     if (cachedNews) setNews(cachedNews.items as unknown as NewsItem[]);
     const cachedUpdates = readClientHomeWidgetCache<VaroomUpdate[]>('updates');
@@ -172,12 +155,22 @@ export default function HostHomePage() {
 
   // ---------- Feed ----------
   const scrollArea = () => dashMain.current;
+  // The last position seen while scrolling. On leaving the page the scroll
+  // area is already out of the document (its scrollTop reads 0) when the
+  // cleanup saves, so the save falls back to this instead of the element.
+  const position = useRef({ windowY: 0, areaY: 0 });
+  const restoring = useRef(0);
+  const readPosition = useCallback(() => {
+    const area = dashMain.current;
+    if (area && area.isConnected) position.current = { windowY: window.scrollY, areaY: area.scrollTop };
+    return position.current;
+  }, []);
   const saveScroll = useCallback(() => {
     if (!activeKey.current) return;
     try {
-      sessionStorage.setItem(scrollKey(activeKey.current), JSON.stringify({ windowY: window.scrollY, areaY: dashMain.current ? dashMain.current.scrollTop : 0 }));
+      sessionStorage.setItem(scrollKey(activeKey.current), JSON.stringify(readPosition()));
     } catch { /* storage unavailable */ }
-  }, []);
+  }, [readPosition]);
 
   const showSnapshot = useCallback((key: string, count?: number) => {
     const cache = getListingFeedCache();
@@ -207,15 +200,26 @@ export default function HostHomePage() {
     const cached = cache.snapshot<FeedListing>(key);
     if (cached.hasCachedPage) {
       showSnapshot(key, cached.items.length);
-      // The saved scroll position for this feed, once its cards are on screen.
-      requestAnimationFrame(() => {
-        try {
-          const position = JSON.parse(sessionStorage.getItem(scrollKey(key)) || 'null') as { windowY?: number; areaY?: number } | null;
-          if (!position) return;
-          if (dashMain.current) dashMain.current.scrollTop = position.areaY || 0;
-          window.scrollTo(0, position.windowY || 0);
-        } catch { /* storage unavailable */ }
-      });
+      // The saved scroll position for this feed, once its cards are on screen:
+      // retried for a few frames while the cards lay out, until it holds.
+      let stored: { windowY?: number; areaY?: number } | null = null;
+      try { stored = JSON.parse(sessionStorage.getItem(scrollKey(key)) || 'null'); } catch { /* storage unavailable */ }
+      const targetArea = stored ? stored.areaY || 0 : 0;
+      const targetWindow = stored ? stored.windowY || 0 : 0;
+      position.current = { windowY: targetWindow, areaY: targetArea };
+      cancelAnimationFrame(restoring.current);
+      if (targetArea > 0 || targetWindow > 0) {
+        let frames = 0;
+        const restore = () => {
+          if (activeKey.current !== key) return;
+          const area = dashMain.current;
+          if (area) area.scrollTop = targetArea;
+          if (targetWindow) window.scrollTo(0, targetWindow);
+          const settled = (!area || Math.abs(area.scrollTop - targetArea) < 2) && Math.abs(window.scrollY - targetWindow) < 2;
+          if (!settled && ++frames < 40) restoring.current = requestAnimationFrame(restore);
+        };
+        restoring.current = requestAnimationFrame(restore);
+      }
       if (cached.isStale || revalidate) {
         cache.revalidate(key, fetcher).then((refreshed) => {
           if (!current()) return;
@@ -262,9 +266,10 @@ export default function HostHomePage() {
   loadMoreRef.current = loadMore;
   useEffect(() => {
     const area = scrollArea();
-    const position = () => Math.max(window.scrollY || 0, area ? area.scrollTop : 0);
+    const furthest = () => Math.max(window.scrollY || 0, area ? area.scrollTop : 0);
     const onScroll = () => {
-      lastScroll.current = position();
+      readPosition();
+      lastScroll.current = furthest();
       const sentinel = document.getElementById('listing-feed-sentinel');
       if (!sentinel || lastScroll.current <= lastLoadScroll.current) return;
       if (sentinel.getBoundingClientRect().top <= window.innerHeight + 700) {
@@ -281,7 +286,7 @@ export default function HostHomePage() {
       window.removeEventListener('pagehide', saveScroll);
       saveScroll();
     };
-  }, [ready, saveScroll]);
+  }, [ready, saveScroll, readPosition]);
 
   const items = useMemo(() => (snapshot ? snapshot.items.slice(0, visible) : []), [snapshot, visible]);
   const cards = mode === 'saved' ? (savedListings || []) : items;
@@ -297,6 +302,8 @@ export default function HostHomePage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [items, loadingMore]);
+
+  useEffect(() => () => cancelAnimationFrame(restoring.current), []);
 
   // ---------- Saved (waits for the account's saves; it used to show "Nothing saved" first) ----------
   useEffect(() => {
@@ -453,7 +460,7 @@ export default function HostHomePage() {
         if (active) setUpdates((current) => (Array.isArray(current) ? current : 'error'));
       });
     }
-    const loadNews = () => fetchLatestNews().then((rows) => {
+    const loadNews = (force = false) => fetchLatestNews(fetch, force).then((rows) => {
       if (!active) return;
       if (rows.length) setCachedNewsPreview(rows as unknown as PropertyNewsItem[]);
       setNews((current) => (rows.length ? rows.slice(0, 5) : (Array.isArray(current) && current.length ? current : [])));
@@ -464,10 +471,20 @@ export default function HostHomePage() {
     const cachedNews = getCachedNewsPreview();
     if (!cachedNews || !cachedNews.isFresh) void loadNews();
     const timer = window.setInterval(() => { void loadNews(); }, PROPERTY_NEWS_REFRESH_MS);
-    return () => { active = false; window.clearInterval(timer); };
+    reloadNews.current = () => loadNews(true);
+    return () => { active = false; window.clearInterval(timer); reloadNews.current = null; };
     // Once per account.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, client, userId]);
+
+  // Refresh shows the spinner for at least a moment, then the list again.
+  const refreshNews = useCallback(() => {
+    const reload = reloadNews.current;
+    if (!reload || newsRefreshing) return;
+    setNewsRefreshing(true);
+    const minimum = new Promise((resolve) => { window.setTimeout(resolve, 450); });
+    void Promise.all([reload(), minimum]).finally(() => setNewsRefreshing(false));
+  }, [newsRefreshing]);
 
   // Owner menu results: the card and its glance tile follow.
   const onStatus = useCallback((id: string, nextStatus: string) => {
@@ -516,10 +533,10 @@ export default function HostHomePage() {
   };
 
   const showMobileUpdates = mode !== 'mine' && mode !== 'saved' && category === 'all' && !searchTerm.trim() && mobile;
-  const showRail = Boolean(ready);
 
   let feed: React.ReactNode;
-  if (!ready) feed = null;
+  // Until the account is known only the feed waits; the shell, tabs and rail are already drawn.
+  if (!ready) feed = <><SkeletonCard /><SkeletonCard /></>;
   else if (mode === 'saved' && savedListings === null) feed = <><SkeletonCard /><SkeletonCard /><SkeletonCard /></>;
   else if (mode === 'saved' && savedListings && savedListings.length === 0) feed = <p className="state-msg">Nothing saved yet — tap the bookmark icon on a listing to save it here.</p>;
   else if (mode !== 'saved' && feedState.status === 'loading') {
@@ -609,8 +626,7 @@ export default function HostHomePage() {
           <div className="col-divider" aria-hidden="true" />
 
           <div className="dash-body">
-            <div className={`dash-main${ready ? '' : ' is-loading'}`} ref={dashMain}>
-              {!ready && <PageSkeleton layout={skeletonLayout} />}
+            <div className="dash-main" ref={dashMain}>
               <div className="dash-header">
                 <div className="tabs" id="tabs">
                   {CATEGORY_TABS.map((tab) => (
@@ -622,16 +638,14 @@ export default function HostHomePage() {
                 <div id="feed-list" className="discover-media-feed" ref={feedList}>{feed}</div>
                 <div className="property-news-mobile-slot">
                   <section className="property-news-card" id="property-news-mobile-card" aria-labelledby="property-news-mobile-title">
-                    <div className="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2></div>
-                    <PropertyNewsList news={news} idSuffix="-mobile" />
+                    <div className="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={refreshNews} busy={newsRefreshing} /></div>
+                    <PropertyNewsList news={newsRefreshing ? null : news} idSuffix="-mobile" />
                     <Link className="property-news-view-all" href="/property-news">View all news →</Link>
                   </section>
                 </div>
               </div>
             </div>
-            {showRail && (
-              <HostRail listings={glance} photoUrl={photoUrl} news={news} updates={updates} notify={notify} onStatus={onStatus} onDeleted={onDeleted} onViewAll={showMyListings} />
-            )}
+            <HostRail listings={glance} photoUrl={photoUrl} news={newsRefreshing ? null : news} onRefreshNews={refreshNews} newsRefreshing={newsRefreshing} updates={updates} notify={notify} onStatus={onStatus} onDeleted={onDeleted} onViewAll={showMyListings} />
           </div>
         </div>
       </div>

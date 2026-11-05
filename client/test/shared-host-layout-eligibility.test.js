@@ -10,7 +10,7 @@ test('Chats, Support, and Marketplace retain their page layouts outside HostLayo
   for (const route of ['/chats', '/support', '/marketplace']) {
     assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'none', `${route} remains outside HostLayout`);
   }
-  assert.match(appCode, /getAccountLayout\(path, asPath, role\)/);
+  assert.match(appCode, /getAccountLayout\(path, asPath, shownRole\)/);
 });
 
 test('Home and intended shared routes select the authenticated account layout', () => {

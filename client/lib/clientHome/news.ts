@@ -16,6 +16,8 @@ export interface ClientHomeNewsContext {
   setNews: (items: PropertyNewsItem[]) => void;
   setNewsFailed: (failed: boolean) => void;
   setNewsLoading: (loading: boolean) => void;
+  /** Refresh keeps its spinner up at least this long, so the click visibly does something. */
+  minimumRefreshMs?: number;
 }
 
 function isNewsList(value: unknown): value is PropertyNewsItem[] {
@@ -26,11 +28,15 @@ function isNewsList(value: unknown): value is PropertyNewsItem[] {
 export async function loadClientHomeNews(force: boolean, context: ClientHomeNewsContext): Promise<void> {
   const { accountId } = context;
   const cached = getCachedNewsPreview();
-  if (cached) {
+  if (force) {
+    // Refresh: the spinner replaces the list until the new articles arrive
+    // (a failed refresh brings the articles already shown back).
+    context.setNewsLoading(true);
+  } else if (cached) {
     context.setNews(cached.items);
     context.setNewsFailed(false);
     context.setNewsLoading(false);
-    if (cached.isFresh && !force) return;
+    if (cached.isFresh) return;
   } else {
     context.setNewsLoading(true);
   }
@@ -40,6 +46,9 @@ export async function loadClientHomeNews(force: boolean, context: ClientHomeNews
   const requestVersion = ++context.requestVersion.current;
   const isCurrent = () => requestVersion === context.requestVersion.current && context.currentAccountId() === accountId;
   try {
+    const minimum = force && context.minimumRefreshMs
+      ? new Promise((resolve) => { setTimeout(resolve, context.minimumRefreshMs); })
+      : null;
     const response = await fetch('/api/news/latest?limit=5', {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
@@ -50,6 +59,7 @@ export async function loadClientHomeNews(force: boolean, context: ClientHomeNews
     if (!isNewsList(result)) {
       throw new Error('Property News returned an invalid response.');
     }
+    if (minimum) await minimum;
     if (!isCurrent()) return;
     setCachedNewsPreview(result);
     context.setNews(result);
