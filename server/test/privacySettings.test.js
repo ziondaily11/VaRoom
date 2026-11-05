@@ -54,7 +54,8 @@ test('profile visibility: private profiles for the owner and people with a chat 
 });
 
 test('chat start refuses a new conversation with a host who turned messages off, after reusing an existing one', () => {
-  const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'chatRoutes.js'), 'utf8');
+  // Line endings normalised: Windows checkouts (core.autocrlf) have CRLF.
+  const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'chatRoutes.js'), 'utf8').replace(/\r\n/g, '\n');
   const start = routes.slice(routes.indexOf("router.post('/chat/conversations/start'"), routes.indexOf('// Archive or unarchive'));
   const reuse = start.indexOf('return res.json({ conversationId, created: false });');
   const check = start.indexOf('acceptsNewConversations(supabaseAdmin, listing.host_id)');

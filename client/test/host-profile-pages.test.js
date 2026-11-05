@@ -5,7 +5,8 @@ const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
 
 const root = path.join(__dirname, '..');
-const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
+// Line endings normalised: Windows checkouts (core.autocrlf) have CRLF.
+const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const chat = loadTs(path.join(root, 'lib', 'profile', 'hostChat.ts'));
 
 test('Message opens the visitor’s chat with the host, ready to ask about one of the host’s listings', async () => {
