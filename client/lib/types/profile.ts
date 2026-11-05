@@ -12,6 +12,8 @@ export interface Profile {
   interested_categories: string[] | null;
   looking_timeline: string | null;
   verified: boolean | null;
+  /** A host's niche (exactly one once chosen). Absent on profiles cached before it was read. */
+  listing_categories?: string[] | null;
 }
 
 export function accountRole(profile: Pick<Profile, 'role'> | null | undefined): AccountRole | null {

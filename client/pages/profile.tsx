@@ -9,7 +9,7 @@ import {
   type HostProfileRow, type HostReview, type ListingDraft, type ProfileCategory, type ProfileListing,
 } from '../lib/profile/hostProfile';
 import { deleteCategory, displayName, loadClientBookingsCached, profileShareUrl, type ProfileBooking } from '../lib/profile/profilePage';
-import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
+import { resolveAvatarUrl, PHOTO_WIDTH } from '../components/resolveStoredPhotoUrl';
 import ProfileTopbar from '../components/profile/ProfileTopbar';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import { ClientTrips, EditProfileModal, SharePanel } from '../components/profile/ProfileSections';
@@ -185,7 +185,7 @@ export default function ProfilePage() {
     setSharing(true);
   };
 
-  const avatarUrl = own && own.avatar_url ? resolveAvatarUrl(own.avatar_url, getSupabaseClient()) : null;
+  const avatarUrl = own && own.avatar_url ? resolveAvatarUrl(own.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
   const name = own ? displayName(own.full_name) : 'User';
   const videoDetails = useMemo(() => ({ avatarUrl, hostName: own ? (own.full_name || 'Host') : 'Host', username: own && own.username ? `@${own.username}` : '' }), [avatarUrl, own]);
   const shareUrl = own && typeof window !== 'undefined' ? profileShareUrl(window.location.origin, own.username) : '';

@@ -8,7 +8,7 @@ import { loginUrl } from '../../lib/safeRedirect';
 import { loadHostListings, loadHostProfile, loadHostReviews, peek, type HostProfileRow, type HostReview, type ProfileListing } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import VideoMedia from '../media/VideoMedia';
 import ProfileBanner from './ProfileBanner';
 import ProfileCategoryNav, { type ProfileTab } from './ProfileCategoryNav';
@@ -43,7 +43,7 @@ function Stars({ value, size = 13 }: { value: number; size?: number }) {
 
 function ListingCard({ listing }: { listing: ProfileListing }) {
   const { ref, video } = useNearVideo<HTMLDivElement>(listing.id, null);
-  const photo = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient()) : null;
+  const photo = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
   const image = photo || (video && video.thumbnailUrl) || '';
   return (
     <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111111', border: '1px solid #232323' }}>
@@ -277,7 +277,7 @@ export default function PublicHostProfile() {
   const name = profile.full_name || 'Host';
   const firstName = name.split(' ')[0];
   const handle = profile.username ? `@${profile.username.replace(/^@/, '')}` : '';
-  const photo = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient()) : '';
+  const photo = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : '';
   const memberSince = profile.created_at ? `Member since ${new Date(profile.created_at).getFullYear()}` : '';
   const specializations = Array.isArray(profile.listing_categories) ? Array.from(new Set(profile.listing_categories.map((category) => NICHE_LABELS[category] || category))) : [];
   const reviewCount = reviews.length;

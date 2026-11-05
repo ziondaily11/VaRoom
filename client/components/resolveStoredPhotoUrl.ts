@@ -5,6 +5,17 @@ export type PhotoCategory = 'listing-photos' | 'avatars' | 'update-images' | 'pr
 
 type PublicUrlClient = Pick<SupabaseClient, 'storage'>;
 
+/**
+ * Widths /api/photos can serve as smaller copies (server/lib/photoVariants.js).
+ * Ask for about twice the displayed CSS width: avatars, thumbnails, grid
+ * cards, full-width feed cards. Omit it for full-size views (galleries).
+ */
+export type PhotoWidth = 192 | 480 | 800 | 1200;
+export const PHOTO_WIDTH = { avatar: 192, thumb: 480, card: 800, feed: 1200 } as const;
+
+const withWidth = (url: string | null, width?: PhotoWidth): string | null => (
+  url && width && url.startsWith('/api/photos/') && !url.includes('?') ? `${url}?w=${width}` : url);
+
 const environment = '(?:production|development)';
 const migratedKeyPrefixes: Record<string, RegExp> = {
   'listing-photos': new RegExp(`^listing-photos/${environment}/`),
@@ -14,7 +25,11 @@ const migratedKeyPrefixes: Record<string, RegExp> = {
 };
 
 /** A stored photo's URL: R2 keys go through /api/photos; older keys are Supabase public URLs. */
-export function resolveStoredPhotoUrl(url: string | null | undefined, category: PhotoCategory | null | undefined, supabaseClient?: PublicUrlClient | null): string | null {
+export function resolveStoredPhotoUrl(url: string | null | undefined, category: PhotoCategory | null | undefined, supabaseClient?: PublicUrlClient | null, width?: PhotoWidth): string | null {
+  return withWidth(resolvePhotoUrl(url, category, supabaseClient), width);
+}
+
+function resolvePhotoUrl(url: string | null | undefined, category: PhotoCategory | null | undefined, supabaseClient?: PublicUrlClient | null): string | null {
   if (!url || !category) return null;
 
   let objectKey = url;
@@ -44,6 +59,7 @@ export function resolveStoredPhotoUrl(url: string | null | undefined, category: 
   return url;
 }
 
-export function resolveAvatarUrl(url: string | null | undefined, supabaseClient?: PublicUrlClient | null): string | null {
-  return resolveStoredPhotoUrl(url, 'avatars', supabaseClient);
+/** Avatars are shown small, so they default to the 192 px copy. */
+export function resolveAvatarUrl(url: string | null | undefined, supabaseClient?: PublicUrlClient | null, width: PhotoWidth = PHOTO_WIDTH.avatar): string | null {
+  return resolveStoredPhotoUrl(url, 'avatars', supabaseClient, width);
 }

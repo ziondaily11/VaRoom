@@ -9,7 +9,7 @@ import {
 } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import VideoMedia from '../media/VideoMedia';
 import ProfileBanner from './ProfileBanner';
 import ProfileCategoryNav, { type ProfileTab } from './ProfileCategoryNav';
@@ -79,7 +79,7 @@ function ProfileSkeleton() {
 function ListingCard({ listing, token }: { listing: ProfileListing; token: string | null }) {
   // As before: videos only for signed-in viewers.
   const { ref, video } = useNearVideo<HTMLDivElement>(listing.id, token, Boolean(token));
-  const img = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient()) : null;
+  const img = listing.photo ? resolveStoredPhotoUrl(listing.photo, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
   const price = listing.price_amount ? `KSh ${Number(listing.price_amount).toLocaleString()} / ${listing.price_unit || 'night'}` : 'Price on request';
   return (
     <a

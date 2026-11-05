@@ -15,7 +15,7 @@ import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
-import { resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';
+import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../components/resolveStoredPhotoUrl';
 
 interface LandingPageProps {
   initialListings: Listing[];
@@ -26,7 +26,7 @@ interface LandingPageProps {
 // route; the same resolver serves the pre-rendered and the refreshed cards.
 function toLandingListing(row: LandingListingRow, sb: Parameters<typeof resolveStoredPhotoUrl>[2]): Listing {
   const photo = (row.listing_photos || []).find((item) => item && item.storage_path);
-  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
+  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb, PHOTO_WIDTH.card) : null;
   const details = Array.isArray(row.listing_booking_details) ? row.listing_booking_details[0] : row.listing_booking_details;
   return {
     id: row.id,

@@ -12,17 +12,18 @@ import { getCachedNewsPreview, setCachedNewsPreview, type PropertyNewsItem } fro
 import { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 import {
-  CATEGORY_TABS, feedFetcher, feedKey, fetchHostListings, fetchLatestNews, fetchListingCategories, fetchSavedListings, fetchSuspended, fetchUpdates,
+  CATEGORY_TABS, feedFetcher, feedKey, fetchHostListings, fetchLatestNews, fetchSavedListings, fetchSuspended, fetchUpdates,
   openChat, PROPERTY_NEWS_REFRESH_MS, saveNiche, scrollKey, submitReport, viewFromQuery,
   type FeedListing, type GlanceListing, type NewsItem, type VaroomUpdate,
 } from '../lib/hostHome/hostHome';
 import { MOBILE_QUERY } from '../lib/hostHome/mediaStage';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH, type PhotoWidth } from '../components/resolveStoredPhotoUrl';
 import FeedCard, { type CardVideo, type MediaState } from '../components/hostHome/FeedCard';
 import HostRail, { PropertyNewsList, VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
 import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialogs';
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
+import { profileWithNiche } from '../lib/auth/session';
 
 // Host home (migrated from legacy-pages/host-home.html), inside the persistent
 // host shell: the Discover feed (or Saved, or My Listings, from ?view=), the
@@ -135,7 +136,7 @@ export default function HostHomePage() {
     toastTimer.current = window.setTimeout(() => setToast(''), 2200);
   }, []);
   const likes = useFeedLikes(client, notify);
-  const photoUrl = useCallback((path: string) => resolveStoredPhotoUrl(path, 'listing-photos', client), [client]);
+  const photoUrl = useCallback((path: string, width: PhotoWidth = PHOTO_WIDTH.feed) => resolveStoredPhotoUrl(path, 'listing-photos', client, width), [client]);
   const avatarUrl = useCallback((value: string | null | undefined) => resolveAvatarUrl(value, client), [client]);
 
   // ---------- Who may be here ----------
@@ -437,7 +438,11 @@ export default function HostHomePage() {
     let active = true;
     fetchHostListings(client, userId).then((rows) => { if (active) setGlance(rows); }, () => { if (active) setGlance('error'); });
     void fetchSuspended(token).then((value) => { if (active) setSuspended(value); });
-    fetchListingCategories(client, userId).then((niches) => { if (active) setNicheOpen(niches.length !== 1); }, () => {});
+    profileWithNiche(userId).then((result) => {
+      if (!active || result.error || !result.data) return;
+      const niches = Array.isArray(result.data.listing_categories) ? result.data.listing_categories : [];
+      setNicheOpen(niches.length !== 1);
+    }, () => {});
     const cachedUpdates = readClientHomeWidgetCache<VaroomUpdate[]>('updates');
     if (!cachedUpdates || !cachedUpdates.isFresh) {
       fetchClientHomeWidget<VaroomUpdate[]>('updates', () => fetchUpdates(client)).then((rows) => {

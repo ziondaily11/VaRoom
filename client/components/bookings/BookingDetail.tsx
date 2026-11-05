@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
   detailRows, firstName, formatAmount, initial, isCancellable, stayHasEnded, statusMessage, type Booking,
 } from '../../lib/bookings/format';
@@ -136,7 +136,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
   const listing = booking.listing || {};
   const host = booking.host || {};
   const photo = (listing.listing_photos || []).find((item) => item && item.storage_path);
-  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', client) : null;
+  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', client, PHOTO_WIDTH.thumb) : null;
   const avatarUrl = resolveAvatarUrl(host.avatar_url, client);
   const title = listing.title || 'Listing';
   const hostName = host.full_name || 'VaRoom host';

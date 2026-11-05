@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import { resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
-import { loadListingVideo, type ListingVideo } from '../../lib/media/listingVideo';
+import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
+import { loadPublicListingVideo, type ListingVideo } from '../../lib/media/listingVideo';
 import {
   cardAmenities, cardLocation, categoryLabel, formatPrice, normalizeListingTitle, type MarketplaceListing,
 } from '../../lib/marketplace/marketplace';
@@ -63,7 +63,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
     let cancelled = false;
     const stop = observeNearView(element, () => {
       setVideoPending(true);
-      loadListingVideo(listing.id, token).then((result) => {
+      loadPublicListingVideo(listing.id, token).then((result) => {
         if (cancelled) return;
         setVideo(result && result.videoUrl ? result : null);
         if (!result || !result.videoUrl) setVideoPending(false);
@@ -78,7 +78,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
   const label = categoryLabel(listing.category);
   const href = `/booking?listing=${listing.id}`;
   const photo = (listing.listing_photos || []).find((item) => item && item.storage_path);
-  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', getSupabaseClient()) : null;
+  const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
   const price = formatPrice(listing.listing_booking_details, listing.category);
   const location = cardLocation(listing);
   const amenities = cardAmenities(listing, (key) => Boolean(AMENITY_ICONS[key]));

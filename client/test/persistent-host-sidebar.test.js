@@ -186,11 +186,11 @@ test('R2 avatar keys use the application photo route rather than Supabase Storag
 
   assert.equal(
     resolveAvatarUrl(key, supabaseClient),
-    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg'
+    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg?w=192'
   );
   assert.equal(
     resolveAvatarUrl(`https://project.supabase.co/storage/v1/object/public/avatars/${key}`, supabaseClient),
-    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg'
+    '/api/photos/avatars/photos/production/avatars/user-id/photo-id/original.jpg?w=192'
   );
 });
 
