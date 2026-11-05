@@ -5,7 +5,7 @@ import type { HostProfileRow } from '../../lib/profile/hostProfile';
 import {
   bookingDates, bookingNights, bookingTotal, pastDate, pastStatus, profileEdit, saveProfileEdit, shareLinks, type ProfileBooking, type ProfileEdit,
 } from '../../lib/profile/profilePage';
-import { resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import { ChatIcon, LinkIcon, MailIcon, XIcon } from './ProfileIcons';
 
 // /profile sections: the edit dialog, the share panel, and a client's
@@ -107,7 +107,7 @@ const UPCOMING_FALLBACK = 'https://images.unsplash.com/photo-1494526585095-c4174
 const PAST_FALLBACK = 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80';
 
 function thumb(booking: ProfileBooking, fallback: string): string {
-  const url = booking.photo ? resolveStoredPhotoUrl(booking.photo, 'listing-photos', getSupabaseClient()) : null;
+  const url = booking.photo ? resolveStoredPhotoUrl(booking.photo, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
   return `url("${url || fallback}")`;
 }
 

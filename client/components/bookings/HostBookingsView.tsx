@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import { formatAmount } from '../../lib/bookings/format';
 import {
   fetchHostBookings, fetchListingVideo, fetchTableReservations, formatHostDate, HOST_TAB_STATUS, hostDateText, hostDurationText,
@@ -75,7 +75,7 @@ function ListingVideoElement({ video, className }: { video: ListingVideo; classN
 
 function photoOf(booking: HostBooking): string | null {
   const photos = (booking.listing && booking.listing.listing_photos) || [];
-  return photos.length && photos[0].storage_path ? resolveStoredPhotoUrl(photos[0].storage_path, 'listing-photos', getSupabaseClient()) : null;
+  return photos.length && photos[0].storage_path ? resolveStoredPhotoUrl(photos[0].storage_path, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
 }
 
 interface CardProps {

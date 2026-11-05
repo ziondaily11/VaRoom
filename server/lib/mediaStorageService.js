@@ -26,6 +26,7 @@ const {
   CopyObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { stableSigning, variantKeysFor } = require('./photoVariants');
 const { isR2PhotoObjectKey } = require('./photoStorageKeys');
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
@@ -205,6 +206,18 @@ async function generateR2DownloadAuthorization(objectKey, contentType, expiresIn
 }
 
 /**
+ * A download URL that is identical for every request within the same hour
+ * (see photoVariants.stableSigning), with a Cache-Control the browser keeps
+ * for the image. For public images only: the URL stays valid for 1-2 hours.
+ */
+async function generateStableR2DownloadUrl(objectKey, cacheControl = 'public, max-age=3600', now = Date.now()) {
+  assertConfigured();
+  const { signingDate, expiresIn } = stableSigning(now);
+  const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: objectKey, ResponseCacheControl: cacheControl });
+  return getSignedUrl(s3Client, command, { expiresIn, signingDate });
+}
+
+/**
  * Verify that an object exists in R2 (signed HEAD request).
  * Used during upload completion to confirm the file was actually uploaded.
  */
@@ -274,6 +287,14 @@ async function deleteR2Object(objectKey) {
 
   try {
     await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: objectKey }));
+    // Resized copies of a photo go with it (missing ones are a no-op).
+    const variants = variantKeysFor(objectKey);
+    if (variants.length) {
+      await s3Client.send(new DeleteObjectsCommand({
+        Bucket: R2_BUCKET_NAME,
+        Delete: { Objects: variants.map((Key) => ({ Key })), Quiet: true },
+      }));
+    }
     return { success: true };
   } catch (error) {
     console.error('Error deleting R2 object:', error);
@@ -303,7 +324,9 @@ async function listR2Objects(prefix) {
 
 async function deleteR2Objects(objectKeys) {
   assertConfigured();
-  const keys = [...new Set((objectKeys || []).filter(Boolean))];
+  const originals = (objectKeys || []).filter(Boolean);
+  // Resized copies of photos go with them (missing ones are a no-op).
+  const keys = [...new Set(originals.concat(...originals.map(variantKeysFor)))];
   for (let index = 0; index < keys.length; index += 1000) {
     await s3Client.send(new DeleteObjectsCommand({
       Bucket: R2_BUCKET_NAME,
@@ -401,6 +424,7 @@ module.exports = {
   generateR2UploadAuthorization,
   generateR2PlaybackUrl,
   generateR2DownloadAuthorization,
+  generateStableR2DownloadUrl,
   verifyR2ObjectExists,
   getR2ObjectMetadata,
   downloadR2Object,

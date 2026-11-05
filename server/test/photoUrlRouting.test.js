@@ -116,7 +116,7 @@ test('leaves storage uploads outside photo categories unchanged', async () => {
 test('server-rendered landing listings resolve R2 photos through the media route', () => {
   assert.match(
     landingPageSource,
-    /const photoUrl = photo \? resolveStoredPhotoUrl\(photo\.storage_path, 'listing-photos', sb\) : null;/,
+    /const photoUrl = photo \? resolveStoredPhotoUrl\(photo\.storage_path, 'listing-photos', sb, PHOTO_WIDTH\.card\) : null;/,
   );
   assert.doesNotMatch(
     landingPageSource,

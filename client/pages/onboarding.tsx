@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { accountRole } from '../lib/types/profile';
-import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
+import { resolveAvatarUrl, PHOTO_WIDTH } from '../components/resolveStoredPhotoUrl';
 import {
   destination, hostStepKey, onboardingRedirect, photoAllowsFinish, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, readListingDraft, roleHome,
   saveAvatar, writeListingDraft,
@@ -194,7 +194,7 @@ export default function OnboardingPage() {
   }
 
   const hostExtras = extras as HostExtras;
-  const existingAvatar = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient()) : null;
+  const existingAvatar = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
   const steps: StepInfo[] = [
     { label: 'Your profile', state: step === 1 ? 'current' : 'done' },
     { label: "What you'll list", state: step === 2 ? 'current' : 'next' },

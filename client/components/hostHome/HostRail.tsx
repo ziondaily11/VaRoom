@@ -3,6 +3,7 @@ import Link from 'next/link';
 import HostListingMenu from '../listings/HostListingMenu';
 import { GLANCE_META, glanceSub, glanceTiles, newsDate, newsSource, updatePhotos, type GlanceListing, type NewsItem, type VaroomUpdate } from '../../lib/hostHome/hostHome';
 import { ICONS, Svg } from './hostHomeIcons';
+import { PHOTO_WIDTH, type PhotoWidth } from '../resolveStoredPhotoUrl';
 
 // Host home's right rail (and the blocks the phone feed repeats), markup
 // unchanged from legacy-pages/host-home.html. Each block is null while
@@ -53,7 +54,7 @@ export function VaroomUpdatesContent({ updates, id }: { updates: Loadable<Varoom
 
 interface RailProps {
   listings: Loadable<GlanceListing[]>;
-  photoUrl: (storagePath: string) => string | null;
+  photoUrl: (storagePath: string, width?: PhotoWidth) => string | null;
   news: Loadable<NewsItem[]>;
   updates: Loadable<VaroomUpdate[]>;
   notify: (message: string) => void;
@@ -87,7 +88,7 @@ export default function HostRail({ listings, photoUrl, news, updates, notify, on
                 {tiles.map((listing) => {
                   const meta = GLANCE_META[listing.category || ''] || { icon: 'home' as const };
                   const photo = (listing.listing_photos || [])[0];
-                  const thumb = photo && photo.storage_path ? photoUrl(photo.storage_path) : null;
+                  const thumb = photo && photo.storage_path ? photoUrl(photo.storage_path, PHOTO_WIDTH.thumb) : null;
                   const icon = meta.icon === 'building' ? ICONS.glanceBuilding : meta.icon === 'store' ? ICONS.glanceStore : ICONS.glanceHome;
                   return (
                     <div className="glance-tile" data-listing-card={listing.id} style={{ position: 'relative' }} key={listing.id}>

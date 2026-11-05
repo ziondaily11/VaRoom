@@ -7,6 +7,7 @@ const { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey } = r
 const { ValidationError, assertAllowedKeys, text, number, enumValue, uuid } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
+const { parseVariantWidth, ensureVariant, STABLE_REDIRECT_MAX_AGE } = require('../lib/photoVariants');
 
 const router = express.Router();
 const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images', 'profile-banners']);
@@ -205,12 +206,34 @@ router.post('/photos/upload-discard', async (req, res) => {
   }
 });
 
+// Redirects to an R2 photo. Public photos get a URL that stays the same for
+// an hour, so browsers reuse the redirect and the image (going back to a page
+// costs nothing); `?w=` serves a smaller copy made on first request. Private
+// photos (unpublished listings) keep a fresh five-minute URL that is never
+// cached, and are always the original.
+async function redirectToR2Photo(res, key, isPublic, width) {
+  if (!isPublic) {
+    const download = await mediaStorageService.generateR2DownloadAuthorization(key, undefined, 300);
+    res.set('Cache-Control', 'private, no-store');
+    return res.redirect(302, download.url);
+  }
+  let objectKey = key;
+  if (width) {
+    try { objectKey = await ensureVariant(mediaStorageService, key, width); }
+    catch (error) { console.warn('Photo resize failed; serving the original:', error.message || error); }
+  }
+  const url = await mediaStorageService.generateStableR2DownloadUrl(objectKey);
+  res.set('Cache-Control', `public, max-age=${STABLE_REDIRECT_MAX_AGE}`);
+  return res.redirect(302, url);
+}
+
 // Listing-photo access is tied to the listing record. R2 and legacy Supabase
 // objects are both served through short-lived URLs after the same check.
 router.get('/photos/:category/*', async (req, res) => {
   try {
     const category = req.params.category;
     const key = req.params[0] ? decodeURIComponent(req.params[0]) : '';
+    const width = parseVariantWidth(req.query.w);
     if (!PHOTO_CATEGORIES.has(category)) return res.sendStatus(404);
     if (category === 'listing-photos') {
       const authHeader = req.headers.authorization || '';
@@ -233,9 +256,7 @@ router.get('/photos/:category/*', async (req, res) => {
       const access = decideListingMediaAccess(listing, userId);
       if (!access.allowed) return res.sendStatus(404);
       if (isR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) {
-        const download = await mediaStorageService.generateR2DownloadAuthorization(key, undefined, 300);
-        res.set('Cache-Control', access.published ? 'public, max-age=300' : 'private, no-store');
-        return res.redirect(302, download.url);
+        return redirectToR2Photo(res, key, access.published, width);
       }
       const { data, error } = await supabaseAdmin.storage.from('listing-photos').createSignedUrl(key, 300);
       if (error || !data?.signedUrl) throw error || new Error('Unable to sign legacy listing photo');
@@ -243,9 +264,7 @@ router.get('/photos/:category/*', async (req, res) => {
       return res.redirect(302, data.signedUrl);
     }
     if (!isR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) return res.sendStatus(404);
-    const download = await mediaStorageService.generateR2DownloadAuthorization(key, undefined, 300);
-    res.set('Cache-Control', 'public, max-age=300');
-    return res.redirect(302, download.url);
+    return redirectToR2Photo(res, key, true, width);
   } catch (error) {
     console.error('Photo download authorization failed:', error);
     return res.sendStatus(404);

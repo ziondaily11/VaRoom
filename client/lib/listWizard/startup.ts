@@ -78,6 +78,8 @@ export interface StartupDeps {
   onChecking: (text: string) => void;
   /** Replaces the URL without a navigation (the verified payment state). */
   replaceUrl: (url: string) => void;
+  /** The host's role and niche; the page reads the shared profile cache. Defaults to a direct query. */
+  readProfile?: (hostId: string) => Promise<{ data: { role?: string | null; listing_categories?: unknown } | null; error: unknown }>;
 }
 
 const LEGACY_UPGRADE_DRAFT_KEY = 'varoom_listing_draft_after_upgrade';
@@ -97,8 +99,12 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
   const { data: { session: auth } } = await client.auth.getSession();
   if (!auth) return { status: 'signed-out' };
   const accessToken = auth.access_token;
-  const { data: profile, error: profileError } = await client.from('profiles').select('role, listing_categories').eq('id', hostId).single();
-  const row = profile as { role?: string; listing_categories?: unknown } | null;
+  const readProfile = deps.readProfile || (async (id: string) => {
+    const { data, error } = await client.from('profiles').select('role, listing_categories').eq('id', id).single();
+    return { data: data as { role?: string | null; listing_categories?: unknown } | null, error };
+  });
+  const { data: profile, error: profileError } = await readProfile(hostId);
+  const row = profile;
   if (profileError || !row || row.role !== 'host') return { status: 'stopped', text: 'Only host accounts can list a space. Redirecting...', redirect: { to: '/', delayMs: 1500 } };
 
   let niche: Category;

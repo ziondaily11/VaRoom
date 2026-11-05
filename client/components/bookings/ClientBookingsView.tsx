@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
+import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
   calendarMonth, clientTab, computeStats, describeDates, endMoment, formatAmount, initial, isCancellable, perUnit, statusLabel,
   type Booking, type ClientTab,
@@ -62,7 +62,7 @@ function BookingCard({ booking, tab, reviewed, now, onCancel, onReview, onMessag
   const listing = booking.listing || {};
   const host = booking.host || {};
   const photo = (listing.listing_photos || [])[0];
-  const photoUrl = photo && photo.storage_path ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', client) : null;
+  const photoUrl = photo && photo.storage_path ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', client, PHOTO_WIDTH.thumb) : null;
   const avatarUrl = resolveAvatarUrl(host.avatar_url, client);
   const canReview = tab === 'past' && endMoment(booking) < now;
   return (

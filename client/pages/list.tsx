@@ -45,6 +45,7 @@ import type { LeaveStage } from '../components/listWizard/LeaveDialog';
 import { AmenitiesField, AmenitiesLibrary } from '../components/listWizard/AmenitiesLibrary';
 import { OfficeShopDetails, OfficeShopLocation, OfficeShopMedia, OfficeShopPricing, OfficeShopReview } from '../components/listWizard/OfficeShopFields';
 import type { ExistingListingDocument } from '../components/listWizard/OfficeShopFields';
+import { profileWithNiche } from '../lib/auth/session';
 
 // List a space (migrated from legacy-pages/list.html; also served at
 // /properties): the five-step listing wizard for creating or editing
@@ -352,6 +353,7 @@ export default function ListPage() {
     if (params.reference && (['return', 'verified'].includes(params.payment || '') || ['return', 'verified'].includes(params.subscription || ''))) setCheckingText('Confirming your payment...');
     void startWizard({
       client, session, draftCache, hostId: userId, params,
+      readProfile: profileWithNiche,
       onChecking: setCheckingText,
       replaceUrl: (url) => { void router.replace(url, undefined, { shallow: true, scroll: false }); },
     }).then((outcome) => {

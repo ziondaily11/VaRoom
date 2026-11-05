@@ -97,17 +97,18 @@ function getSessionStorageSafe(): Storage | null {
   }
 }
 
-function photoUrl(bucket: string, path: string) {
-  return `/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`;
+// Sizes served by /api/photos?w= (see components/resolveStoredPhotoUrl.ts).
+function photoUrl(bucket: string, path: string, width: number) {
+  return `/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}?w=${width}`;
 }
 
-function listingPhoto(path?: string) {
-  return path ? photoUrl('listing-photos', path) : '';
+function listingPhoto(path?: string, width = 1200) {
+  return path ? photoUrl('listing-photos', path, width) : '';
 }
 
 function avatarPhoto(path?: string | null) {
   if (!path) return '';
-  return /^https?:\/\//i.test(path) ? path : photoUrl('avatars', path);
+  return /^https?:\/\//i.test(path) ? path : photoUrl('avatars', path, 192);
 }
 
 function safeCssUrl(value: string) {
@@ -742,7 +743,7 @@ function MobileFeedWidgets({
             <div className={styles.recommendedGrid}>
               {recommended.slice(0, 6).map((item) => (
                 <a className={styles.recommendedCard} href={`/booking?listing=${encodeURIComponent(item.id)}`} key={item.id}>
-                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path)} alt="" loading="lazy" />}
+                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path, 480)} alt="" loading="lazy" />}
                   <span><strong>{item.title || 'Listing'}</strong><small>{item.location_text || ''}</small></span>
                 </a>
               ))}
