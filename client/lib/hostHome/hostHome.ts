@@ -168,8 +168,9 @@ export interface NewsItem { id: string | number; title?: string | null; publishe
 
 export const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000;
 
-export async function fetchLatestNews(fetchFn: typeof fetch = fetch): Promise<NewsItem[]> {
-  const response = await fetchFn('/api/news/latest?limit=5', { headers: { Accept: 'application/json' } });
+/** `force` (the Refresh link) skips the browser's HTTP cache. */
+export async function fetchLatestNews(fetchFn: typeof fetch = fetch, force = false): Promise<NewsItem[]> {
+  const response = await fetchFn('/api/news/latest?limit=5', { headers: { Accept: 'application/json' }, ...(force ? { cache: 'no-store' as RequestCache } : {}) });
   if (!response.ok) throw new Error(`Property news request failed (${response.status})`);
   const result = await response.json();
   if (!Array.isArray(result)) throw new Error('Property News returned an invalid response.');

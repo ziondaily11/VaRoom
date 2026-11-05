@@ -51,8 +51,16 @@ export function sizeStage(stage: HTMLElement, isMobile: boolean): void {
     const source = item.closest('.media-slide') || stage;
     const metaWidth = Number(source.getAttribute('data-media-width'));
     const metaHeight = Number(source.getAttribute('data-media-height'));
-    const width = Number.isFinite(metaWidth) && metaWidth > 0 ? metaWidth : ((item as HTMLVideoElement).videoWidth || (item as HTMLImageElement).naturalWidth);
-    const height = Number.isFinite(metaHeight) && metaHeight > 0 ? metaHeight : ((item as HTMLVideoElement).videoHeight || (item as HTMLImageElement).naturalHeight);
+    // A loaded video's own size wins over the stored one: stored sizes can be
+    // the unrotated encoding (a portrait phone video saved as 1920×1080),
+    // which framed the video in the wrong shape and stretched it.
+    const natural = isVideo
+      ? { width: (item as HTMLVideoElement).videoWidth, height: (item as HTMLVideoElement).videoHeight }
+      : { width: (item as HTMLImageElement).naturalWidth, height: (item as HTMLImageElement).naturalHeight };
+    const hasNatural = isVideo && natural.width > 0 && natural.height > 0;
+    const hasMeta = Number.isFinite(metaWidth) && metaWidth > 0 && Number.isFinite(metaHeight) && metaHeight > 0;
+    const width = hasNatural ? natural.width : hasMeta ? metaWidth : natural.width;
+    const height = hasNatural ? natural.height : hasMeta ? metaHeight : natural.height;
     return fitFrame(width, height, availableWidth, maxHeight, fallback);
   });
   if (!frames.length) frames.push(fallback);

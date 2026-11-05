@@ -24,6 +24,9 @@ test('native Client Home keeps widget containers mounted and settles their loadi
   assert.match(rail, /id=\{`property-news\$\{idSuffix\}-list`\} aria-live="polite" data-loading=\{news === null \? 'true' : 'false'\}/);
   assert.match(rail, /className="home-widget-content" data-loading=\{updates === null \? 'true' : 'false'\}/);
   assert.match(rail, /className="home-widget-loader" role="status" aria-label=\{label\}/);
-  assert.match(hostPage, /setSkeletonLayout\(isMobileNow\(\) \? 'mobile' : 'desktop'\)/);
-  assert.match(hostPage, /data-skeleton-layout=\{layout\}/);
+  // Host Home draws its tabs and rail at once; only the feed shows skeleton cards while the account loads.
+  assert.doesNotMatch(hostPage, /PageSkeleton|host-home-skeleton|is-loading/);
+  assert.match(hostPage, /if \(!ready\) feed = <><SkeletonCard \/><SkeletonCard \/><\/>;/);
+  assert.match(hostPage, /<HostRail listings=\{glance\}/);
+  assert.doesNotMatch(hostPage, /showRail/);
 });

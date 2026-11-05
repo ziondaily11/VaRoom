@@ -101,3 +101,55 @@ test('page: native in the host shell; identity from AuthProvider; legacy page an
 test('owner menu: a delete whose media cleanup failed still removes the listing', () => {
   assert.match(read('components', 'listings', 'HostListingMenu.tsx'), /error\.code === 'LISTING_DELETED_MEDIA_CLEANUP_FAILED'\) \{\s*publishListingDeleted\(listing\.id\);\s*onDeleted\?\.\(listing\.id\);/);
 });
+
+test('a video is framed by its own size once loaded, not a stored size of another shape', () => {
+  const sized = loadTs(path.join(root, 'lib', 'hostHome', 'mediaStage.ts'), {
+    globals: { getComputedStyle: () => ({ getPropertyValue: () => '0' }), HTMLElement: class {} },
+  });
+  const props = {};
+  const video = { videoWidth: 0, videoHeight: 0, poster: '', getAttribute: () => null, closest: () => null, style: {} };
+  const stage = {
+    parentElement: { clientWidth: 600 },
+    matches: (selector) => selector === '.card-video',
+    querySelector: () => video,
+    querySelectorAll: () => [],
+    // Stored as landscape (the unrotated encoding).
+    getAttribute: (name) => ({ 'data-media-width': '1920', 'data-media-height': '1080' }[name] || null),
+    style: { setProperty: (name, value) => { props[name] = value; } },
+  };
+  video.closest = () => null;
+  sized.sizeStage(stage, false);
+  assert.equal(props['--discover-media-height'], '338px', 'before loading, the stored size is used');
+  video.videoWidth = 1080;
+  video.videoHeight = 1920;
+  sized.sizeStage(stage, false);
+  assert.equal(props['--discover-media-height'], '460px', 'the real portrait video is capped at 460px tall');
+  assert.equal(video.style.width, '259px', 'and keeps its own proportions');
+  assert.equal(video.style.height, 'auto');
+  const styles = fs.readFileSync(path.join(root, 'components', 'hostHome', 'hostHomeStyles.ts'), 'utf8');
+  assert.doesNotMatch(styles, /card-video[^}]*object-fit:initial/, 'feed videos are never drawn stretched');
+});
+
+test('home shell: a home route draws its shell while the role loads', () => {
+  const layout = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts'));
+  assert.equal(layout.homeShellHint('/host-home'), 'host');
+  assert.equal(layout.homeShellHint('/client-home'), 'client');
+  for (const route of ['/bookings', '/profile', '/analytics', '/', '/chats']) assert.equal(layout.homeShellHint(route), null, route);
+});
+
+test('Property News Refresh: a link in both rail and phone cards that shows the spinner while it reloads', () => {
+  const page = fs.readFileSync(path.join(root, 'pages', 'host-home.tsx'), 'utf8');
+  const rail = fs.readFileSync(path.join(root, 'components', 'hostHome', 'HostRail.tsx'), 'utf8');
+  assert.match(rail, /className="property-news-refresh"/);
+  assert.match(rail, /<NewsRefreshButton onRefresh=\{onRefreshNews\} busy=\{newsRefreshing\} \/>/);
+  assert.match(page, /<NewsRefreshButton onRefresh=\{refreshNews\} busy=\{newsRefreshing\} \/>/);
+  assert.match(page, /news=\{newsRefreshing \? null : news\}/, 'the list shows its loader while refreshing');
+  assert.match(page, /reloadNews\.current = \(\) => loadNews\(true\);/);
+});
+
+test('scroll position: saved from the last position seen, since the scroll area is detached on unmount', () => {
+  const page = fs.readFileSync(path.join(root, 'pages', 'host-home.tsx'), 'utf8');
+  assert.match(page, /if \(area && area\.isConnected\) position\.current = /);
+  assert.match(page, /JSON\.stringify\(readPosition\(\)\)/);
+  assert.match(page, /if \(!settled && \+\+frames < 40\) restoring\.current = requestAnimationFrame\(restore\);/);
+});

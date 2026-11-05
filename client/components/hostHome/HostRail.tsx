@@ -33,6 +33,12 @@ export function PropertyNewsList({ news, idSuffix = '' }: { news: Loadable<NewsI
   );
 }
 
+/** Property News' Refresh link (as on Client Home); the list shows its spinner while it reloads. */
+export function NewsRefreshButton({ onRefresh, busy }: { onRefresh?: () => void; busy?: boolean }) {
+  if (!onRefresh) return null;
+  return <button type="button" className="property-news-refresh" onClick={onRefresh} disabled={busy} aria-busy={busy || undefined}>Refresh</button>;
+}
+
 export function VaroomUpdatesContent({ updates, id }: { updates: Loadable<VaroomUpdate[]>; id: string }) {
   return (
     <div id={id} className="home-widget-content" data-loading={updates === null ? 'true' : 'false'}>
@@ -56,6 +62,8 @@ interface RailProps {
   listings: Loadable<GlanceListing[]>;
   photoUrl: (storagePath: string, width?: PhotoWidth) => string | null;
   news: Loadable<NewsItem[]>;
+  onRefreshNews?: () => void;
+  newsRefreshing?: boolean;
   updates: Loadable<VaroomUpdate[]>;
   notify: (message: string) => void;
   onStatus: (id: string, status: string) => void;
@@ -63,7 +71,7 @@ interface RailProps {
   onViewAll: () => void;
 }
 
-export default function HostRail({ listings, photoUrl, news, updates, notify, onStatus, onDeleted, onViewAll }: RailProps) {
+export default function HostRail({ listings, photoUrl, news, onRefreshNews, newsRefreshing, updates, notify, onStatus, onDeleted, onViewAll }: RailProps) {
   const none = Array.isArray(listings) && listings.length === 0;
   const { tiles, showAdd } = Array.isArray(listings) ? glanceTiles(listings) : { tiles: [], showAdd: false };
   return (
@@ -108,7 +116,7 @@ export default function HostRail({ listings, photoUrl, news, updates, notify, on
       </div>
 
       <section className="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title">
-        <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
+        <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={onRefreshNews} busy={newsRefreshing} /></div>
         <PropertyNewsList news={news} />
         <Link className="property-news-view-all" href="/property-news">View all news →</Link>
       </section>

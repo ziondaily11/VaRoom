@@ -1737,3 +1737,56 @@
     animation: none;
   }
 }
+
+/* Listings are separated by hairline dividers above and below that run the
+   full width of the feed column (through the feed's side padding). */
+.feedArea {
+  --feed-gutter: 1rem;
+}
+
+.card,
+.skeletonCard {
+  margin-right: calc(-1 * var(--feed-gutter));
+  margin-left: calc(-1 * var(--feed-gutter));
+  padding-right: var(--feed-gutter);
+  padding-left: var(--feed-gutter);
+}
+
+.skeletonCard {
+  padding-top: 0.7rem;
+}
+
+.firstCard,
+[aria-label="Loading listings"] > div:first-child > .skeletonCard {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line, #d4d8da);
+}
+
+@media (max-width: 860px) {
+  .feedArea {
+    --feed-gutter: 0.7rem;
+  }
+
+  .firstCard,
+  [aria-label="Loading listings"] > div:first-child > .skeletonCard {
+    padding-top: 0.8rem;
+  }
+}
+
+/* Dark mode: secondary text and captions were too faint on black (same sizes). */
+:global(html[data-theme="dark"]) .home {
+  --muted: #9aa1a8;
+}
+
+:global(html[data-theme="dark"]) .caption {
+  color: var(--ink, #e7e9ea);
+}
+
+/* The social icons keep Host Home's colour, so both rails match. */
+:global(html[data-theme="dark"]) .socialLinks a {
+  color: #71767b;
+}
+
+:global(html[data-theme="dark"]) .socialLinks a:hover {
+  color: var(--ink, #e7e9ea);
+}
