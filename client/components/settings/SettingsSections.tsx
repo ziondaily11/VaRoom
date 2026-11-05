@@ -5,7 +5,7 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import { applyTheme } from '../../lib/theme';
 import { switchAccount, useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
 import {
-  applyFontSize, canDelete, DELETE_REASONS, FONT_SIZE_KEY, FONT_SIZES, fontSizeIndex, NOTIFICATION_ROWS, savedTheme, savePreferences,
+  applyFontSize, canDelete, DEFAULT_FONT_INDEX, DELETE_REASONS, FONT_SIZE_KEY, FONT_SIZES, fontSizeIndex, NOTIFICATION_ROWS, savedTheme, savePreferences,
   THEME_KEY, type NotificationKey, type Preferences, type ThemeChoice,
 } from '../../lib/settings/settings';
 import { CAT_ICONS, ChevronRight, DetailHead, INFO_ICONS, SearchIcon, THEME_ICONS } from './SettingsIcons';
@@ -133,7 +133,7 @@ export function NotificationsSection({ userId, prefs, onBack, notify }: { userId
 export function DisplaySection({ userId, onBack }: { userId: string; onBack: () => void }) {
   const router = useRouter();
   const [theme, setTheme] = useState<ThemeChoice>('system');
-  const [fontIndex, setFontIndex] = useState(1);
+  const [fontIndex, setFontIndex] = useState(DEFAULT_FONT_INDEX);
   const frame = useRef<number | null>(null);
 
   useEffect(() => {
@@ -162,7 +162,8 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
     setFontIndex(index);
     try { window.localStorage.setItem(FONT_SIZE_KEY, size.key); } catch { /* This visit only. */ }
   };
-  const label = (FONT_SIZES[fontIndex] || FONT_SIZES[1]).label;
+  const label = (FONT_SIZES[fontIndex] || FONT_SIZES[DEFAULT_FONT_INDEX]).label;
+  const lastStop = FONT_SIZES.length - 1;
 
   return (
     <div id="view-display">
@@ -178,31 +179,49 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
           ))}
         </div>
         <div className="font-size-setting">
+          {/* How text reads at this size (resizes as the slider moves). */}
+          <div className="font-preview" aria-hidden="true">
+            <span className="font-preview-avatar"><span className="va">Va</span></span>
+            <div className="font-preview-body">
+              <div className="font-preview-head"><strong>VaRoom</strong><span>@varoom · now</span></div>
+              <p>VaRoom is home to every space you&apos;re looking for — a weekend stay, a home to rent, an office, a shop or a venue for your big day — with hosts who make it yours.</p>
+            </div>
+          </div>
           <div className="font-size-setting-head">
             <span className="font-size-setting-label">Font size</span>
             <span className="font-size-setting-value">{label}</span>
           </div>
           <div className="font-size-slider-row">
-            <span className="font-size-mark small" aria-hidden="true">A</span>
-            <input
-              id="font-size-slider"
-              type="range"
-              min={0}
-              max={3}
-              step={1}
-              value={fontIndex}
-              aria-label="Dashboard font size"
-              aria-valuemin={0}
-              aria-valuemax={3}
-              aria-valuenow={fontIndex}
-              aria-valuetext={label}
-              onChange={(event) => previewFont(Number(event.target.value))}
-              onPointerUp={(event) => saveFont(Number((event.target as HTMLInputElement).value))}
-              onKeyUp={(event) => saveFont(Number((event.target as HTMLInputElement).value))}
-            />
-            <span className="font-size-mark large" aria-hidden="true">A</span>
+            <span className="font-size-mark small" aria-hidden="true">Aa</span>
+            <div className="font-size-rail" style={{ '--fs-progress': `${(fontIndex / lastStop) * 100}%` } as React.CSSProperties}>
+              <span className="font-size-line" aria-hidden="true" />
+              <span className="font-size-fill" aria-hidden="true" />
+              {FONT_SIZES.map((size, index) => (
+                <span
+                  key={size.key}
+                  aria-hidden="true"
+                  className={`font-size-stop${index <= fontIndex ? ' reached' : ''}${index === fontIndex ? ' current' : ''}`}
+                  style={{ left: `${(index / lastStop) * 100}%` }}
+                />
+              ))}
+              <input
+                id="font-size-slider"
+                className="font-size-range"
+                type="range"
+                min={0}
+                max={lastStop}
+                step={1}
+                value={fontIndex}
+                aria-label="Font size across VaRoom"
+                aria-valuetext={label}
+                onChange={(event) => previewFont(Number(event.target.value))}
+                onPointerUp={(event) => saveFont(Number((event.target as HTMLInputElement).value))}
+                onKeyUp={(event) => saveFont(Number((event.target as HTMLInputElement).value))}
+              />
+            </div>
+            <span className="font-size-mark large" aria-hidden="true">Aa</span>
           </div>
-          <div className="font-size-steps" aria-hidden="true"><span>Small</span><span>Default</span><span>Large</span><span>Extra large</span></div>
+          <p className="font-size-note">Applies on every VaRoom page on this device.</p>
         </div>
       </div>
     </div>

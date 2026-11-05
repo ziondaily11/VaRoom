@@ -387,10 +387,16 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
-      var choice = localStorage.getItem('varoom_font_size') || 'default';
-      document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
-      document.documentElement.setAttribute('data-font-size', scales[choice] ? choice : 'default');
+      var scales = { xsmall: '0.85', small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
+      var apply = function (choice) {
+        document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
+        document.documentElement.setAttribute('data-font-size', scales[choice] ? choice : 'default');
+      };
+      apply(localStorage.getItem('varoom_font_size') || 'default');
+      // Changed in another tab: every open VaRoom tab follows.
+      window.addEventListener('storage', function (event) {
+        if (event.key === 'varoom_font_size') apply(event.newValue || 'default');
+      });
     } catch (error) {
       document.documentElement.style.setProperty('--varoom-font-scale', '1');
       document.documentElement.setAttribute('data-font-size', 'default');

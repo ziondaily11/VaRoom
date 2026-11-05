@@ -253,16 +253,45 @@ export const SETTINGS_STYLES = `
     padding:.7rem 1.1rem; font-size:.86rem; font-weight:600; color:var(--ink);
   }
   .settings-page .appearance-pill.active{ border-color:var(--ink); background:var(--line); }
+  .settings-page .username-field{ position:relative; }
+  .settings-page .username-field input{ padding-right:2.6rem; }
+  .settings-page .username-status{ position:absolute; right:.8rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; font-weight:700; font-size:.95rem; }
+  .settings-page .username-status.available, .settings-page .username-availability.available{ color:#1a7f37; }
+  .settings-page .username-status.taken, .settings-page .username-availability.taken, .settings-page .username-availability.invalid{ color:var(--red-deep); }
+  html[data-theme="dark"] .settings-page .username-status.available, html[data-theme="dark"] .settings-page .username-availability.available{ color:#3fb950; }
+  .settings-page .username-availability{ min-height:1.1rem; margin:.4rem 0 0; font-size:.8rem; color:var(--muted); }
+  .settings-page .settings-spinner{ width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:settings-spin .7s linear infinite; }
+  @keyframes settings-spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .settings-page .settings-spinner{ animation-duration:2s; } }
   .settings-page .font-size-setting{ margin-top:1.4rem; }
-  .settings-page .font-size-setting-head{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:.7rem; }
-  .settings-page .font-size-setting-label{ font-size:.92rem; font-weight:600; }
+  .settings-page .font-preview{ display:flex; gap:.75rem; padding:1rem 1.1rem; margin-bottom:1.3rem; border:1px solid var(--line); border-radius:14px; background:var(--white); }
+  .settings-page .font-preview-avatar{ flex:0 0 auto; width:2.6rem; height:2.6rem; border-radius:50%; display:grid; place-items:center; background:var(--ink); font-family:var(--font-display); font-weight:900; font-size:1rem; }
+  .settings-page .font-preview-avatar .va{ color:var(--red); }
+  .settings-page .font-preview-body{ min-width:0; }
+  .settings-page .font-preview-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:.35rem; font-size:.95rem; }
+  .settings-page .font-preview-head strong{ color:var(--ink); }
+  .settings-page .font-preview-head span{ color:var(--muted); font-size:.9rem; }
+  .settings-page .font-preview p{ margin:.2rem 0 0; color:var(--ink); font-size:1rem; line-height:1.45; }
+  .settings-page .font-size-setting-head{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:.9rem; }
+  .settings-page .font-size-setting-label{ font-size:1.15rem; font-weight:700; }
   .settings-page .font-size-setting-value{ font-size:.8rem; color:var(--muted); }
-  .settings-page .font-size-slider-row{ display:flex; align-items:center; gap:.8rem; }
-  .settings-page .font-size-mark{ font-family:var(--font-display); font-weight:700; line-height:1; color:var(--muted); }
-  .settings-page .font-size-mark.small{ font-size:1rem; }
-  .settings-page .font-size-mark.large{ font-size:1.45rem; }
-  .settings-page #font-size-slider{ flex:1; min-width:0; accent-color:var(--red); cursor:pointer; }
-  .settings-page .font-size-steps{ display:flex; justify-content:space-between; margin:.45rem 1.65rem 0; color:var(--muted); font-size:.7rem; }
+  .settings-page .font-size-slider-row{ display:flex; align-items:center; gap:1rem; }
+  .settings-page .font-size-mark{ flex:0 0 auto; font-weight:500; line-height:1; color:var(--ink); }
+  .settings-page .font-size-mark.small{ font-size:.8rem; }
+  .settings-page .font-size-mark.large{ font-size:1.4rem; }
+  .settings-page .font-size-rail{ position:relative; flex:1; min-width:0; height:28px; margin:0 11px; }
+  .settings-page .font-size-line, .settings-page .font-size-fill{ position:absolute; left:0; top:50%; height:4px; margin-top:-2px; border-radius:2px; pointer-events:none; }
+  .settings-page .font-size-line{ right:0; background:var(--line); }
+  .settings-page .font-size-fill{ width:var(--fs-progress); background:var(--red); transition:width .15s ease; }
+  .settings-page .font-size-stop{ position:absolute; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:var(--line); pointer-events:none; transition:transform .15s ease, background .15s ease; }
+  .settings-page .font-size-stop.reached{ background:var(--red); }
+  .settings-page .font-size-stop.current{ transform:scale(1.55); }
+  .settings-page .font-size-rail:focus-within .font-size-stop.current{ box-shadow:0 0 0 4px rgba(196,30,58,.22); }
+  .settings-page .font-size-range{ position:absolute; top:0; left:-11px; width:calc(100% + 22px); height:100%; margin:0; opacity:0; cursor:pointer; -webkit-appearance:none; appearance:none; }
+  .settings-page .font-size-range::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:28px; }
+  .settings-page .font-size-range::-moz-range-thumb{ width:22px; height:28px; border:0; }
+  .settings-page .font-size-note{ margin:.7rem 0 0; color:var(--muted); font-size:.78rem; }
+  html[data-theme="dark"] .settings-page .font-preview{ background:transparent; }
   .settings-page .note-box{
     background:var(--paper); border:1px solid var(--line);
     border-radius:12px; padding:.9rem 1.1rem; font-size:.8rem; color:var(--muted); line-height:1.5;
