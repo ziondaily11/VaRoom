@@ -35,7 +35,7 @@ const TOAST_STYLES = `
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { status, user, session, profile } = useAuth();
+  const { status, user, session, profile, refreshProfile } = useAuth();
   const role = accountRole(profile);
   const userId = user?.id || null;
   const token = session?.access_token || null;
@@ -208,6 +208,12 @@ export default function SettingsPage() {
     await leave('/?auth=login&deactivated=1');
   };
 
+  // A detail changed in Your Account: the phone lives in prefs; name and username in the app's profile.
+  const detailSaved = useCallback((key: 'full_name' | 'username' | 'phone', value: string) => {
+    if (key === 'phone') setPrefs((current) => (current ? { ...current, phone: value } : current));
+    else void refreshProfile();
+  }, [refreshProfile]);
+
   const ready = Boolean(profile && userId && prefs);
   const homeHref = role === 'host' ? '/host-home' : '/client-home';
   const pageClass = `${ready ? '' : 'is-loading '}${ready && view !== 'list' ? 'has-selection ' : ''}${mobileDetail ? 'mobile-detail' : ''}`.trim();
@@ -232,6 +238,7 @@ export default function SettingsPage() {
           onBack={back}
           onDelete={() => setDeleting(true)}
           onDeactivate={confirmDeactivate}
+          onDetailSaved={detailSaved}
         />
       );
     } else if (view === 'plans' && role === 'host') {

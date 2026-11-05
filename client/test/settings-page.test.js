@@ -86,6 +86,27 @@ test('your account: locked only on risk; a verification lasts for the session; p
   assert.match(page, /\}, \[sessionId, unlock\]\);/, 'asked once per session, not on every token refresh');
   assert.match(page, /window\.setTimeout\(\(\) => setLock\('locked'\), Math\.max\(0, unlockedUntil - Date\.now\(\)\)\)/);
 
+  // Account Information is edited here (no redirect to /profile).
+  assert.doesNotMatch(section, /href="\/profile"|Edit information/);
+  for (const field of ['field="username"', 'field="full_name"', 'field="phone"']) assert.ok(section.includes(field), field);
+  const ad = loadTs(path.join(root, 'lib', 'settings', 'accountDetails.ts'));
+  assert.deepEqual({ ...ad.accountDetailUpdate('full_name', '  Palm   View Stays ') }, { value: 'Palm View Stays', error: null });
+  assert.equal(ad.accountDetailUpdate('full_name', 'A').error, ad.DETAIL_MESSAGES.nameRequired);
+  assert.deepEqual({ ...ad.accountDetailUpdate('username', '@PalmView_1') }, { value: 'palmview_1', error: null });
+  assert.equal(ad.accountDetailUpdate('username', 'palm.view').error, ad.DETAIL_MESSAGES.usernameFormat, 'as the database allows (no dots)');
+  assert.equal(ad.accountDetailUpdate('username', 'ab').error, ad.DETAIL_MESSAGES.usernameFormat);
+  assert.deepEqual({ ...ad.accountDetailUpdate('phone', '0712 345 678') }, { value: '+254712345678', error: null });
+  assert.equal(ad.accountDetailUpdate('phone', '12').error, ad.DETAIL_MESSAGES.phone);
+  assert.equal(ad.accountDetailError({ message: 'step_up_required: verify your identity to change your account details' }), ad.DETAIL_MESSAGES.stepUp);
+  assert.equal(ad.accountDetailError({ code: '23505', message: 'duplicate key value violates unique constraint "profiles_username_lower_unique_idx"' }), ad.DETAIL_MESSAGES.usernameTaken);
+  assert.equal(ad.accountDetailError({ code: '23514', message: 'violates check constraint "username_format"' }), ad.DETAIL_MESSAGES.usernameFormat);
+  assert.equal(ad.accountDetailError(null), null);
+  let update;
+  const client = { from: (table) => ({ update: (patch) => ({ eq: async (column, id) => { update = { table, patch, column, id }; return { error: null }; } }) }) };
+  assert.equal(await ad.saveAccountDetail(client, 'U1', 'username', 'palmview_1'), null);
+  assert.deepEqual(update, { table: 'profiles', patch: { username: 'palmview_1' }, column: 'id', id: 'U1' });
+  assert.match(page, /if \(key === 'phone'\) setPrefs/, 'the phone shown updates; name and username refresh the app profile');
+
   const ro = loadTs(path.join(root, 'lib', 'reachOut', 'reachOut.ts'));
   const refusing = { from: () => ({ upsert: async () => ({ error: { code: '42501', message: 'new row violates row-level security policy for table "profile_contact_settings"' } }) }) };
   assert.equal(await ro.saveReachOut(refusing, 'u1', { phone: '0700000000' }), ro.CONTACT_STEP_UP_MESSAGE);

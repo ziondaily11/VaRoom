@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
   googleVerificationEligible, startGoogleVerification, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, verifyPassword,
 } from '../../lib/settings/settings';
+import { accountDetailUpdate, saveAccountDetail, type AccountDetailKey } from '../../lib/settings/accountDetails';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
 import ReachOutSection from './ReachOutSection';
 
@@ -36,6 +36,56 @@ interface Props {
   onDelete: () => void;
   /** Deactivate (no deadline); resolves once signed out, rejects with the reason it failed. */
   onDeactivate: () => Promise<void>;
+  /** A detail was saved here (full name, username or phone). */
+  onDetailSaved: (key: AccountDetailKey, value: string) => void;
+}
+
+/** One editable Account Information row: the value, then its editor when opened. */
+function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text', placeholder, hint, open, onToggle, onSaved }: {
+  userId: string; field: AccountDetailKey; label: string; icon: React.ReactNode; value: string | null; shown: string;
+  inputType?: string; placeholder?: string; hint?: string; open: boolean; onToggle: () => void; onSaved: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value || '');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<Msg>({ text: '', kind: '' });
+  useEffect(() => { if (open) { setDraft(value || ''); setMsg({ text: '', kind: '' }); } }, [open, value]);
+
+  const save = async () => {
+    const update = accountDetailUpdate(field, draft);
+    if (update.error !== null) { setMsg({ text: update.error, kind: 'error' }); return; }
+    if (update.value === (value || '')) { onToggle(); return; }
+    const client = getSupabaseClient();
+    if (!client) return;
+    setSaving(true);
+    const error = await saveAccountDetail(client, userId, field, update.value);
+    setSaving(false);
+    if (error) { setMsg({ text: error, kind: 'error' }); return; }
+    setMsg({ text: `${label} updated.`, kind: 'success' });
+    onSaved(update.value);
+  };
+
+  return (
+    <>
+      <InfoRow icon={icon} label={label} value={shown} onClick={onToggle} id={`${field.replace('_', '-')}-row`} />
+      <div className={`expand-panel${open ? ' show' : ''}`} id={`${field.replace('_', '-')}-panel`}>
+        <div className="field">
+          <label htmlFor={`${field}-input`}>New {label.toLowerCase()}</label>
+          <input
+            type={inputType}
+            id={`${field}-input`}
+            placeholder={placeholder}
+            autoComplete={field === 'phone' ? 'tel' : field === 'full_name' ? 'name' : 'username'}
+            value={draft}
+            onChange={(event) => { setDraft(event.target.value); setMsg({ text: '', kind: '' }); }}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void save(); } }}
+          />
+          {hint && <p className="inline-msg neutral" style={{ marginTop: '.4rem' }}>{hint}</p>}
+        </div>
+        <button type="button" className="btn" disabled={saving} onClick={() => { void save(); }}>{saving ? 'Saving…' : `Update ${label.toLowerCase()}`}</button>
+        <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
+      </div>
+    </>
+  );
 }
 
 function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'userId' | 'email' | 'token' | 'onVerified' | 'onBack'>) {
@@ -157,7 +207,7 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
   );
 }
 
-function AccountDetails({ userId, email, username, fullName, phone, isHost, openPassword, onPasswordOpened, onBack, onDelete, onDeactivate }: Omit<Props, 'token' | 'verified' | 'onVerified'>) {
+function AccountDetails({ userId, email, username, fullName, phone, isHost, openPassword, onPasswordOpened, onBack, onDelete, onDeactivate, onDetailSaved }: Omit<Props, 'token' | 'verified' | 'onVerified'>) {
   const [open, setOpen] = useState<Record<string, boolean>>({ password: openPassword });
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateMsg, setDeactivateMsg] = useState<Msg>({ text: '', kind: '' });
@@ -228,8 +278,15 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
       <div className="settings-section">
         <p className="section-title">Account Information</p>
         <div className="card">
-          <InfoRow icon={INFO_ICONS.user} label="Username" value={username ? `@${username}` : 'Not set'} />
-          <InfoRow icon={INFO_ICONS.user} label="Full name" value={fullName || 'Not set'} />
+          <DetailRow
+            userId={userId} field="username" label="Username" icon={INFO_ICONS.user} value={username} shown={username ? `@${username}` : 'Not set'}
+            placeholder="e.g. palmviewstays" hint="3–20 lowercase letters, numbers or underscores. Your public profile link changes with it."
+            open={Boolean(open.username)} onToggle={() => toggle('username')} onSaved={(value) => onDetailSaved('username', value)}
+          />
+          <DetailRow
+            userId={userId} field="full_name" label="Full name" icon={INFO_ICONS.user} value={fullName} shown={fullName || 'Not set'}
+            placeholder="Your name or business name" open={Boolean(open.full_name)} onToggle={() => toggle('full_name')} onSaved={(value) => onDetailSaved('full_name', value)}
+          />
           <InfoRow icon={INFO_ICONS.mail} label="Email address" value={email || '—'} onClick={() => toggle('email')} id="email-row" />
           <div className={`expand-panel${open.email ? ' show' : ''}`} id="email-panel">
             <div className="field">
@@ -239,9 +296,11 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
             <button type="button" className="btn" onClick={saveEmail}>Update email</button>
             <p className={`inline-msg${emailMsg.kind ? ` ${emailMsg.kind}` : ''}`}>{emailMsg.text}</p>
           </div>
-          <InfoRow icon={INFO_ICONS.phone} label="Phone number" value={phone || 'Not set'} />
+          <DetailRow
+            userId={userId} field="phone" label="Phone number" icon={INFO_ICONS.phone} value={phone} shown={phone || 'Not set'} inputType="tel"
+            placeholder="e.g. 0712 345 678" open={Boolean(open.phone)} onToggle={() => toggle('phone')} onSaved={(value) => onDetailSaved('phone', value)}
+          />
         </div>
-        <Link href="/profile" className="btn btn-danger btn-block" style={{ marginTop: '.9rem', display: 'block' }}>Edit information</Link>
       </div>
 
       <div className="settings-section">
