@@ -6,7 +6,7 @@ import type { Profile } from '../types/profile';
 // the TTL needs none. Writes to `profiles` through the shared client (React or
 // legacy pages) invalidate it, so edits show up on the next read.
 
-export const PROFILE_COLUMNS = 'id,full_name,username,avatar_url,role,onboarding_completed,interested_categories,looking_timeline,verified';
+export const PROFILE_COLUMNS = 'id,full_name,username,avatar_url,role,onboarding_completed,interested_categories,looking_timeline,verified,deactivated_at';
 export const PROFILE_STORAGE_PREFIX = 'varoom:profile:v1:';
 export const PROFILE_FRESH_MS = 5 * 60 * 1000;
 

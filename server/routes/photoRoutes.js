@@ -6,7 +6,7 @@ const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 const { ValidationError, assertAllowedKeys, text, number, enumValue, uuid } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
-const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
+const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 
 const router = express.Router();
 const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images', 'profile-banners']);
@@ -74,7 +74,7 @@ router.post('/photos/upload-init', async (req, res) => {
     let listing = null;
     if (category === 'listing-photos') {
       const { data, error } = await supabaseAdmin.from('listings')
-        .select('id,host_id,publication_state,availability_status,created_at')
+        .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
         .eq('id', listingId).maybeSingle();
       if (error) throw error;
       listing = data;
@@ -114,7 +114,7 @@ router.post('/photos/upload-complete', async (req, res) => {
       if (!listingId) return res.status(400).json({ error: 'Listing id is required' });
       uuid(listingId, 'listingId');
       const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
-        .select('id,host_id,publication_state,availability_status,created_at')
+        .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
         .eq('id', listingId).maybeSingle();
       if (listingError) throw listingError;
       const access = decideListingMediaAccess(listing, user.id);
@@ -184,7 +184,7 @@ router.post('/photos/upload-discard', async (req, res) => {
         return res.status(400).json({ error: 'Invalid photo key' });
       }
       const { data: listing, error } = await supabaseAdmin.from('listings')
-        .select('id,host_id,publication_state,availability_status,created_at')
+        .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
         .eq('id', parts[4]).maybeSingle();
       if (error) throw error;
       const access = decideListingMediaAccess(listing, user.id);
@@ -227,7 +227,7 @@ router.get('/photos/:category/*', async (req, res) => {
       if (photoError) throw photoError;
       if (!photo) return res.sendStatus(404);
       const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
-        .select('id,host_id,publication_state,availability_status,created_at')
+        .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
         .eq('id', photo.listing_id).maybeSingle();
       if (listingError) throw listingError;
       const access = decideListingMediaAccess(listing, userId);

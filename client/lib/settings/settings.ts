@@ -133,6 +133,14 @@ export function canDelete(reason: string, details: string): boolean {
   return Boolean(reason) && (reason !== 'Other' || Boolean(details.trim()));
 }
 
+/** "Deactivate account": hidden and signed out everywhere, nothing deleted; signing in again reactivates it. */
+export async function deactivateAccount(token: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const response = await fetchFn('/api/account/deactivate', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const result = await json(response);
+  if (!response.ok) throw new Error((result.error as string) || 'Unable to deactivate account');
+}
+
+/** "Delete account": deactivated at once, permanently deleted after 30 days unless the person signs in again. */
 export async function deleteAccount(token: string, reason: string, details: string, fetchFn: typeof fetch = fetch): Promise<void> {
   const response = await fetchFn('/api/delete-account', {
     method: 'POST',

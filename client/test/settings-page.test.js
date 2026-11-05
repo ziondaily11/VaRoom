@@ -75,7 +75,53 @@ test('delete account: a reason (and details for Other), then the server; the ser
   assert.equal(body.url, '/api/delete-account');
   assert.deepEqual(JSON.parse(body.init.body), { reason: 'Other', reason_details: 'moving abroad' });
   assert.equal(body.init.headers.Authorization, 'Bearer tok');
-  await assert.rejects(st.deleteAccount('t', 'Other', 'x', async () => json(500, { error: 'Unable to permanently delete the account' })), /Unable to permanently delete/);
+  await assert.rejects(st.deleteAccount('t', 'Other', 'x', async () => json(500, { error: 'Unable to delete the account' })), /Unable to delete/);
+});
+
+test('deactivate / delete: 30 days then deletion as the Privacy Policy says; signing in restores; the sign-in panel explains', async () => {
+  let call;
+  await st.deactivateAccount('tok', async (url, init) => { call = { url, init }; return json(200, { success: true }); });
+  assert.equal(call.url, '/api/account/deactivate');
+  assert.equal(call.init.method, 'POST');
+  assert.equal(call.init.headers.Authorization, 'Bearer tok');
+  await assert.rejects(st.deactivateAccount('t', async () => json(500, { error: 'Unable to deactivate the account' })), /Unable to deactivate/);
+
+  const account = read('components', 'settings', 'AccountSection.tsx');
+  assert.doesNotMatch(account, /isn&apos;t available yet/, 'Deactivate is no longer a placeholder');
+  assert.match(account, /Deactivate my account/);
+  assert.match(account, /permanently deleted after 30 days/);
+  const sections = read('components', 'settings', 'SettingsSections.tsx');
+  assert.match(sections, /If you don&apos;t sign in within 30 days/);
+  assert.doesNotMatch(sections, /This action cannot be undone/, 'deletion is not immediate any more');
+  const page = read('pages', 'settings.tsx');
+  assert.match(page, /await leave\('\/\?auth=login&deleted=1'\)/);
+  assert.match(page, /await leave\('\/\?auth=login&deactivated=1'\)/);
+
+  const re = loadTs(path.join(root, 'lib', 'auth', 'reactivation.ts'));
+  assert.equal(re.profileIsDeactivated({ deactivated_at: '2026-11-05T10:00:00Z' }), true);
+  assert.equal(re.profileIsDeactivated({ deactivated_at: null }), false);
+  assert.equal(re.profileIsDeactivated(null), false);
+  let asked;
+  assert.deepEqual({ ...(await re.reactivateAccount('tok', async (url, init) => { asked = { url, init }; return json(200, { reactivated: true, wasScheduledForDeletion: true }); })) }, { status: 'reactivated', wasScheduledForDeletion: true });
+  assert.equal(asked.url, '/api/account/reactivate');
+  assert.equal(asked.init.headers.Authorization, 'Bearer tok');
+  assert.equal((await re.reactivateAccount('t', async () => json(200, { reactivated: false }))).status, 'active');
+  assert.equal((await re.reactivateAccount('t', async () => json(403, { code: 'sign_in_required' }))).status, 'sign-in-required');
+  assert.equal((await re.reactivateAccount('t', async () => json(500, { error: 'x' }))).status, 'failed');
+  assert.equal((await re.reactivateAccount('t', async () => { throw new Error('offline'); })).status, 'failed');
+  assert.match(re.deactivationNotice({ deleted: '1' }), /permanently deleted in 30 days/);
+  assert.match(re.deactivationNotice({ deactivated: '1' }), /Sign in at any time/);
+  assert.match(re.deactivationNotice({ account: 'deactivated' }), /Sign in again/);
+  assert.equal(re.deactivationNotice({ auth: 'login' }), null);
+
+  const provider = read('lib', 'auth', 'AuthProvider.tsx');
+  assert.match(provider, /restoreIfDeactivated\(user\.id, result\.data\)/, 'checked when the profile loads');
+  assert.match(provider, /restoreIfDeactivated\(userId, profile\)/, 'and when a fresh profile arrives');
+  assert.match(read('lib', 'auth', 'profileStore.ts'), /verified,deactivated_at'/, 'the shared profile read carries the flag (no extra request)');
+  assert.match(read('components', 'landing', 'AuthPanel.tsx'), /deactivationNotice\(router\.query\)/);
+  const chats = read('pages', 'chats.tsx');
+  assert.match(chats, /const participantDeactivated = Boolean\(!isElie && activeConversation\?\.participant\?\.deactivated\);/);
+  assert.match(chats, /hidden=\{participantDeactivated\}/, 'the composer stays mounted (its refs), only hidden');
 });
 
 test('page: in the shell, legacy wording, phone menu opens the app drawer, legacy page retired', () => {
@@ -83,7 +129,7 @@ test('page: in the shell, legacy wording, phone menu opens the app drawer, legac
   assert.match(page, /window\.dispatchEvent\(new Event\(role === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)\)/);
   assert.match(page, /wanted === 'notifications'/);
   const sections = read('components', 'settings', 'SettingsSections.tsx');
-  for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts are stored on this dashboard.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete account permanently', 'Save privacy settings', 'Choose what VaRoom is allowed to send you.']) {
+  for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts are stored on this dashboard.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete my account','Save privacy settings', 'Choose what VaRoom is allowed to send you.']) {
     assert.ok(sections.includes(text), text);
   }
   assert.doesNotMatch(read('components', 'settings', 'settingsStyles.ts'), /#sidebar|\.nav-item|verify-box|account-menu/);

@@ -32,6 +32,8 @@ interface Props {
   onPasswordOpened: () => void;
   onBack: () => void;
   onDelete: () => void;
+  /** Deactivate (no deadline); resolves once signed out, rejects with the reason it failed. */
+  onDeactivate: () => Promise<void>;
 }
 
 function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'userId' | 'email' | 'token' | 'onVerified' | 'onBack'>) {
@@ -155,8 +157,20 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
   );
 }
 
-function AccountDetails({ userId, email, username, fullName, phone, isHost, openPassword, onPasswordOpened, onBack, onDelete }: Omit<Props, 'token' | 'verified' | 'onVerified'>) {
+function AccountDetails({ userId, email, username, fullName, phone, isHost, openPassword, onPasswordOpened, onBack, onDelete, onDeactivate }: Omit<Props, 'token' | 'verified' | 'onVerified'>) {
   const [open, setOpen] = useState<Record<string, boolean>>({ password: openPassword });
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateMsg, setDeactivateMsg] = useState<Msg>({ text: '', kind: '' });
+  const deactivate = async () => {
+    setDeactivating(true);
+    setDeactivateMsg({ text: '', kind: '' });
+    try {
+      await onDeactivate();
+    } catch (error) {
+      setDeactivating(false);
+      setDeactivateMsg({ text: (error as Error).message || 'Your account could not be deactivated. Please try again.', kind: 'error' });
+    }
+  };
   const [newEmail, setNewEmail] = useState(email);
   const [emailMsg, setEmailMsg] = useState<Msg>({ text: '', kind: '' });
   const [newPassword, setNewPassword] = useState('');
@@ -243,12 +257,14 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
         <div className="card">
           <InfoRow icon={INFO_ICONS.alert} label="Deactivate account" value="Temporarily deactivate your account" valueStyle={{ fontWeight: 500 }} onClick={() => toggle('deactivate')} id="deactivate-row" />
           <div className={`expand-panel${open.deactivate ? ' show' : ''}`} id="deactivate-panel">
-            <p className="inline-msg neutral">Account deactivation isn&apos;t available yet. Reach out via Support &amp; About and we can help in the meantime.</p>
+            <p className="inline-msg neutral">Your profile, listings and reviews are hidden from other people and you&apos;re signed out on every device. Nothing is deleted. Sign in again at any time to reactivate your account.</p>
+            <button type="button" className="btn btn-danger btn-block" disabled={deactivating} onClick={() => { void deactivate(); }}>{deactivating ? 'Deactivating...' : 'Deactivate my account'}</button>
+            <p className={`inline-msg${deactivateMsg.kind ? ` ${deactivateMsg.kind}` : ''}`}>{deactivateMsg.text}</p>
           </div>
           <InfoRow icon={INFO_ICONS.trash} label="Delete account" value="Permanently delete your account" valueStyle={{ fontWeight: 500 }} danger onClick={() => toggle('delete')} id="show-delete-confirm" />
           <div className={`expand-panel${open.delete ? ' show' : ''}`} id="delete-confirm">
-            <p className="inline-msg neutral">This is permanent and can&apos;t be undone. Continue to the confirmation dialog to permanently remove your account and all VaRoom data.</p>
-            <button type="button" className="btn btn-danger btn-block" onClick={onDelete}>Permanently delete my account</button>
+            <p className="inline-msg neutral">Your account is deactivated straight away and permanently deleted after 30 days. Sign in during those 30 days to keep it.</p>
+            <button type="button" className="btn btn-danger btn-block" onClick={onDelete}>Delete my account</button>
             <p className="inline-msg" />
           </div>
         </div>

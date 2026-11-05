@@ -7,6 +7,7 @@ import { SignupForm } from './SignupForm';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { getSafeRedirect } from '../../lib/safeRedirect';
 import { profileStore } from '../../lib/auth/session';
+import { deactivationNotice } from '../../lib/auth/reactivation';
 import { errorMessage } from '../../lib/errors';
 
 interface AuthPanelProps {
@@ -35,6 +36,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
   const [alert, setAlert] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // After Delete or Deactivate account (Settings): what happened and how to come back.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const notice = deactivationNotice(router.query);
+    if (notice) setAlert({ type: 'success', message: notice });
+  }, [router.isReady, router.query]);
 
   // Only same-origin destinations; anything else falls back to the role home.
   const redirect = useMemo(() => getSafeRedirect(router.query.redirect), [router.query.redirect]);

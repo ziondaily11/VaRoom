@@ -78,15 +78,16 @@ router.get('/host-profiles/:key', async (req, res) => {
   try {
     // Signed-out visitors are welcome; a stale token reads as signed out.
     const viewer = await authenticatedUser(req).catch(() => null);
-    let query = supabaseAdmin.from('profiles').select(`${HOST_PROFILE_COLUMNS},profile_visibility`).eq('role', 'host');
+    let query = supabaseAdmin.from('profiles').select(`${HOST_PROFILE_COLUMNS},profile_visibility,deactivated_at`).eq('role', 'host');
     query = byId ? query.eq('id', raw) : query.eq('username', username);
     const { data: profile, error } = await query.maybeSingle();
     if (error) throw error;
-    if (!profile) return res.status(404).json({ error: 'Host not found' });
+    // A deactivated host is not available to anyone else (Privacy Policy, Account Deletion).
+    if (!profile || (profile.deactivated_at && !(viewer && viewer.id === profile.id))) return res.status(404).json({ error: 'Host not found' });
     if (!(await canViewProfile(supabaseAdmin, viewer ? viewer.id : null, profile))) {
       return res.status(403).json({ error: 'This profile is private.', code: 'profile_private' });
     }
-    const { profile_visibility: _visibility, ...shown } = profile;
+    const { profile_visibility: _visibility, deactivated_at: _deactivated, ...shown } = profile;
     return res.json({ profile: shown });
   } catch (error) {
     console.error('Host profile lookup failed:', error.message);

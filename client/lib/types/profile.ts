@@ -12,6 +12,8 @@ export interface Profile {
   interested_categories: string[] | null;
   looking_timeline: string | null;
   verified: boolean | null;
+  /** Set while the account is deactivated (Settings → Account Status); signing in again clears it. */
+  deactivated_at?: string | null;
 }
 
 export function accountRole(profile: Pick<Profile, 'role'> | null | undefined): AccountRole | null {

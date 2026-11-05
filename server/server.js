@@ -17,6 +17,9 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const hotelReservationRoutes = require('./routes/hotelReservationRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
 const createAccountGroupRoutes = require('./routes/accountGroupRoutes');
+const { createAccountRoutes } = require('./routes/accountRoutes');
+const { runDeactivationMaintenance } = require('./lib/accountDeactivation');
+const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
@@ -95,6 +98,7 @@ app.use('/api', reviewRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', hotelReservationRoutes);
 app.use('/api', createAccountGroupRoutes(supabaseAdmin));
+app.use('/api', createAccountRoutes({ supabaseAdmin }));
 app.use('/api', createBillingRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
@@ -729,44 +733,6 @@ app.get('/api/news/*', proxyPropertyNews);
 
 
 // Permanently delete the account represented by the authenticated session.
-app.post('/api/delete-account', async (req, res) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-  if (!token) {
-    return sendError(res, 401, 'Missing access token');
-  }
-
-  const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
-  if (verifyError || !user) {
-    return sendError(res, 401, 'Invalid or expired session');
-  }
-  const reasons = [
-    'I no longer use VaRoom',
-    'I created another account',
-    'Privacy concerns',
-    "I'm unhappy with the service",
-    'Technical issues',
-    'Other'
-  ];
-  const reason = String(req.body && req.body.reason || '').trim();
-  const reasonDetails = String(req.body && req.body.reason_details || '').trim();
-  if (!reasons.includes(reason)) {
-    return sendError(res, 400, 'A valid deletion reason is required');
-  }
-  if (reason === 'Other' && !reasonDetails) {
-    return sendError(res, 400, 'Please explain your reason for deleting the account');
-  }
-
-  try {
-    await permanentlyDeleteAccount(user.id);
-    return res.json({ success: true });
-  } catch (error) {
-    console.error('Permanent account deletion failed:', error);
-    return sendError(res, 500, 'Unable to permanently delete the account');
-  }
-});
-
 // Resolves the calling user from an optional Bearer token. Returns null
 // (not an error) when there is no token — location endpoints allow
 // anonymous callers and just fall back to Level 1 Public data for them.
@@ -865,6 +831,23 @@ app.use((error, _req, res, _next) => {
   console.error('Unhandled API error:', error);
   return sendError(res, 500, 'Internal server error', ERROR_CODES.INTERNAL_ERROR);
 });
+
+// Deactivated accounts: permanent deletion once their 30 days pass without a
+// sign-in (Privacy Policy, "Account Deletion"), and plans that still renew.
+// Hourly; a missed run (the server asleep) is caught up by the next one.
+const DEACTIVATION_MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+const deactivationPaystack = createPaystackClient();
+function runDeactivationMaintenanceNow() {
+  runDeactivationMaintenance(supabaseAdmin, deactivationPaystack, { deleteAccount: permanentlyDeleteAccount })
+    .then((result) => {
+      if (result.deleted.length || result.failed.length || result.renewalFailures) {
+        console.log('Deactivation maintenance:', { deleted: result.deleted.length, failed: result.failed, renewalFailures: result.renewalFailures });
+      }
+    })
+    .catch((error) => console.error('Deactivation maintenance failed:', error));
+}
+setTimeout(runDeactivationMaintenanceNow, 60 * 1000).unref();
+setInterval(runDeactivationMaintenanceNow, DEACTIVATION_MAINTENANCE_INTERVAL_MS).unref();
 
 const videoCleanupTimer = setInterval(() => {
   runFullCleanup().catch((error) => {

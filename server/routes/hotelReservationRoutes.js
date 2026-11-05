@@ -108,8 +108,9 @@ router.post('/table-reservations', async (req, res) => {
     const occasionDetails = specialOccasion ? text(req.body.occasion_details, 'occasion_details', { max: 500 }) : null;
 
     const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
-      .select('id,title,host_id,category,supports_table_reservation').eq('id', listingId).maybeSingle();
-    if (listingError || !listing) return res.status(404).json({ error: 'Hotel listing not found' });
+      .select('id,title,host_id,category,supports_table_reservation,host:profiles!listings_host_id_fkey(deactivated_at)').eq('id', listingId).maybeSingle();
+    const listingHost = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
+    if (listingError || !listing || (listingHost && listingHost.deactivated_at)) return res.status(404).json({ error: 'Hotel listing not found' });
     if (listing.category !== 'hotel' || !listing.supports_table_reservation) return res.status(409).json({ error: 'This hotel does not accept table reservations' });
     const { data: config, error: configError } = await supabaseAdmin.from('hotel_dining_configs').select('*').eq('listing_id', listingId).maybeSingle();
     if (configError || !config) return res.status(409).json({ error: 'This hotel has not configured table reservations yet' });

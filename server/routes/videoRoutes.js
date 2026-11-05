@@ -18,7 +18,7 @@ const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { generateVideoThumbnail } = require('../lib/videoThumbnailService');
 const videoEntitlement = require('../lib/videoEntitlement');
 const { ValidationError, assertAllowedKeys, uuid, text, number } = require('../lib/inputValidation');
-const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
+const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 
 const router = express.Router();
 
@@ -48,7 +48,7 @@ async function verifyPropertyOwnership(propertyId, userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('listings')
-      .select('id,host_id,category,publication_state,availability_status,created_at')
+      .select(`id,host_id,category,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
       .eq('id', propertyId)
       .single();
 
@@ -89,7 +89,7 @@ async function authorizeListingMedia(req, res, propertyId, visibility = 'public'
   if (!viewer) return null;
 
   const { data: listing, error } = await supabaseAdmin.from('listings')
-    .select('id,host_id,publication_state,availability_status,created_at')
+    .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
     .eq('id', propertyId).maybeSingle();
   if (error) {
     console.error('Listing media authorization lookup failed:', error.message);

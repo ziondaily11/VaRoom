@@ -8,7 +8,7 @@ import { accountRole } from '../lib/types/profile';
 import { loginUrl } from '../lib/safeRedirect';
 import { logout } from '../lib/account/accountActions';
 import {
-  completeGoogleVerification, deleteAccount, loadPreferences, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
+  completeGoogleVerification, deactivateAccount, deleteAccount, loadPreferences, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
 } from '../lib/settings/settings';
 import AccountSection from '../components/settings/AccountSection';
 import PlansSection, { PLANS_STYLES } from '../components/settings/PlansSection';
@@ -136,15 +136,11 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event(role === 'host' ? 'open-host-sidebar' : 'open-client-sidebar'));
   };
 
-  const confirmDelete = async (reason: string, details: string) => {
+  // After Delete or Deactivate (the server has signed out every session):
+  // forget the account on this dashboard and leave.
+  const leave = async (destination: string) => {
     const client = getSupabaseClient();
-    if (!token || !userId || !client) throw new Error('Your session has expired.');
-    try {
-      await deleteAccount(token, reason, details);
-    } catch (error) {
-      notify((error as Error).message);
-      throw error;
-    }
+    if (!userId || !client) return;
     const switcher = window.VaRoomAccountSwitcher as unknown as { removeAccount?: (id: string) => void } | undefined;
     try { switcher?.removeAccount?.(userId); } catch { /* ignore */ }
     try { window.VaRoomDataCache?.invalidate(`account:${userId}:`); } catch { /* ignore */ }
@@ -155,7 +151,24 @@ export default function SettingsPage() {
     } catch { /* ignore */ }
     setDeleting(false);
     await client.auth.signOut({ scope: 'local' });
-    window.location.href = '/?auth=login&deleted=1';
+    window.location.href = destination;
+  };
+
+  const confirmDelete = async (reason: string, details: string) => {
+    if (!token || !userId) throw new Error('Your session has expired.');
+    try {
+      await deleteAccount(token, reason, details);
+    } catch (error) {
+      notify((error as Error).message);
+      throw error;
+    }
+    await leave('/?auth=login&deleted=1');
+  };
+
+  const confirmDeactivate = async () => {
+    if (!token || !userId) throw new Error('Your session has expired.');
+    await deactivateAccount(token);
+    await leave('/?auth=login&deactivated=1');
   };
 
   const ready = Boolean(profile && userId && prefs);
@@ -180,6 +193,7 @@ export default function SettingsPage() {
           onPasswordOpened={passwordOpened}
           onBack={back}
           onDelete={() => setDeleting(true)}
+          onDeactivate={confirmDeactivate}
         />
       );
     } else if (view === 'plans' && role === 'host') {
