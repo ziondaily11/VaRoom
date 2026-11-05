@@ -11,6 +11,7 @@ import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import VideoMedia from '../media/VideoMedia';
+import PrivateProfileNotice from './PrivateProfileNotice';
 import ProfileBanner from './ProfileBanner';
 import ProfileCategoryNav, { type ProfileTab } from './ProfileCategoryNav';
 import { useNearVideo } from './useNearVideo';
@@ -128,6 +129,7 @@ export default function HostProfileView() {
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average_rating: null, review_count: 0, distribution: [] });
   const [reviewsError, setReviewsError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   // The profile, by id or username.
   useEffect(() => {
@@ -137,6 +139,7 @@ export default function HostProfileView() {
     let cancelled = false;
     const by = keyIsId ? { id: hostKey } : { username: hostKey };
     setLoadError('');
+    setIsPrivate(false);
     setProfile(peekHostProfile(viewerId, by) || null);
     loadHostProfile(token, viewerId, by).then((row) => {
       if (cancelled) return;
@@ -144,7 +147,7 @@ export default function HostProfileView() {
     }).catch((error) => {
       if (cancelled) return;
       // A private profile (Settings → Privacy) replaces anything shown from the cache.
-      if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); } else setLoadError('Could not load this host profile.');
+      if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); setIsPrivate(true); } else setLoadError('Could not load this host profile.');
     });
     return () => { cancelled = true; };
   }, [router.isReady, hostKey, keyIsId, authReady, viewerId, token]);
@@ -334,6 +337,8 @@ export default function HostProfileView() {
           <div className="host-profile-content">
             {isLoading ? (
               <ProfileSkeleton />
+            ) : !host && isPrivate ? (
+              <PrivateProfileNotice handle={keyIsId ? null : hostKey} signedIn={Boolean(viewerId)} />
             ) : !host ? (
               <p className="host-profile-load-error" role="alert" style={{ padding: 24 }}>{loadError || 'Could not load this host profile.'}</p>
             ) : (

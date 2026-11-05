@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { CalendarDays, Mail, MapPin, MoreHorizontal, ShieldCheck, Star } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
+import PrivateProfileNotice from './PrivateProfileNotice';
 import { loginUrl } from '../../lib/safeRedirect';
 import { isPrivateProfileError, loadHostListings, loadHostProfile, loadHostReviews, peek, type HostProfileRow, type HostReview, type ProfileListing } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
@@ -222,6 +223,7 @@ export default function PublicHostProfile() {
   const [listings, setListings] = useState<ProfileListing[] | null>(null);
   const [reviews, setReviews] = useState<HostReview[]>([]);
   const [loadError, setLoadError] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     if (!router.isReady || !username || !authReady) return undefined;
@@ -229,6 +231,7 @@ export default function PublicHostProfile() {
     if (!client) { setLoadError('Public host profiles are unavailable right now.'); return undefined; }
     let cancelled = false;
     setLoadError('');
+    setIsPrivate(false);
     const cachedProfile = peek<HostProfileRow | null>(viewerId, `@${username.toLowerCase()}`, 'profile');
     if (cachedProfile) setProfile(cachedProfile);
     (async () => {
@@ -238,7 +241,7 @@ export default function PublicHostProfile() {
       } catch (error) {
         if (cancelled) return;
         // A private profile (Settings → Privacy) replaces anything shown from the cache.
-        if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); return; }
+        if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); setIsPrivate(true); return; }
         console.error('Unable to load public host profile', error);
         setLoadError('Could not load this host profile.');
         return;
@@ -272,6 +275,13 @@ export default function PublicHostProfile() {
     }
   };
 
+  if (isPrivate) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'grid', background: '#000', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+        <PrivateProfileNotice handle={username} signedIn={Boolean(viewerId)} />
+      </main>
+    );
+  }
   if (loadError) {
     return (
       <main role="alert" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: '#000', color: '#F2F2F2', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
