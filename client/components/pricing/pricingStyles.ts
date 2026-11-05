@@ -186,7 +186,7 @@ export const PRICING_STYLES = `
     .pricing-page .plans.plans--four{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width:980px){
-    .pricing-page{ font-size:15px; overflow-x:hidden; overflow-y:auto; }
+    .pricing-page{ font-size:0.9375rem; overflow-x:hidden; overflow-y:auto; }
     .pricing-page .pricing-top{ padding:1.1rem 1.3rem; }
     .pricing-page .pricing-wrap{ padding:.5rem 1.3rem 4rem; justify-content:flex-start; }
     .pricing-page .plan{ padding:1.9rem 1.7rem 1.6rem; }

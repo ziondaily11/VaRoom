@@ -1230,7 +1230,7 @@ export const HOST_HOME_STYLES = `
     gap:0.4rem;
     flex-wrap:nowrap;
     width:100%;
-    font-size:10px;
+    font-size:0.625rem;
     line-height:1.4;
   }
   .rail-legal-link{
@@ -1250,7 +1250,7 @@ export const HOST_HOME_STYLES = `
   }
   .rail-legal-divider{
     color:var(--line);
-    font-size:9px;
+    font-size:0.5625rem;
     opacity:0.85;
     user-select:none;
   }

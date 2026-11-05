@@ -78,9 +78,9 @@ export default function ProfileBanner({ hostId, imageKey, isOwner = false, token
         :global(html[data-theme="dark"]) .profile-banner::after { background:linear-gradient(to top,rgba(0,0,0,.94) 0%,rgba(0,0,0,.68) 27%,rgba(0,0,0,.2) 66%,transparent 100%); }
         .profile-banner-actions { position:absolute; z-index:3; right:22px; top:18px; display:flex; gap:8px; }
         .profile-banner-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff88;border-radius:999px;background:#090909b8;color:#fff;font-size:12px;cursor:pointer;backdrop-filter:blur(10px); }
+        .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff88;border-radius:999px;background:#090909b8;color:#fff;font-size:0.75rem;cursor:pointer;backdrop-filter:blur(10px); }
         .profile-banner-actions button:disabled { opacity:.6;cursor:wait; }
-        .profile-banner-message { position:absolute; z-index:3; right:22px; top:62px; color:white; background:#101010c9; border-radius:8px; padding:7px 10px; font-size:12px; }
+        .profile-banner-message { position:absolute; z-index:3; right:22px; top:62px; color:white; background:#101010c9; border-radius:8px; padding:7px 10px; font-size:0.75rem; }
         @media(max-width:760px) { .profile-banner { height:350px; } }
         @media(max-width:700px) { .profile-banner-actions { right:12px;top:12px; } .profile-banner-actions button { padding:8px 10px; } .profile-banner-message { right:12px; top:56px; } }
       `}</style>

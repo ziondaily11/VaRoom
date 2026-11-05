@@ -58,9 +58,9 @@ function ListingCard({ listing }: { listing: ProfileListing }) {
         </button>
       </div>
       <div style={{ padding: '10px 12px' }}>
-        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.4, color: '#E5384F', marginBottom: 4 }}>{(listing.category || 'PROPERTY').toUpperCase()}</div>
-        <div style={{ fontSize: 14, color: '#F2F2F2', fontWeight: 500 }}>{listing.title}</div>
-        <div style={{ fontSize: 13, color: '#8A8A8A', marginTop: 2 }}>KES {(Number(listing.price_amount) || 0).toLocaleString()} / {listing.price_unit || 'night'}</div>
+        <div style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: 0.4, color: '#E5384F', marginBottom: 4 }}>{(listing.category || 'PROPERTY').toUpperCase()}</div>
+        <div style={{ fontSize: '0.875rem', color: '#F2F2F2', fontWeight: 500 }}>{listing.title}</div>
+        <div style={{ fontSize: '0.8125rem', color: '#8A8A8A', marginTop: 2 }}>KES {(Number(listing.price_amount) || 0).toLocaleString()} / {listing.price_unit || 'night'}</div>
       </div>
     </div>
   );
@@ -70,11 +70,11 @@ function ReviewCard({ review }: { review: HostReview }) {
   return (
     <div style={{ padding: '14px 0', borderBottom: '1px solid #1E1E1E' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 13.5, color: '#F2F2F2', fontWeight: 500 }}>{(review.client && review.client.full_name) || 'Guest'}</span>
-        <span style={{ fontSize: 12, color: '#6E6E6E' }}>{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</span>
+        <span style={{ fontSize: '0.8438rem', color: '#F2F2F2', fontWeight: 500 }}>{(review.client && review.client.full_name) || 'Guest'}</span>
+        <span style={{ fontSize: '0.75rem', color: '#6E6E6E' }}>{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</span>
       </div>
       <div style={{ marginTop: 4, marginBottom: 6 }}><Stars value={Number(review.rating) || 0} size={12} /></div>
-      <p style={{ fontSize: 13.5, color: '#B8B8B8', lineHeight: 1.5, margin: 0 }}>{review.comment || ''}</p>
+      <p style={{ fontSize: '0.8438rem', color: '#B8B8B8', lineHeight: 1.5, margin: 0 }}>{review.comment || ''}</p>
     </div>
   );
 }
@@ -203,7 +203,7 @@ function PublicProfileSkeleton() {
 
 const railButton: React.CSSProperties = {
   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '11px 0', borderRadius: 999,
-  border: '1px solid #3A3A3A', background: '#0A0A0A', color: '#F2F2F2', fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none',
+  border: '1px solid #3A3A3A', background: '#0A0A0A', color: '#F2F2F2', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', textDecoration: 'none',
 };
 
 export default function PublicHostProfile() {
@@ -294,25 +294,25 @@ export default function PublicHostProfile() {
   return (
     <div className="public-profile-shell" style={{ minHeight: '100vh', height: '100vh', background: '#000000', color: '#F2F2F2', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", display: 'flex' }}>
       <aside className="desktop-sign-in-rail" style={{ width: 240, height: '100vh', flexShrink: 0, borderRight: '1px solid #1A1A1A', padding: '24px 22px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>
+        <div style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 24 }}>
           <span style={{ color: '#E5384F' }}>Va</span><span style={{ color: '#fff' }}>Room</span>
         </div>
         {isOwner ? (
           <div>
-            <h2 style={{ fontSize: 19, lineHeight: 1.3, margin: '0 0 8px 0' }}>This is your public profile</h2>
-            <p style={{ fontSize: 13.5, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>This is how people see you when you share your profile link.</p>
+            <h2 style={{ fontSize: '1.1875rem', lineHeight: 1.3, margin: '0 0 8px 0' }}>This is your public profile</h2>
+            <p style={{ fontSize: '0.8438rem', color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>This is how people see you when you share your profile link.</p>
             <Link href="/profile" style={railButton}>Edit profile</Link>
           </div>
         ) : signedIn ? (
           <div>
-            <h2 style={{ fontSize: 19, lineHeight: 1.3, margin: '0 0 8px 0' }}>Message {firstName}</h2>
-            <p style={{ fontSize: 13.5, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>Ask about a space or your dates in Chats.</p>
+            <h2 style={{ fontSize: '1.1875rem', lineHeight: 1.3, margin: '0 0 8px 0' }}>Message {firstName}</h2>
+            <p style={{ fontSize: '0.8438rem', color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>Ask about a space or your dates in Chats.</p>
             <button type="button" onClick={() => { void startChat(); }} style={railButton}>Message</button>
           </div>
         ) : (
           <div>
-            <h2 style={{ fontSize: 19, lineHeight: 1.3, margin: '0 0 8px 0' }}>Sign in to message {firstName}</h2>
-            <p style={{ fontSize: 13.5, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>You&apos;ll be redirected to this host&apos;s profile once you&apos;re signed in.</p>
+            <h2 style={{ fontSize: '1.1875rem', lineHeight: 1.3, margin: '0 0 8px 0' }}>Sign in to message {firstName}</h2>
+            <p style={{ fontSize: '0.8438rem', color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 20px 0' }}>You&apos;ll be redirected to this host&apos;s profile once you&apos;re signed in.</p>
             <button type="button" onClick={signIn} style={{ ...railButton, marginBottom: 10 }}><GoogleIcon />Continue with Google</button>
             <button type="button" onClick={signIn} style={railButton}><Mail size={16} />Continue with Email</button>
           </div>
@@ -403,16 +403,16 @@ export default function PublicHostProfile() {
           width: 68px; height: 68px; flex: 0 0 auto; border: 2px solid rgba(255,255,255,.9);
           border-radius: 50%; object-fit: cover;
         }
-        .public-profile-avatar-fallback { display: grid; place-items: center; background: #302b29; color: #fff; font-size: 26px; font-weight: 700; }
+        .public-profile-avatar-fallback { display: grid; place-items: center; background: #302b29; color: #fff; font-size: 1.625rem; font-weight: 700; }
         .public-profile-identity { min-width: 0; max-width: 850px; }
         .public-profile-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .public-profile-name-row h1 { margin: 0; color: #fff; font-size: clamp(19px,2vw,27px); line-height: 1.2; font-weight: 700; }
-        .public-profile-verified { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e5384f; border-radius: 999px; padding: 3px 8px; color: #ff9eab; font-size: 10px; font-weight: 700; }
-        .public-profile-handle { margin-top: 3px; color: rgba(255,255,255,.76); font-size: 13px; }
-        .public-profile-meta { display: flex; align-items: center; gap: 7px 16px; flex-wrap: wrap; margin-top: 8px; color: rgba(255,255,255,.86); font-size: 12.5px; }
+        .public-profile-verified { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e5384f; border-radius: 999px; padding: 3px 8px; color: #ff9eab; font-size: 0.625rem; font-weight: 700; }
+        .public-profile-handle { margin-top: 3px; color: rgba(255,255,255,.76); font-size: 0.8125rem; }
+        .public-profile-meta { display: flex; align-items: center; gap: 7px 16px; flex-wrap: wrap; margin-top: 8px; color: rgba(255,255,255,.86); font-size: 0.7813rem; }
         .public-profile-meta span { display: inline-flex; align-items: center; gap: 5px; }
-        .public-profile-bio { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; margin: 7px 0 0; color: rgba(255,255,255,.86); font-size: 13px; line-height: 1.4; }
-        .public-profile-rating { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: #fff; font-size: 12px; }
+        .public-profile-bio { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; margin: 7px 0 0; color: rgba(255,255,255,.86); font-size: 0.8125rem; line-height: 1.4; }
+        .public-profile-rating { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: #fff; font-size: 0.75rem; }
         .mobile-message-button, .mobile-sign-in-overlay { display: none; }
 
         @media (max-width: 700px) {
@@ -439,12 +439,12 @@ export default function PublicHostProfile() {
           .public-profile-banner-stage > .profile-banner { height: 330px !important; }
           .public-profile-header { left: 16px; right: 16px; bottom: 17px; align-items: flex-end; gap: 10px; }
           .public-profile-header > img, .public-profile-avatar-fallback { width: 54px; height: 54px; }
-          .public-profile-avatar-fallback { font-size: 20px; }
+          .public-profile-avatar-fallback { font-size: 1.25rem; }
           .public-profile-identity { flex: 1; }
-          .public-profile-name-row h1 { font-size: 17px; }
-          .public-profile-meta { gap: 6px 10px; margin-top: 6px; font-size: 11px; }
-          .public-profile-bio { font-size: 12px; }
-          .public-profile-rating { gap: 5px; margin-top: 6px; font-size: 11px; }
+          .public-profile-name-row h1 { font-size: 1.0625rem; }
+          .public-profile-meta { gap: 6px 10px; margin-top: 6px; font-size: 0.6875rem; }
+          .public-profile-bio { font-size: 0.75rem; }
+          .public-profile-rating { gap: 5px; margin-top: 6px; font-size: 0.6875rem; }
           .mobile-message-button {
             display: inline-flex;
             align-items: center;
@@ -457,7 +457,7 @@ export default function PublicHostProfile() {
             background: #111;
             color: #F2F2F2;
             font: inherit;
-            font-size: 12px;
+            font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
           }
@@ -490,8 +490,8 @@ export default function PublicHostProfile() {
             color: #F2F2F2;
             box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
           }
-          .mobile-sign-in-modal h2 { margin: 0 28px 8px 0; font-size: 18px; line-height: 1.3; }
-          .mobile-sign-in-modal p { margin: 0 0 18px; color: #A8A8A8; font-size: 13px; line-height: 1.5; }
+          .mobile-sign-in-modal h2 { margin: 0 28px 8px 0; font-size: 1.125rem; line-height: 1.3; }
+          .mobile-sign-in-modal p { margin: 0 0 18px; color: #A8A8A8; font-size: 0.8125rem; line-height: 1.5; }
           .mobile-sign-in-close {
             position: absolute;
             top: 10px;
@@ -502,7 +502,7 @@ export default function PublicHostProfile() {
             border-radius: 50%;
             background: transparent;
             color: #F2F2F2;
-            font-size: 26px;
+            font-size: 1.625rem;
             line-height: 1;
             cursor: pointer;
           }
@@ -519,7 +519,7 @@ export default function PublicHostProfile() {
             background: #0A0A0A;
             color: #F2F2F2;
             font: inherit;
-            font-size: 14px;
+            font-size: 0.875rem;
             font-weight: 500;
             cursor: pointer;
           }
