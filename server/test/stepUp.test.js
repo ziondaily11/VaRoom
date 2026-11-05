@@ -142,5 +142,6 @@ test('wiring: Google verification is recorded for the session; migrations enforc
   assert.doesNotMatch(table, /create policy/, 'the table file changes nothing for the current app');
   const enforce = read('migrations', '20261105_000062_contact_step_up_enforcement.sql');
   assert.match(enforce, /with check \(profile_id = auth\.uid\(\) and public\.varoom_session_unlocked\(\)\)/);
-  assert.match(enforce, /new\.phone is distinct from old\.phone\s+and not public\.varoom_session_unlocked\(\)/);
+  assert.match(enforce, /and coalesce\(old\.onboarding_completed, false\)/, 'accounts still in onboarding are exempt');
+  assert.match(enforce, /new\.phone is distinct from old\.phone\s+or new\.full_name is distinct from old\.full_name\s+or new\.username is distinct from old\.username\)\s+and not public\.varoom_session_unlocked\(\)/);
 });

@@ -14,13 +14,13 @@ import { ChatIcon, LinkIcon, MailIcon, XIcon } from './ProfileIcons';
 export function EditProfileModal({ open, profile, isHost, userId, onClose, onSaved }: {
   open: boolean; profile: HostProfileRow; isHost: boolean; userId: string; onClose: () => void; onSaved: (update: ProfileEdit) => void;
 }) {
-  const [values, setValues] = useState({ fullName: '', username: '', bio: '', city: '' });
+  const [values, setValues] = useState({ bio: '', city: '' });
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return undefined;
-    setValues({ fullName: profile.full_name || '', username: profile.username || '', bio: isHost ? (profile.bio || '') : '', city: profile.city || '' });
+    setValues({ bio: isHost ? (profile.bio || '') : '', city: profile.city || '' });
     setMessage('');
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -47,14 +47,6 @@ export function EditProfileModal({ open, profile, isHost, userId, onClose, onSav
     <div className={`modal-overlay${open ? ' open' : ''}`} id="edit-modal" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
         <h2 id="edit-profile-title">Edit profile</h2>
-        <div className="modal-field">
-          <label htmlFor="edit-fullname">Full name</label>
-          <input type="text" id="edit-fullname" placeholder="Your name" value={values.fullName} onChange={set('fullName')} />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="edit-username">Username</label>
-          <input type="text" id="edit-username" placeholder="e.g. ziondaily" value={values.username} onChange={set('username')} />
-        </div>
         {isHost && (
           <div className="modal-field" id="edit-bio-field">
             <label htmlFor="edit-bio">Bio</label>
@@ -70,6 +62,7 @@ export function EditProfileModal({ open, profile, isHost, userId, onClose, onSav
           <button type="button" className="modal-save" id="edit-save" disabled={saving} onClick={() => { void save(); }}>{saving ? 'Saving…' : 'Save changes'}</button>
         </div>
         <p className="modal-msg" id="edit-msg" role="alert">{message}</p>
+        <p className="modal-msg" style={{ color: 'inherit', opacity: 0.7 }}>Your name, username and phone number are changed in <Link href="/settings">Settings → Your Account</Link>.</p>
       </div>
     </div>
   );

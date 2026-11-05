@@ -64,12 +64,14 @@ test('client bookings: only the rows shown (2 upcoming, 3 most recent past); KES
   assert.equal(pp.bookingDates({ start_date: null, end_date: null }), 'Flexible dates');
 });
 
-test('edit profile: full name required; bio only for hosts; empty fields saved as null', async () => {
-  assert.deepEqual({ ...pp.profileEdit({ fullName: ' ', username: '', bio: '', city: '' }, true) }, { update: null, error: 'Full name is required.' });
-  assert.deepEqual({ ...pp.profileEdit({ fullName: 'Ann ', username: '', bio: 'Hi', city: '' }, true).update }, { full_name: 'Ann', username: null, city: null, bio: 'Hi' });
-  assert.equal('bio' in pp.profileEdit({ fullName: 'Ann', username: 'ann', bio: 'x', city: 'Nairobi' }, false).update, false);
-  const client = fakeClient({ profiles: { error: { message: 'duplicate key value violates unique constraint' } } });
-  assert.match(await pp.saveProfileEdit(client, 'U1', { full_name: 'Ann' }), /duplicate key/);
+test('edit profile: only the simple details (city, and bio for hosts); name and username are changed in Settings', async () => {
+  assert.deepEqual({ ...pp.profileEdit({ bio: 'Hi', city: '' }, true).update }, { city: null, bio: 'Hi' });
+  assert.deepEqual({ ...pp.profileEdit({ bio: 'x', city: ' Nairobi ' }, false).update }, { city: 'Nairobi' });
+  const client = fakeClient({ profiles: { error: { message: 'network down' } } });
+  assert.match(await pp.saveProfileEdit(client, 'U1', { city: 'Nairobi' }), /network down/);
+  const modal = read('components', 'profile', 'ProfileSections.tsx');
+  assert.doesNotMatch(modal, /edit-fullname|edit-username/, 'no name or username fields on /profile');
+  assert.match(modal, /<Link href="\/settings">Settings → Your Account<\/Link>/);
 });
 
 test('avatar: stored under the account, saved on the profile, and a failed save is reported', async () => {

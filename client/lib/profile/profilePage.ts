@@ -147,13 +147,13 @@ export const pastStatus = (booking: ProfileBooking) => (booking.status === 'canc
 
 // ---------- Editing the profile ----------
 
-export interface ProfileEdit { full_name: string; username: string | null; city: string | null; bio?: string | null }
+// The simple, public details. Full name, username and phone are changed in
+// Settings → Your Account only, behind its lock (lib/settings/accountDetails.ts).
+export interface ProfileEdit { city: string | null; bio?: string | null }
 
 /** The update to save, or the message to show. */
-export function profileEdit(values: { fullName: string; username: string; bio: string; city: string }, isHost: boolean): { update: ProfileEdit | null; error: string | null } {
-  const fullName = values.fullName.trim();
-  if (!fullName) return { update: null, error: 'Full name is required.' };
-  const update: ProfileEdit = { full_name: fullName, username: values.username.trim() || null, city: values.city.trim() || null };
+export function profileEdit(values: { bio: string; city: string }, isHost: boolean): { update: ProfileEdit | null; error: string | null } {
+  const update: ProfileEdit = { city: values.city.trim() || null };
   if (isHost) update.bio = values.bio.trim() || null;
   return { update, error: null };
 }
