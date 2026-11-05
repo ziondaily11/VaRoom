@@ -25,6 +25,10 @@ test('Message opens the visitor’s chat with the host, ready to ask about one o
 });
 
 test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner in place, reviews channel cleaned up', () => {
+  const notice = read('components', 'hostProfile', 'PrivateProfileNotice.tsx');
+  assert.match(notice, /This profile is private/);
+  assert.match(notice, /href="\/marketplace"/);
+  assert.match(notice, /href=\{loginUrl\(router\.asPath\)\}/, 'signed out: sign in and come back');
   const view = read('components', 'hostProfile', 'HostProfileView.tsx');
   assert.match(view, /useAuth\(\)/);
   assert.doesNotMatch(view, /window\.supabaseClient|\.select\("role"\)|select\('role'\)/, 'no second session or role lookup');
@@ -82,6 +86,7 @@ test('host page addresses use the username (unique, any case); id addresses keep
   assert.equal(hp.isPrivateProfileError(new Error('x')), false);
   for (const file of ['HostProfileView.tsx', 'PublicHostProfile.tsx']) {
     assert.match(read('components', 'hostProfile', file), /isPrivateProfileError\(error\)\) \{ setProfile\(null\); setLoadError\('This profile is private\.'\);/, `${file}: a private profile replaces the cached one`);
+    assert.match(read('components', 'hostProfile', file), /<PrivateProfileNotice handle=\{/, `${file}: a private profile gets its own screen`);
   }
 
   const view = read('components', 'hostProfile', 'HostProfileView.tsx');
