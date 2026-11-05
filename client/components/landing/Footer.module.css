@@ -28,7 +28,7 @@
   margin: 0 0 24px;
   color: #f8f8f8;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 42px;
+  font-size: 2.625rem;
   font-weight: 700;
   letter-spacing: -2px;
   line-height: 1;
@@ -43,7 +43,7 @@
   max-width: 310px;
   margin: 0;
   color: #d0d0d2;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.9;
 }
 
@@ -52,7 +52,7 @@
   width: fit-content;
   margin: 0 0 22px;
   color: #f2f2f3;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25;
   text-transform: uppercase;
@@ -80,7 +80,7 @@
   position: relative;
   padding-left: 17px;
   color: #d0d0d2;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.4;
 }
 
@@ -117,7 +117,7 @@
 
 .copyright {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .socials {
@@ -128,7 +128,7 @@
 
 .follow {
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .socialDivider {
@@ -189,7 +189,7 @@
 
   .logo {
     margin-bottom: 14px;
-    font-size: 38px;
+    font-size: 2.375rem;
   }
 
   .bottom {
@@ -215,12 +215,12 @@
   }
 
   .column h2 {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .column li {
     padding-left: 12px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .socials {
@@ -234,6 +234,6 @@
   }
 
   .follow {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 }

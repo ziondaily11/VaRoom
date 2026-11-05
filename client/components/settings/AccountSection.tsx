@@ -3,7 +3,9 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import {
   googleVerificationEligible, startGoogleVerification, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, verifyPassword,
 } from '../../lib/settings/settings';
-import { accountDetailUpdate, saveAccountDetail, type AccountDetailKey } from '../../lib/settings/accountDetails';
+import {
+  accountDetailUpdate, DETAIL_MESSAGES, saveAccountDetail, useUsernameAvailability, type AccountDetailKey, type UsernameAvailability,
+} from '../../lib/settings/accountDetails';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
 import ReachOutSection from './ReachOutSection';
 
@@ -49,8 +51,13 @@ function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<Msg>({ text: '', kind: '' });
   useEffect(() => { if (open) { setDraft(value || ''); setMsg({ text: '', kind: '' }); } }, [open, value]);
+  const isUsername = field === 'username';
+  const availability = useUsernameAvailability(isUsername ? getSupabaseClient() : null, userId, draft, value, isUsername && open);
+  const blocked = isUsername && (availability === 'checking' || availability === 'taken');
 
   const save = async () => {
+    if (isUsername && availability === 'taken') { setMsg({ text: DETAIL_MESSAGES.usernameTaken, kind: 'error' }); return; }
+    if (blocked) return;
     const update = accountDetailUpdate(field, draft);
     if (update.error !== null) { setMsg({ text: update.error, kind: 'error' }); return; }
     if (update.value === (value || '')) { onToggle(); return; }
@@ -70,22 +77,47 @@ function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text
       <div className={`expand-panel${open ? ' show' : ''}`} id={`${field.replace('_', '-')}-panel`}>
         <div className="field">
           <label htmlFor={`${field}-input`}>New {label.toLowerCase()}</label>
-          <input
-            type={inputType}
-            id={`${field}-input`}
-            placeholder={placeholder}
-            autoComplete={field === 'phone' ? 'tel' : field === 'full_name' ? 'name' : 'username'}
-            value={draft}
-            onChange={(event) => { setDraft(event.target.value); setMsg({ text: '', kind: '' }); }}
-            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void save(); } }}
-          />
+          <div className={isUsername ? 'username-field' : undefined}>
+            <input
+              type={inputType}
+              id={`${field}-input`}
+              placeholder={placeholder}
+              autoComplete={field === 'phone' ? 'tel' : field === 'full_name' ? 'name' : 'username'}
+              aria-describedby={isUsername ? 'username-availability' : undefined}
+              value={draft}
+              onChange={(event) => { setDraft(event.target.value); setMsg({ text: '', kind: '' }); }}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void save(); } }}
+            />
+            {isUsername && <UsernameStatusIcon state={availability} />}
+          </div>
+          {isUsername && <UsernameStatusText state={availability} draft={draft} />}
           {hint && <p className="inline-msg neutral" style={{ marginTop: '.4rem' }}>{hint}</p>}
         </div>
-        <button type="button" className="btn" disabled={saving} onClick={() => { void save(); }}>{saving ? 'Saving…' : `Update ${label.toLowerCase()}`}</button>
+        <button type="button" className="btn" disabled={saving || blocked} onClick={() => { void save(); }}>{saving ? 'Saving…' : `Update ${label.toLowerCase()}`}</button>
         <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
       </div>
     </>
   );
+}
+
+/** Inside the username field: a spinner while checking, then a tick or a cross. */
+function UsernameStatusIcon({ state }: { state: UsernameAvailability }) {
+  if (state === 'checking') return <span className="username-status checking" aria-hidden="true"><span className="settings-spinner" /></span>;
+  if (state === 'available') return <span className="username-status available" aria-hidden="true">✓</span>;
+  if (state === 'taken' || state === 'invalid') return <span className="username-status taken" aria-hidden="true">✕</span>;
+  return null;
+}
+
+function UsernameStatusText({ state, draft }: { state: UsernameAvailability; draft: string }) {
+  const name = `@${draft.trim().replace(/^@+/, '').toLowerCase()}`;
+  const text = state === 'checking' ? 'Checking availability…'
+    : state === 'available' ? `${name} is available`
+      : state === 'taken' ? `${name} is already taken`
+        : state === 'invalid' ? DETAIL_MESSAGES.usernameFormat
+          : state === 'current' ? 'This is your current username'
+            : state === 'error' ? 'Couldn’t check right now — you can still try saving.'
+              : '';
+  return <p id="username-availability" className={`username-availability ${state}`} role="status" aria-live="polite">{text}</p>;
 }
 
 function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'userId' | 'email' | 'token' | 'onVerified' | 'onBack'>) {

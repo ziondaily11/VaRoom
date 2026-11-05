@@ -41,7 +41,7 @@ export const ANALYTICS_CSS = `
 .va-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:var(--c,var(--dim))}
 .t-good{--c:var(--good)}.t-warn{--c:var(--warn)}.t-bad{--c:var(--bad)}.t-info{--c:var(--info)}.t-mute{--c:var(--dim)}
 .va-grid{stroke:var(--line);stroke-width:1}
-.va-axis{fill:var(--mute);font-size:11px}
+.va-axis{fill:var(--mute);font-size:0.6875rem}
 .va-line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
 .va-area{fill:var(--accent);opacity:.1}
 .va-dot{fill:var(--bg);stroke:var(--accent);stroke-width:2.5}

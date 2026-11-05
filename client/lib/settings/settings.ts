@@ -46,12 +46,17 @@ export type ThemeChoice = 'light' | 'dark' | 'system';
 export const THEME_KEY = 'varoom_theme';
 export const FONT_SIZE_KEY = 'varoom_font_size';
 
+// Five stages (like X), Default in the middle. It scales the root font size,
+// and VaRoom sizes text in rem, so the choice applies on every page (the
+// same scales are in _app's boot script).
 export const FONT_SIZES = [
+  { key: 'xsmall', label: 'Extra small', scale: '0.85' },
   { key: 'small', label: 'Small', scale: '0.9' },
   { key: 'default', label: 'Default', scale: '1' },
   { key: 'large', label: 'Large', scale: '1.1' },
   { key: 'xlarge', label: 'Extra large', scale: '1.2' },
 ];
+export const DEFAULT_FONT_INDEX = 2;
 
 export function savedTheme(storage: Pick<Storage, 'getItem'> | null): ThemeChoice {
   try {
@@ -66,12 +71,12 @@ export function fontSizeIndex(storage: Pick<Storage, 'getItem'> | null): number 
   let key = 'default';
   try { key = storage?.getItem(FONT_SIZE_KEY) || 'default'; } catch { /* default */ }
   const index = FONT_SIZES.findIndex((size) => size.key === key);
-  return index >= 0 ? index : 1;
+  return index >= 0 ? index : DEFAULT_FONT_INDEX;
 }
 
 /** Apply a font size app-wide (the same tokens _app sets on load). */
 export function applyFontSize(doc: Document, index: number): (typeof FONT_SIZES)[number] {
-  const size = FONT_SIZES[index] || FONT_SIZES[1];
+  const size = FONT_SIZES[index] || FONT_SIZES[DEFAULT_FONT_INDEX];
   doc.documentElement.style.setProperty('--varoom-font-scale', size.scale);
   doc.documentElement.setAttribute('data-font-size', size.key);
   return size;

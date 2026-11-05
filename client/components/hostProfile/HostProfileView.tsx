@@ -93,16 +93,16 @@ function ListingCard({ listing, token }: { listing: ProfileListing; token: strin
         ) : img ? (
           <img src={img} alt={listing.title || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div className="host-profile-load-muted" style={{ height: '100%', display: 'grid', placeItems: 'center', fontSize: 12 }}>Listing photo not available</div>
+          <div className="host-profile-load-muted" style={{ height: '100%', display: 'grid', placeItems: 'center', fontSize: '0.75rem' }}>Listing photo not available</div>
         )}
-        <span style={{ position: 'absolute', top: 10, left: 10, background: '#fff', color: '#0A0A0A', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, letterSpacing: 0.4 }}>
+        <span style={{ position: 'absolute', top: 10, left: 10, background: '#fff', color: '#0A0A0A', fontSize: '0.625rem', fontWeight: 700, padding: '3px 8px', borderRadius: 6, letterSpacing: 0.4 }}>
           {(listing.category || 'PROPERTY').toUpperCase()}
         </span>
       </div>
       <div style={{ padding: '12px 14px' }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{listing.title}</div>
-        <div className="host-profile-load-muted" style={{ fontSize: 12, marginTop: 2 }}>{listing.location_text || 'Location not provided'}</div>
-        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, color: 'var(--host-profile-text)' }}>{price}</div>
+        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{listing.title}</div>
+        <div className="host-profile-load-muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>{listing.location_text || 'Location not provided'}</div>
+        <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginTop: 8, color: 'var(--host-profile-text)' }}>{price}</div>
       </div>
     </a>
   );
@@ -279,17 +279,17 @@ export default function HostProfileView() {
         .host-profile-banner-wrap { position: relative; isolation: isolate; }
         .host-profile-identity { position:absolute; z-index:2; left:24px; right:24px; bottom:24px; display:grid; grid-template-columns:88px minmax(0,1fr) auto; align-items:center; gap:18px; color:var(--host-profile-banner-ink); }
         .host-profile-avatar { width:88px; height:88px; border:3px solid rgba(255,255,255,.9); border-radius:50%; object-fit:cover; }
-        .host-profile-avatar-fallback { display:grid; place-items:center; background:var(--host-profile-avatar-fallback); color:var(--host-profile-text); font-size:30px; font-weight:700; }
+        .host-profile-avatar-fallback { display:grid; place-items:center; background:var(--host-profile-avatar-fallback); color:var(--host-profile-text); font-size:1.875rem; font-weight:700; }
         .host-profile-identity h1 { font-size:clamp(21px,2.2vw,30px); font-weight:700; line-height:1.2; margin:0; color:inherit; }
-        .host-profile-username { margin:4px 0 0; color:var(--host-profile-banner-muted); font-size:14px; }
-        .host-profile-meta { display:flex; gap:14px 18px; margin-top:10px; flex-wrap:wrap; font-size:13px; color:var(--host-profile-banner-muted); }
+        .host-profile-username { margin:4px 0 0; color:var(--host-profile-banner-muted); font-size:0.875rem; }
+        .host-profile-meta { display:flex; gap:14px 18px; margin-top:10px; flex-wrap:wrap; font-size:0.8125rem; color:var(--host-profile-banner-muted); }
         .host-profile-meta-item { display:flex; align-items:center; gap:6px; }
-        .host-profile-rating { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:13px; color:var(--host-profile-banner-ink); }
+        .host-profile-rating { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:0.8125rem; color:var(--host-profile-banner-ink); }
         .host-profile-rating-count { color:var(--host-profile-banner-muted); }
-        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border:0; border-radius:10px; background:#e5384f; color:#fff; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border:0; border-radius:10px; background:#e5384f; color:#fff; font-size:0.875rem; font-weight:600; cursor:pointer; white-space:nowrap; }
         .host-profile-message:hover { background:#c9233c; }
         .host-profile-body { padding:20px 24px 0; }
-        .host-profile-bio { margin:0 0 14px; color:var(--host-profile-muted); font-size:14px; line-height:1.6; }
+        .host-profile-bio { margin:0 0 14px; color:var(--host-profile-muted); font-size:0.875rem; line-height:1.6; }
         .host-profile-listings-panel { padding:20px 24px 0; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: var(--host-profile-text); text-decoration: none; }
@@ -312,7 +312,7 @@ export default function HostProfileView() {
           .host-profile-identity { left:16px; right:16px; bottom:18px; grid-template-columns:68px minmax(0,1fr); gap:12px; }
           .host-profile-avatar { width:68px; height:68px; }
           .host-profile-message { grid-column:2; justify-self:start; padding:8px 14px; }
-          .host-profile-meta { gap:8px 12px; font-size:12px; }
+          .host-profile-meta { gap:8px 12px; font-size:0.75rem; }
           .host-profile-body { padding:16px 16px 0; }
           .host-profile-listings-panel { padding:16px 16px 0; }
           .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -324,8 +324,8 @@ export default function HostProfileView() {
           .host-profile-skeleton-grid { grid-template-columns:1fr; }
           .host-profile-identity { grid-template-columns:56px minmax(0,1fr); left:12px; right:12px; gap:10px; }
           .host-profile-avatar { width:56px; height:56px; }
-          .host-profile-identity h1 { font-size:20px; }
-          .host-profile-meta { font-size:11px; gap:7px 10px; }
+          .host-profile-identity h1 { font-size:1.25rem; }
+          .host-profile-meta { font-size:0.6875rem; gap:7px 10px; }
           .host-profile-listing-grid { grid-template-columns:1fr !important; }
         }
       `}</style>
@@ -412,18 +412,18 @@ export default function HostProfileView() {
                   <div id="host-profile-reviews" role="tabpanel" aria-label="Reviews" className="host-profile-listings-panel">
                     <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', background: 'var(--host-profile-surface)', border: '1px solid var(--host-profile-border)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 100, borderRight: '1px solid var(--host-profile-border)', paddingRight: 24 }}>
-                        <div style={{ fontSize: 34, fontWeight: 700 }}>{averageRating ? averageRating.toFixed(1) : '—'}</div>
+                        <div style={{ fontSize: '2.125rem', fontWeight: 700 }}>{averageRating ? averageRating.toFixed(1) : '—'}</div>
                         <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
-                        <div className="host-profile-load-muted" style={{ fontSize: 12, marginTop: 6 }}>{reviewCount ? `${reviewCount} reviews` : 'No reviews yet'}</div>
+                        <div className="host-profile-load-muted" style={{ fontSize: '0.75rem', marginTop: 6 }}>{reviewCount ? `${reviewCount} reviews` : 'No reviews yet'}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
                         {ratingBreakdown.map((row) => (
                           <div key={row.star} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span className="host-profile-load-muted" style={{ fontSize: 12, width: 10 }}>{row.star}</span>
+                            <span className="host-profile-load-muted" style={{ fontSize: '0.75rem', width: 10 }}>{row.star}</span>
                             <div style={{ flex: 1, height: 6, background: 'var(--host-profile-rating-track)', borderRadius: 4, overflow: 'hidden' }}>
                               <div style={{ width: `${row.pct}%`, height: '100%', background: '#E5384F' }} />
                             </div>
-                            <span className="host-profile-load-muted" style={{ fontSize: 12, width: 30 }}>{row.pct}%</span>
+                            <span className="host-profile-load-muted" style={{ fontSize: '0.75rem', width: 30 }}>{row.pct}%</span>
                           </div>
                         ))}
                       </div>
@@ -438,16 +438,16 @@ export default function HostProfileView() {
                         return (
                           <div key={review.id} style={{ background: 'var(--host-profile-surface)', border: '1px solid var(--host-profile-border)', borderRadius: 14, padding: 18 }}>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                              <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--host-profile-avatar-fallback)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: 'var(--host-profile-text)', flexShrink: 0, overflow: 'hidden' }}>
+                              <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--host-profile-avatar-fallback)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--host-profile-text)', flexShrink: 0, overflow: 'hidden' }}>
                                 {reviewer ? <img src={reviewer} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
-                                <div className="host-profile-load-muted" style={{ fontSize: 12 }}>{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{name}</div>
+                                <div className="host-profile-load-muted" style={{ fontSize: '0.75rem' }}>{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</div>
                               </div>
                               <Stars count={Number(review.rating) || 0} size={13} />
                             </div>
-                            <p style={{ fontSize: 14, color: 'var(--host-profile-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>{review.comment || ''}</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--host-profile-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>{review.comment || ''}</p>
                           </div>
                         );
                       })}
@@ -457,7 +457,7 @@ export default function HostProfileView() {
                         type="button"
                         onClick={() => setVisibleReviews(reviews.length)}
                         className="host-profile-more-reviews"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '18px auto 0', background: 'none', border: '1px solid var(--host-profile-border)', color: 'var(--host-profile-text)', fontSize: 13, fontWeight: 600, padding: '10px 20px', borderRadius: 10, cursor: 'pointer' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '18px auto 0', background: 'none', border: '1px solid var(--host-profile-border)', color: 'var(--host-profile-text)', fontSize: '0.8125rem', fontWeight: 600, padding: '10px 20px', borderRadius: 10, cursor: 'pointer' }}
                       >
                         Show all {reviews.length} reviews
                         <ChevronDown size={14} />

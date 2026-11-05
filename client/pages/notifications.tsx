@@ -705,7 +705,7 @@ export default function NotificationsPage() {
           margin-bottom: 20px;
         }
         .page-header h1 {
-          font-size: 26px;
+          font-size: 1.625rem;
           font-weight: 800;
           margin: 0 0 4px;
           letter-spacing: -0.02em;
@@ -713,7 +713,7 @@ export default function NotificationsPage() {
         .page-header p {
           margin: 0;
           color: var(--text-muted);
-          font-size: 14px;
+          font-size: 0.875rem;
         }
         .header-actions {
           display: flex;
@@ -766,7 +766,7 @@ export default function NotificationsPage() {
           border-radius: 8px;
           border: none;
           background: transparent;
-          font-size: 13.5px;
+          font-size: 0.8438rem;
           font-weight: 600;
           color: var(--text-muted);
           cursor: pointer;
@@ -794,7 +794,7 @@ export default function NotificationsPage() {
           border: none;
           outline: none;
           background: transparent;
-          font-size: 13.5px;
+          font-size: 0.8438rem;
           width: 100%;
           color: var(--text);
         }
@@ -806,7 +806,7 @@ export default function NotificationsPage() {
           margin-bottom: 26px;
         }
         .section-title {
-          font-size: 13px;
+          font-size: 0.8125rem;
           font-weight: 700;
           color: var(--text-muted);
           margin: 0 0 10px;
@@ -877,11 +877,11 @@ export default function NotificationsPage() {
           flex-wrap: wrap;
         }
         .notif-title {
-          font-size: 14.5px;
+          font-size: 0.9063rem;
           font-weight: 700;
         }
         .tag {
-          font-size: 11px;
+          font-size: 0.6875rem;
           font-weight: 700;
           padding: 2px 8px;
           border-radius: 100px;
@@ -913,7 +913,7 @@ export default function NotificationsPage() {
         }
 
         .notif-desc {
-          font-size: 13.5px;
+          font-size: 0.8438rem;
           color: var(--text-muted);
           margin: 4px 0 0;
           line-height: 1.5;
@@ -925,7 +925,7 @@ export default function NotificationsPage() {
           flex-wrap: wrap;
         }
         .action-btn {
-          font-size: 12.5px;
+          font-size: 0.7813rem;
           font-weight: 600;
           padding: 6px 12px;
           border-radius: 8px;
@@ -963,7 +963,7 @@ export default function NotificationsPage() {
           padding-top: 2px;
         }
         .notif-time {
-          font-size: 12px;
+          font-size: 0.75rem;
           color: var(--text-muted);
           white-space: nowrap;
         }
@@ -1195,10 +1195,10 @@ export default function NotificationsPage() {
 
         @media (max-width: 640px) {
           .page-header h1 {
-            font-size: 21px;
+            font-size: 1.3125rem;
           }
           .page-header p {
-            font-size: 12.5px;
+            font-size: 0.7813rem;
           }
           .header-actions {
             gap: 6px;

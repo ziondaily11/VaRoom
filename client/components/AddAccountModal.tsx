@@ -369,7 +369,7 @@ export default function AddAccountModal() {
         .add-account-brand {
           font-family: var(--font-body, 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif);
           font-weight: 800;
-          font-size: 26px;
+          font-size: 1.625rem;
           letter-spacing: -0.6px;
           user-select: none;
           line-height: 1;
@@ -389,7 +389,7 @@ export default function AddAccountModal() {
         }
 
         .add-account-title {
-          font-size: 24px;
+          font-size: 1.5rem;
           font-weight: 800;
           letter-spacing: -0.4px;
           margin: 0 0 6px 0;
@@ -398,7 +398,7 @@ export default function AddAccountModal() {
         }
 
         .add-account-sub {
-          font-size: 14px;
+          font-size: 0.875rem;
           margin: 0;
           line-height: 1.4;
           color: rgba(15, 20, 25, 0.65);
@@ -411,7 +411,7 @@ export default function AddAccountModal() {
         .add-account-alert {
           border-radius: 10px;
           padding: 10px 14px;
-          font-size: 13.5px;
+          font-size: 0.8438rem;
           line-height: 1.4;
           margin-bottom: 18px;
           display: flex;
@@ -455,7 +455,7 @@ export default function AddAccountModal() {
           background: #FFFFFF;
           color: #0F1419;
           border: 1px solid rgba(0, 0, 0, 0.15);
-          font-size: 14.5px;
+          font-size: 0.9063rem;
           font-weight: 600;
           cursor: pointer;
           transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -489,7 +489,7 @@ export default function AddAccountModal() {
           align-items: center;
           margin: 20px 0;
           color: rgba(15, 20, 25, 0.45);
-          font-size: 13px;
+          font-size: 0.8125rem;
         }
 
         html[data-theme="dark"] .add-account-divider {
@@ -531,7 +531,7 @@ export default function AddAccountModal() {
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.14);
           background: rgba(0, 0, 0, 0.02);
-          font-size: 14.5px;
+          font-size: 0.9063rem;
           color: #0F1419;
           outline: none;
           transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
@@ -609,7 +609,7 @@ export default function AddAccountModal() {
           background: #0F1419;
           color: #FFFFFF;
           border: none;
-          font-size: 15px;
+          font-size: 0.9375rem;
           font-weight: 700;
           cursor: pointer;
           margin-top: 6px;
@@ -659,7 +659,7 @@ export default function AddAccountModal() {
             border-radius: 16px;
           }
           .add-account-title {
-            font-size: 21px;
+            font-size: 1.3125rem;
           }
         }
       `}} />

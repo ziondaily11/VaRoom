@@ -89,7 +89,7 @@ export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
                       type="button"
                       className="elie-retry-btn"
                       aria-label="Retry searching with Elie"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 12, border: '1px solid currentColor', background: 'transparent', color: 'inherit', cursor: 'pointer', opacity: 0.9 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600, borderRadius: 12, border: '1px solid currentColor', background: 'transparent', color: 'inherit', cursor: 'pointer', opacity: 0.9 }}
                       onClick={() => onRetry(entry)}
                     >
                       Retry

@@ -1406,7 +1406,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 <span>{emptyCopy.detail}</span>
               </li>
             ) : filteredConversations.length === 0 && !loadingInbox ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-gray)', fontSize: '14px' }}>
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-gray)', fontSize: '0.875rem' }}>
                 {inboxView === 'archived' && !searchQuery.trim() ? 'No archived chats' : 'No messages found'}
               </div>
             ) : (
@@ -1852,7 +1852,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           )}
 
           {participantDeactivated && (
-            <div className="chat-input-area chat-input-locked" role="status" style={{ textAlign: 'center', fontSize: 14, opacity: 0.85 }}>
+            <div className="chat-input-area chat-input-locked" role="status" style={{ textAlign: 'center', fontSize: '0.875rem', opacity: 0.85 }}>
               This account is deactivated, so you can&apos;t send new messages. Your conversation stays here.
             </div>
           )}

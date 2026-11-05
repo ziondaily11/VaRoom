@@ -35,11 +35,11 @@ test('display: saved theme and font size, applied app-wide', () => {
   const storage = (values) => ({ getItem: (k) => (k in values ? values[k] : null) });
   assert.equal(st.savedTheme(storage({ varoom_theme: 'dark' })), 'dark');
   assert.equal(st.savedTheme(storage({ varoom_theme: 'nonsense' })), 'system');
-  assert.equal(st.fontSizeIndex(storage({ varoom_font_size: 'xlarge' })), 3);
-  assert.equal(st.fontSizeIndex(storage({})), 1);
+  assert.equal(st.fontSizeIndex(storage({ varoom_font_size: 'xlarge' })), 4);
+  assert.equal(st.fontSizeIndex(storage({})), 2, 'Default is the middle of five stages');
   const attrs = {}; const props = {};
   const doc = { documentElement: { style: { setProperty: (k, v) => { props[k] = v; } }, setAttribute: (k, v) => { attrs[k] = v; } } };
-  assert.equal(st.applyFontSize(doc, 2).label, 'Large');
+  assert.equal(st.applyFontSize(doc, 3).label, 'Large');
   assert.deepEqual({ props, attrs }, { props: { '--varoom-font-scale': '1.1' }, attrs: { 'data-font-size': 'large' } });
 });
 
@@ -198,4 +198,56 @@ test('page: in the shell, legacy wording, phone menu opens the app drawer, legac
   assert.match(read('next.config.js'), /source: '\/settings\.html',\s*destination: '\/settings'/);
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/settings', '\/settings\.html', '\/legacy-pages\/settings\.html'\]/);
+});
+
+test('font size: five stages like X, a VaRoom preview, and the same scales in the boot script (with cross-tab sync)', () => {
+  assert.deepEqual(st.FONT_SIZES.map((size) => size.key), ['xsmall', 'small', 'default', 'large', 'xlarge']);
+  assert.equal(st.FONT_SIZES[st.DEFAULT_FONT_INDEX].key, 'default');
+  const app = read('pages', '_app.tsx');
+  const scales = app.match(/var scales = (\{[^}]+\});/)[1];
+  for (const size of st.FONT_SIZES) assert.ok(scales.includes(`${size.key}: '${size.scale}'`), `_app knows ${size.key}`);
+  assert.match(app, /if \(event\.key === 'varoom_font_size'\) apply\(event\.newValue \|\| 'default'\);/, 'other open tabs follow');
+  assert.match(app, /font-size: calc\(100% \* var\(--varoom-font-scale\)\);/);
+  const display = read('components', 'settings', 'SettingsSections.tsx');
+  assert.match(display, /VaRoom is home to every space you&apos;re looking for/);
+  assert.match(display, /max=\{lastStop\}/);
+  assert.match(display, /className=\{`font-size-stop\$\{index <= fontIndex \? ' reached' : ''\}\$\{index === fontIndex \? ' current' : ''\}`\}/);
+});
+
+test('font size applies across VaRoom: no text is sized in px (it would ignore the setting)', () => {
+  const allowed = new Set(['components/admin/ChartSections.tsx', 'components/listWizard/PolicyDocument.tsx']);
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : walk(full);
+    return /\.(css|ts|tsx)$/.test(entry.name) ? [full] : [];
+  });
+  const offenders = [];
+  for (const dir of ['components', 'pages', 'lib', 'styles', 'public/js']) {
+    if (!fs.existsSync(path.join(root, dir))) continue;
+    for (const file of walk(path.join(root, dir))) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (allowed.has(rel)) continue;
+      const source = fs.readFileSync(file, 'utf8');
+      const patterns = [/font-size\s*:\s*[0-9.]+px/, /\bfont\s*:\s*(?:(?:normal|italic|bold|[1-9]00)\s+)*[0-9.]+px/];
+      if (/\.tsx?$/.test(file)) patterns.push(/fontSize:\s*[0-9.]+\s*[,}]/, /fontSize:\s*['"][0-9.]+px['"]/);
+      if (patterns.some((pattern) => pattern.test(source))) offenders.push(rel);
+    }
+  }
+  assert.deepEqual(offenders, [], 'use rem for text sizes so Display → Font size applies');
+});
+
+test('username: checked as you type, with a spinner, before it can be saved', () => {
+  const ad = loadTs(path.join(root, 'lib', 'settings', 'accountDetails.ts'));
+  assert.equal(ad.USERNAME_CHECK_DELAY_MS, 400);
+  assert.deepEqual({ ...ad.usernameLocalState('', 'palmview') }, { state: 'idle', value: '' });
+  assert.deepEqual({ ...ad.usernameLocalState('@PalmView', 'palmview') }, { state: 'current', value: 'palmview' });
+  assert.deepEqual({ ...ad.usernameLocalState('palm.view', 'palmview') }, { state: 'invalid', value: 'palm.view' });
+  assert.equal(ad.usernameLocalState('palm_view_2', 'palmview'), null, 'well-formed and new: ask the server');
+  const lib = read('lib', 'settings', 'accountDetails.ts');
+  assert.match(lib, /return \(\) => \{ stale = true; window\.clearTimeout\(timer\); \};/, 'older answers ignored; no check after unmount');
+  const section = read('components', 'settings', 'AccountSection.tsx');
+  assert.match(section, /<span className="settings-spinner" \/>/);
+  assert.match(section, /const blocked = isUsername && \(availability === 'checking' \|\| availability === 'taken'\);/);
+  assert.match(section, /disabled=\{saving \|\| blocked\}/);
+  assert.match(section, /role="status" aria-live="polite"/);
 });

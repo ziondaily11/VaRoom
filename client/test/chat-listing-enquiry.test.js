@@ -61,7 +61,7 @@ test('in the thread the listing fills the bubble in a thin frame, its price on t
   const css = read('public', 'js', 'chats.css');
   assert.match(css, /\.bubble\{ padding:12px 16px;/, 'the bubble padding the frame is measured from');
   assert.match(css, /\.bubble-text\.has-enquiry > \.chat-enquiry-card\{ margin:-9px -13px 10px; \}/, '3px frame on top and sides');
-  assert.match(css, /\.chat-enquiry-price\{ display:block; margin-top:3px; font-size:13px; font-weight:700; \}/, 'no fill behind the price');
+  assert.match(css, /\.chat-enquiry-price\{ display:block; margin-top:3px; font-size:0.8125rem; font-weight:700; \}/, 'no fill behind the price');
   assert.doesNotMatch(css, /\.chat-enquiry-card\{[^}]*background:rgba/, 'no fill behind the card');
   assert.match(source, /className=\{`bubble bubble-text\$\{m\.listing \? ' has-enquiry' : ''\}`\}/);
 });

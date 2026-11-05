@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalisePhone, normalizeUsername, phoneValid } from '../onboarding/onboarding';
+import { normalisePhone, normalizeUsername, phoneValid, usernameTaken } from '../onboarding/onboarding';
 
 // Settings → Your Account → Account Information: full name, username and
 // phone are changed here only (the /profile editor keeps city, bio and the
@@ -42,6 +43,48 @@ export function accountDetailError(error: { code?: string; message?: string } | 
   if (error.code === '23505' || /duplicate key|profiles_username/i.test(message)) return DETAIL_MESSAGES.usernameTaken;
   if (error.code === '23514' || /username_format/i.test(message)) return DETAIL_MESSAGES.usernameFormat;
   return DETAIL_MESSAGES.failed;
+}
+
+// ---- Username availability (checked as the person types) ----
+
+export type UsernameAvailability = 'idle' | 'current' | 'invalid' | 'checking' | 'available' | 'taken' | 'error';
+
+/** Wait this long after the last keystroke before asking. */
+export const USERNAME_CHECK_DELAY_MS = 400;
+
+/** What the field can tell without asking the server (null: ask). */
+export function usernameLocalState(draft: string, current: string | null): { state: UsernameAvailability; value: string } | null {
+  const value = normalizeUsername(draft);
+  if (!value) return { state: 'idle', value };
+  if (current && value === current.toLowerCase()) return { state: 'current', value };
+  if (!USERNAME_PATTERN.test(value)) return { state: 'invalid', value };
+  return null;
+}
+
+/**
+ * Whether the username being typed is free. Asks once typing pauses; an
+ * answer for an older draft is ignored; the pending check stops on unmount.
+ */
+export function useUsernameAvailability(
+  client: SupabaseClient | null, userId: string, draft: string, current: string | null, enabled: boolean,
+  taken: (client: SupabaseClient, username: string, userId: string) => Promise<boolean> = usernameTaken,
+): UsernameAvailability {
+  const [state, setState] = useState<UsernameAvailability>('idle');
+  useEffect(() => {
+    if (!enabled) { setState('idle'); return undefined; }
+    const local = usernameLocalState(draft, current);
+    if (local) { setState(local.state); return undefined; }
+    if (!client) { setState('error'); return undefined; }
+    let stale = false;
+    setState('checking');
+    const timer = window.setTimeout(() => {
+      taken(client, normalizeUsername(draft), userId)
+        .then((isTaken) => { if (!stale) setState(isTaken ? 'taken' : 'available'); })
+        .catch(() => { if (!stale) setState('error'); });
+    }, USERNAME_CHECK_DELAY_MS);
+    return () => { stale = true; window.clearTimeout(timer); };
+  }, [client, userId, draft, current, enabled, taken]);
+  return state;
 }
 
 /** Saves one detail; resolves the message to show, or null when saved. */

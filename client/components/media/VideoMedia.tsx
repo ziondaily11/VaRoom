@@ -15,7 +15,7 @@ const spinnerStyle: React.CSSProperties = {
 };
 
 const errorStyle: React.CSSProperties = {
-  position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 16, color: '#d0d0d0', background: '#111', fontSize: 12, textAlign: 'center',
+  position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 16, color: '#d0d0d0', background: '#111', fontSize: '0.75rem', textAlign: 'center',
 };
 
 type VideoMediaProps = Omit<React.VideoHTMLAttributes<HTMLVideoElement>, 'style' | 'title'> & {
