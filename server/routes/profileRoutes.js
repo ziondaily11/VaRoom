@@ -3,6 +3,7 @@ const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { isNewR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
+const { canViewProfile } = require('../lib/privacySettings');
 
 const router = express.Router();
 const BANNER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -59,6 +60,37 @@ router.delete('/profile/banner', async (req, res) => {
   } catch (error) {
     console.error('Profile banner removal failed:', error);
     return res.status(500).json({ error: 'Unable to remove profile banner' });
+  }
+});
+
+// A host's public profile (/host/<id or username>, /u/<username>), as the
+// host chose to show it in Settings → Privacy ("Profile visibility").
+const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const USERNAME = /^[a-z0-9_]{3,20}$/;
+
+router.get('/host-profiles/:key', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const raw = String(req.params.key || '').trim();
+  const username = raw.replace(/^@/, '').toLowerCase();
+  const byId = UUID.test(raw);
+  if (!byId && !USERNAME.test(username)) return res.status(404).json({ error: 'Host not found' });
+  try {
+    // Signed-out visitors are welcome; a stale token reads as signed out.
+    const viewer = await authenticatedUser(req).catch(() => null);
+    let query = supabaseAdmin.from('profiles').select(`${HOST_PROFILE_COLUMNS},profile_visibility`).eq('role', 'host');
+    query = byId ? query.eq('id', raw) : query.eq('username', username);
+    const { data: profile, error } = await query.maybeSingle();
+    if (error) throw error;
+    if (!profile) return res.status(404).json({ error: 'Host not found' });
+    if (!(await canViewProfile(supabaseAdmin, viewer ? viewer.id : null, profile))) {
+      return res.status(403).json({ error: 'This profile is private.', code: 'profile_private' });
+    }
+    const { profile_visibility: _visibility, ...shown } = profile;
+    return res.json({ profile: shown });
+  } catch (error) {
+    console.error('Host profile lookup failed:', error.message);
+    return res.status(502).json({ error: 'Could not load this host profile.' });
   }
 });
 

@@ -5,7 +5,7 @@ import { CalendarDays, Mail, MapPin, MoreHorizontal, ShieldCheck, Star } from 'l
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { loginUrl } from '../../lib/safeRedirect';
-import { loadHostListings, loadHostProfile, loadHostReviews, peek, type HostProfileRow, type HostReview, type ProfileListing } from '../../lib/profile/hostProfile';
+import { isPrivateProfileError, loadHostListings, loadHostProfile, loadHostReviews, peek, type HostProfileRow, type HostReview, type ProfileListing } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
 import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../resolveStoredPhotoUrl';
@@ -234,10 +234,13 @@ export default function PublicHostProfile() {
     (async () => {
       let row: HostProfileRow | null;
       try {
-        row = await loadHostProfile(client, viewerId, { username });
+        row = await loadHostProfile(token, viewerId, { username });
       } catch (error) {
+        if (cancelled) return;
+        // A private profile (Settings → Privacy) replaces anything shown from the cache.
+        if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); return; }
         console.error('Unable to load public host profile', error);
-        if (!cancelled) setLoadError('Could not load this host profile.');
+        setLoadError('Could not load this host profile.');
         return;
       }
       if (cancelled) return;
@@ -253,7 +256,7 @@ export default function PublicHostProfile() {
       loadHostReviews(viewerId, hostId).then((result) => { if (!cancelled) setReviews(result.reviews); }).catch((error) => console.error('Unable to load public host reviews', error));
     })();
     return () => { cancelled = true; };
-  }, [router.isReady, username, authReady, viewerId]);
+  }, [router.isReady, username, authReady, viewerId, token]);
 
   const signIn = () => { void router.push(loginUrl(`/u/${encodeURIComponent(username || '')}`)); };
   const isOwner = Boolean(profile && viewerId === profile.id);
@@ -262,7 +265,11 @@ export default function PublicHostProfile() {
   const startChat = async () => {
     if (!profile || !viewerId) { signIn(); return; }
     const listing = (listings || [])[0];
-    void router.push(await hostChatPath(profile.id, listing ? listing.id : null));
+    try {
+      void router.push(await hostChatPath(profile.id, listing ? listing.id : null));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
   };
 
   if (loadError) {

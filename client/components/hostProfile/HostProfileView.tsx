@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { loginUrl } from '../../lib/safeRedirect';
 import {
-  hostProfilePath, isUuid, loadHostListings, loadHostProfile, loadHostReviews, peek, peekHostProfile, type HostProfileRow, type HostReview, type ProfileListing, type ReviewSummary,
+  hostProfilePath, isPrivateProfileError, isUuid, loadHostListings, loadHostProfile, loadHostReviews, peek, peekHostProfile, type HostProfileRow, type HostReview, type ProfileListing, type ReviewSummary,
 } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
@@ -138,12 +138,16 @@ export default function HostProfileView() {
     const by = keyIsId ? { id: hostKey } : { username: hostKey };
     setLoadError('');
     setProfile(peekHostProfile(viewerId, by) || null);
-    loadHostProfile(client, viewerId, by).then((row) => {
+    loadHostProfile(token, viewerId, by).then((row) => {
       if (cancelled) return;
       if (row) setProfile(row); else setLoadError('Could not load this host profile.');
-    }).catch(() => { if (!cancelled) setLoadError('Could not load this host profile.'); });
+    }).catch((error) => {
+      if (cancelled) return;
+      // A private profile (Settings → Privacy) replaces anything shown from the cache.
+      if (isPrivateProfileError(error)) { setProfile(null); setLoadError('This profile is private.'); } else setLoadError('Could not load this host profile.');
+    });
     return () => { cancelled = true; };
-  }, [router.isReady, hostKey, keyIsId, authReady, viewerId]);
+  }, [router.isReady, hostKey, keyIsId, authReady, viewerId, token]);
 
   // Opened by id: show the username in the address (no reload; the data stays).
   useEffect(() => {
@@ -200,7 +204,11 @@ export default function HostProfileView() {
     if (!hostId) return;
     if (!viewerId) { void router.push(loginUrl(router.asPath)); return; }
     const listing = (listings || [])[0];
-    void router.push(await hostChatPath(hostId, listing ? listing.id : null));
+    try {
+      void router.push(await hostChatPath(hostId, listing ? listing.id : null));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
   };
 
   return (
