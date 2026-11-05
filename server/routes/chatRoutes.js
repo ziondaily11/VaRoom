@@ -13,6 +13,10 @@ const { notifyNewMessage } = require('../lib/chatNotifications');
 const { previewsFor } = require('../lib/chatPreviews');
 const { clearedAtByConversation, visibleAfterClear, clearChat, conversationsBetween } = require('../lib/chatClears');
 const { MESSAGES_OFF, MESSAGES_OFF_ERROR, acceptsNewConversations } = require('../lib/privacySettings');
+const { deactivationState, isDeactivated } = require('../lib/accountDeactivation');
+
+const ACCOUNT_DEACTIVATED = 'account_deactivated';
+const ACCOUNT_DEACTIVATED_ERROR = 'This account is deactivated, so it can’t receive messages.';
 
 const router = express.Router();
 
@@ -38,11 +42,14 @@ async function profilesById(ids) {
   if (!ids.length) return {};
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('id,full_name,username,avatar_url,phone')
+    .select('id,full_name,username,avatar_url,phone,deactivated_at')
     .in('id', ids);
   if (error) throw error;
   // Return contact fields used elsewhere in the product — never expose auth emails to other conversation participants.
-  return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
+  // A deactivated account shows as "Deactivated account" until it signs in again.
+  return Object.fromEntries((data || []).map(({ deactivated_at: deactivatedAt, ...profile }) => [profile.id, deactivatedAt
+    ? { id: profile.id, full_name: 'Deactivated account', username: null, avatar_url: null, phone: null, deactivated: true }
+    : profile]));
 }
 
 // A listing in a chat (shared, or the one a message asks about): what its
@@ -443,9 +450,11 @@ router.post('/chat/conversations/start', async (req, res) => {
     assertAllowedKeys(req.body, ['listingId']);
     const listingId = uuid(req.body.listingId, 'listingId');
     const { data: listing, error: listingError } = await supabaseAdmin
-      .from('listings').select('id,host_id').eq('id', listingId).maybeSingle();
+      .from('listings').select('id,host_id,host:profiles!listings_host_id_fkey(deactivated_at)').eq('id', listingId).maybeSingle();
     if (listingError) throw listingError;
-    if (!listing || !listing.host_id) return res.status(404).json({ error: 'Listing not found' });
+    const listingHost = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
+    // A deactivated host's listings are hidden, and no chat starts with them.
+    if (!listing || !listing.host_id || (listingHost && listingHost.deactivated_at)) return res.status(404).json({ error: 'Listing not found' });
     if (listing.host_id === user.id) return res.status(400).json({ error: 'This is your own listing' });
 
     const existing = await conversationsBetween(supabaseAdmin, user.id, listing.host_id);
@@ -599,6 +608,16 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    // The other person's account is deactivated: the chat stays readable, but takes no new messages.
+    // If that can't be checked, the message is sent (a deactivated inbox receiving one is harmless).
+    const otherId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    const otherDeactivated = await deactivationState(supabaseAdmin, otherId).then(isDeactivated, (lookupError) => {
+      console.error('Chat recipient status check failed; sending anyway:', lookupError && lookupError.message);
+      return false;
+    });
+    if (otherDeactivated) {
+      return res.status(403).json({ error: ACCOUNT_DEACTIVATED_ERROR, code: ACCOUNT_DEACTIVATED });
+    }
     assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId', 'replyToMessageId', 'albumId']);
     const content = text(req.body.content, 'content', { required: false, max: 10_000 }) || '';
     const messageType = req.body.messageType === undefined

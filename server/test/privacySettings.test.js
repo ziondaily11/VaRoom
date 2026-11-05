@@ -69,6 +69,6 @@ test('host profile endpoint applies visibility and never returns the setting its
   assert.match(routes, /router\.get\('\/host-profiles\/:key'/);
   assert.match(routes, /canViewProfile\(supabaseAdmin, viewer \? viewer\.id : null, profile\)/);
   assert.match(routes, /code: 'profile_private'/);
-  assert.match(routes, /const \{ profile_visibility: _visibility, \.\.\.shown \} = profile;/);
+  assert.match(routes, /const \{ profile_visibility: _visibility, deactivated_at: _deactivated, \.\.\.shown \} = profile;/);
   assert.match(routes, /'Cache-Control', 'private, no-store'/);
 });

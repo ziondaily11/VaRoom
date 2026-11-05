@@ -5,7 +5,7 @@ const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
 } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
-const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
+const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 const { promoteListingMedia } = require('../lib/listingMediaPromotion');
 
 const router = express.Router();
@@ -90,7 +90,7 @@ router.get('/discover/video-media', async (req, res) => {
 
   try {
     const { data: listings, error: listingError } = await supabaseAdmin.from('listings')
-      .select('id,publication_state,availability_status,created_at')
+      .select(`id,host_id,publication_state,availability_status,created_at,${LISTING_HOST_STATE}`)
       .in('id', rawIds);
     if (listingError) throw listingError;
     const publishedIds = (listings || [])

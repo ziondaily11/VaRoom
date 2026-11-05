@@ -17,16 +17,19 @@ async function loadReviewsWithClients(column, value) {
   let clientsById = {};
   if (clientIds.length) {
     const { data: clients, error: clientsError } = await supabaseAdmin.from('profiles')
-      .select('id,full_name,avatar_url')
+      .select('id,full_name,avatar_url,deactivated_at')
       .in('id', clientIds);
     if (clientsError) console.warn('Review author profiles could not be loaded:', clientsError.message);
     clientsById = Object.fromEntries((clients || []).map((client) => [client.id, client]));
   }
 
-  return (rows || []).map((review) => ({
-    ...review,
-    client: clientsById[review.client_id] || null,
-  }));
+  // A deactivated author's reviews are hidden until they sign in again.
+  return (rows || [])
+    .filter((review) => !(clientsById[review.client_id] && clientsById[review.client_id].deactivated_at))
+    .map((review) => {
+      const client = clientsById[review.client_id];
+      return { ...review, client: client ? { id: client.id, full_name: client.full_name, avatar_url: client.avatar_url } : null };
+    });
 }
 
 // Submit a review for a booking (server-side validated)

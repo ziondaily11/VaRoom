@@ -26,6 +26,13 @@ const APPROVED_BOOKING_STATUS = 'approved';
 const LISTING_LOCATION_COLUMNS =
   'id, host_id, latitude, longitude, place_id, formatted_address, neighborhood, city, country, location_status';
 
+// Whether a listing's host is deactivated (hidden from everyone else).
+const HOST_STATE = 'host:profiles!listings_host_id_fkey(deactivated_at)';
+const hostDeactivated = (listing) => {
+  const host = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
+  return Boolean(host && host.deactivated_at);
+};
+
 /**
  * Returns the location data a given user is authorized to see for a listing.
  * requestingUserId may be null (anonymous / not logged in) — treated as
@@ -34,7 +41,7 @@ const LISTING_LOCATION_COLUMNS =
 async function getListingLocation(supabaseAdmin, { listingId, requestingUserId }) {
   const { data: listing, error } = await supabaseAdmin
     .from('listings')
-    .select(LISTING_LOCATION_COLUMNS)
+    .select(`${LISTING_LOCATION_COLUMNS}, ${HOST_STATE}`)
     .eq('id', listingId)
     .single();
 
@@ -63,6 +70,9 @@ async function getListingLocation(supabaseAdmin, { listingId, requestingUserId }
       return { level: 3, location: approvedBooking.location_snapshot };
     }
   }
+
+  // A deactivated host's listing is hidden from everyone else (an approved booking keeps its snapshot above).
+  if (hostDeactivated(listing)) return { error: 'Listing not found' };
 
   // Level 1 / 2 (currently identical): general area only, never coordinates.
   return { level: 1, location: publicListingLocation(listing) };
@@ -213,11 +223,11 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 async function getListingDistance(supabaseAdmin, { listingId, userLat, userLng }) {
   const { data: listing, error } = await supabaseAdmin
     .from('listings')
-    .select('latitude, longitude, location_status')
+    .select(`latitude, longitude, location_status, ${HOST_STATE}`)
     .eq('id', listingId)
     .single();
 
-  if (error || !listing) {
+  if (error || !listing || hostDeactivated(listing)) {
     return { error: 'Listing not found' };
   }
   if (listing.location_status !== 'confirmed' || listing.latitude == null || listing.longitude == null) {

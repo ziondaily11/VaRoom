@@ -48,15 +48,18 @@ async function authenticatedUser(req) {
 
 async function listingForDocument(listingId) {
   const { data, error } = await supabaseAdmin.from('listings')
-    .select('id,host_id,category,publication_state,availability_status,moderation_status,created_at')
+    .select('id,host_id,category,publication_state,availability_status,moderation_status,created_at,host:profiles!listings_host_id_fkey(deactivated_at)')
     .eq('id', listingId).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 function publicListing(listing) {
+  const host = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
   return Boolean(listing && listing.publication_state === 'published'
-    && (!listing.moderation_status || listing.moderation_status === 'active'));
+    && (!listing.moderation_status || listing.moderation_status === 'active')
+    // A deactivated host's listings are hidden from everyone else.
+    && !(host && host.deactivated_at));
 }
 
 function documentTypeMatchesCategory(documentType, category) {

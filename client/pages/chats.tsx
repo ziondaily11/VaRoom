@@ -216,6 +216,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
     return conversations.find((c) => c.id === activeId) || null;
   }, [conversations, activeId]);
+  // The other person deactivated their account: the chat stays readable, the composer gives way to a note.
+  const participantDeactivated = Boolean(!isElie && activeConversation?.participant?.deactivated);
 
   const isCurrentOnline = useMemo(() => {
     if (!activeId || isElie) return false;
@@ -1849,11 +1851,18 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             </div>
           )}
 
+          {participantDeactivated && (
+            <div className="chat-input-area chat-input-locked" role="status" style={{ textAlign: 'center', fontSize: 14, opacity: 0.85 }}>
+              This account is deactivated, so you can&apos;t send new messages. Your conversation stays here.
+            </div>
+          )}
+
           {/* Composer Input Area */}
           <div
             ref={composerRef}
+            hidden={participantDeactivated}
             className={`chat-input-area ${isElie ? 'is-elie' : ''} ${composerText.trim() ? 'has-text' : ''} ${composerText.trim() || (pendingFile && !isElie) ? 'can-send' : ''}`}
-            style={{ position: 'relative' }}
+            style={participantDeactivated ? { position: 'relative', display: 'none' } : { position: 'relative' }}
             onMouseDown={(e) => {
               // Phones: tapping composer buttons keeps the keyboard open.
               if (keepsKeyboardOpen(window.matchMedia('(max-width: 760px)').matches, e.target as Element)) e.preventDefault();

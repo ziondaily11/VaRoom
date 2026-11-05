@@ -486,7 +486,7 @@ export function DeleteAccountDialog({ open, onClose, onConfirm }: { open: boolea
   return (
     <dialog className="delete-account-dialog" ref={ref} aria-labelledby="delete-account-title" onClose={onClose}>
       <h2 id="delete-account-title">Delete account?</h2>
-      <p>This will permanently delete this VaRoom account and its associated account data. This action cannot be undone.</p>
+      <p>Your account is deactivated straight away: your profile, listings and other content are hidden from other people, and you&apos;re signed out on every device. If you don&apos;t sign in within 30 days, the account and its data are permanently deleted and can&apos;t be recovered. Signing in before then restores everything.</p>
       <form onSubmit={submit}>
         <label htmlFor="delete-account-reason">Why are you deleting your account?</label>
         <select id="delete-account-reason" required value={reason} onChange={(event) => setReason(event.target.value)}>
@@ -496,7 +496,7 @@ export function DeleteAccountDialog({ open, onClose, onConfirm }: { open: boolea
         <textarea placeholder="Tell us more" hidden={reason !== 'Other'} required={reason === 'Other'} value={details} onChange={(event) => setDetails(event.target.value)} />
         <div className="delete-account-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-danger" disabled={busy || !canDelete(reason, details)}>{busy ? 'Deleting...' : 'Delete account permanently'}</button>
+          <button type="submit" className="btn btn-danger" disabled={busy || !canDelete(reason, details)}>{busy ? 'Deleting...' : 'Delete my account'}</button>
         </div>
       </form>
     </dialog>

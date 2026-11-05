@@ -23,6 +23,8 @@ export interface ChatParticipant {
   avatar_url?: string | null;
   phone?: string | null;
   role?: string | null;
+  /** Their account is deactivated: shown as "Deactivated account", and the chat takes no new messages. */
+  deactivated?: boolean;
 }
 
 export interface ChatAttachment {
