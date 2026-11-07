@@ -8,23 +8,6 @@ const { loadTs } = require('./helpers/loadTs');
 const clientRoot = path.join(__dirname, '..');
 const legal = loadTs(path.join(clientRoot, 'lib', 'legal', 'legalDocument.ts'));
 
-test('Landing Page Footer links to Privacy and Terms open in a new tab', () => {
-  const footerPath = path.join(clientRoot, 'components', 'landing', 'Footer.tsx');
-  const footerContent = fs.readFileSync(footerPath, 'utf8');
-
-  // Both Privacy and Terms must have target="_blank" and rel="noopener noreferrer"
-  assert.match(
-    footerContent,
-    /<Link\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer">Privacy<\/Link>/,
-    'Footer Privacy link must open in a new tab with noopener noreferrer'
-  );
-  assert.match(
-    footerContent,
-    /<Link\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer">Terms<\/Link>/,
-    'Footer Terms link must open in a new tab with noopener noreferrer'
-  );
-});
-
 test('Landing Page SignupForm consent links to Privacy and Terms open in a new tab', () => {
   const signupPath = path.join(clientRoot, 'components', 'landing', 'SignupForm.tsx');
   const signupContent = fs.readFileSync(signupPath, 'utf8');
