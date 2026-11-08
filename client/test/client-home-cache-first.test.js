@@ -150,5 +150,7 @@ test('the page feeds the tested decisions from an account-scoped key, before pai
   assert.match(source, /if \(view !== 'saved' \|\| !user \|\| !ready\) return/);
   assert.match(source, /if \(currentVersion !== loadVersion\.current\) return/);
   assert.match(source, /else \{\s*setLoading\(true\);\s*setItems\(\[\]\);\s*setLoadedFeedKey\(''\);\s*setHasMore\(false\);/);
-  assert.match(source, /<div key=\{listing\.id\} data-media=\{listing\.id\}>/);
+  // Every listing keeps its data-media wrapper (the scroll anchor); the feed window decides whether it holds the card.
+  assert.match(source, /<div key=\{listing\.id\} data-media=\{listing\.id\} \{\.\.\.feedWindow\.itemProps\(listing\.id, index\)\}>/);
+  assert.match(source, /\{feedWindow\.isMounted\(listing\.id, index\) && <>/);
 });

@@ -70,15 +70,23 @@ test('native Client Home delegates feed storage and pagination to the establishe
 
 test('native Client Home preserves the legacy saved, likes, report, lazy media, carousel, and lightbox contracts', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
+  // The lightbox and report dialog load on first use (components/clientHome/ClientHomeOverlays.tsx);
+  // cards and the next page are observed by the shared feed window (lib/discover/feedWindow.ts).
+  const overlays = fs.readFileSync(path.join(__dirname, '..', 'components', 'clientHome', 'ClientHomeOverlays.tsx'), 'utf8');
+  const feedWindow = fs.readFileSync(path.join(__dirname, '..', 'lib', 'discover', 'feedWindow.ts'), 'utf8');
   assert.match(source, /\.in\('id', Array\.from\(saved\)\)/);
   assert.match(source, /get_listing_like_summaries/);
   assert.match(source, /set_listing_like/);
   assert.match(source, /\/api\/listing-reports/);
   assert.match(source, /\/api\/discover\/video-media/);
-  assert.match(source, /IntersectionObserver/);
+  assert.match(source, /useFeedWindow\(/);
+  assert.match(source, /useLoadMore\(/);
+  assert.match(feedWindow, /new IntersectionObserver/);
   assert.match(source, /onPointerDown/);
-  assert.match(source, /ArrowLeft/);
-  assert.match(source, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(overlays, /ArrowLeft/);
+  assert.match(overlays, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(source, /const Lightbox = dynamic\(/);
+  assert.match(source, /const ReportModal = dynamic\(/);
 });
 
 test('native Client Home sizes media from all source proportions and retains ambient, skeleton, and failure states', () => {

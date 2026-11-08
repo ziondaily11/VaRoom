@@ -46,6 +46,16 @@ export interface PlayerEntry {
   details: VideoDetails | null;
   /** A slide inside the viewer (not listed as a page video). */
   inViewer: boolean;
+  /**
+   * Set by players in a windowed feed (the Discover feed unmounts cards far
+   * from the screen): the player's listing, so its entry stays listed for the
+   * viewer after the card unmounts, and is replaced when the card returns.
+   */
+  retainKey?: string;
+  /** The player's position in that feed, for viewer order while unmounted. */
+  order?: number;
+  /** The card is unmounted; only the viewer uses this entry. */
+  retained?: boolean;
 }
 
 const players = new Map<number, PlayerEntry>();
@@ -63,6 +73,9 @@ function installVisibilityPause(): void {
 
 export function registerPlayer(entry: Omit<PlayerEntry, 'id'>): PlayerEntry {
   installVisibilityPause();
+  if (entry.retainKey) {
+    players.forEach((existing, id) => { if (existing.retained && existing.retainKey === entry.retainKey) players.delete(id); });
+  }
   const registered = { ...entry, id: nextId++ };
   players.set(registered.id, registered);
   return registered;
@@ -77,6 +90,21 @@ export function unregisterPlayer(id: number): void {
   players.delete(id);
 }
 
+/** A windowed feed's player unmounted: keep its entry for the viewer, without its elements. */
+export function retainPlayer(id: number): void {
+  const entry = players.get(id);
+  if (!entry || !entry.retainKey) { players.delete(id); return; }
+  Object.assign(entry, { element: null, video: null, retained: true });
+}
+
+/** Forget the unmounted feed players (the feed changed or the page closed). */
+export function releaseRetainedPlayers(): void {
+  const release = () => players.forEach((entry, id) => { if (entry.retained) players.delete(id); });
+  release();
+  // Cards unmount after their page's own clean-up runs.
+  if (typeof window !== 'undefined') window.setTimeout(release, 0);
+}
+
 /** Pause every other registered video (one plays at a time). */
 export function stopOthers(video: HTMLVideoElement | null): void {
   players.forEach((entry) => {
@@ -84,9 +112,18 @@ export function stopOthers(video: HTMLVideoElement | null): void {
   });
 }
 
-/** Page players for the viewer: visible ones only, in page order. */
+/**
+ * Page players for the viewer: visible ones only, in page order. A windowed
+ * feed's players are listed in feed order, including those whose cards are
+ * unmounted (retained).
+ */
 export function viewerEntries(): PlayerEntry[] {
-  const visible = Array.from(players.values()).filter((entry) => !entry.inViewer && entry.element && entry.element.isConnected && entry.element.getClientRects().length > 0);
+  const all = Array.from(players.values()).filter((entry) => !entry.inViewer);
+  const visible = all.filter((entry) => entry.element && entry.element.isConnected && entry.element.getClientRects().length > 0);
+  const feed = all.filter((entry) => entry.retainKey && typeof entry.order === 'number' && (entry.retained || visible.includes(entry)));
+  if (feed.length > 0 && visible.every((entry) => feed.includes(entry))) {
+    return feed.sort((a, b) => (a.order as number) - (b.order as number));
+  }
   return visible.sort((a, b) => {
     if (!a.element || !b.element) return 0;
     // DOCUMENT_POSITION_FOLLOWING = 4: b comes after a.

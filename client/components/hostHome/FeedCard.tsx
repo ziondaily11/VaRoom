@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import HostListingMenu from '../listings/HostListingMenu';
-import VideoPlayer from '../media/VideoPlayer';
+import { useVideoPlayer } from '../media/lazyVideoPlayer';
 import { timeAgo, type FeedListing } from '../../lib/hostHome/hostHome';
 import { MOBILE_QUERY, sizeStage } from '../../lib/hostHome/mediaStage';
+import { FEED_PHOTO_SIZES, feedImageHints, feedPhotoSrcSet, isSlideNear } from '../../lib/discover/feedMedia';
 import type { FeedLikeState } from '../../lib/listings/listingLikes';
 import { ICONS, Svg } from './hostHomeIcons';
 
@@ -17,6 +18,8 @@ export type MediaState = 'unknown' | 'loading' | 'ready' | 'no-media' | 'unavail
 
 interface Props {
   listing: FeedListing;
+  /** The card's position in the feed (the first card's photo loads first; viewer order). */
+  index?: number;
   userId: string;
   photoUrl: (storagePath: string) => string | null;
   avatarUrl: (value: string | null | undefined) => string | null;
@@ -80,7 +83,7 @@ function useStageSizing(layoutVersion: number) {
   return { stage, size };
 }
 
-function PhotoCarousel({ listing, photos, layoutVersion }: { listing: FeedListing; photos: Array<{ url: string; width: number; height: number }>; layoutVersion: number }) {
+function PhotoCarousel({ listing, photos, layoutVersion, priority }: { listing: FeedListing; photos: Array<{ url: string; width: number; height: number }>; layoutVersion: number; priority: boolean }) {
   const { stage, size } = useStageSizing(layoutVersion);
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState<ReadonlySet<number>>(new Set());
@@ -95,21 +98,29 @@ function PhotoCarousel({ listing, photos, layoutVersion }: { listing: FeedListin
   const width = stage.current ? stage.current.clientWidth : 1;
   const offset = -(active * 100) + (drag !== null && Math.abs(drag) > 6 ? (drag / width) * 100 : 0);
 
-  const slides = photos.map((photo, index) => (
+  // Every slide keeps its <img> (the stage is sized from all of them), but
+  // only the shown photo and its neighbours have a source; the rest load as
+  // the carousel moves towards them.
+  const slides = photos.map((photo, index) => {
+    const near = isSlideNear(index, active) || loaded.has(index);
+    return (
     <div className="media-slide" key={`${photo.url}-${index}`} {...(photo.width > 0 && photo.height > 0 ? { 'data-media-width': photo.width, 'data-media-height': photo.height } : {})}>
       {!loaded.has(index) && <div className="media-image-skeleton" aria-hidden="true" />}
       <img
-        src={photo.url}
-        alt={listing.title}
-        loading="lazy"
+        src={near ? photo.url : undefined}
+        srcSet={near ? feedPhotoSrcSet(photo.url) : undefined}
+        sizes={FEED_PHOTO_SIZES}
+        alt={near ? listing.title : ''}
+        {...feedImageHints(priority && index === 0)}
         data-listing-id={listing.id}
         data-photo-index={index}
-        ref={(image) => { if (image && image.complete && !loaded.has(index)) setTimeout(() => markLoaded(index), 0); }}
+        ref={(image) => { if (image && image.complete && image.getAttribute('src') && !loaded.has(index)) setTimeout(() => markLoaded(index), 0); }}
         onLoad={() => markLoaded(index)}
         onError={() => markLoaded(index)}
       />
     </div>
-  ));
+    );
+  });
 
   if (single) {
     return (
@@ -156,11 +167,14 @@ function PhotoCarousel({ listing, photos, layoutVersion }: { listing: FeedListin
   );
 }
 
-function CardVideoStage({ listing, video, hostName, username, avatarUrl, actions, layoutVersion, refreshVideo }: {
-  listing: FeedListing; video: CardVideo; hostName: string; username: string; avatarUrl: string | null; actions: React.ReactNode; layoutVersion: number; refreshVideo: () => Promise<string | null>;
+function CardVideoStage({ listing, index, video, hostName, username, avatarUrl, actions, layoutVersion, refreshVideo }: {
+  listing: FeedListing; index?: number; video: CardVideo; hostName: string; username: string; avatarUrl: string | null; actions: React.ReactNode; layoutVersion: number; refreshVideo: () => Promise<string | null>;
 }) {
   const { stage, size } = useStageSizing(layoutVersion);
   const [state, setState] = useState<'loading' | 'loaded' | 'failed' | 'blocked'>('loading');
+  // The player's code loads with the feed's first video (components/media/lazyVideoPlayer.ts).
+  const { Player, failed: playerFailed } = useVideoPlayer();
+  useEffect(() => { if (playerFailed) setState('failed'); }, [playerFailed]);
 
   // The player's own <video>: its first frame, failure and autoplay events, and its size once known.
   useEffect(() => {
@@ -176,6 +190,8 @@ function CardVideoStage({ listing, video, hostName, username, avatarUrl, actions
     element.addEventListener('varoomvideoplaying', playing);
     // Always re-fit once the video's own size is known (it can differ from the stored one).
     element.addEventListener('loadedmetadata', size);
+    // The player can mount after the stage (it loads on demand): fit it from the stored size now.
+    if (element.readyState < 1) size();
     if (element.readyState >= 1) size();
     if (element.readyState >= 2) loaded();
     return () => {
@@ -185,25 +201,27 @@ function CardVideoStage({ listing, video, hostName, username, avatarUrl, actions
       element.removeEventListener('varoomvideoplaying', playing);
       element.removeEventListener('loadedmetadata', size);
     };
-  }, [stage, size, video.url, video.width, video.height]);
+  }, [stage, size, video.url, video.width, video.height, Player]);
 
   const classes = ['card-video', 'single', state === 'loaded' ? 'is-loaded' : '', state === 'failed' ? 'is-failed' : '', state === 'blocked' ? 'is-autoplay-blocked' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} ref={stage} {...(video.width && video.height ? { 'data-media-width': video.width, 'data-media-height': video.height } : {})}>
       <div className="media-loading-indicator" aria-hidden="true" />
-      <VideoPlayer
+      {Player && <Player
         src={video.url}
         poster={video.thumbnailUrl}
         listingId={listing.id}
         details={{ hostName, username, avatarUrl, caption: listing.description || listing.title, actions }}
         refreshSrc={refreshVideo}
-      />
+        retainKey={listing.id}
+        order={index}
+      />}
     </div>
   );
 }
 
 export default function FeedCard(props: Props) {
-  const { listing, userId, photoUrl, avatarUrl, like, saved, video, mediaState, layoutVersion, menuOpen, onMenu, onLike, onSave, onChat, onReport, notify, onStatus, onDeleted, refreshVideo } = props;
+  const { listing, index, userId, photoUrl, avatarUrl, like, saved, video, mediaState, layoutVersion, menuOpen, onMenu, onLike, onSave, onChat, onReport, notify, onStatus, onDeleted, refreshVideo } = props;
   const host = listing.host || { full_name: null, verified: null, avatar_url: null, username: null };
   const own = listing.host_id === userId;
   const hostName = host.full_name || 'Host';
@@ -215,7 +233,7 @@ export default function FeedCard(props: Props) {
   const actionProps = { listing, own, like, saved, onLike, onSave, onChat };
   let media: React.ReactNode;
   if (video) {
-    media = <CardVideoStage listing={listing} video={video} hostName={hostName} username={host.username ? `@${host.username}` : ''} avatarUrl={hostAvatar} actions={<ActionRow {...actionProps} extraClass=" varoom-video-viewer-action" />} layoutVersion={layoutVersion} refreshVideo={refreshVideo} />;
+    media = <CardVideoStage listing={listing} index={index} video={video} hostName={hostName} username={host.username ? `@${host.username}` : ''} avatarUrl={hostAvatar} actions={<ActionRow {...actionProps} extraClass=" varoom-video-viewer-action" />} layoutVersion={layoutVersion} refreshVideo={refreshVideo} />;
   } else if (photos.length === 0 && (mediaState === 'unknown' || mediaState === 'loading')) {
     media = <div className="card-media-loading" role="status" aria-label="Preparing listing media" />;
   } else if (photos.length === 0 && mediaState === 'unavailable') {
@@ -223,7 +241,7 @@ export default function FeedCard(props: Props) {
   } else if (photos.length === 0) {
     media = <div className="card-photos card-media-empty" role="img" aria-label="No media available for this listing" />;
   } else {
-    media = <PhotoCarousel listing={listing} photos={photos} layoutVersion={layoutVersion} />;
+    media = <PhotoCarousel listing={listing} photos={photos} layoutVersion={layoutVersion} priority={index === 0} />;
   }
 
   return (

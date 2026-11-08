@@ -36,16 +36,33 @@ function isDocumentScroll(windowObject: ScrollWindow): boolean {
 
 const mediaCards = (feedElement: HTMLElement) => Array.from(feedElement.querySelectorAll<HTMLElement>('[data-media]'));
 
+/**
+ * The first card on screen. Cards are stacked in feed order, so a binary
+ * search finds it with a few measurements instead of one per card above it
+ * (positions are saved on every scroll, and a long feed has thousands).
+ */
+function firstVisibleCard(cards: HTMLElement[], viewportTop: number, viewportBottom: number): HTMLElement | null {
+  let low = 0;
+  let high = cards.length - 1;
+  let found = -1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (cards[middle].getBoundingClientRect().bottom > viewportTop) {
+      found = middle;
+      high = middle - 1;
+    } else {
+      low = middle + 1;
+    }
+  }
+  if (found === -1) return null;
+  return cards[found].getBoundingClientRect().top < viewportBottom ? cards[found] : null;
+}
+
 export function captureScrollPosition(windowObject: ScrollWindow, feedElement: HTMLElement | null | undefined): ScrollPosition {
   const documentScroll = isDocumentScroll(windowObject);
   const viewportTop = documentScroll ? 0 : feedElement?.getBoundingClientRect().top || 0;
   const viewportBottom = documentScroll ? windowObject.innerHeight : viewportTop + (feedElement?.clientHeight || 0);
-  const anchor = feedElement
-    ? mediaCards(feedElement).find((element) => {
-      const bounds = element.getBoundingClientRect();
-      return bounds.bottom > viewportTop && bounds.top < viewportBottom;
-    })
-    : null;
+  const anchor = feedElement ? firstVisibleCard(mediaCards(feedElement), viewportTop, viewportBottom) : null;
   return {
     windowY: windowObject.scrollY || 0,
     areaY: feedElement ? feedElement.scrollTop || 0 : 0,
