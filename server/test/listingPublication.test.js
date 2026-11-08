@@ -46,7 +46,8 @@ test('all Discover feed branches require active moderation and available status'
   );
   assert.match(listingQueryBlock, /\.eq\('moderation_status', 'active'\)/);
   assert.match(listingQueryBlock, /\.eq\('availability_status', 'available'\)/);
-  assert.match(discoverPage, /\.range\(offset, offset \+ limit - 1\)/);
+  // Pages continue after the last loaded listing, by offset only without one (client/lib/discover/feedCursor.ts).
+  assert.match(discoverPage, /pageAfter\(listingQuery\(\)\.order\('created_at', \{ ascending: false \}\)\.order\('id', \{ ascending: false \}\), offset, limit, after\)/);
   assert.match(
     discoverPage,
     /\.in\('id', Array\.from\(saved\)\)\s*\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/

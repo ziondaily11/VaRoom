@@ -208,3 +208,22 @@ test('an unmounted feed video stays in the phone viewer, in feed order, until th
   playback.retainPlayer(plain.id);
   assert.deepEqual(playback.viewerEntries(), [], 'players outside a windowed feed unregister as before');
 });
+
+// ---------- Popular destinations ----------
+
+test('destination counts come from the shared server answer, one request instead of five queries', async () => {
+  const destinations = loadTs(path.join(root, 'lib', 'clientHome', 'destinations.ts'));
+  assert.deepEqual(
+    destinations.parseDestinationCounts({ counts: { Nairobi: 12, Mombasa: 0, Diani: -1, Kisumu: '3' } }, ['Nairobi', 'Mombasa', 'Diani', 'Kisumu', 'Nakuru']),
+    { Nairobi: 12, Mombasa: 0, Diani: null, Kisumu: null, Nakuru: null },
+  );
+  assert.throws(() => destinations.parseDestinationCounts({ counts: [] }, ['Nairobi']), /invalid response/);
+  const calls = [];
+  const fetchFn = async (url) => { calls.push(url); return { ok: true, json: async () => ({ counts: { Nairobi: 4 } }) }; };
+  assert.deepEqual(await destinations.fetchDestinationCounts(['Nairobi'], fetchFn), { Nairobi: 4 });
+  assert.deepEqual(calls, ['/api/destination-counts']);
+  await assert.rejects(destinations.fetchDestinationCounts(['Nairobi'], async () => ({ ok: false, status: 500 })), /500/);
+  const page = read('pages', 'client-home.tsx');
+  assert.match(page, /fetchDestinationCounts\(destinations\.map\(\(\{ city \}\) => city\)\)/);
+  assert.doesNotMatch(page, /\.ilike\('location_text', `%\$\{city\}%`\)/);
+});

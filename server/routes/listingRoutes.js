@@ -7,6 +7,7 @@ const {
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 const { promoteListingMedia } = require('../lib/listingMediaPromotion');
+const { createDestinationCounts } = require('../lib/destinationCounts');
 
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
@@ -124,6 +125,22 @@ router.get('/discover/video-media', async (req, res) => {
   } catch (error) {
     console.error('Discover video media lookup failed:', error);
     return res.status(500).json({ error: 'Unable to load video media' });
+  }
+});
+
+// Client Home's "Popular destinations": one shared, cached answer for every
+// client (lib/destinationCounts.js). Public counts only, so browsers and any
+// CDN in front may keep it for a few minutes.
+const destinationCounts = createDestinationCounts({ supabase: supabaseAdmin });
+router.get('/destination-counts', async (_req, res) => {
+  try {
+    const { counts, updatedAt } = await destinationCounts.get();
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    return res.json({ counts, updatedAt: new Date(updatedAt).toISOString() });
+  } catch (error) {
+    console.error('Destination counts could not be loaded:', error);
+    res.set('Cache-Control', 'no-store');
+    return res.status(500).json({ error: 'Unable to load destination counts' });
   }
 });
 
