@@ -31,6 +31,7 @@ import {
   syncFeedContext,
 } from '../lib/clientHome/feed';
 import { loadClientHomeNews } from '../lib/clientHome/news';
+import { fetchDestinationCounts } from '../lib/clientHome/destinations';
 import {
   discoverVideoMetadata,
   loadCompatibilityVideoMetadata,
@@ -1315,19 +1316,7 @@ export default function ClientHome() {
       setValue: setDestCounts,
       setLoading: setDestinationsLoading,
       setFailed: setDestinationsFailed,
-    }, () => {
-      const client = getSupabaseClient();
-      if (!client) return null;
-      return async () => {
-        const counts = await Promise.all(destinations.map(async ({ city }) => {
-          const result = await client.from('listings').select('id', { count: 'exact', head: true })
-            .ilike('location_text', `%${city}%`);
-          if (result.error) throw result.error;
-          return [city, typeof result.count === 'number' ? result.count : null] as const;
-        }));
-        return Object.fromEntries(counts);
-      };
-    }, 'Popular destination counts could not be loaded:');
+    }, () => async () => fetchDestinationCounts(destinations.map(({ city }) => city)), 'Popular destination counts could not be loaded:');
 
     hydrateClientHomeWidget<Update[]>('updates', {
       isActive,
