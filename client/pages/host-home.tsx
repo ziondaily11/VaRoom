@@ -24,6 +24,10 @@ import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialog
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
 import { profileWithNiche } from '../lib/auth/session';
+import { useFeedScrollRoot, useFeedWindow, useLoadMore } from '../lib/discover/feedWindow';
+import { afterFeedSettles } from '../lib/discover/deferredWork';
+import { preloadVideoPlayer } from '../components/media/lazyVideoPlayer';
+import { releaseRetainedPlayers } from '../lib/media/videoPlayback';
 
 // Host home (migrated from legacy-pages/host-home.html), inside the persistent
 // host shell: the Discover feed (or Saved, or My Listings, from ?view=), the
@@ -96,6 +100,8 @@ export default function HostHomePage() {
 
   const feedList = useRef<HTMLDivElement>(null);
   const dashMain = useRef<HTMLDivElement>(null);
+  // The feed scrolls in .dash-main on wide screens and as the document on phones.
+  const scrollRoot = useFeedScrollRoot(dashMain);
   const activeKey = useRef<string | null>(null);
   const loadVersion = useRef(0);
   const lastScroll = useRef(-1);
@@ -240,42 +246,59 @@ export default function HostHomePage() {
     return undefined;
   }, [ready, client, userId, mode, category, searchTerm, showSnapshot, saveScroll]);
 
-  const loadMore = useCallback(async () => {
+  const loadMore = useCallback(async (): Promise<boolean> => {
     const cache = getListingFeedCache();
     const key = activeKey.current;
-    if (!cache || !key || loadingMore || !client || !userId || mode === 'saved') return;
+    if (!cache || !key || loadingMore || !client || !userId || mode === 'saved') return true;
     const current = cache.snapshot<FeedListing>(key);
     if (visible < current.items.length) {
       setVisible(Math.min(visible + cache.pageSize, current.items.length));
-      return;
+      return true;
     }
-    if (!current.hasMore) return;
+    if (!current.hasMore) return true;
     setLoadingMore(true);
     try {
       const next = await cache.prefetchNext<FeedListing>(key, feedFetcher(client, userId, mode === 'mine', category, searchTerm.trim()));
-      if (activeKey.current !== key) return;
+      if (activeKey.current !== key) return true;
       setVisible((count) => Math.min(count + cache.pageSize, next.items.length));
       showSnapshot(key);
-    } catch { /* the sentinel retries on the next scroll */ } finally {
+      return true;
+    } catch {
+      return false; // retried by the sentinel (lib/discover/feedWindow.ts useLoadMore)
+    } finally {
       setLoadingMore(false);
     }
   }, [loadingMore, client, userId, mode, category, searchTerm, visible, showSnapshot]);
 
-  // Load more only after the reader has scrolled towards the end.
+  const items = useMemo(() => (snapshot ? snapshot.items.slice(0, visible) : []), [snapshot, visible]);
+  const cards = mode === 'saved' ? (savedListings || []) : items;
+
+  // Load more only after the reader has scrolled towards the end: the
+  // sentinel's observer (lib/discover/feedWindow.ts) says when the end is in
+  // range, and each scroll further down may ask again. A failed page is
+  // retried while the reader is still at the end.
   const loadMoreRef = useRef(loadMore);
   loadMoreRef.current = loadMore;
+  const pageTrigger = useLoadMore({
+    root: scrollRoot,
+    enabled: ready && mode !== 'saved' && !loadingMore,
+    canLoad: () => lastScroll.current >= 0 && lastScroll.current > lastLoadScroll.current,
+    onLoadMore: async () => {
+      lastLoadScroll.current = lastScroll.current;
+      const ok = await loadMoreRef.current();
+      if (!ok) lastLoadScroll.current = -1;
+      return ok;
+    },
+    itemCount: items.length,
+  });
+  const checkNextPage = pageTrigger.check;
   useEffect(() => {
     const area = scrollArea();
     const furthest = () => Math.max(window.scrollY || 0, area ? area.scrollTop : 0);
     const onScroll = () => {
       readPosition();
       lastScroll.current = furthest();
-      const sentinel = document.getElementById('listing-feed-sentinel');
-      if (!sentinel || lastScroll.current <= lastLoadScroll.current) return;
-      if (sentinel.getBoundingClientRect().top <= window.innerHeight + 700) {
-        lastLoadScroll.current = lastScroll.current;
-        void loadMoreRef.current();
-      }
+      checkNextPage();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     if (area) area.addEventListener('scroll', onScroll, { passive: true });
@@ -286,22 +309,7 @@ export default function HostHomePage() {
       window.removeEventListener('pagehide', saveScroll);
       saveScroll();
     };
-  }, [ready, saveScroll, readPosition]);
-
-  const items = useMemo(() => (snapshot ? snapshot.items.slice(0, visible) : []), [snapshot, visible]);
-  const cards = mode === 'saved' ? (savedListings || []) : items;
-
-  useEffect(() => {
-    const sentinel = document.getElementById('listing-feed-sentinel');
-    if (!sentinel || !('IntersectionObserver' in window)) return undefined;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting || lastScroll.current < 0 || lastScroll.current <= lastLoadScroll.current) return;
-      lastLoadScroll.current = lastScroll.current;
-      void loadMoreRef.current();
-    }, { rootMargin: '700px 0px' });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [items, loadingMore]);
+  }, [ready, saveScroll, readPosition, checkNextPage]);
 
   useEffect(() => () => cancelAnimationFrame(restoring.current), []);
 
@@ -358,6 +366,8 @@ export default function HostHomePage() {
         } catch { return [id, { mediaId: null }]; }
       })));
     }
+    // The player's code, as soon as the feed has a video to show.
+    if (ids.some((id) => Boolean(metadata[id] && metadata[id]?.mediaId))) void preloadVideoPlayer().catch(() => {});
     await Promise.all(ids.map(async (id) => {
       const entry = metadata[id];
       if (!entry || !entry.mediaId) { settle(id, { state: 'no-media', video: null }); return; }
@@ -388,23 +398,16 @@ export default function HostHomePage() {
     }, 60);
   }, [loadVideos]);
 
-  useEffect(() => {
-    const list = feedList.current;
-    if (!list) return undefined;
-    const pending = Array.from(list.querySelectorAll<HTMLElement>('.card[data-listing-id]'))
-      .filter((card) => !videosRef.current[card.dataset.listingId || '']);
-    if (!pending.length) return undefined;
-    if (!('IntersectionObserver' in window)) { pending.forEach((card) => queueVideo(card.dataset.listingId || '')); return undefined; }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        observer.unobserve(entry.target);
-        queueVideo((entry.target as HTMLElement).dataset.listingId || '');
-      });
-    }, { root: dashMain.current, rootMargin: '350px 0px', threshold: 0.01 });
-    pending.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
-  }, [cards, queueVideo]);
+  // The feed window: one observer keeps only the cards near the screen
+  // mounted and asks for a card's video as it comes near.
+  const queueVideoRef = useRef(queueVideo);
+  queueVideoRef.current = queueVideo;
+  const onCardNear = useCallback((id: string) => queueVideoRef.current(id), []);
+  const feedWindow = useFeedWindow({ root: scrollRoot, onNear: onCardNear });
+
+  // The phone viewer lists this feed's videos, also those of unmounted cards; not once the feed changes.
+  useEffect(() => { releaseRetainedPlayers(); }, [mode, category, searchTerm, userId]);
+  useEffect(() => () => releaseRetainedPlayers(), []);
 
   const refreshVideo = useCallback((id: string) => async () => {
     setVideos((all) => { const next = { ...all }; delete next[id]; return next; });
@@ -440,8 +443,17 @@ export default function HostHomePage() {
   }, [likes, cardIds]);
 
   // ---------- Dashboard side ----------
+  // After the feed has had its turn (lib/discover/deferredWork.ts); cached
+  // Property News and Updates are already on screen.
+  const [secondaryReady, setSecondaryReady] = useState(false);
+  const feedSettled = mode === 'saved' ? savedListings !== null : feedState.status !== 'loading';
   useEffect(() => {
-    if (!ready || !client || !userId) return undefined;
+    if (secondaryReady || !ready) return undefined;
+    return afterFeedSettles(feedSettled, () => setSecondaryReady(true));
+  }, [feedSettled, secondaryReady, ready]);
+
+  useEffect(() => {
+    if (!ready || !client || !userId || !secondaryReady) return undefined;
     let active = true;
     fetchHostListings(client, userId).then((rows) => { if (active) setGlance(rows); }, () => { if (active) setGlance('error'); });
     void fetchSuspended(token).then((value) => { if (active) setSuspended(value); });
@@ -475,7 +487,7 @@ export default function HostHomePage() {
     return () => { active = false; window.clearInterval(timer); reloadNews.current = null; };
     // Once per account.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, client, userId]);
+  }, [ready, client, userId, secondaryReady]);
 
   // Refresh shows the spinner for at least a moment, then the list again.
   const refreshNews = useCallback(() => {
@@ -554,10 +566,13 @@ export default function HostHomePage() {
     feed = (
       <>
         {suspended && mode !== 'saved' && SUSPENSION}
+        {/* Each listing keeps a wrapper; only those near the screen hold the card. */}
         {cards.map((listing, index) => (
-          <React.Fragment key={listing.id}>
+          <div key={listing.id} data-feed-item={listing.id} {...feedWindow.itemProps(listing.id, index)}>
+            {feedWindow.isMounted(listing.id, index) && <>
             <FeedCard
               listing={listing}
+              index={index}
               userId={userId as string}
               photoUrl={photoUrl}
               avatarUrl={avatarUrl}
@@ -578,11 +593,12 @@ export default function HostHomePage() {
               refreshVideo={refreshVideo(listing.id)}
             />
             {index === 0 && showMobileUpdates && <MobileUpdates updates={updates} />}
-          </React.Fragment>
+            </>}
+          </div>
         ))}
         {mode !== 'saved' && (loadingMore
-          ? <p className="state-msg" id="listing-feed-sentinel">Loading more listings…</p>
-          : <div id="listing-feed-sentinel" aria-hidden="true" />)}
+          ? <p className="state-msg" id="listing-feed-sentinel" ref={pageTrigger.ref}>Loading more listings…</p>
+          : <div id="listing-feed-sentinel" aria-hidden="true" ref={pageTrigger.ref} />)}
       </>
     );
   }

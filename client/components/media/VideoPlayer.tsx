@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  formatTime, isViewerOpen, readMuted, registerPlayer, setViewerOpen, stopOthers, unregisterPlayer, updatePlayer, viewerEntries, writeMuted,
+  formatTime, isViewerOpen, readMuted, registerPlayer, retainPlayer, setViewerOpen, stopOthers, unregisterPlayer, updatePlayer, viewerEntries, writeMuted,
   type PlayerEntry, type VideoDetails,
 } from '../../lib/media/videoPlayback';
 import { VIDEO_PLAYER_STYLES } from './videoPlayerStyles';
@@ -64,9 +64,16 @@ export interface VideoPlayerProps {
   className?: string;
   /** A fresh playback URL for Retry (playback URLs expire). */
   refreshSrc?: () => Promise<string | null>;
+  /**
+   * In a windowed feed (cards unmount away from the screen): the listing, so
+   * the phone viewer still lists this video after its card unmounts.
+   */
+  retainKey?: string;
+  /** The card's position in that feed (viewer order). */
+  order?: number;
 }
 
-function PlayerCore({ src, poster = null, details = null, listingId, className = '', refreshSrc, viewer, onOpenViewer }: VideoPlayerProps & {
+function PlayerCore({ src, poster = null, details = null, listingId, className = '', refreshSrc, retainKey, order, viewer, onOpenViewer }: VideoPlayerProps & {
   viewer?: ViewerSlideOptions;
   onOpenViewer?: (startAt: number, entryId: number | null) => void;
 }) {
@@ -92,15 +99,18 @@ function PlayerCore({ src, poster = null, details = null, listingId, className =
 
   // Listed for one-at-a-time playback and (page players) the viewer.
   useEffect(() => {
-    const entry = registerPlayer({ element: wrapperRef.current, video: videoRef.current, src: currentSrc, poster, details, inViewer });
+    const entry = registerPlayer({ element: wrapperRef.current, video: videoRef.current, src: currentSrc, poster, details, inViewer, retainKey: inViewer ? undefined : retainKey, order });
     entryRef.current = entry;
-    return () => { unregisterPlayer(entry.id); entryRef.current = null; };
+    return () => {
+      if (entry.retainKey) retainPlayer(entry.id); else unregisterPlayer(entry.id);
+      entryRef.current = null;
+    };
     // Registered once; later changes go through updatePlayer below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    if (entryRef.current) updatePlayer(entryRef.current.id, { src: currentSrc, poster, details });
-  }, [currentSrc, poster, details]);
+    if (entryRef.current) updatePlayer(entryRef.current.id, { src: currentSrc, poster, details, order });
+  }, [currentSrc, poster, details, order]);
 
   const patch = useCallback((next: Partial<typeof state>) => setState((current) => ({ ...current, ...next })), []);
 

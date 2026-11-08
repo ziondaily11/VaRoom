@@ -26,7 +26,13 @@ export type FeedSnapshot<T> = {
 };
 
 type PageResult<T> = { data?: T[]; hasMore?: boolean; error?: Error } | T[];
-type PageFetcher<T> = (offset: number, limit: number) => Promise<PageResult<T>>;
+/**
+ * Fetches one page. `after` is the last listing of the page before (as the
+ * server returned it), so a fetcher can continue after it instead of
+ * skipping `offset` rows (lib/discover/feedCursor.ts); null for the first
+ * page or when the page before is not cached.
+ */
+type PageFetcher<T> = (offset: number, limit: number, after: FeedListing | null) => Promise<PageResult<T>>;
 
 export type ListingFeedCache = {
   pageSize: number;
@@ -194,8 +200,10 @@ export function createListingFeedCache(options: ListingFeedCacheOptions = {}): L
     const pending = requests.get(requestKey);
     if (pending) return pending as unknown as Promise<FeedSnapshot<T>>;
 
+    const previousPage = offset > 0 ? entry.pages[offset - PAGE_SIZE] : undefined;
+    const after = previousPage && previousPage.length ? previousPage[previousPage.length - 1] : null;
     const request = Promise.resolve()
-      .then(() => requestPage(offset, PAGE_SIZE))
+      .then(() => requestPage(offset, PAGE_SIZE, after))
       .then((result) => {
         const parts = resultParts(result);
         const seen: Record<string, boolean> = {};

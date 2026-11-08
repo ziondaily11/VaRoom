@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { pageAfter, type FeedCursorRow } from '../discover/feedCursor';
 
 // Host home (migrated from legacy-pages/host-home.html): the Discover feed
 // (all available listings, or the host's own), the host's listings at a
@@ -71,11 +72,11 @@ export function feedFetcher(client: SupabaseClient, userId: string, onlyMine: bo
     return next;
   };
 
-  return async (offset: number, limit: number): Promise<PageResult> => {
+  return async (offset: number, limit: number, after: FeedCursorRow | null = null): Promise<PageResult> => {
     if (!term) {
-      const { data, error } = await withFilters(listings())
-        .order('created_at', { ascending: false }).order('id', { ascending: false })
-        .range(offset, offset + limit - 1);
+      // After the last listing already loaded (offset only without one).
+      const { data, error } = await pageAfter(withFilters(listings())
+        .order('created_at', { ascending: false }).order('id', { ascending: false }), offset, limit, after);
       return error ? { error: new Error(error.message) } : { data: (data || []) as unknown as FeedListing[] };
     }
     if (offset > 0) return { data: [], hasMore: false };

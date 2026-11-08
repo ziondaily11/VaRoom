@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { hostProfilePath } from '../lib/profile/hostProfile';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
@@ -42,7 +43,17 @@ import {
 interface LikeSummary { listing_id: string; like_count: number | string | null; liked_by_current_user: boolean | null }
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 import { startListingChat } from '../lib/chat/startChat';
+import { useFeedScrollRoot, useFeedWindow, useLoadMore } from '../lib/discover/feedWindow';
+import { pageAfter, type FeedCursorRow } from '../lib/discover/feedCursor';
+import { feedImageHints, feedPhotoSrcSet, isSlideNear, previewPhotoUrl } from '../lib/discover/feedMedia';
+import { afterFeedSettles } from '../lib/discover/deferredWork';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+// The lightbox and the report dialog load when first opened (and are fetched
+// in the background once the feed is on screen).
+const loadOverlays = () => import('../components/clientHome/ClientHomeOverlays');
+const Lightbox = dynamic(() => loadOverlays().then((module) => module.Lightbox), { ssr: false });
+const ReportModal = dynamic(() => loadOverlays().then((module) => module.ReportModal), { ssr: false });
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
 const categories = [
@@ -182,12 +193,15 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
 
 function Gallery({
   listing,
+  priority,
   video,
   videoLoading,
   videoUnavailable,
   open,
 }: {
   listing: Listing;
+  /** The first card: its first photo is fetched first. */
+  priority: boolean;
   video?: Video;
   videoLoading: boolean;
   videoUnavailable: boolean;
@@ -359,12 +373,15 @@ function Gallery({
       >
         {video.thumbnailUrl && <span className={styles.mediaAmbient} aria-hidden="true" style={{ backgroundImage: safeCssUrl(video.thumbnailUrl) }} />}
         {!videoReady && <span className={styles.videoLoadingOverlay} role="status" aria-label="Loading video" />}
+        {/* Only the size and first frame load until the viewer presses play
+            (the card itself mounts only near the screen); "metadata" also
+            fires the readiness events that clear the loading veil. */}
         <video
           className={styles.video}
           controls
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           poster={video.thumbnailUrl || undefined}
           src={video.url}
           style={{ maxHeight: maxVideoHeight }}
@@ -377,6 +394,9 @@ function Gallery({
                 height: element.videoHeight,
               });
             }
+            // Browsers that stop at metadata (iOS) never report a loaded frame;
+            // the video is playable from here.
+            markVideoReady();
           }}
           onLoadedData={markVideoReady}
           onCanPlay={markVideoReady}
@@ -411,24 +431,28 @@ function Gallery({
       >
         {media.map((photo, index) => {
           const frame = sizing.frames[index];
+          // The shown photo and its neighbours load; the rest wait until swiped towards.
+          const near = isSlideNear(index, activeIndex) || loaded[photo.url];
           return (
             <div className={styles.slide} key={photo.url}>
               <span
                 className={styles.mediaAmbient}
                 aria-hidden="true"
-                style={{ backgroundImage: safeCssUrl(photo.url) }}
+                style={near ? { backgroundImage: safeCssUrl(previewPhotoUrl(photo.url)) } : undefined}
               />
               {failed[photo.url] ? (
                 <div className={styles.photoUnavailable} role="status">Photo unavailable</div>
               ) : (
                 <>
                   {!loaded[photo.url] && <span className={styles.imageSkeleton} aria-label="Loading photo" />}
-                  <img
+                  {near && <img
                     className={styles.listingImage}
                     data-photo-url={photo.url}
                     src={photo.url}
+                    srcSet={feedPhotoSrcSet(photo.url)}
+                    sizes={`${frame.width}px`}
                     alt={listing.title || 'Listing'}
-                    loading="lazy"
+                    {...feedImageHints(priority && index === 0)}
                     style={{ width: frame.width, height: frame.height, opacity: loaded[photo.url] ? 1 : 0 }}
                     onLoad={(event) => {
                       const image = event.currentTarget;
@@ -450,7 +474,7 @@ function Gallery({
                       ? current
                       : { ...current, [photo.url]: true })}
                     onClick={() => open(urls, index)}
-                  />
+                  />}
                 </>
               )}
             </div>
@@ -555,6 +579,7 @@ function ListingCard({
         {unavailable && <div className={styles.statusBanner}>Status: {listing.availability_status}</div>}
         <Gallery
           listing={listing}
+          priority={firstCard}
           video={video}
           videoLoading={videoLoading}
           videoUnavailable={videoUnavailable}
@@ -612,53 +637,6 @@ function FeedSkeleton() {
         <div className={styles.skeletonActions}>
           {[0, 1, 2, 3].map((item) => <span className={`${styles.skeleton} ${styles.skeletonPill}`} key={item} />)}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Lightbox({ value, close }: { value: { urls: string[]; index: number }; close: () => void }) {
-  const [index, setIndex] = useState(value.index);
-  const startX = useRef<number | null>(null);
-  const go = (delta: number) => setIndex((current) => (current + delta + value.urls.length) % value.urls.length);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-      if (event.key === 'ArrowLeft') go(-1);
-      if (event.key === 'ArrowRight') go(1);
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [close]);
-
-  return (
-    <div
-      className={styles.lightbox}
-      onClick={close}
-      onTouchStart={(event) => { startX.current = event.changedTouches[0].clientX; }}
-      onTouchEnd={(event) => {
-        if (startX.current === null) return;
-        const delta = event.changedTouches[0].clientX - startX.current;
-        if (Math.abs(delta) > 40) go(delta < 0 ? 1 : -1);
-        startX.current = null;
-      }}
-    >
-      <div className={styles.lightboxStage} onClick={(event) => event.stopPropagation()}>
-        <button type="button" className={styles.lightboxClose} aria-label="Close" onClick={close}>×</button>
-        <img className={styles.lightboxImage} src={value.urls[index]} alt="Listing media" />
-        {value.urls.length > 1 && (
-          <>
-            <button type="button" className={`${styles.lightboxNav} ${styles.previous}`} aria-label="Previous photo" onClick={() => go(-1)}>‹</button>
-            <button type="button" className={`${styles.lightboxNav} ${styles.next}`} aria-label="Next photo" onClick={() => go(1)}>›</button>
-            <span className={styles.lightboxCounter}>{index + 1} / {value.urls.length}</span>
-          </>
-        )}
       </div>
     </div>
   );
@@ -760,56 +738,9 @@ function MobileFeedWidgets({
   );
 }
 
-function ReportModal({
-  reason,
-  details,
-  message,
-  submitting,
-  onReason,
-  onDetails,
-  onCancel,
-  onSubmit,
-}: {
-  reason: string;
-  details: string;
-  message: string;
-  submitting: boolean;
-  onReason: (value: string) => void;
-  onDetails: (value: string) => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <div className={styles.modalOverlay} onClick={onCancel}>
-      <div className={styles.reportModal} role="dialog" aria-modal="true" aria-labelledby="report-title" onClick={(event) => event.stopPropagation()}>
-        <h2 id="report-title">Report this listing</h2>
-        <p>Help us keep VaRoom trustworthy. Reports are reviewed by our team — false reports don&apos;t automatically penalize a host.</p>
-        <label>
-          Reason
-          <select value={reason} onChange={(event) => onReason(event.target.value)}>
-            <option value="fraudulent">Fraudulent — this host is scamming or misrepresenting</option>
-            <option value="misleading_info">Misleading information — details don&apos;t match reality</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
-        <label>
-          Details (optional)
-          <textarea value={details} onChange={(event) => onDetails(event.target.value)} placeholder="Anything else we should know" />
-        </label>
-        {message && <p className={`${styles.reportMessage} ${message.startsWith('Report submitted') ? styles.reportSuccess : styles.reportError}`} role="status">{message}</p>}
-        <div className={styles.modalActions}>
-          <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
-          <button type="button" className={styles.submitButton} onClick={onSubmit} disabled={submitting}>{submitting ? 'Submitting...' : 'Submit report'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ClientHome() {
   const router = useRouter();
   const feed = useRef<HTMLElement>(null);
-  const end = useRef<HTMLDivElement>(null);
   const cache = useRef<ListingFeedCache | null>(null);
   const loadVersion = useRef(0);
   const authEpoch = useRef(0);
@@ -821,6 +752,7 @@ export default function ClientHome() {
   const anchorObserverCleanup = useRef<(() => void) | null>(null);
   const leavingClientHome = useRef(false);
   const pendingVideoIds = useRef(new Set<string>());
+  const requestedLikeIds = useRef(new Set<string>());
   const videoTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
   const newsRequestVersion = useRef(0);
@@ -931,6 +863,7 @@ export default function ClientHome() {
       resolvedSessionUserId.current = sessionUser?.id || null;
       restoredScrollKey.current = '';
       pendingVideoIds.current.clear();
+      requestedLikeIds.current.clear();
       if (videoTimer.current !== null) {
         window.clearTimeout(videoTimer.current);
         videoTimer.current = null;
@@ -1050,7 +983,7 @@ export default function ClientHome() {
   );
   syncFeedContext(feedContextKey, feedContextVersion, key);
 
-  const fetcher = useCallback(async (offset: number, limit: number): Promise<{ data?: Listing[]; hasMore?: boolean; error?: Error }> => {
+  const fetcher = useCallback(async (offset: number, limit: number, after: FeedCursorRow | null = null): Promise<{ data?: Listing[]; hasMore?: boolean; error?: Error }> => {
     const client = getSupabaseClient();
     if (!client) throw new Error('Supabase is unavailable.');
     const listingQuery = () => {
@@ -1062,8 +995,8 @@ export default function ClientHome() {
     };
 
     if (!term) {
-      const page = await listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false })
-        .range(offset, offset + limit - 1)
+      // After the last listing already loaded (offset only without one).
+      const page = await pageAfter(listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false }), offset, limit, after)
         .overrideTypes<Listing[], { merge: false }>();
       return page.error ? { error: page.error } : { data: page.data || [] };
     }
@@ -1096,10 +1029,11 @@ export default function ClientHome() {
     view, ready, feedReady, key, loadedFeedKey, loading, error, items,
   });
 
-  const loadFeed = useCallback(async (nextPage = false) => {
+  // Resolves false when the page could not be loaded (the next-page trigger retries).
+  const loadFeed = useCallback(async (nextPage = false): Promise<boolean> => {
     if (!cache.current || !canLoadClientHomeFeed({
       feedReady, hasUser: Boolean(user), key, view, nextPage, loadingMore: loadingMoreRef.current,
-    })) return;
+    })) return true;
     if (!nextPage) {
       loadingMoreRef.current = false;
       setLoadingMore(false);
@@ -1123,7 +1057,7 @@ export default function ClientHome() {
           console.warn('Client Home feed refresh failed:', loadError);
         });
       }
-      return;
+      return true;
     }
 
     if (nextPage) {
@@ -1142,14 +1076,16 @@ export default function ClientHome() {
         ? await cache.current.prefetchNext(key, fetcher)
         : await cache.current.fetchPage(key, 0, fetcher);
       const payload = result;
-      if (currentVersion !== loadVersion.current) return;
+      if (currentVersion !== loadVersion.current) return true;
       setItems((payload.items || []) as Listing[]);
       setLoadedFeedKey(key);
       setHasMore(Boolean(payload.hasMore));
+      return true;
     } catch (loadError) {
       if (currentVersion === loadVersion.current) {
         setError(loadError instanceof Error ? loadError.message : 'Could not load listings.');
       }
+      return false;
     } finally {
       if (currentVersion === loadVersion.current) {
         loadingMoreRef.current = false;
@@ -1190,16 +1126,29 @@ export default function ClientHome() {
     return () => { active = false; };
   }, [key, ready, saved, user, view]);
 
+  // Like summaries for listings not asked about yet: a new page asks only for
+  // its own listings (each listing once per account), not the whole feed again.
   useEffect(() => {
     if (items.length === 0 || !user || loadedFeedKey !== key) return;
-    let active = true;
+    const accountId = user.id;
+    const pending = items.map((listing) => listing.id).filter((id) => !requestedLikeIds.current.has(id));
+    if (pending.length === 0) return;
+    pending.forEach((id) => requestedLikeIds.current.add(id));
+    const isCurrent = () => resolvedSessionUserId.current === accountId;
     const loadLikes = async () => {
       const client = getSupabaseClient();
       if (!client) return;
-      for (let offset = 0; offset < items.length; offset += 100) {
-        const ids = items.slice(offset, offset + 100).map((listing) => listing.id);
-        const result = await client.rpc('get_listing_like_summaries', { p_listing_ids: ids });
-        if (!active) return;
+      for (let offset = 0; offset < pending.length; offset += 100) {
+        const ids = pending.slice(offset, offset + 100);
+        let result: Awaited<ReturnType<typeof client.rpc>>;
+        try {
+          result = await client.rpc('get_listing_like_summaries', { p_listing_ids: ids });
+        } catch (loadError) {
+          // Asked again with the next change of the feed.
+          if (isCurrent()) ids.forEach((id) => requestedLikeIds.current.delete(id));
+          throw loadError;
+        }
+        if (!isCurrent()) return;
         setLikes((current) => {
           const next = { ...current };
           const summaries = Array.isArray(result.data) ? result.data : [];
@@ -1230,7 +1179,6 @@ export default function ClientHome() {
       }
     };
     void loadLikes().catch((loadError) => console.error('Listing likes could not be loaded:', loadError));
-    return () => { active = false; };
   }, [items, key, loadedFeedKey, user]);
 
   const requestVideoMedia = useCallback((listingId: string) => {
@@ -1308,25 +1256,15 @@ export default function ClientHome() {
     }, 60);
   }, [videoStates, videos]);
 
-  useEffect(() => {
-    if (items.length === 0 || loadedFeedKey !== key) return;
-    const root = feed.current;
-    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-media]'));
-    if (!('IntersectionObserver' in window)) {
-      targets.forEach((target) => requestVideoMedia(target.dataset.media || ''));
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        const target = entry.target as HTMLElement;
-        observer.unobserve(target);
-        requestVideoMedia(target.dataset.media || '');
-      });
-    }, { root, rootMargin: '350px 0px', threshold: 0.01 });
-    targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
-  }, [items, key, loadedFeedKey, requestVideoMedia]);
+  // The feed window (lib/discover/feedWindow.ts): one observer on the cards
+  // keeps only those near the screen mounted, and asks for a card's video as
+  // it comes near. Its root follows the scroll container (the feed column on
+  // wide screens, the document on phones).
+  const scrollRoot = useFeedScrollRoot(feed);
+  const requestVideoMediaRef = useRef(requestVideoMedia);
+  requestVideoMediaRef.current = requestVideoMedia;
+  const onCardNear = useCallback((listingId: string) => requestVideoMediaRef.current(listingId), []);
+  const feedWindow = useFeedWindow({ root: scrollRoot, onNear: onCardNear });
 
   useEffect(() => {
     const stopTrackingScrollIntent = trackScrollIntent(window, () => { scrollInteractionVersion.current += 1; });
@@ -1355,9 +1293,22 @@ export default function ClientHome() {
     });
   }, [key, router]);
 
+  // Side widgets and Property News refresh once the feed has had its turn
+  // (lib/discover/deferredWork.ts); their cached values are already shown.
+  // The lightbox and report code is fetched then too.
+  const [secondaryReady, setSecondaryReady] = useState(false);
+  const feedSettled = loadedFeedKey !== '' || Boolean(error) || view === 'saved';
+  useEffect(() => {
+    if (secondaryReady || !user?.id) return undefined;
+    return afterFeedSettles(feedSettled, () => {
+      setSecondaryReady(true);
+      void loadOverlays().catch(() => {});
+    });
+  }, [feedSettled, secondaryReady, user?.id]);
+
   useEffect(() => {
     let active = true;
-    if (!user?.id) return () => { active = false; };
+    if (!user?.id || !secondaryReady) return () => { active = false; };
     const isActive = () => active;
     hydrateClientHomeWidget<Record<string, number | null>>('destinations', {
       isActive,
@@ -1396,7 +1347,7 @@ export default function ClientHome() {
     }, 'VaRoom Updates could not be loaded:');
 
     return () => { active = false; };
-  }, [user?.id]);
+  }, [secondaryReady, user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -1412,7 +1363,7 @@ export default function ClientHome() {
       setRecommendedFailed(false);
     }
     const loadRecommended = () => {
-      if (!user?.id || !breakpoint.matches || requestStarted) return;
+      if (!user?.id || !secondaryReady || !breakpoint.matches || requestStarted) return;
       requestStarted = true;
       if (cached?.isFresh) return;
       const client = getSupabaseClient();
@@ -1448,7 +1399,7 @@ export default function ClientHome() {
       active = false;
       breakpoint.removeEventListener('change', loadRecommended);
     };
-  }, [user?.id]);
+  }, [secondaryReady, user?.id]);
 
   const loadNews = useCallback((force = false) => loadClientHomeNews(force, {
     accountId: user?.id || null,
@@ -1462,7 +1413,7 @@ export default function ClientHome() {
   }), [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !secondaryReady) return;
     void loadNews();
     const timer = window.setInterval(() => { void loadNews(); }, 5 * 60 * 1000);
     return () => {
@@ -1471,27 +1422,16 @@ export default function ClientHome() {
       newsAbortController.current?.abort();
       newsAbortController.current = null;
     };
-  }, [loadNews, user?.id]);
+  }, [loadNews, secondaryReady, user?.id]);
 
-  useEffect(() => {
-    if (!hasMore || view === 'saved' || !end.current) return;
-    const sentinel = end.current;
-    const loadNext = () => { void loadFeed(true); };
-    const observer = typeof IntersectionObserver === 'undefined'
-      ? null
-      : new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) loadNext();
-      }, { root: feed.current, rootMargin: '700px 0px' });
-    observer?.observe(sentinel);
-    const fallback = () => {
-      if (sentinel.getBoundingClientRect().top < window.innerHeight + 700) loadNext();
-    };
-    feed.current?.addEventListener('scroll', fallback, { passive: true });
-    return () => {
-      observer?.disconnect();
-      feed.current?.removeEventListener('scroll', fallback);
-    };
-  }, [hasMore, loadFeed, view]);
+  // The next page as the reader nears the end (and again while the end stays
+  // in range); a failed page is retried while the reader is still there.
+  const pageTrigger = useLoadMore({
+    root: scrollRoot,
+    enabled: hasMore && view !== 'saved' && loadedFeedKey === key && !loadingMore,
+    onLoadMore: () => loadFeed(true),
+    itemCount: visibleItems.length,
+  });
 
   const onLike = async (listingId: string) => {
     const before = likes[listingId] || { liked: false, count: 0, version: 0 };
@@ -1719,8 +1659,11 @@ export default function ClientHome() {
           {showEmpty && (
             <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
           )}
+          {/* Every listing keeps its wrapper (the scroll-restoration anchor);
+              only those near the screen hold the card, the rest keep its height. */}
           {visibleItems.map((listing, index) => (
-            <div key={listing.id} data-media={listing.id}>
+            <div key={listing.id} data-media={listing.id} {...feedWindow.itemProps(listing.id, index)}>
+              {feedWindow.isMounted(listing.id, index) && <>
               <ListingCard
                 listing={listing}
                 firstCard={index === 0}
@@ -1751,10 +1694,11 @@ export default function ClientHome() {
                   updatesFailed={updatesFailed}
                 />
               )}
+              </>}
             </div>
           ))}
           {loadingMore && <p className={styles.stateMessage} role="status">Loading more listings…</p>}
-          <div ref={end} className={styles.feedSentinel} aria-hidden="true" />
+          <div ref={pageTrigger.ref} className={styles.feedSentinel} aria-hidden="true" />
 
           {showWidgets && (
             <section className={`${styles.mobileWidgetCard} ${styles.mobileNews}`}>

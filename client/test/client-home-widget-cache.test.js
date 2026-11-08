@@ -287,8 +287,10 @@ test('explicit Refresh only updates this browser\'s Property News preview cache'
 test('sidebar panels hydrate before paint and refresh per account without waiting for bookmarks', () => {
   assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{\s*const cachedDestinations = readClientHomeWidgetCache[\s\S]*?getCachedNewsPreview\(\)/);
   const effectStart = source.indexOf("hydrateClientHomeWidget<Record<string, number | null>>('destinations'");
-  const effect = source.slice(source.lastIndexOf('useEffect(() => {', effectStart), source.indexOf('}, [user?.id]);', effectStart));
-  assert.match(effect, /if \(!user\?\.id\) return \(\) => \{ active = false; \};/);
+  const effect = source.slice(source.lastIndexOf('useEffect(() => {', effectStart), source.indexOf('}, [secondaryReady, user?.id]);', effectStart));
+  // Refreshed once the feed has had its turn (lib/discover/deferredWork.ts); cached values paint first.
+  assert.match(effect, /if \(!user\?\.id \|\| !secondaryReady\) return \(\) => \{ active = false; \};/);
+  assert.match(source, /return afterFeedSettles\(feedSettled, \(\) => \{\s*setSecondaryReady\(true\);/);
   assert.match(effect, /hydrateClientHomeWidget<Update\[\]>\('updates'/);
   assert.doesNotMatch(effect, /\bready\b/);
   assert.match(source, /const loadNews = useCallback\(\(force = false\) => loadClientHomeNews\(force, \{[\s\S]*?currentAccountId: \(\) => resolvedSessionUserId\.current/);

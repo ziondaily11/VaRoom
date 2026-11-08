@@ -179,11 +179,16 @@ test('video requests use the active account session and stop when the account ch
   assert.match(requestVideoMedia, /settleVideoBatches\(ids, \{/);
   assert.match(requestVideoMedia, /catch \(lookupError\) \{[\s\S]*?setVideoStates\(\(current\) => markVideoStates\(current, ids, 'unavailable'\)\)/);
   assert.doesNotMatch(requestVideoMedia, /if \(!client\) return|while\s*\(|setTimeout\([^)]*requestVideoMedia/);
-  assert.match(source, /targets\.forEach\(\(target\) => observer\.observe\(target\)\)/);
+  // Cards ask for their video as the feed window brings them near (lib/discover/feedWindow.ts).
+  assert.match(source, /useFeedWindow\(\{ root: scrollRoot, onNear: onCardNear \}\)/);
+  assert.match(source, /const onCardNear = useCallback\(\(listingId: string\) => requestVideoMediaRef\.current\(listingId\), \[\]\)/);
 });
 
 test('video loading permits playback interaction and listens for real readiness events', () => {
-  assert.match(gallery, /preload="auto"/);
+  // Size and first frame only; the rest loads when played (the card mounts only near the screen).
+  assert.match(gallery, /preload="metadata"/);
+  assert.doesNotMatch(gallery, /preload="auto"/);
+  assert.match(gallery, /onLoadedMetadata=\{[\s\S]*?markVideoReady\(\);/, 'metadata alone clears the veil (iOS stops there)');
   for (const handler of ['onLoadedData={markVideoReady}', 'onCanPlay={markVideoReady}', 'onPlaying={markVideoReady}', 'onError={markVideoFailed}']) {
     assert.ok(gallery.includes(handler), handler);
   }
