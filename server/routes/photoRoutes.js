@@ -7,7 +7,10 @@ const { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey } = r
 const { ValidationError, assertAllowedKeys, text, number, enumValue, uuid } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
-const { parseVariantWidth, ensureVariant, STABLE_REDIRECT_MAX_AGE } = require('../lib/photoVariants');
+const {
+  parseVariantWidth, ensureVariant, STABLE_REDIRECT_MAX_AGE, CDN_REDIRECT_MAX_AGE, SERVER_REDIRECT_TTL_SECONDS,
+} = require('../lib/photoVariants');
+const { createPhotoRedirectCache } = require('../lib/photoRedirectCache');
 
 const router = express.Router();
 const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images', 'profile-banners']);
@@ -206,12 +209,25 @@ router.post('/photos/upload-discard', async (req, res) => {
   }
 });
 
+// Public photo answers from the last minute (lib/photoRedirectCache.js).
+const redirectCache = createPhotoRedirectCache({ ttlMs: SERVER_REDIRECT_TTL_SECONDS * 1000 });
+
+// A public photo's redirect: browsers keep it for STABLE_REDIRECT_MAX_AGE and
+// Vercel's CDN (which forwards /api to this server, client/vercel.json) for
+// CDN_REDIRECT_MAX_AGE, shared by every visitor; the signed URL outlives both
+// (lib/photoVariants.js stableSigning).
+function sendPublicPhotoRedirect(res, url) {
+  res.set('Cache-Control', `public, max-age=${STABLE_REDIRECT_MAX_AGE}`);
+  res.set('Vercel-CDN-Cache-Control', `max-age=${CDN_REDIRECT_MAX_AGE}`);
+  return res.redirect(302, url);
+}
+
 // Redirects to an R2 photo. Public photos get a URL that stays the same for
 // an hour, so browsers reuse the redirect and the image (going back to a page
 // costs nothing); `?w=` serves a smaller copy made on first request. Private
 // photos (unpublished listings) keep a fresh five-minute URL that is never
 // cached, and are always the original.
-async function redirectToR2Photo(res, key, isPublic, width) {
+async function redirectToR2Photo(res, category, key, isPublic, width) {
   if (!isPublic) {
     const download = await mediaStorageService.generateR2DownloadAuthorization(key, undefined, 300);
     res.set('Cache-Control', 'private, no-store');
@@ -223,8 +239,9 @@ async function redirectToR2Photo(res, key, isPublic, width) {
     catch (error) { console.warn('Photo resize failed; serving the original:', error.message || error); }
   }
   const url = await mediaStorageService.generateStableR2DownloadUrl(objectKey);
-  res.set('Cache-Control', `public, max-age=${STABLE_REDIRECT_MAX_AGE}`);
-  return res.redirect(302, url);
+  // A failed resize served the original: not kept, so the copy is tried again.
+  if (objectKey !== key || !width) redirectCache.set(category, key, width, url);
+  return sendPublicPhotoRedirect(res, url);
 }
 
 // Listing-photo access is tied to the listing record. R2 and legacy Supabase
@@ -235,6 +252,11 @@ router.get('/photos/:category/*', async (req, res) => {
     const key = req.params[0] ? decodeURIComponent(req.params[0]) : '';
     const width = parseVariantWidth(req.query.w);
     if (!PHOTO_CATEGORIES.has(category)) return res.sendStatus(404);
+    // Images never send credentials: the same public answer serves every visitor.
+    if (!req.headers.authorization) {
+      const cached = redirectCache.get(category, key, width);
+      if (cached) return sendPublicPhotoRedirect(res, cached);
+    }
     if (category === 'listing-photos') {
       const authHeader = req.headers.authorization || '';
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -256,15 +278,19 @@ router.get('/photos/:category/*', async (req, res) => {
       const access = decideListingMediaAccess(listing, userId);
       if (!access.allowed) return res.sendStatus(404);
       if (isR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) {
-        return redirectToR2Photo(res, key, access.published, width);
+        return redirectToR2Photo(res, category, key, access.published, width);
       }
-      const { data, error } = await supabaseAdmin.storage.from('listing-photos').createSignedUrl(key, 300);
+      // Older Supabase photos: a fresh signed URL each time, valid longer than
+      // the browser keeps the redirect (it used to expire just as the cache
+      // did), and never kept by the CDN.
+      const { data, error } = await supabaseAdmin.storage.from('listing-photos').createSignedUrl(key, 900);
       if (error || !data?.signedUrl) throw error || new Error('Unable to sign legacy listing photo');
       res.set('Cache-Control', access.published ? 'public, max-age=300' : 'private, no-store');
+      res.set('Vercel-CDN-Cache-Control', 'no-store');
       return res.redirect(302, data.signedUrl);
     }
     if (!isR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) return res.sendStatus(404);
-    return redirectToR2Photo(res, key, true, width);
+    return redirectToR2Photo(res, category, key, true, width);
   } catch (error) {
     console.error('Photo download authorization failed:', error);
     return res.sendStatus(404);
@@ -272,3 +298,5 @@ router.get('/photos/:category/*', async (req, res) => {
 });
 
 module.exports = router;
+/** For tests: the public photo answers kept by this server. */
+module.exports.photoRedirectCache = redirectCache;
