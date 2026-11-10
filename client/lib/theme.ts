@@ -4,7 +4,7 @@
 export type Theme = 'light' | 'dark';
 
 /** Pages that always render light, whatever the saved preference. */
-export const FORCED_LIGHT_ROUTES = ['/', '/payments', '/property-news'];
+export const FORCED_LIGHT_ROUTES = ['/', '/payments', '/property-news', '/privacy', '/terms'];
 const FORCED_LIGHT_PREFIXES = ['/property-news/'];
 
 /** Pages designed dark-first: dark unless the user chose Light in Settings. */
