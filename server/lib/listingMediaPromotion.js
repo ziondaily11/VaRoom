@@ -2,6 +2,7 @@
 
 const supabaseDefault = require('./supabaseClient');
 const storageDefault = require('./mediaStorageService');
+const { scheduleVariants: scheduleVariantsDefault } = require('./photoVariants');
 
 function publishedObjectKey(key) {
   if (key.startsWith('drafts/videos/')) return key.replace(/^drafts\/videos\//, 'videos/');
@@ -17,6 +18,7 @@ async function promoteListingMedia(listingId, {
   supabaseAdmin = supabaseDefault,
   mediaStorageService = storageDefault,
   hostId,
+  scheduleVariants = scheduleVariantsDefault,
 } = {}) {
   const { data: sessions, error: sessionsError } = await supabaseAdmin.from('draft_media_upload_sessions')
     .select('object_key,expires_at,completed_at').eq('listing_id', listingId);
@@ -65,6 +67,8 @@ async function promoteListingMedia(listingId, {
       .eq('listing_id', listingId).eq('storage_path', sourceKey)
       .select('storage_path').maybeSingle();
     if (updateError || !updated) throw new Error(`Unable to update promoted photo: ${updateError?.message || 'photo state changed'}`);
+    // The published photo's feed sizes, in the background (lib/photoVariants.js).
+    scheduleVariants(mediaStorageService, 'listing-photos', destinationKey);
   }
 }
 

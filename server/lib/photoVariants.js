@@ -2,8 +2,10 @@
 
 const sharp = require('sharp');
 
-// Smaller copies of stored photos, made on first request and kept beside the
-// original in R2 (`<original key>.w<width>.webp`). Pages ask for the width
+// Smaller copies of stored photos, kept beside the original in R2
+// (`<original key>.w<width>.webp`): made in the background when a public
+// photo is saved or published (scheduleVariants), and otherwise on first
+// request (ensureVariant). Pages ask for the width
 // they show (an avatar, a card) instead of downloading the full upload, which
 // is up to 2000 px on its long side. Deleting the original deletes its copies
 // (see mediaStorageService.deleteR2Object / deleteR2Objects).
@@ -77,6 +79,85 @@ function ensureVariant(storage, key, width, resize = resizeToWebp, now = Date.no
   return job;
 }
 
+// ---------- Copies made ahead of the first view ----------
+
+// The sizes pages ask for, by category (client/components/resolveStoredPhotoUrl.ts
+// and the Discover feeds): listing photos in every feed size plus the 192 px
+// blurred backdrop; avatars small, and 480 on public profiles. Banners and
+// update images are shown full size, so they get none.
+const UPLOAD_WIDTHS = Object.freeze({
+  'listing-photos': Object.freeze([192, 480, 800, 1200]),
+  avatars: Object.freeze([192, 480]),
+});
+
+/** The widths made ahead for a category (empty when none are). */
+function uploadWidthsFor(category) {
+  return UPLOAD_WIDTHS[category] || [];
+}
+
+/**
+ * Makes every missing copy of `key` in `widths`, downloading the original
+ * once (ensureVariant downloads it once per width). Copies already in R2, or
+ * being made by a photo request, are left alone. Returns the widths made.
+ */
+async function ensureVariants(storage, key, widths, resize = resizeToWebp, now = Date.now) {
+  if (!IMAGE_KEY_PATTERN.test(key) || isVariantKey(key)) return [];
+  const missing = [];
+  for (const width of widths) {
+    const target = variantKey(key, width);
+    const knownUntil = known.get(target);
+    if ((knownUntil && knownUntil > now()) || pending.has(target)) continue;
+    const metadata = await storage.getR2ObjectMetadata(target);
+    if (metadata.exists) rememberVariant(target, now());
+    else missing.push(width);
+  }
+  if (!missing.length) return [];
+  const original = await storage.downloadR2Object(key);
+  const made = [];
+  for (const width of missing) {
+    const target = variantKey(key, width);
+    if (pending.has(target)) continue;
+    const job = (async () => {
+      const resized = await resize(original, width);
+      await storage.uploadR2Object(target, resized, 'image/webp');
+      rememberVariant(target, now());
+      return target;
+    })().finally(() => pending.delete(target));
+    pending.set(target, job);
+    await job;
+    made.push(width);
+  }
+  return made;
+}
+
+// Uploads and publications queue their copies here, one photo at a time, so
+// the request that saved the photo is not held up and resizing (CPU heavy)
+// never runs many at once. A photo already queued is not queued twice; when
+// the queue is full, the copies are made on first view instead.
+const QUEUE_LIMIT = 500;
+const queued = new Set();
+let queueTail = Promise.resolve();
+
+/**
+ * Queues the copies of a just-saved public photo. Never throws; a failure is
+ * logged and the copy is made on its first view, as before. Resolves when
+ * this photo's copies are done (for tests and scripts).
+ */
+function scheduleVariants(storage, category, key, options = {}) {
+  const widths = uploadWidthsFor(category);
+  if (!widths.length || typeof key !== 'string' || !key) return Promise.resolve([]);
+  if (queued.has(key) || queued.size >= QUEUE_LIMIT) return Promise.resolve([]);
+  queued.add(key);
+  const run = queueTail.then(() => ensureVariants(storage, key, widths, options.resize, options.now))
+    .catch((error) => {
+      console.warn(`Photo copies for ${key} will be made on first view instead:`, error && error.message ? error.message : error);
+      return [];
+    })
+    .finally(() => queued.delete(key));
+  queueTail = run;
+  return run;
+}
+
 const HOUR = 60 * 60;
 
 /**
@@ -107,6 +188,10 @@ module.exports = {
   isVariantKey,
   variantKeysFor,
   ensureVariant,
+  ensureVariants,
+  scheduleVariants,
+  uploadWidthsFor,
+  UPLOAD_WIDTHS,
   forgetKnownVariants,
   stableSigning,
   STABLE_REDIRECT_MAX_AGE,
