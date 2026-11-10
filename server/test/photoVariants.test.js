@@ -28,14 +28,17 @@ test('only the sizes pages use are accepted, and copies sit beside the original'
   assert.deepEqual(variants.variantKeysFor('chat-attachments/x/file.pdf'), [], 'documents have none');
 });
 
-test('stable signing gives the same inputs all hour and at least an hour of validity', () => {
+test('stable signing gives the same inputs all hour and at least two hours of validity', () => {
   const start = Date.UTC(2026, 10, 5, 10, 0, 0);
   const early = variants.stableSigning(start + 60 * 1000);
   const late = variants.stableSigning(start + 59 * 60 * 1000);
   assert.equal(early.signingDate.getTime(), start);
   assert.equal(late.signingDate.getTime(), start);
-  assert.equal(early.expiresIn, 7200);
-  assert.ok(variants.STABLE_REDIRECT_MAX_AGE < 3600, 'the cached redirect never outlives the URL');
+  assert.equal(early.expiresIn, 10800);
+  // Server, CDN and browser may hold the redirect one after another; the URL signed
+  // at the end of an hour still has two hours left and must outlive all three.
+  const held = variants.SERVER_REDIRECT_TTL_SECONDS + variants.CDN_REDIRECT_MAX_AGE + variants.STABLE_REDIRECT_MAX_AGE;
+  assert.ok(held < early.expiresIn - 3600, 'the cached redirect never outlives the URL');
   assert.notEqual(variants.stableSigning(start + 61 * 60 * 1000).signingDate.getTime(), start, 'the next hour signs anew');
 });
 
@@ -45,7 +48,7 @@ test('a stable URL is byte-identical within the hour and asks the browser to cac
   const second = await mediaStorageService.generateStableR2DownloadUrl(avatarKey, undefined, base + 55 * 60 * 1000);
   assert.equal(first, second);
   assert.match(first, /response-cache-control=public%2C%20max-age%3D3600/);
-  assert.match(first, /X-Amz-Expires=7200/);
+  assert.match(first, /X-Amz-Expires=10800/);
   const nextHour = await mediaStorageService.generateStableR2DownloadUrl(avatarKey, undefined, base + 65 * 60 * 1000);
   assert.notEqual(first, nextHour);
 });
@@ -105,6 +108,8 @@ test('deleting a photo deletes its copies; other files are deleted alone', async
 });
 
 async function withRoute(overrides, run) {
+  photoRoutes.photoRedirectCache.clear();
+  variants.forgetKnownVariants();
   const saved = {};
   for (const [name, fn] of Object.entries(overrides)) { saved[name] = mediaStorageService[name]; mediaStorageService[name] = fn; }
   const app = express();
@@ -135,7 +140,7 @@ test('public photos redirect to a stable, cacheable URL; ?w= serves the copy; a 
     const odd = await get(`/photos/avatars/${avatarKey}?w=193`);
     assert.equal(odd.headers.get('location'), `https://r2.invalid/${avatarKey}`);
   });
-  assert.equal(signed.length, 3);
+  assert.equal(signed.length, 2, 'the ignored width is the full photo, answered from the server cache');
 });
 
 test('when a copy cannot be made the original is served', async () => {

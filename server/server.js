@@ -33,6 +33,7 @@ const { resolveClientHomeRedirect } = require('./lib/clientHomeRoute');
 const { resolveNotificationsRedirect } = require('./lib/notificationsRoute');
 const { resolveChatsRedirect } = require('./lib/chatsRoute');
 const { resolveFrontendRouteRedirect } = require('./lib/frontendRoute');
+const { visitorIp, isRateLimitExempt } = require('./lib/rateLimitKey');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -72,8 +73,10 @@ app.use((req, res, next) => {
   return next();
 });
 const apiRequestTracker = new Map();
+// Per visitor (not per proxy), and photo redirects are not counted (lib/rateLimitKey.js).
 app.use('/api', (req, res, next) => {
-  const key = req.ip || 'unknown';
+  if (isRateLimitExempt(req)) return next();
+  const key = visitorIp(req);
   const now = Date.now();
   const recent = (apiRequestTracker.get(key) || []).filter((timestamp) => now - timestamp < 60000);
   if (recent.length >= 120) return sendError(res, 429, 'Too many requests', ERROR_CODES.RATE_LIMITED);
