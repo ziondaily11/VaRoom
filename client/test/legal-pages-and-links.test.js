@@ -131,7 +131,7 @@ test('Privacy Policy and Terms share the legal document layout with well-formed 
   }
 });
 
-test('privacy.css defines desktop independent scrolling rules, hidden scrollbars, and dark mode tokens', () => {
+test('privacy.css defines desktop independent scrolling rules, hidden scrollbars, and a fixed light design', () => {
   const cssPath = path.join(clientRoot, 'styles', 'privacy.css');
   const cssContent = fs.readFileSync(cssPath, 'utf8');
 
@@ -150,11 +150,19 @@ test('privacy.css defines desktop independent scrolling rules, hidden scrollbars
   // Overscroll containment to prevent chaining
   assert.match(cssContent, /overscroll-behavior:\s*contain;/, 'Must contain overscroll behavior');
 
-  // Dark mode compatibility
-  assert.match(cssContent, /\[data-theme="dark"\]\s+\.pp-root/, 'Must include dark mode root overrides');
-  assert.match(cssContent, /--pp-bg:\s*#000000;/, 'Must use pure black for dark mode');
+  // The legal pages keep their own light design in every theme
+  assert.doesNotMatch(cssContent, /data-theme="dark"/, 'Legal pages must not restyle for dark mode');
 
   // Mobile layout without nested scrolling
   assert.match(cssContent, /@media\s*\(\s*max-width:\s*900px\s*\)/, 'Must contain mobile media query');
   assert.match(cssContent, /\.pp-content-pane\s*\{[\s\S]*?height:\s*auto;[\s\S]*?overflow:\s*visible;/, 'Mobile must remove nested scrolling container');
+});
+
+test('privacy and terms always render light, whatever the saved or system theme', () => {
+  const { resolveTheme, themeBootScript } = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
+  for (const route of ['/privacy', '/terms', '/terms/']) {
+    assert.equal(resolveTheme(route, 'dark', true), 'light');
+    assert.equal(resolveTheme(route, 'system', true), 'light');
+  }
+  assert.match(themeBootScript(), /"\/privacy","\/terms"/, 'the pre-paint script must keep them light too');
 });
