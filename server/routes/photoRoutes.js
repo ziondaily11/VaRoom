@@ -8,7 +8,7 @@ const { ValidationError, assertAllowedKeys, text, number, enumValue, uuid } = re
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 const {
-  parseVariantWidth, ensureVariant, STABLE_REDIRECT_MAX_AGE, CDN_REDIRECT_MAX_AGE, SERVER_REDIRECT_TTL_SECONDS,
+  parseVariantWidth, ensureVariant, scheduleVariants, STABLE_REDIRECT_MAX_AGE, CDN_REDIRECT_MAX_AGE, SERVER_REDIRECT_TTL_SECONDS,
 } = require('../lib/photoVariants');
 const { createPhotoRedirectCache } = require('../lib/photoRedirectCache');
 
@@ -167,6 +167,13 @@ router.post('/photos/upload-complete', async (req, res) => {
     } catch (error) {
       console.error('Photo optimization failed during upload completion:', error);
       return res.status(500).json({ error: 'Uploaded photo could not be optimized. Please try again.' });
+    }
+
+    // The sizes pages show, made in the background so the first viewers do not
+    // wait for them. Draft photos are private and always served whole; they
+    // get theirs when the listing is published (lib/listingMediaPromotion.js).
+    if (isNewR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) {
+      void scheduleVariants(mediaStorageService, category, key);
     }
 
     return res.json({ key, publicUrl: `/api/photos/${encodeURIComponent(category)}/${key.split('/').map(encodeURIComponent).join('/')}` });
