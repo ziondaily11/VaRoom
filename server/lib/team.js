@@ -18,4 +18,16 @@ async function actingHostId(req, userId, role, admin = supabaseAdmin) {
   return data && Array.isArray(data.roles) && data.roles.includes(role) ? requested : null;
 }
 
-module.exports = { HOST_HEADER, actingHostId };
+/**
+ * The user as the host they act for: the same user, or (team Managers working
+ * as a company) a copy whose id is the company's, with actorId the person.
+ * Null when they may not act for the requested host.
+ */
+async function actAsHost(req, user, role = 'manager', admin = supabaseAdmin) {
+  if (!user) return user;
+  const hostId = await actingHostId(req, user.id, role, admin);
+  if (!hostId) return null;
+  return hostId === user.id ? user : { ...user, id: hostId, actorId: user.id };
+}
+
+module.exports = { HOST_HEADER, actingHostId, actAsHost };

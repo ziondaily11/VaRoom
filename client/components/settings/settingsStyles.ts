@@ -239,6 +239,8 @@ export const SETTINGS_STYLES = `
   .settings-page .team-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:.8rem; }
   .settings-page .team-link{ border:0; background:none; padding:0; color:var(--muted); font:inherit; font-size:.85rem; font-weight:600; cursor:pointer; }
   .settings-page .team-link.danger{ color:var(--red-deep); }
+  .settings-page .team-listings{ margin-top:1rem; padding-top:.8rem; border-top:1px dashed var(--line); }
+  .settings-page .team-listings-head, .settings-page .team-listing{ display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.35rem 0; font-size:.88rem; }
   .settings-page .team-empty{ margin:.8rem 0 0; color:var(--muted); font-size:.88rem; }
   .settings-page .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:0 1rem; }
   @media (max-width:560px){ .settings-page .field-pair{ grid-template-columns:1fr; } }

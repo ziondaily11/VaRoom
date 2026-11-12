@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { setWorkspace, useWorkspace } from '../../lib/team/team';
@@ -6,7 +6,14 @@ import { setWorkspace, useWorkspace } from '../../lib/team/team';
 /** While working as a company (Settings → Team), a bar says so on every page. */
 export default function WorkspaceBanner() {
   const { user } = useAuth();
-  const workspace = useWorkspace(user?.id || null);
+  const userId = user?.id || null;
+  const workspace = useWorkspace(userId);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem('varoom_workspace') || 'null') as { userId?: string } | null;
+      if (userId && stored && stored.userId !== userId) setWorkspace(null);
+    } catch { /* Nothing stored. */ }
+  }, [userId]);
   if (!workspace) return null;
   return (
     <div className="workspace-banner" role="status">

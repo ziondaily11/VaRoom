@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey } = require('../lib/photoStorageKeys');
@@ -31,7 +32,7 @@ async function authenticatedUser(req) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return null;
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  return error ? null : user;
+  return error ? null : actAsHost(req, user);
 }
 
 async function requireHost(userId, res) {

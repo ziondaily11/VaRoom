@@ -1,5 +1,6 @@
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
@@ -171,14 +172,21 @@ async function authenticatedHost(req, res) {
     res.status(401).json({ error: 'Invalid or expired session' });
     return null;
   }
+  // A team Manager working as a company acts for it (X-VaRoom-Host).
+  const host = await actAsHost(req, user);
+  if (!host) {
+    res.status(403).json({ error: 'You are not a Manager on this team' });
+    return null;
+  }
   const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
+    .from('profiles').select('role').eq('id', host.id).maybeSingle();
   if (profileError || !profile || profile.role !== 'host') {
     res.status(403).json({ error: 'Host access required' });
     return null;
   }
   if (await rejectSuspendedActivity(res, user.id)) return null;
-  return user;
+  if (host.id !== user.id && await rejectSuspendedActivity(res, host.id)) return null;
+  return host;
 }
 
 function isValidDraftFormData(value) {

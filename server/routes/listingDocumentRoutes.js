@@ -3,6 +3,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { assertAllowedKeys, enumValue, number, text, uuid, ValidationError } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
@@ -43,7 +44,7 @@ async function authenticatedUser(req) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return null;
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  return error ? null : user;
+  return error ? null : actAsHost(req, user);
 }
 
 async function listingForDocument(listingId) {

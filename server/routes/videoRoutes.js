@@ -13,6 +13,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { generateVideoThumbnail } = require('../lib/videoThumbnailService');
@@ -37,8 +38,10 @@ async function getAuthenticatedUser(req) {
   if (error || !user) {
     return { user: null, error: 'Invalid or expired session' };
   }
-
-  return { user, error: null };
+  // A team Manager working as a company acts for it.
+  const host = await actAsHost(req, user);
+  if (!host) return { user: null, error: 'You are not a Manager on this team' };
+  return { user: host, error: null };
 }
 
 /**
@@ -81,7 +84,8 @@ async function optionalMediaViewer(req, res) {
     res.status(401).json({ error: 'Invalid or expired session' });
     return null;
   }
-  return { userId: user.id };
+  const host = await actAsHost(req, user);
+  return { userId: (host || user).id };
 }
 
 async function authorizeListingMedia(req, res, propertyId, visibility = 'public') {
