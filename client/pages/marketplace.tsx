@@ -208,19 +208,6 @@ export default function MarketplacePage() {
             </div>
             <button type="button" className="search-submit" onClick={submitDesktop}>Search</button>
           </div>
-          <div className="desktop-category-row" role="tablist" aria-label="Property categories">
-            {CATEGORIES.map((category) => (
-              <button
-                key={category}
-                type="button"
-                role="tab"
-                className={`desktop-category-chip${active.category === category ? ' active' : ''}`}
-                aria-selected={active.category === category}
-                onClick={() => chooseCategory(category)}
-              >{chipLabel(category)}</button>
-            ))}
-          </div>
-
           <div className="mobile-marketplace-tools">
             <div className="mobile-search">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
@@ -236,18 +223,6 @@ export default function MarketplacePage() {
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
               </button>
             </div>
-            <div className="mobile-category-row" role="tablist" aria-label="Property categories">
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  role="tab"
-                  className={`mobile-category-chip${active.category === category ? ' active' : ''}`}
-                  aria-selected={active.category === category}
-                  onClick={() => chooseCategory(category)}
-                >{chipLabel(category)}</button>
-              ))}
-            </div>
           </div>
         </header>
 
@@ -258,6 +233,19 @@ export default function MarketplacePage() {
           </aside>
 
           <main className="results-col">
+            {/* One strip for every width; it sticks while the listings scroll beneath it. */}
+            <div className="category-strip" role="tablist" aria-label="Property categories">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  role="tab"
+                  className={`category-chip${active.category === category ? ' active' : ''}`}
+                  aria-selected={active.category === category}
+                  onClick={() => chooseCategory(category)}
+                >{chipLabel(category)}</button>
+              ))}
+            </div>
             <div id="grid-view">
               <div className="grid" id="results-grid" ref={gridRef} aria-busy={loadState === 'loading'}>{grid}</div>
               <div className="pagination" id="pagination">
