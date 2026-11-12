@@ -48,8 +48,33 @@ html[data-theme="dark"] .cs-theme {
 
 /* A setting with a few choices (email timing). */
 .cs-row--choice { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.cs-select { flex-shrink:0; height:34px; padding:0 10px; border:1px solid var(--cs-divider); border-radius:8px; background:var(--cs-bg); color:var(--cs-text); font:inherit; font-size:.8125rem; cursor:pointer; }
+.cs-choice { position:relative; flex-shrink:0; }
+.cs-select { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid var(--cs-divider); border-radius:8px; background:var(--cs-bg); color:var(--cs-text); font:inherit; font-size:.8125rem; cursor:pointer; }
 .cs-select:focus-visible { outline:2px solid var(--cs-accent); outline-offset:2px; }
+.cs-select__chevron { transition:transform 200ms ease; }
+.cs-select[aria-expanded="true"] .cs-select__chevron { transform:rotate(180deg); }
+.cs-choice-menu { min-width:100%; padding:4px; background:var(--cs-bg); border:1px solid var(--cs-divider); border-radius:10px; box-shadow:0 12px 28px rgba(24,21,19,.16); }
+.cs-choice-option { display:block; width:100%; padding:8px 12px; border:0; border-radius:7px; background:transparent; color:var(--cs-text); font:inherit; font-size:.8125rem; text-align:left; white-space:nowrap; cursor:pointer; }
+.cs-choice-option:hover, .cs-choice-option:focus-visible { background:var(--cs-hover); outline:none; }
+.cs-choice-option[aria-selected="true"] { font-weight:700; color:var(--cs-accent); }
+@media (prefers-reduced-motion: reduce) { .cs-select__chevron { transition:none; } }
+
+/* Quick replies */
+.cs-qr { display:flex; flex-direction:column; gap:8px; padding:6px 0 4px; }
+.cs-qr-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--cs-divider); }
+.cs-qr-snippet { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.cs-qr-form { display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--cs-divider); border-radius:10px; }
+.cs-qr-input { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--cs-divider); border-radius:8px; background:var(--cs-bg); color:var(--cs-text); font:inherit; font-size:.8125rem; resize:vertical; }
+.cs-qr-input:focus { outline:none; border-color:var(--cs-accent); }
+.cs-qr-actions { display:flex; justify-content:flex-end; gap:8px; }
+.cs-qr-btn { flex-shrink:0; padding:6px 10px; border:1px solid var(--cs-divider); border-radius:7px; background:transparent; color:var(--cs-text); font:inherit; font-size:.75rem; font-weight:600; cursor:pointer; }
+.cs-qr-btn:hover { background:var(--cs-hover); }
+.cs-qr-btn--primary { border-color:var(--cs-text); background:var(--cs-text); color:var(--cs-bg); }
+.cs-qr-btn--primary:hover { background:var(--cs-text); opacity:.88; }
+.cs-qr-btn--danger { color:var(--cs-accent); }
+.cs-qr-btn:disabled { opacity:.5; cursor:default; }
+.cs-qr-add { align-self:flex-start; padding:6px 0; border:0; background:none; color:var(--cs-accent); font:inherit; font-size:.8125rem; font-weight:700; cursor:pointer; }
+.cs-qr-error { margin:0; font-size:.75rem; color:var(--cs-accent); }
 
 /* Inside desktop Chats: the information column supplies the shell. */
 .cs-embedded { flex:1; min-height:0; width:100%; overflow-y:auto; background:transparent; }

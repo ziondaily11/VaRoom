@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
@@ -6,6 +6,8 @@ import {
   resolveSettings, saveProfileSetting, type ChatSettingsState, type EmailAlertMinutes, type ToggleKey,
 } from '../../lib/chat/chatSettings';
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
+import AnimatedMenu, { menuItemStyle } from './AnimatedMenu';
+import QuickRepliesEditor from './QuickRepliesEditor';
 import { CHAT_THEMES, chatThemeStyle, type ChatThemeId } from '../../lib/chat/chatThemes';
 
 // The chat settings (legacy VaroomChatSettings.mount): away mode for hosts,
@@ -34,6 +36,7 @@ function ToggleRow({ label, description, checked, onChange }: { label: string; d
   );
 }
 
+/** A setting with a few choices: a button showing the current one, opening an animated list (AnimatedMenu). */
 function ChoiceRow({ label, description, value, choices, onChange }: {
   label: string;
   description: string;
@@ -42,15 +45,75 @@ function ChoiceRow({ label, description, value, choices, onChange }: {
   onChange: (value: number) => void;
 }) {
   const id = useId();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const current = choices.find((choice) => choice.minutes === value) || choices[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    window.requestAnimationFrame(() => wrapRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+    const onPointerDown = (event: PointerEvent) => { if (!wrapRef.current?.contains(event.target as Node)) setOpen(false); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); } };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const choose = (minutes: number) => {
+    setOpen(false);
+    triggerRef.current?.focus();
+    if (minutes !== value) onChange(minutes);
+  };
+  // ↑ ↓ move between the choices.
+  const moveFocus = (event: React.KeyboardEvent) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const options = Array.from(wrapRef.current?.querySelectorAll<HTMLElement>('[role="option"]') || []);
+    const at = options.indexOf(document.activeElement as HTMLElement);
+    options[(at + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
+  };
+
   return (
     <div className="cs-row cs-row--choice">
       <div className="cs-row__text">
-        <label className="cs-row__label" htmlFor={id}>{label}</label>
+        <span className="cs-row__label" id={`${id}-label`}>{label}</span>
         <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>
       </div>
-      <select id={id} className="cs-select" aria-describedby={`${id}-desc`} value={value} onChange={(event) => onChange(Number(event.target.value))}>
-        {choices.map((choice) => <option key={choice.minutes} value={choice.minutes}>{choice.label}</option>)}
-      </select>
+      <div className="cs-choice" ref={wrapRef}>
+        <button
+          ref={triggerRef}
+          type="button"
+          className="cs-select"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-labelledby={`${id}-label ${id}-value`}
+          aria-describedby={`${id}-desc`}
+          onClick={() => setOpen((was) => !was)}
+          onKeyDown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); } }}
+        >
+          <span id={`${id}-value`}>{current.label}</span>
+          <svg className="cs-select__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <AnimatedMenu open={open} placement="below-end" className="cs-choice-menu" role="listbox" aria-labelledby={`${id}-label`} onKeyDown={moveFocus}>
+          {choices.map((choice, index) => (
+            <button
+              key={choice.minutes}
+              type="button"
+              role="option"
+              aria-selected={choice.minutes === value}
+              className="cs-choice-option vr-menu-item"
+              style={menuItemStyle(index)}
+              onClick={() => choose(choice.minutes)}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </AnimatedMenu>
+      </div>
     </div>
   );
 }
@@ -175,6 +238,9 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
           choices={EMAIL_ALERT_CHOICES}
           onChange={setEmailAlerts}
         />
+      </Section>
+      <Section title="QUICK REPLIES">
+        <QuickRepliesEditor userId={userId} />
       </Section>
       <Section title="PRIVACY & MESSAGING">
         <ToggleRow label="Read receipts" description="Let others know when you’ve read their messages." checked={settings.readReceipts} onChange={(v) => setToggle('readReceipts', v)} />

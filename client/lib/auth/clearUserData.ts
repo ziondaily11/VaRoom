@@ -1,5 +1,6 @@
 import { clearNotificationsCache } from '../notificationsCache';
 import { clearChatSettingsCache } from '../chat/chatSettings';
+import { clearQuickRepliesCache } from '../chat/quickReplies';
 import { clearPropertyNewsCache } from '../propertyNewsCache';
 import { clearBookingsCache } from '../bookings/bookingsCache';
 import { clearBookmarks } from '../bookmarks/bookmarks';
@@ -90,6 +91,7 @@ export async function clearUserData(userId: string | null, options: ClearUserDat
   clearUserScopedCaches();
   clearNotificationsCache();
   clearChatSettingsCache();
+  clearQuickRepliesCache();
   clearPropertyNewsCache();
   clearBookingsCache();
   clearBookmarks();

@@ -557,6 +557,16 @@
   @media (min-width:761px) and (max-width:860px){
     .app-shell.has-conversation ~ .varoom-mobile-nav{ display:none !important; }
   }
+  /* Quick replies above the composer (components/chat/QuickReplyPicker). */
+  .qr-picker{ width:min(360px, calc(100% - 16px)); max-height:260px; overflow-y:auto; padding:4px; background:var(--white); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 28px rgba(24,21,19,.16); }
+  .qr-item{ display:block; width:100%; padding:8px 10px; border:0; border-radius:8px; background:transparent; color:var(--text-dark); text-align:left; cursor:pointer; }
+  .qr-item[aria-selected="true"]{ background:var(--bg-soft); }
+  .qr-item strong{ display:block; font-size:.8125rem; font-weight:700; }
+  .qr-item small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.75rem; color:var(--text-gray-2); }
+  .qr-empty{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:10px; font-size:.78125rem; color:var(--text-gray-2); }
+  .qr-empty button{ padding:0; border:0; background:none; color:var(--mint-dark); font:inherit; font-weight:700; cursor:pointer; }
+  [data-theme="dark"] .qr-picker{ background:#18181B; border-color:#27272A; }
+  [data-theme="dark"] .qr-item[aria-selected="true"]{ background:rgba(255,255,255,.08); }
   /* Inbox chats open their menu on long-press: no system callout. */
   .contact-item{ -webkit-touch-callout:none; }
   /* Inbox: the Archived entry and, inside it, the way back. */
