@@ -152,14 +152,12 @@ test('Landing page is exempted from global dark mode and CTA buttons have high c
   assert.match(indexTsx, /document\.documentElement\.setAttribute\('data-theme',\s*'light'\)/, 'index.tsx must ensure light mode');
 });
 
-test('Hero headline, support text, and CTA are centered strictly on mobile while desktop remains left aligned', () => {
+test('Hero copy is one left-aligned block on every screen size', () => {
   const heroTsx = fs.readFileSync(path.join(clientRoot, 'components', 'landing', 'HeroSection.tsx'), 'utf8');
-  assert.match(heroTsx, /hero-animated-content[\s\S]*items-start justify-end text-left max-\[639px\]:items-center max-\[639px\]:justify-center max-\[639px\]:text-center/, 'Hero container must center on mobile and align left on desktop');
-  assert.match(heroTsx, /hero-headline[\s\S]*max-\[639px\]:text-center max-\[639px\]:mx-auto/, 'Headline must center on mobile');
-  assert.match(heroTsx, /hero-subtitle[\s\S]*max-\[639px\]:text-center max-\[639px\]:mx-auto/, 'Subtitle must center on mobile');
-  assert.match(heroTsx, /hero-cta[\s\S]*max-\[639px\]:justify-center/, 'CTA must center on mobile');
+  assert.match(heroTsx, /hero-animated-content[^"]*items-start text-left"/, 'Hero copy must align left');
+  assert.doesNotMatch(heroTsx, /max-\[639px\]:(text-center|items-center|justify-center)/, 'Mobile must not re-centre the hero copy');
+  for (const part of ['hero-eyebrow', 'hero-headline', 'hero-subtitle', 'hero-cta']) assert.match(heroTsx, new RegExp(part));
 
   const indexTsx = fs.readFileSync(path.join(clientRoot, 'pages', 'index.tsx'), 'utf8');
-  assert.match(indexTsx, /@media \(max-width:\s*639px\)[\s\S]*\.hero-headline\s*\{\s*text-align:\s*center !important;/, 'index.tsx media query must center headline on mobile');
-  assert.match(indexTsx, /@media \(max-width:\s*639px\)[\s\S]*\.hero-subtitle\s*\{\s*text-align:\s*center !important;/, 'index.tsx media query must center subtitle on mobile');
+  assert.doesNotMatch(indexTsx, /text-align:\s*center !important/, 'index.tsx must not centre the hero on mobile');
 });

@@ -19,15 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
     setMobileMenuOpen(false);
   }, []);
 
-  const handleNavAnchor = useCallback((e: React.MouseEvent<HTMLAnchorElement>, hash: string) => {
-    closeMenu();
-    const target = document.querySelector(hash);
-    if (target) {
-      e.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [closeMenu]);
-
   const handleElieClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     closeMenu();
     onTryElie(e);
@@ -132,30 +123,12 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
       {/* Desktop Navigation Links */}
       <nav className="hero-header-nav hidden md:flex items-center gap-5 lg:gap-8 shrink" aria-label="Main navigation">
         <a
-          href="#host-section"
-          className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-        >
-          For Hosts
-        </a>
-        <a
-          href="#client-section"
-          className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-        >
-          For Clients
-        </a>
-        <a
           href="/login"
           onClick={onTryElie}
           className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors inline-flex items-center gap-1.5 relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
         >
           <span>Elie</span>
           <span className="w-1.5 h-1.5 rounded-full bg-[#bd2337] inline-block animate-pulse" />
-        </a>
-        <a
-          href="#why-us"
-          className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-        >
-          Why VaRoom
         </a>
       </nav>
 
@@ -225,22 +198,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
           {/* Nav Links */}
           <div className="flex flex-col gap-1">
             <a
-              href="#host-section"
-              onClick={(e) => handleNavAnchor(e, '#host-section')}
-              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-            >
-              <span>For Hosts</span>
-              <ArrowRight size={16} className="text-[#2d2724]/40" />
-            </a>
-            <a
-              href="#client-section"
-              onClick={(e) => handleNavAnchor(e, '#client-section')}
-              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-            >
-              <span>For Clients</span>
-              <ArrowRight size={16} className="text-[#2d2724]/40" />
-            </a>
-            <a
               href="/login"
               onClick={handleElieClick}
               className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
@@ -249,14 +206,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
                 Elie AI Assistant
                 <span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" />
               </span>
-              <ArrowRight size={16} className="text-[#2d2724]/40" />
-            </a>
-            <a
-              href="#why-us"
-              onClick={(e) => handleNavAnchor(e, '#why-us')}
-              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-            >
-              <span>Why VaRoom</span>
               <ArrowRight size={16} className="text-[#2d2724]/40" />
             </a>
           </div>

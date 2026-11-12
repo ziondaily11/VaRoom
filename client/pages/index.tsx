@@ -96,7 +96,7 @@ export default function LandingPage() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@200..900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,200..900;1,200..900&display=swap"
           rel="stylesheet"
         />
         <style>{`
@@ -130,42 +130,9 @@ export default function LandingPage() {
             .hero-section {
               overflow: visible;
             }
-            .hero-animated-content {
-              flex: 1 0 auto;
-              align-items: center !important;
-              justify-content: center !important;
-              text-align: center !important;
-              margin-top: 0;
-              padding: clamp(24px, 7vh, 56px) 20px clamp(20px, 3vh, 32px);
-            }
-            .hero-animated-content > div {
-              max-width: 420px;
-              align-items: center !important;
-              text-align: center !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
-            .hero-headline {
-              text-align: center !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
-            .hero-subtitle {
-              text-align: center !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
-            .hero-cta {
-              justify-content: center !important;
-              width: 100% !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
             .hero-cta .landing-cta {
               min-height: 48px;
               border-radius: 4px !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
             }
           }
           @media (min-width: 1280px) and (min-height: 850px) {
@@ -212,10 +179,6 @@ export default function LandingPage() {
               transform: translate3d(0, 0, 0);
             }
           }
-          @keyframes heroTrustFade {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
           @keyframes heroBackgroundDrift {
             from {
               transform: scale(1);
@@ -243,6 +206,9 @@ export default function LandingPage() {
           .hero-header-actions > :nth-child(2) { animation-delay: 200ms; }
           .hero-header-mobile > :nth-child(1) { animation-delay: 150ms; }
           .hero-header-mobile > :nth-child(2) { animation-delay: 200ms; }
+          .hero-eyebrow {
+            animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
           .hero-headline {
             animation: heroFadeUp 820ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
           }
@@ -252,14 +218,6 @@ export default function LandingPage() {
           .hero-cta {
             animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 390ms both;
           }
-          .hero-trust-location,
-          .hero-trust-hosts,
-          .hero-trust-bookings {
-            animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
-          }
-          .hero-trust-location { animation-delay: 540ms; }
-          .hero-trust-hosts { animation-delay: 630ms; }
-          .hero-trust-bookings { animation-delay: 720ms; }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -279,10 +237,7 @@ export default function LandingPage() {
             .hero-headline,
             .hero-subtitle,
             .hero-cta,
-            .hero-trust-location,
-            .hero-trust-hosts,
-            .hero-trust-bookings,
-            .hero-trust-divider,
+            .hero-eyebrow,
             .hero-animated-content {
               animation: none !important;
               transform: none !important;
@@ -324,12 +279,12 @@ export default function LandingPage() {
                 fetchpriority="high"
               />
             </picture>
-            {/* Soft gradient wash ensuring high text contrast across both states */}
+            {/* Darkens the bottom-left, where the white hero and auth copy sit */}
             <div
-              className={`absolute inset-0 pointer-events-none max-[639px]:hidden ${
+              className={`absolute inset-0 pointer-events-none ${
                 isAuthOpen
-                  ? 'bg-gradient-to-b from-black/10 via-transparent to-black/20'
-                  : 'bg-[linear-gradient(to_top_right,rgba(8,9,9,0.62)_0%,rgba(8,9,9,0.32)_32%,rgba(8,9,9,0.12)_57%,rgba(247,243,236,0.24)_100%)]'
+                  ? 'bg-[linear-gradient(to_top,rgba(8,9,9,0.66)_0%,rgba(8,9,9,0.2)_38%,transparent_62%)]'
+                  : 'bg-[linear-gradient(to_top_right,rgba(8,9,9,0.68)_0%,rgba(8,9,9,0.36)_34%,rgba(8,9,9,0.12)_58%,rgba(247,243,236,0.24)_100%)] max-[639px]:bg-[linear-gradient(to_top,rgba(8,9,9,0.78)_0%,rgba(8,9,9,0.45)_40%,transparent_70%)]'
               }`}
             />
           </div>

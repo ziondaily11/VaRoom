@@ -20,12 +20,23 @@ interface AuthPanelProps {
 
 type AuthView = 'login' | 'signup' | 'recovery';
 type ContentAnimation = 'idle' | 'exit-left' | 'exit-right' | 'enter-left' | 'enter-right';
+type SignupRole = 'host' | 'client';
+
+// The large copy over the illustration, beside the panel (tablet and up).
+function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
+  if (view === 'login') return ['Welcome back!', 'Pick up where you left off.'];
+  if (view === 'recovery') return ['Let’s get you back in.', 'Reset your password in a few steps.'];
+  if (role === 'host') return ['List your space.', 'Reach guests and take bookings across Kenya.'];
+  if (role === 'client') return ['Find your space.', 'Search, save and book spaces across Kenya.'];
+  return ['Join VaRoom.', 'Every kind of space, one account.'];
+}
 
 export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialView, initialRole, initialRecoveryStep }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [recoveryStep, setRecoveryStep] = useState(initialRecoveryStep);
   const [contentAnimation, setContentAnimation] = useState<ContentAnimation>('idle');
+  const [signupRole, setSignupRole] = useState<SignupRole | null>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const transitionTimer = useRef<number | null>(null);
   const transitionLocked = useRef(false);
@@ -106,7 +117,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
       contentScrollRef.current?.scrollTo(0, 0);
       window.requestAnimationFrame(() => {
         const focusTarget = nextView === 'signup'
-          ? 'signup-fullname'
+          ? 'signup-continue-google'
           : nextView === 'recovery'
             ? 'recovery-email'
             : 'landing-email';
@@ -209,6 +220,17 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
         }}
       />
 
+      <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 items-end px-10 pb-[12vh] md:flex lg:px-14" aria-hidden="true">
+        <div className="max-w-md">
+          <p className="m-0 font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.3)] lg:text-6xl">
+            {sideCopy(authView, signupRole)[0]}
+          </p>
+          <p className="m-0 mt-3 text-lg text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.35)]">
+            {sideCopy(authView, signupRole)[1]}
+          </p>
+        </div>
+      </div>
+
       <aside
         className="absolute inset-y-0 right-0 h-[100dvh] w-full overflow-hidden md:w-1/2"
         style={{
@@ -245,10 +267,6 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
               >
                 <div className="w-full">
             <div className="mb-8">
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
-                <Lock size={12} />
-                Secure access
-              </p>
               <h2 id="auth-panel-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
                 Log in to VaRoom.
               </h2>
@@ -363,7 +381,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
 
             <div className="my-6 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-[#d7d2ca]/65">
               <span className="h-px flex-1 bg-white/10" />
-              <span>or sign in with</span>
+              <span>or</span>
               <span className="h-px flex-1 bg-white/10" />
             </div>
 
@@ -395,6 +413,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                   initialRole={initialRole}
                   active={isOpen && authView === 'signup'}
                   onSwitchToLogin={() => switchAuthView('login')}
+                  onRoleShown={setSignupRole}
                 />
               </div>
               <div
