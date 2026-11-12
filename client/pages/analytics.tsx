@@ -48,7 +48,11 @@ export default function AnalyticsPage() {
       {!error && (!isHost || !user || !client) && <p style={messageStyle}>Loading your host account…</p>}
       {!error && isHost && user && client && router.isReady && (
         // Keyed by account: a switch never shows the previous account's numbers.
-        <HostAnalytics key={user.id} client={client} userId={user.id} listingId={listingId} onListingChange={changeListing} />
+        <HostAnalytics
+          key={user.id} client={client} userId={user.id}
+          firstName={(profile?.full_name || '').trim().split(/\s+/)[0] || null}
+          listingId={listingId} onListingChange={changeListing}
+        />
       )}
     </>
   );

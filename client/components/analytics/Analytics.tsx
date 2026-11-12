@@ -1,17 +1,19 @@
 /** Host analytics dashboard, personalised to the host's niche. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CacheRead } from '../../lib/cache/createCache';
 import {
   loadListingOptions, loadOverview, loadPlanPayments, overviewKey, peekListingOptions, peekOverview, peekPlanPayments,
 } from '../../lib/analytics/analyticsCache';
-import { analyticsCsv, fmtDate, granularityFor, isRangeKey, num, RANGE_DAYS, RANGE_LABEL, rangeFor } from '../../lib/analytics/format';
-import { buildNicheView, NICHE_LABEL, trackingCovers } from '../../lib/analytics/niche';
+import { analyticsCsv, fmtDate, formatMetric, granularityFor, isRangeKey, num, RANGE_LABEL, rangeFor } from '../../lib/analytics/format';
+import { buildNicheView, NICHE_LABEL, trackingCovers, trendKeyFor } from '../../lib/analytics/niche';
 import type { AnalyticsOverview, RangeKey } from '../../lib/analytics/types';
-import { Funnel, StatusBar, TrendChart } from './AnalyticsCharts';
+import { AreaChart, Funnel, RequestColumns, StatusStrip } from './AnalyticsCharts';
 import {
-  Block, DiningBlock, KpiList, ListingTable, LockedAnalytics, PlanPayments, Responsiveness, ReviewsBlock,
+  Card, DiningPanel, GhostBento, GuestInterest, Hero, ListingTable, LockedAnalytics, PlanPayments, Responsiveness, Reviews, Tile,
 } from './AnalyticsSections';
+import { Icon } from './analyticsIcons';
 import { ANALYTICS_CSS } from './analyticsStyles';
 
 /* ---------- Cached loading ---------- */
@@ -75,6 +77,8 @@ function useCachedLoad<T>(key: string | null, peek: (key: string) => CacheRead<T
 }
 
 const RANGE_STORAGE_KEY = 'varoom:analytics:range';
+const RANGE_SHORT: Record<RangeKey, string> = { '30d': '30 days', '90d': '90 days', '12m': '12 months' };
+const RANGE_VS: Record<RangeKey, string> = { '30d': 'vs prev 30d', '90d': 'vs prev 90d', '12m': 'vs prev year' };
 
 function storedRange(): RangeKey {
   try {
@@ -96,11 +100,119 @@ function downloadCsv(filename: string, csv: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function greeting(now = new Date()): string {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Africa/Nairobi' }).format(now));
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/* ---------- Dashboard ---------- */
+
+function Dashboard({ data, rk, listingId, onListingChange, paymentsBody }: {
+  data: AnalyticsOverview; rk: RangeKey; listingId: string | null; onListingChange: (id: string | null) => void; paymentsBody: ReactNode;
+}) {
+  const view = useMemo(() => buildNicheView(data), [data]);
+  const g = granularityFor(rk);
+  const vs = RANGE_VS[rk];
+  const [metricKey, setMetricKey] = useState(view.trendMetrics[0].key);
+  const metric = view.trendMetrics.find((m) => m.key === metricKey) || view.trendMetrics[0];
+  const series = (kpiKey: string) => {
+    const key = trendKeyFor(kpiKey);
+    return key ? data.trend.map((p) => p[key]) : null;
+  };
+  const total = data.trend.reduce((s, p) => s + p[metric.key], 0);
+  const hasRequests = data.trend.some((p) => p.requests > 0);
+  const covered = trackingCovers(data.trackingSince, data.trend[0]?.bucket ?? '');
+
+  const performance = (
+    <Card
+      key="performance" className="s8" title="Performance" icon="bolt"
+      action={(
+        <div className="va-tabs" role="group" aria-label="Chart metric">
+          {view.trendMetrics.map((m) => (
+            <button key={m.key} type="button" aria-pressed={metric.key === m.key} onClick={() => setMetricKey(m.key)}>{m.label}</button>
+          ))}
+        </div>
+      )}
+    >
+      <p className="va-readout" style={{ marginBottom: 6 }}>{formatMetric(total, metric.format)}<small>{metric.label.toLowerCase()} · {RANGE_SHORT[rk]}</small></p>
+      {data.trend.length ? <AreaChart points={data.trend} g={g} metric={metric} /> : <div className="va-empty">No activity yet</div>}
+    </Card>
+  );
+
+  const funnel = (
+    <Card
+      key="funnel" className="s4" title={view.mode === 'sale' ? 'Views to enquiries' : 'Views to bookings'} icon="percent"
+      action={!covered ? <span className="va-kicker" title="Listing views and contact taps are recorded from this date">{data.trackingSince ? `Since ${fmtDate(data.trackingSince)}` : 'Tracking started'}</span> : null}
+    >
+      <Funnel steps={view.funnel} />
+    </Card>
+  );
+
+  const requests = (
+    <Card className="s7" title={view.bookingsTitle} icon="inbox"
+      action={<ul className="va-legend"><li><i className="sw-approved" />Approved</li><li><i className="sw-rest" />Other requests</li></ul>}>
+      {hasRequests ? <RequestColumns points={data.trend} g={g} /> : <div className="va-empty">No requests yet</div>}
+      <StatusStrip items={data.current.byStatus} />
+    </Card>
+  );
+  const responsiveness = (span: string) => (
+    <Card className={span} title="Reply speed" icon="clock"><Responsiveness current={data.current} previous={data.previous} /></Card>
+  );
+  const interest = (span: string) => (
+    <Card className={span} title="Guest interest" icon="heart"><GuestInterest current={data.current} /></Card>
+  );
+  const listings = (
+    <Card className="s8" title="Listings" icon="table" action={<span className="va-kicker">{num.format(data.listings.length)}</span>}>
+      {data.listings.length
+        ? <ListingTable rows={data.listings} columns={view.listingColumns} initialSort={view.listingSort} onSelect={onListingChange} />
+        : <div className="va-empty">No listings yet</div>}
+    </Card>
+  );
+  const reviews = (span: string) => (
+    <Card className={span} title="Reviews" icon="star"><Reviews reviews={data.reviews} /></Card>
+  );
+  const payments = (span: string) => <Card className={span} title="What you pay VaRoom" icon="receipt">{paymentsBody}</Card>;
+  const dining = view.showDining && data.dining
+    ? <Card className="s12" title="Table reservations" icon="table"><DiningPanel dining={data.dining} /></Card>
+    : null;
+  const all = !listingId;
+
+  // Rows are laid out explicitly so each one fills the 12 columns.
+  return (
+    <div className="va-bento">
+      <Hero kpi={view.hero} spark={series(view.hero.key) || []} vs={vs} />
+      <div className="va-tiles">
+        {view.tiles.map((k) => <Tile key={k.key} kpi={k} spark={series(k.key)} vs={vs} />)}
+      </div>
+      {performance}
+      {funnel}
+      {view.showRequests ? (
+        <>
+          {requests}
+          {interest('s5')}
+          {all ? <>{listings}{responsiveness('s4')}</> : <>{responsiveness('s6')}{reviews('s6')}</>}
+          {dining}
+          {all ? <>{reviews('s4')}{payments('s8')}</> : payments('s12')}
+        </>
+      ) : (
+        <>
+          {interest('s7')}
+          {responsiveness('s5')}
+          {all ? <>{listings}{reviews('s4')}</> : null}
+          {dining}
+          {all ? payments('s12') : <>{reviews('s5')}{payments('s7')}</>}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Page ---------- */
 
-export default function HostAnalytics({ client, userId, listingId, onListingChange }: {
+export default function HostAnalytics({ client, userId, firstName, listingId, onListingChange }: {
   client: SupabaseClient;
   userId: string;
+  firstName: string | null;
   listingId: string | null;
   onListingChange: (listingId: string | null) => void;
 }) {
@@ -120,151 +232,79 @@ export default function HostAnalytics({ client, userId, listingId, onListingChan
 
   const data = overview.data;
   const full: AnalyticsOverview | null = data && data.access ? data : null;
-  const view = useMemo(() => (full ? buildNicheView(full) : null), [full]);
   const stale = overview.dataKey !== key;
   const nicheLabel = data?.niche ? NICHE_LABEL[data.niche] : null;
-  const selected = listingId ? (options.data || []).find((o) => o.id === listingId) : null;
   const ranges = Object.keys(RANGE_LABEL) as RangeKey[];
 
   const exportCsv = () => {
-    if (!full || !view) return;
+    if (!full) return;
+    const view = buildNicheView(full);
     const name = `varoom-analytics-${range.from}-to-${range.to}${listingId ? '-listing' : ''}.csv`;
     downloadCsv(name, analyticsCsv(range, [...view.headline, ...view.secondary], view.listingColumns, full.listings));
   };
 
-  // Hosts arriving from a listing's "View analytics" link for a listing that
-  // isn't theirs (or was deleted) fall back to all listings.
+  // A listing that isn't on this account (or was deleted) falls back to all listings.
   const listingMissing = Boolean(listingId && options.data && !options.data.some((o) => o.id === listingId));
   useEffect(() => {
     if (listingMissing) onListingChange(null);
   }, [listingMissing, onListingChange]);
 
-  const trackingNote = full && !trackingCovers(full.trackingSince, range.from)
-    ? (full.trackingSince
-      ? `Views and contact taps are counted from ${fmtDate(full.trackingSince)}.`
-      : 'Views and contact taps are counted from now on, as guests open your listings.')
-    : null;
-
   return (
     <main className="va-analytics">
-      <style>{ANALYTICS_CSS}</style>
+      <style dangerouslySetInnerHTML={{ __html: ANALYTICS_CSS }} />
       <div className="va-wrap">
-        <header className="va-head">
-          <div>
-            {nicheLabel && <p className="va-eyebrow">{nicheLabel}</p>}
-            <h1>Analytics</h1>
-            <p className="va-note">
-              {selected ? <>Showing <b>{selected.title}</b>. </> : null}
-              {view ? view.intro : 'Your bookings, enquiries and reviews on VaRoom.'}
-            </p>
+        <header className="va-top">
+          <div className="va-hello">
+            {nicheLabel && <span className="va-chip">{nicheLabel}</span>}
+            <h1>{greeting()}{firstName ? `, ${firstName}` : ''}</h1>
           </div>
           {(!data || data.access) && (
-            <div className="va-head-actions">
+            <div className="va-controls">
               {(options.data?.length ?? 0) > 1 && (
-                <select
-                  className="va-select"
-                  aria-label="Listing"
-                  value={listingId || ''}
-                  onChange={(e) => onListingChange(e.target.value || null)}
-                >
+                <select className="va-select" aria-label="Listing" value={listingId || ''} onChange={(e) => onListingChange(e.target.value || null)}>
                   <option value="">All listings</option>
                   {(options.data || []).map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
                 </select>
               )}
-              <div className="va-tabs" role="group" aria-label="Date range">
-                {ranges.map((k) => <button key={k} type="button" aria-pressed={rk === k} onClick={() => chooseRange(k)}>{RANGE_LABEL[k]}</button>)}
+              <div className="va-segctl" role="group" aria-label="Date range">
+                {ranges.map((k) => <button key={k} type="button" aria-pressed={rk === k} onClick={() => chooseRange(k)}>{RANGE_SHORT[k]}</button>)}
               </div>
-              {full && <button type="button" className="va-link" onClick={exportCsv}>Export CSV</button>}
+              {full && (
+                <button type="button" className="va-iconbtn" onClick={exportCsv} aria-label="Export CSV" title="Export CSV">
+                  <Icon name="download" />
+                </button>
+              )}
             </div>
           )}
         </header>
 
-        <p className="va-status" aria-live="polite">
-          {overview.loading && data ? 'Updating…' : full ? `Changes compare with the previous ${RANGE_DAYS[rk]} days.` : ''}
-        </p>
-
         {overview.error && data && (
           <p className="va-banner" role="alert">
-            Couldn&apos;t refresh these numbers. {overview.error}
-            <button type="button" onClick={overview.retry}>Try again</button>
+            Couldn&apos;t refresh. <button type="button" onClick={overview.retry}>Retry</button>
           </p>
         )}
 
         {!data && overview.error && (
-          <div className="va-msg" role="alert">
-            <p>Couldn&apos;t load your analytics. {overview.error}</p>
-            <button type="button" onClick={overview.retry}>Try again</button>
+          <div className="va-card va-empty" role="alert" style={{ gap: 12 }}>
+            <p>Couldn&apos;t load your analytics.</p>
+            <button type="button" className="va-retry" onClick={overview.retry}>Retry</button>
           </div>
         )}
 
-        {!data && !overview.error && <div className="va-skel" aria-busy="true" aria-label="Loading analytics" />}
+        {!data && !overview.error && <div aria-busy="true" aria-label="Loading analytics"><GhostBento /></div>}
 
-        {data && !data.access && (
-          <>
-            <LockedAnalytics niche={data.niche} />
-            {payments.data && payments.data.length > 0 && (
-              <Block title="What you pay VaRoom" className="va-plan" note="Your subscription payments to VaRoom. These are not guest payments or income.">
-                <PlanPayments payments={payments.data} />
-              </Block>
-            )}
-          </>
-        )}
+        {data && !data.access && <LockedAnalytics niche={data.niche} />}
 
-        {full && view && (
-          <div className={`va-grid${stale ? ' va-stale' : ''}`} aria-busy={stale}>
-            <Block title={view.bookingsTitle} note={trackingNote}>
-              <KpiList items={view.headline} />
-              <KpiList items={view.secondary} secondary />
-              {view.showStatusBar && <StatusBar items={full.current.byStatus} />}
-              {view.showStatusBar && full.current.approved > 0 && (
-                <p className="va-note">
-                  Completed: <b>{num.format(full.current.completed)}</b>, counted as approved bookings whose stay, day or lease has ended.
-                </p>
-              )}
-            </Block>
-
-            <Block title="Over time" className="va-s7" note={`Grouped by ${g}, using the date each view, enquiry or request was made.`}>
-              {full.trend.length === 0
-                ? <p className="va-msg">Nothing to chart yet for this period.</p>
-                : <TrendChart points={full.trend} g={g} metrics={view.trendMetrics} />}
-            </Block>
-
-            <Block
-              title={view.mode === 'sale' ? 'From views to enquiries' : 'From views to bookings'}
-              className="va-s5"
-              note="Each step as a share of the one before it."
-            >
-              <Funnel steps={view.funnel} />
-            </Block>
-
-            {!listingId && (
-              <Block title="Listings" note="Select a listing to see its numbers on their own.">
-                {full.listings.length === 0
-                  ? <p className="va-msg">Publish a listing and its performance will be ranked here.</p>
-                  : <ListingTable rows={full.listings} columns={view.listingColumns} initialSort={view.listingSort} onSelect={onListingChange} />}
-              </Block>
-            )}
-
-            <div className="va-row3">
-              {view.showDining && full.dining && (
-                <Block title="Table reservations" note="Requests only. Payments for dining are not recorded.">
-                  <DiningBlock dining={full.dining} />
-                </Block>
-              )}
-              <Block title="Responsiveness" note="Guests book hosts who reply fast. Elie auto-replies are not counted.">
-                <Responsiveness current={full.current} previous={full.previous} />
-              </Block>
-              <Block title="Reviews" note="Published reviews, all time.">
-                <ReviewsBlock reviews={full.reviews} />
-              </Block>
-              <Block title="What you pay VaRoom" className="va-plan" note="Your subscription payments to VaRoom. These are not guest payments or income.">
-                {payments.data
-                  ? <PlanPayments payments={payments.data} />
-                  : payments.error
-                    ? <div className="va-msg" role="alert"><p>Couldn&apos;t load this section. {payments.error}</p><button type="button" onClick={payments.retry}>Try again</button></div>
-                    : <div className="va-skel" aria-busy="true" aria-label="Loading" />}
-              </Block>
-            </div>
+        {full && (
+          <div className={stale ? 'va-stale' : undefined} aria-busy={stale}>
+            <Dashboard
+              key={`${full.niche}:${listingId || 'all'}`} data={full} rk={rk} listingId={listingId} onListingChange={onListingChange}
+              paymentsBody={payments.data
+                ? <PlanPayments payments={payments.data} />
+                : payments.error
+                  ? <div className="va-empty"><button type="button" className="va-retry" onClick={payments.retry}>Retry</button></div>
+                  : <div className="va-skel" style={{ height: 80 }} />}
+            />
           </div>
         )}
       </div>

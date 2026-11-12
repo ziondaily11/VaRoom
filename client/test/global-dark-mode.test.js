@@ -103,7 +103,8 @@ test('admin.css and the analytics styles support dark mode with #000000 canvas',
   assert.doesNotMatch(adminCss, /--admin-canvas:\s*#120F0F;/, 'Old #120F0F must be removed from admin.css');
 
   const analyticsCss = fs.readFileSync(path.join(clientRoot, 'components', 'analytics', 'analyticsStyles.ts'), 'utf8');
-  assert.match(analyticsCss, /:root\[data-theme="dark"\] \.va-analytics[^{]*\{--bg:#000;/, 'Analytics must use a #000000 canvas in dark mode');
+  assert.match(analyticsCss, /const DARK = `--canvas:#000;/, 'Analytics must use a #000000 canvas in dark mode');
+  assert.match(analyticsCss, /:root\[data-theme="dark"\] \.va-analytics[^{]*\{\$\{DARK\}\}/, 'The dark tokens apply under data-theme="dark"');
 });
 
 test('Legacy pages define consistent true black tokens', () => {

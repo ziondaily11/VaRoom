@@ -74,7 +74,7 @@ test('the portfolio refines the niche: restaurant-only hotels, homes for sale, h
   const sale = view(overview('property', { has_sale: true, has_rent: false }));
   assert.equal(sale.mode, 'sale');
   assert.equal(sale.showStatusBar, false);
-  assert.deepEqual(sale.funnel.map((s) => s.key), ['views', 'interest', 'contact']);
+  assert.deepEqual(sale.funnel.map((s) => s.key), ['views', 'viewers', 'contact']);
   assert.equal(view(overview('property', { has_sale: true, has_rent: true })).mode, 'leases');
 
   assert.ok(keys(view(overview('venue', { has_hourly: true })).secondary).includes('hours'));
