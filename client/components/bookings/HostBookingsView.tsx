@@ -345,8 +345,7 @@ export default function HostBookingsView({ showToast }: { showToast: (message: s
     if (busy || !client || !userId) return;
     setBusy(true);
     try {
-      const api = window.VaRoomNotificationAPI;
-      const { status } = await respondToBooking(client, { booking, userId, decision, notify: api ? (payload) => api.create(payload) : null });
+      const { status } = await respondToBooking(client, { booking, userId, decision });
       const next = (bookings || []).map((b) => (b.id === booking.id ? { ...b, status } : b));
       save({ bookings: next });
       setBookings(next);

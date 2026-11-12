@@ -39,21 +39,17 @@ export function useBookingActions(showToast: (message: string) => void, onCancel
       showToast("Couldn't cancel this booking: please sign in again.");
       throw new Error('Not signed in');
     }
-    let notifyError: Error | null = null;
     try {
-      const api = window.VaRoomNotificationAPI;
-      ({ notifyError } = await cancelClientBooking(client, {
-        booking, userId, guestName, notify: api ? (payload) => api.create(payload) : null,
-      }));
+      await cancelClientBooking(client, { booking, userId });
     } catch (error) {
       showToast(`Couldn't cancel this booking: ${errorText(error)}`);
       throw error;
     }
     updateCachedBooking(userId, booking.id, { status: 'cancelled' });
     getListingFeedCache()?.invalidateAll();
-    showToast(notifyError ? `Booking cancelled, but your host could not be notified: ${notifyError.message}` : 'Booking cancelled.');
+    showToast('Booking cancelled.');
     onCancelled?.(booking.id);
-  }, [userId, guestName, showToast, onCancelled]);
+  }, [userId, showToast, onCancelled]);
 
   const messageHost = useCallback(async (booking: Booking) => {
     const listingId = booking.listing?.id;

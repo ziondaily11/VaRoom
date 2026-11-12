@@ -26,9 +26,6 @@ test('stay length, instant book and the guest-facing errors', () => {
   assert.equal(bl.isInstantBooking({ isShortStay: true, isHourly: true, details: { instant_book: true } }), false, 'hours stay requests');
   assert.equal(bl.bookingFailureText('booking_rule: The minimum stay is 2 night(s).'), 'The minimum stay is 2 night(s).');
   assert.equal(bl.bookingFailureText('network down'), 'Something went wrong: network down');
-  const note = bl.bookingNotification({ id: 'L1', host_id: 'H1', title: 'Palm View' }, 'B1', { id: 'G1', name: 'Amina', email: null }, true);
-  assert.equal(note.title, 'New booking');
-  assert.equal(note.message, '"Amina" booked "Palm View".');
 });
 
 test('host booking defaults: normalised, checked, and turned into the wizard fields', () => {

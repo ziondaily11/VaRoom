@@ -89,16 +89,11 @@ export function SettingsSkeleton() {
 
 // ---------- Notifications ----------
 
-export function NotificationsSection({ userId, prefs, onBack, notify }: { userId: string; prefs: Preferences | null; onBack: () => void; notify: Notify }) {
-  const [values, setValues] = useState<Record<NotificationKey, boolean>>({ notify_messages: false, notify_bookings: false, notify_account_updates: false, notify_marketing: false });
+export function NotificationsSection({ userId, prefs, isHost = false, onBack, notify }: { userId: string; prefs: Preferences | null; isHost?: boolean; onBack: () => void; notify: Notify }) {
+  const rows = NOTIFICATION_ROWS.filter((row) => isHost || !row.hostOnly);
+  const [values, setValues] = useState<Partial<Record<NotificationKey, boolean>>>({});
   useEffect(() => {
-    if (!prefs) return;
-    setValues({
-      notify_messages: Boolean(prefs.notify_messages),
-      notify_bookings: Boolean(prefs.notify_bookings),
-      notify_account_updates: Boolean(prefs.notify_account_updates),
-      notify_marketing: Boolean(prefs.notify_marketing),
-    });
+    if (prefs) setValues(Object.fromEntries(NOTIFICATION_ROWS.map((row) => [row.key, Boolean(prefs[row.key])])));
   }, [prefs]);
 
   const change = async (key: NotificationKey, value: boolean) => {
@@ -117,14 +112,14 @@ export function NotificationsSection({ userId, prefs, onBack, notify }: { userId
       <DetailHead title="Notifications" onBack={onBack} />
       <p className="detail-sub">Choose what VaRoom is allowed to send you.</p>
       <div className="card">
-        {NOTIFICATION_ROWS.map((row) => (
+        {rows.map((row) => (
           <div className="toggle-row" key={row.key}>
-            <div><div className="toggle-label">{row.label}</div></div>
-            <label className="switch"><input type="checkbox" checked={values[row.key]} onChange={(event) => change(row.key, event.target.checked)} /><span className="switch-track" /></label>
+            <div><div className="toggle-label">{row.label}</div>{row.desc && <div className="toggle-desc">{row.desc}</div>}</div>
+            <label className="switch"><input type="checkbox" checked={Boolean(values[row.key])} onChange={(event) => change(row.key, event.target.checked)} /><span className="switch-track" /></label>
           </div>
         ))}
       </div>
-      <div className="note-box">In-app notifications (the bell icon) already reflect your activity. These preferences control which of them you get, and will extend to email/push once those exist.</div>
+      <div className="note-box">These switches control the notifications under the bell icon. Turned off, VaRoom doesn&apos;t create them at all.</div>
     </div>
   );
 }
