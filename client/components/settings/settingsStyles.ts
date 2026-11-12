@@ -225,10 +225,15 @@ export const SETTINGS_STYLES = `
   .settings-page .toggle-row:last-child{ border-bottom:none; }
   .settings-page .toggle-label{ font-size:.9rem; font-weight:600; }
   .settings-page .toggle-desc{ font-size:.76rem; color:var(--muted); margin-top:.15rem; }
-  .settings-page .team-roles{ display:grid; gap:.45rem; margin:.2rem 0 1rem; }
-  .settings-page .team-role{ display:flex; align-items:center; gap:.6rem; padding:.55rem .75rem; border:1px solid var(--line); border-radius:10px; font-size:.84rem; cursor:pointer; }
-  .settings-page .team-role.on{ border-color:var(--red); background:var(--nav-active-bg); }
-  .settings-page .team-role input{ accent-color:var(--red); }
+  .settings-page .team-roles{ margin:.3rem 0 1.2rem; }
+  .settings-page .team-role{ display:flex; align-items:flex-start; gap:.8rem; padding:.75rem 0; border-top:1px solid var(--line); cursor:pointer; }
+  .settings-page .team-role:last-child{ border-bottom:1px solid var(--line); }
+  .settings-page .team-role input{ flex:0 0 auto; width:1.05rem; height:1.05rem; margin:.1rem 0 0; padding:0; accent-color:var(--red); cursor:pointer; }
+  .settings-page .team-role-text{ display:flex; flex-direction:column; gap:.1rem; font-size:.9rem; }
+  .settings-page .team-role-text span{ color:var(--muted); font-size:.8rem; }
+  .settings-page .team-roles.compact{ display:flex; flex-wrap:wrap; gap:.3rem 1.4rem; margin:0 0 .7rem; }
+  .settings-page .team-roles.compact .team-role{ align-items:center; gap:.5rem; padding:.2rem 0; border:0; }
+  .settings-page .team-roles.compact .team-role-text{ font-size:.85rem; }
   .settings-page .team-list{ margin-top:.9rem; }
   .settings-page .team-row{ padding:1rem 1.2rem; border-bottom:1px solid var(--line); }
   .settings-page .team-row:last-child{ border-bottom:0; }

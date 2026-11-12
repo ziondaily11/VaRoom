@@ -13,18 +13,19 @@ import { DetailHead } from './SettingsIcons';
 
 type Msg = { text: string; kind: '' | 'success' | 'error' };
 
-function RolePicker({ value, onChange, idPrefix }: { value: TeamRole[]; onChange: (roles: TeamRole[]) => void; idPrefix: string }) {
+/** Roles as plain rows (inviting), or one inline line (someone already on the team). */
+function RolePicker({ value, onChange, idPrefix, compact = false }: { value: TeamRole[]; onChange: (roles: TeamRole[]) => void; idPrefix: string; compact?: boolean }) {
   return (
-    <div className="team-roles">
+    <div className={`team-roles${compact ? ' compact' : ''}`} role="group" aria-label="Roles">
       {TEAM_ROLES.map((role) => (
-        <label key={role.key} className={`team-role${value.includes(role.key) ? ' on' : ''}`} htmlFor={`${idPrefix}-${role.key}`}>
+        <label key={role.key} className="team-role" htmlFor={`${idPrefix}-${role.key}`}>
           <input
             type="checkbox"
             id={`${idPrefix}-${role.key}`}
             checked={value.includes(role.key)}
             onChange={(event) => onChange(event.target.checked ? [...value, role.key] : value.filter((key) => key !== role.key))}
           />
-          <span><strong>{role.label}</strong> · {role.desc}</span>
+          <span className="team-role-text"><strong>{role.label}</strong>{!compact && <span>{role.desc}</span>}</span>
         </label>
       ))}
     </div>
@@ -132,6 +133,7 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
                     {row.status === 'invited' && <span className="team-chip">Invited</span>}
                   </div>
                   <RolePicker
+                    compact
                     value={row.roles}
                     idPrefix={`team-${row.member.id}`}
                     onChange={(next) => { if (next.length) void act((client) => setTeamRoles(client, row.member.id, next), 'Roles updated.'); }}
@@ -143,7 +145,7 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
               ))}
             </div>
           )}
-          <div className="note-box">Only you manage the team, Your Account, Plans and deleting the account. Managers can handle your bookings now; listings, chats and billing follow.</div>
+          <div className="note-box">Only you manage the team, Your Account, Plans and deleting the account. Managers handle your bookings and listings; chats for Messaging and billing for Finance follow.</div>
         </div>
       )}
 
