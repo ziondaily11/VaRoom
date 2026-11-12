@@ -225,6 +225,8 @@ export const SETTINGS_STYLES = `
   .settings-page .toggle-row:last-child{ border-bottom:none; }
   .settings-page .toggle-label{ font-size:.9rem; font-weight:600; }
   .settings-page .toggle-desc{ font-size:.76rem; color:var(--muted); margin-top:.15rem; }
+  .settings-page .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:0 1rem; }
+  @media (max-width:560px){ .settings-page .field-pair{ grid-template-columns:1fr; } }
   .settings-page .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
   .settings-page .switch input{ opacity:0; width:0; height:0; }
   .settings-page .switch-track{
