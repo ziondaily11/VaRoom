@@ -150,6 +150,22 @@ export function splitArticleParagraphs(bodyText: string): string[] {
 }
 
 /**
+ * Where the body continues in the second newspaper column, so both columns
+ * end at about the same height. `leftExtra` and `rightExtra` are the
+ * character-equivalent heights of the standfirst and the media at the top of
+ * each column. The first column always keeps at least one paragraph.
+ */
+export function columnSplit(paragraphs: string[], leftExtra = 0, rightExtra = 0): number {
+  const half = (paragraphs.reduce((n, p) => n + p.length, 0) + leftExtra + rightExtra) / 2;
+  let left = leftExtra;
+  for (let i = 1; i < paragraphs.length; i++) {
+    left += paragraphs[i - 1].length;
+    if (left + paragraphs[i].length / 2 >= half) return i;
+  }
+  return paragraphs.length;
+}
+
+/**
  * Whether the body already opens with the summary (compared on the first 50
  * characters, ignoring a trailing full stop), so the summary is not repeated.
  */

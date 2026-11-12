@@ -19,7 +19,7 @@ import {
 import { MOBILE_QUERY } from '../lib/hostHome/mediaStage';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH, type PhotoWidth } from '../components/resolveStoredPhotoUrl';
 import FeedCard, { type CardVideo, type MediaState } from '../components/hostHome/FeedCard';
-import HostRail, { NewsRefreshButton, PropertyNewsList, VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
+import HostRail, { VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
 import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialogs';
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
@@ -652,13 +652,6 @@ export default function HostHomePage() {
               </div>
               <div className="feed-area">
                 <div id="feed-list" className="discover-media-feed" ref={feedList}>{feed}</div>
-                <div className="property-news-mobile-slot">
-                  <section className="property-news-card" id="property-news-mobile-card" aria-labelledby="property-news-mobile-title">
-                    <div className="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={refreshNews} busy={newsRefreshing} /></div>
-                    <PropertyNewsList news={newsRefreshing ? null : news} idSuffix="-mobile" />
-                    <Link className="property-news-view-all" href="/property-news">View all news →</Link>
-                  </section>
-                </div>
               </div>
             </div>
             <HostRail listings={glance} photoUrl={photoUrl} news={newsRefreshing ? null : news} onRefreshNews={refreshNews} newsRefreshing={newsRefreshing} updates={updates} notify={notify} onStatus={onStatus} onDeleted={onDeleted} onViewAll={showMyListings} />

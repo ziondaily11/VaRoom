@@ -1586,6 +1586,11 @@
 }
 
 @media (max-width: 860px) {
+  /* Phones keep Property News out of the listing feed. */
+  .mobileNews {
+    display: none;
+  }
+
   .home {
     display: block;
     height: auto;

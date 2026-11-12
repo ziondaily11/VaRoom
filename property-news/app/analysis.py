@@ -67,6 +67,10 @@ def _sentences(text: str) -> list[str]:
 
 
 SUMMARY_MAX_LENGTH = 280
+# How much of the source article the analyser reads and may republish.
+SOURCE_TEXT_LIMIT = 12000
+# A model body shorter than this share of the source has dropped part of the story.
+MIN_BODY_SHARE = 0.4
 
 
 def _excerpt(text: str, max_length: int = SUMMARY_MAX_LENGTH) -> str:
@@ -121,14 +125,20 @@ def _editor_prompt(item: NewsItem, source: Source) -> str:
         "  * General court cases or general business news.\n"
         "- RULE OF REASONABLE DOUBT: If there is ANY reasonable doubt whether a property professional, landlord, developer, or buyer would consider this directly relevant, set relevant=false. Never include borderline articles.\n\n"
         "Editorial Rules when relevant=true:\n"
-        "- Generate a crisp, objective, 1-2 sentence summary (under 280 characters) explaining the direct impact on Kenyan property owners, buyers, tenants, or developers.\n"
+        "- varoom_summary: a crisp, objective, 1-2 sentence summary (under 280 characters) for the news card, explaining the direct impact on Kenyan property owners, buyers, tenants, or developers.\n"
+        "- varoom_body: the COMPLETE story for the article page. It is NOT a summary and must not be shortened. "
+        "Retell the whole article in clear, neutral newspaper prose, following the source's order, and keep every fact: "
+        "names and roles, figures, amounts, dates, places, background, reactions and next steps. Keep quotations word for word with their speaker. "
+        "Leave out only advertising, subscription or paywall prompts, navigation text and links to other stories. "
+        "Its length should be close to the article's own length. Separate paragraphs with a blank line; 2-4 sentences each. "
+        "Do not open with the summary. No headings, markdown or bullet lists.\n"
         "- Use only source-supported facts. Never invent dates, locations, or regulations.\n"
         "- Accurately detect regulatory status (e.g. proposed, public_participation, approved, enacted, effective). Never state a proposal or draft bill as approved, enacted, or in effect.\n"
         "- Extract specific Kenyan counties and towns mentioned. If the update applies nationally across all of Kenya or has more than 5 locations, identify it as national.\n"
         f"- category must be exactly one of: {', '.join(sorted(PROPERTY_CATEGORIES))}.\n\n"
         f"Source Tier: {source.trust_tier} | Source Name: {source.name}\n"
         f"Source Title: {item.source_title}\n"
-        f"Article Content:\n{item.clean_text[:12000]}\n\n"
+        f"Article Content:\n{item.clean_text[:SOURCE_TEXT_LIMIT]}\n\n"
         f"JSON Schema:\n{json.dumps(schema)}"
     )
 
@@ -158,7 +168,7 @@ class RulesBasedNewsAnalyzer:
             if any(term in sentence.lower() for term in EVENT_TERMS)
         ][:2]
         summary = _excerpt(" ".join(summary_sentences)) if summary_sentences else None
-        body = item.clean_text[:4000].strip() if item.clean_text else None
+        body = item.clean_text[:SOURCE_TEXT_LIMIT].strip() if item.clean_text else None
         risk, reasons = assess_risk(text, status, source.trust_tier)
         confidence = 0.82 if relevant and source.trust_tier <= 2 else (0.62 if relevant else 0.95)
         return NewsAnalysis(
@@ -179,12 +189,23 @@ def _affected_groups(text: str) -> list[str]:
     return [label for label, keywords in candidates.items() if any(keyword in text for keyword in keywords)]
 
 
+def _complete_body(analysis: NewsAnalysis, item: NewsItem) -> str | None:
+    """The model's body, unless it has cut the story down: then the source text,
+    so the article page never shows a shortened version of the news."""
+    source = (item.clean_text or "")[:SOURCE_TEXT_LIMIT].strip()
+    body = (analysis.varoom_body or "").strip()
+    if not analysis.relevant or len(body) >= MIN_BODY_SHARE * len(source):
+        return body or None
+    logger.warning("AI body kept %d of %d source characters item_id=%s; using source text", len(body), len(source), item.id)
+    return source
+
+
 class OpenAICompatibleNewsAnalyzer:
     """Optional strict-schema adapter for an approved OpenAI-compatible endpoint."""
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         self.base_url, self.api_key, self.model = base_url.rstrip("/"), api_key, model
-        self._client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
+        self._client = httpx.AsyncClient(timeout=90.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -201,6 +222,7 @@ class OpenAICompatibleNewsAnalyzer:
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
                                            "image_url": item.image_url or analysis.image_url,
+                                           "varoom_body": _complete_body(analysis, item),
                                            "model_provider": "openai-compatible", "model_version": self.model})
 
 
@@ -214,7 +236,7 @@ class GeminiNewsAnalyzer:
     def __init__(self, api_key: str, model: str, fallback_models: tuple[str, ...] = ()) -> None:
         self.api_key, self.model = api_key, model
         self.models = tuple(dict.fromkeys((model, *fallback_models)))
-        self._client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
+        self._client = httpx.AsyncClient(timeout=90.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -246,6 +268,7 @@ class GeminiNewsAnalyzer:
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
                                            "category": _allowed_category(analysis),
+                                           "varoom_body": _complete_body(analysis, item),
                                            "image_url": item.image_url or analysis.image_url,
                                            "model_provider": "gemini", "model_version": model})
 

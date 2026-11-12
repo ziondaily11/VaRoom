@@ -15,10 +15,10 @@ const Loader = ({ label }: { label: string }) => (
   <div className="home-widget-loader" role="status" aria-label={label}><span className="home-widget-spinner" aria-hidden="true" /></div>
 );
 
-export function PropertyNewsList({ news, idSuffix = '' }: { news: Loadable<NewsItem[]>; idSuffix?: string }) {
+function PropertyNewsList({ news }: { news: Loadable<NewsItem[]> }) {
   const hasNews = Array.isArray(news) && news.length > 0;
   return (
-    <div className="property-news-list" id={`property-news${idSuffix}-list`} aria-live="polite" data-loading={news === null ? 'true' : 'false'}>
+    <div className="property-news-list" id="property-news-list" aria-live="polite" data-loading={news === null ? 'true' : 'false'}>
       {news === null ? <Loader label="Loading Property News" />
         : hasNews ? (news as NewsItem[]).slice(0, 5).map((item) => (
           <article className="property-news-item" key={item.id}>
@@ -34,7 +34,7 @@ export function PropertyNewsList({ news, idSuffix = '' }: { news: Loadable<NewsI
 }
 
 /** Property News' Refresh link (as on Client Home); the list shows its spinner while it reloads. */
-export function NewsRefreshButton({ onRefresh, busy }: { onRefresh?: () => void; busy?: boolean }) {
+function NewsRefreshButton({ onRefresh, busy }: { onRefresh?: () => void; busy?: boolean }) {
   if (!onRefresh) return null;
   return <button type="button" className="property-news-refresh" onClick={onRefresh} disabled={busy} aria-busy={busy || undefined}>Refresh</button>;
 }

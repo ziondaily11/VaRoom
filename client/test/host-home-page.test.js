@@ -137,12 +137,12 @@ test('home shell: a home route draws its shell while the role loads', () => {
   for (const route of ['/bookings', '/profile', '/analytics', '/', '/chats']) assert.equal(layout.homeShellHint(route), null, route);
 });
 
-test('Property News Refresh: a link in both rail and phone cards that shows the spinner while it reloads', () => {
+test('Property News Refresh: a link in the rail card that shows the spinner while it reloads', () => {
   const page = fs.readFileSync(path.join(root, 'pages', 'host-home.tsx'), 'utf8');
   const rail = fs.readFileSync(path.join(root, 'components', 'hostHome', 'HostRail.tsx'), 'utf8');
   assert.match(rail, /className="property-news-refresh"/);
   assert.match(rail, /<NewsRefreshButton onRefresh=\{onRefreshNews\} busy=\{newsRefreshing\} \/>/);
-  assert.match(page, /<NewsRefreshButton onRefresh=\{refreshNews\} busy=\{newsRefreshing\} \/>/);
+  assert.doesNotMatch(page, /property-news-mobile/, 'phones show no Property News in the feed');
   assert.match(page, /news=\{newsRefreshing \? null : news\}/, 'the list shows its loader while refreshing');
   assert.match(page, /reloadNews\.current = \(\) => loadNews\(true\);/);
 });
