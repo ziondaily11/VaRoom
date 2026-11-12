@@ -32,9 +32,13 @@ export type Mode = 'stays' | 'venue' | 'dining' | 'leases' | 'sale' | 'commercia
 
 export interface NicheView {
   mode: Mode;
-  title: string;
-  intro: string;
   bookingsTitle: string;
+  /** The one number the page leads with (headline[0]). */
+  hero: Kpi;
+  /** Up to six supporting tiles beside the hero. */
+  tiles: Kpi[];
+  /** Whether bookings or lease requests are part of this niche's story. */
+  showRequests: boolean;
   headline: Kpi[];
   secondary: Kpi[];
   funnel: FunnelStep[];
@@ -105,6 +109,7 @@ const K: Record<string, KpiFactory> = {
   viewers: (c, p) => kpi('viewers', 'People who viewed', c, p, (m) => m.uniqueViewers, 'count', 'Unique signed-in guests'),
   enquiries: (c, p) => kpi('enquiries', 'Enquiries', c, p, (m) => m.enquiries, 'count', 'New chats about your listings'),
   contacts: (c, p) => kpi('contacts', 'Contact taps', c, p, contactTaps, 'count', 'WhatsApp, call and email taps'),
+  shares: (c, p) => kpi('shares', 'Shares', c, p, (m) => m.shares, 'count', 'Times guests shared a listing'),
   interest: (c, p) => kpi('interest', 'Saves and likes', c, p, (m) => m.saves + m.likes, 'count', 'Guests who saved or liked a listing'),
   enquiryRate: (c, p) => kpi('enquiryRate', 'Enquiry rate', c, p, (m) => ratio(m.enquiries + contactTaps(m), m.views), 'percent', 'Enquiries and contact taps per view'),
   leaseRequests: (c, p) => kpi('leaseRequests', 'Lease requests', c, p, (m) => m.leaseRequests, 'count', 'Created in this period'),
@@ -121,7 +126,7 @@ function funnelFor(mode: Mode, c: PeriodMetrics, p: PeriodMetrics): FunnelStep[]
   if (mode === 'sale') {
     return [
       step('views', 'Listing views', (m) => m.views),
-      step('interest', 'Saves and likes', (m) => m.saves + m.likes),
+      step('viewers', 'People who viewed', (m) => m.uniqueViewers),
       step('contact', 'Enquiries and contact taps', (m) => m.enquiries + contactTaps(m)),
     ];
   }
@@ -154,13 +159,13 @@ const COL = {
   leaseValue: { key: 'approvedValue', label: 'Lease value', format: 'kes' },
 } as const satisfies Record<string, ListingColumn>;
 
-export function buildNicheView(overview: AnalyticsOverview): NicheView {
+type NicheConfig = Omit<NicheView, 'hero' | 'tiles' | 'showRequests'>;
+
+function nicheConfig(overview: AnalyticsOverview): NicheConfig {
   const { niche, portfolio, current: c, previous: p } = overview;
   const mode = modeFor(niche, portfolio);
-  const label = niche ? NICHE_LABEL[niche] : null;
   const base = {
     mode,
-    title: 'Analytics',
     funnel: funnelFor(mode, c, p),
     showStatusBar: mode !== 'sale' && mode !== 'dining',
     showDining: Boolean(overview.dining),
@@ -170,7 +175,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'stays':
       return {
         ...base,
-        intro: `How your ${niche === 'hotel' ? 'rooms' : 'stays'} are booking: nights, occupancy, rates and guest interest.`,
         bookingsTitle: niche === 'hotel' ? 'Room bookings' : 'Bookings',
         headline: pick(c, p, ['value', 'nights', 'occupancy', 'nightly']),
         secondary: pick(c, p, ['stayLength', 'lead', 'cancellation', 'bookingResponse']),
@@ -181,7 +185,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'dining':
       return {
         ...base,
-        intro: 'Table reservations at your restaurant, when guests want to dine, and interest in your listing.',
         bookingsTitle: 'Interest',
         headline: pick(c, p, ['views', 'enquiries', 'contacts', 'interest']),
         secondary: pick(c, p, ['viewers', 'enquiryRate', 'chatResponse']),
@@ -192,7 +195,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'venue':
       return {
         ...base,
-        intro: 'How your spaces are booked: days and hours booked, utilisation, and demand for events.',
         bookingsTitle: 'Bookings',
         headline: pick(c, p, ['value', 'daysBooked', 'utilisation', 'average']),
         secondary: pick(c, p, portfolio.hasHourly ? ['hours', 'lead', 'cancellation', 'bookingResponse'] : ['lead', 'cancellation', 'bookingResponse', 'enquiries']),
@@ -203,9 +205,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'leases':
       return {
         ...base,
-        intro: portfolio.hasSale
-          ? 'Interest in your homes to let and for sale: enquiries, lease requests and rents.'
-          : 'Interest in your homes to let: enquiries, lease requests, rents and lease terms.',
         bookingsTitle: 'Lease requests',
         headline: pick(c, p, ['enquiries', 'leaseRequests', 'leaseApproved', 'monthlyRent']),
         secondary: pick(c, p, ['leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
@@ -216,7 +215,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'sale':
       return {
         ...base,
-        intro: 'Buyer interest in your homes for sale: views, saves, enquiries and contact taps.',
         bookingsTitle: 'Buyer interest',
         headline: pick(c, p, ['views', 'enquiries', 'contacts', 'interest']),
         secondary: pick(c, p, ['viewers', 'enquiryRate', 'chatResponse']),
@@ -227,7 +225,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     case 'commercial':
       return {
         ...base,
-        intro: 'Interest in your shops and offices: enquiries, lease requests and lease terms.',
         bookingsTitle: 'Lease requests',
         headline: pick(c, p, ['enquiries', 'leaseRequests', 'leaseApproved', 'leaseValue']),
         secondary: pick(c, p, ['leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
@@ -238,7 +235,6 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
     default:
       return {
         ...base,
-        intro: label ? `Your ${label.toLowerCase()} listings on VaRoom.` : 'Your bookings, enquiries and reviews on VaRoom.',
         bookingsTitle: 'Bookings',
         headline: pick(c, p, ['requests', 'approved', 'value', 'average']),
         secondary: pick(c, p, ['enquiries', 'views', 'lead', 'bookingResponse']),
@@ -247,6 +243,25 @@ export function buildNicheView(overview: AnalyticsOverview): NicheView {
         listingSort: 'approvedValue',
       };
   }
+}
+
+const RESPONSE_KEYS = new Set(['bookingResponse', 'chatResponse']);
+
+export function buildNicheView(overview: AnalyticsOverview): NicheView {
+  const config = nicheConfig(overview);
+  const [hero, ...rest] = config.headline;
+  const tiles = [...rest, ...config.secondary.filter((k) => !RESPONSE_KEYS.has(k.key))];
+  if (tiles.length < 6) tiles.push(K.shares(overview.current, overview.previous));
+  return { ...config, hero, tiles: tiles.slice(0, 6), showRequests: config.showStatusBar };
+}
+
+/** The trend series a metric follows, for its sparkline; null when there is none. */
+export function trendKeyFor(kpiKey: string): TrendKey | null {
+  const map: Record<string, TrendKey> = {
+    value: 'approvedValue', leaseValue: 'approvedValue', requests: 'requests', leaseRequests: 'requests',
+    approved: 'approved', leaseApproved: 'approved', views: 'views', enquiries: 'enquiries', contacts: 'contacts',
+  };
+  return map[kpiKey] ?? null;
 }
 
 /** What a host's plan unlocks, shown on the locked preview. */
