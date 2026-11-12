@@ -16,7 +16,7 @@ function memory(initial) {
 test('settings: this browser keeps a copy; the profile decides', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
-  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal' });
+  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal', emailAlertMinutes: null });
   const fromProfile = cs.resolveSettings(cs.readStored(stored), { awayMode: false, readReceipts: true });
   assert.equal(fromProfile.awayMode, false, 'the profile wins');
   assert.equal(fromProfile.readReceipts, true, 'the profile wins');
@@ -46,11 +46,11 @@ test('profile settings: every Chat Setting is read once per account in one query
       return chain;
     },
   };
-  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal' };
+  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal', emailAlertMinutes: null };
   const [first, second] = await Promise.all([cs.loadProfileSettings(client, 'h1'), cs.loadProfileSettings(client, 'h1')]);
   assert.deepEqual({ ...first }, loaded, 'unset switches are on; no away message shows the default');
   assert.equal(first, second, 'requests at the same time share one read');
-  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme']], 'one read per account');
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme,email_alert_minutes']], 'one read per account');
 
   const seen = [];
   const unsubscribe = cs.subscribeProfileSettings('h1', (settings) => seen.push(settings.typingIndicators));
@@ -116,4 +116,17 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   assert.match(read('next.config.js'), /source: '\/chat-settings\.html',\s*destination: '\/chat-settings'/);
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/chat-settings', '\/chat-settings\.html', '\/legacy-pages\/chat-settings\.html'\]/);
+});
+
+test('email about unread messages: hosts after 15 minutes and clients never unless they choose; saved to the account', () => {
+  assert.equal(cs.effectiveEmailAlertMinutes(null, 'host'), 15);
+  assert.equal(cs.effectiveEmailAlertMinutes(null, 'client'), 0);
+  assert.equal(cs.effectiveEmailAlertMinutes(60, 'client'), 60);
+  assert.equal(cs.profileSettingsFromRow({ email_alert_minutes: 60 }).emailAlertMinutes, 60);
+  assert.equal(cs.profileSettingsFromRow({ email_alert_minutes: 7 }).emailAlertMinutes, null, 'unknown values fall back to the default');
+  assert.deepEqual(cs.EMAIL_ALERT_CHOICES.map((c) => c.minutes), [15, 60, 0]);
+  const component = read('components', 'chat', 'ChatSettings.tsx');
+  assert.match(component, /label="Email me about unread messages"/);
+  assert.match(component, /value=\{effectiveEmailAlertMinutes\(settings\.emailAlertMinutes, role\)\}/);
+  assert.match(component, /saveProfileSetting\(getSupabaseClient\(\), userId, 'emailAlertMinutes', emailAlertMinutes, storage\(\)\)/);
 });

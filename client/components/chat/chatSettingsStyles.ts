@@ -46,6 +46,11 @@ html[data-theme="dark"] .cs-theme {
 .cs-theme__in { width:72%; align-self:flex-start; background:var(--bubble-in); border-bottom-left-radius:3px; }
 .cs-theme__label { font-size:.72rem; font-weight:600; line-height:1.25; }
 
+/* A setting with a few choices (email timing). */
+.cs-row--choice { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cs-select { flex-shrink:0; height:34px; padding:0 10px; border:1px solid var(--cs-divider); border-radius:8px; background:var(--cs-bg); color:var(--cs-text); font:inherit; font-size:.8125rem; cursor:pointer; }
+.cs-select:focus-visible { outline:2px solid var(--cs-accent); outline-offset:2px; }
+
 /* Inside desktop Chats: the information column supplies the shell. */
 .cs-embedded { flex:1; min-height:0; width:100%; overflow-y:auto; background:transparent; }
 .cs-embedded .cs { padding:0 18px 22px; }
