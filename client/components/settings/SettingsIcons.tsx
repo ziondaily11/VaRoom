@@ -21,6 +21,8 @@ export const CAT_ICONS: Record<string, React.ReactNode> = {
   support: icon(20, <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 3.5" /><path d="M12 17h.01" /></>),
   'login-accounts': icon(20, <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>),
   payments: icon(20, <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></>),
+  bookings: icon(20, <><rect x="3" y="4.5" width="18" height="16.5" rx="2" /><path d="M16 2.5v4M8 2.5v4M3 10h18" /><path d="m9 15.5 2 2 4-4" /></>),
+  team: icon(20, <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17" cy="9" r="2.5" /><path d="M16 14.2a5 5 0 0 1 5.5 4.8" /></>),
   plans: icon(20, <><path d="M6 3h12l4 6-10 12L2 9Z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>),
 };
 

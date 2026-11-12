@@ -10,7 +10,7 @@ import { loadListingVideo, getCachedVideo, type ListingVideo } from '../lib/medi
 import { useListingLike } from '../lib/listings/listingLikes';
 import { recordListingEvent } from '../lib/analytics/listingEvents';
 import {
-  bookingKind, bookingNotification, bookingPageError, bookingPayload, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
+  bookingFailureText, bookingKind, bookingPageError, bookingPayload, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
   loadListingBundle, MESSAGES, openConversation, peekExtras, peekListingBundle, rememberExtras, sendTableRequest,
   type CalendarDates, type DocumentsResult, type ListingBundle, type ReviewsResult, type StayChoice, type TableRequest,
 } from '../lib/booking/bookingListing';
@@ -148,22 +148,15 @@ export default function BookingPage() {
 
   const book = useCallback(async (choice: StayChoice, total: number): Promise<string | null> => {
     if (!client || !listing || !kind || !userId) return 'Not signed in.';
-    const { data, error } = await client.from('bookings').insert(bookingPayload(listing, kind, userId, total, choice)).select('id').single();
-    if (error) return error.message;
-    const bookingId = data ? (data as { id: string }).id : null;
+    // The database tells the host (booking notifications are created with the booking).
+    const { error } = await client.from('bookings').insert(bookingPayload(listing, kind, userId, total, choice));
+    if (error) return bookingFailureText(error.message);
     // Booking availability is reflected by the next feed revalidation.
     const feed = getListingFeedCache();
     if (feed) feed.invalidateAll();
     forgetListingBundle(userId, listing.id);
-    try {
-      if (window.VaRoomNotificationAPI) {
-        await window.VaRoomNotificationAPI.create(bookingNotification(listing, bookingId, { id: userId, name: profile?.full_name || null, email: user?.email || null }));
-      }
-    } catch (notificationError) {
-      console.error('Booking notification failed:', notificationError);
-    }
     return null;
-  }, [client, listing, kind, userId, profile, user]);
+  }, [client, listing, kind, userId]);
 
   const openTable = useCallback(async () => {
     if (phone === null && client && userId) {

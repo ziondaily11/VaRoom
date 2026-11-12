@@ -27,6 +27,21 @@ export interface ChatSettingsState {
   typingIndicators: boolean;
   awayMessage: string;
   chatTheme: ChatThemeId;
+  /** Minutes before an unread message is emailed about (0 never); null: the account's default. */
+  emailAlertMinutes: EmailAlertMinutes | null;
+}
+
+export type EmailAlertMinutes = 0 | 15 | 60;
+export const EMAIL_ALERT_CHOICES: { minutes: EmailAlertMinutes; label: string }[] = [
+  { minutes: 15, label: 'After 15 minutes' },
+  { minutes: 60, label: 'After 1 hour' },
+  { minutes: 0, label: 'Never' },
+];
+const asAlertMinutes = (value: unknown): EmailAlertMinutes | null => (value === 0 || value === 15 || value === 60 ? value : null);
+
+/** The email timing in effect: the person's choice, else hosts after 15 minutes and clients never (as the server). */
+export function effectiveEmailAlertMinutes(value: EmailAlertMinutes | null, role: 'host' | 'client'): EmailAlertMinutes {
+  return value ?? (role === 'host' ? 15 : 0);
 }
 
 export type ToggleKey = 'awayMode' | 'messageNotifications' | 'messagePreviews' | 'readReceipts' | 'typingIndicators';
@@ -39,6 +54,7 @@ export const DEFAULTS: ChatSettingsState = {
   typingIndicators: true,
   awayMessage: DEFAULT_AWAY_MESSAGE,
   chatTheme: DEFAULT_CHAT_THEME,
+  emailAlertMinutes: null,
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'> | null;
@@ -81,6 +97,7 @@ const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = {
   readReceipts: 'read_receipts',
   typingIndicators: 'typing_indicators',
   chatTheme: 'chat_theme',
+  emailAlertMinutes: 'email_alert_minutes',
 };
 
 /** Settings to show: the profile's values win over this browser's copy. */
@@ -95,6 +112,7 @@ export function resolveSettings(stored: Partial<ChatSettingsState>, profile: Pro
     typingIndicators: bool(stored.typingIndicators, true),
     awayMessage: cleanAwayMessage(stored.awayMessage),
     chatTheme: isChatThemeId(stored.chatTheme) ? stored.chatTheme : DEFAULT_CHAT_THEME,
+    emailAlertMinutes: asAlertMinutes(stored.emailAlertMinutes),
   };
 }
 
@@ -108,6 +126,7 @@ export function profileSettingsFromRow(row: Record<string, unknown>): ProfileCha
     readReceipts: row.read_receipts !== false,
     typingIndicators: row.typing_indicators !== false,
     chatTheme: isChatThemeId(row.chat_theme) ? row.chat_theme : DEFAULT_CHAT_THEME,
+    emailAlertMinutes: asAlertMinutes(row.email_alert_minutes),
   };
 }
 

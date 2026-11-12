@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../../lib/supabase/client';
 import HostSidebar from './HostSidebar';
 import ClientSidebar from './ClientSidebar';
 import AddAccountNotice from './AddAccountNotice';
+import WorkspaceBanner from './WorkspaceBanner';
 import { isShellSettled, shellFrame, shellState, type ShellVariant } from '../../lib/shell/appShell';
 import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES, RAIL_STYLES } from './shellStyles';
 
@@ -65,6 +66,7 @@ export default function AppShell({ variant, className = '', rail = false, childr
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       {variant === 'host' ? <HostSidebar rail={isRail} /> : variant === 'client' ? <ClientSidebar rail={isRail} /> : null}
       <main className={content.className} id={content.id}>
+        <WorkspaceBanner />
         {children}
       </main>
       <AddAccountNotice />

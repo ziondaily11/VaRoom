@@ -8,13 +8,6 @@
   line-height: 1.7;
 }
 
-[data-theme="dark"] .pp-root,
-html[data-theme="dark"] .pp-root {
-  --pp-bg: #000000;
-  --pp-text: #FFFFFF;
-  --pp-muted: #71767b;
-}
-
 /* Base Hero: black, curved into the page background */
 .pp-hero {
   position: relative;
@@ -165,12 +158,6 @@ html[data-theme="dark"] .pp-root {
 .pp-notice p {
   margin: 0;
   font-size: 0.9375rem;
-}
-
-[data-theme="dark"] .pp-notice,
-html[data-theme="dark"] .pp-notice {
-  background: rgba(224, 66, 94, 0.12);
-  border-left-color: #e0425e;
 }
 
 .pp-contact {

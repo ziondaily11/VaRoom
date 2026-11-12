@@ -533,7 +533,6 @@ export const HOST_HOME_STYLES = `
   .property-news-error{ color:var(--red-deep); }
   .property-news-view-all{ display:inline-flex; margin-top:.85rem; font-size:.82rem; font-weight:600; color:var(--red); }
   .property-news-view-all:hover{ color:var(--red-deep); }
-  .property-news-mobile-slot{ display:none; }
   @keyframes news-shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
 
   .mobile-widget-slot{ display:none; }
@@ -927,8 +926,6 @@ export const HOST_HOME_STYLES = `
     #notif-panel-card{ display:none !important; }
 
     .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
-    .host-rail .property-news-card{ display:none; }
-    .property-news-mobile-slot{ display:block; margin:0 0 1.4rem; }
 
     /* Category filters: one scrollable row, never wrap */
     .tabs{
@@ -1140,9 +1137,8 @@ export const HOST_HOME_STYLES = `
     padding:1.5rem 1.25rem !important;
   }
 
-  /* Mobile news and update modules keep the same one-per-section transparent
+  /* The mobile updates module keeps the same one-per-section transparent
      perimeter. Feed listing cards are deliberately outside these selectors. */
-  #property-news-mobile-card,
   .mobile-widget-slot > .mobile-varoom-updates-card{
     position:relative;
     background:transparent !important;
@@ -1151,7 +1147,6 @@ export const HOST_HOME_STYLES = `
     box-shadow:none !important;
     padding:1.15rem 1.2rem !important;
   }
-  #property-news-mobile-card::after,
   .mobile-widget-slot > .mobile-varoom-updates-card::after{
     content:"";
     position:absolute;

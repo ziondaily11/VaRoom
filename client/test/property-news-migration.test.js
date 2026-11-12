@@ -33,8 +33,8 @@ test('Phase 1 & 2: Property News is a native React page with its own editorial l
   // The page supplies its own layout instead of the client/host shell.
   assert.match(source, /PropertyNewsPage\.getLayout\s*=/);
   // Editorial copy and blocks preserved from the legacy page.
-  assert.match(source, /className="eyebrow">Property Intelligence<\/p>/);
-  assert.match(source, /<h1>Property News on VaRoom<\/h1>/);
+  // The masthead names the paper; no second title or strapline repeats it.
+  assert.doesNotMatch(source, /Property News on VaRoom<\/h1>|Original Country News Edition|Property Gazette/);
   assert.match(source, /className="fact-grid"/);
   assert.match(source, /className="source-box"/);
   assert.match(source, /24\/7 Source Monitoring Active/);
@@ -235,7 +235,7 @@ test('Phase 6: article body paragraphs, subheads, pull quotes and the repeated-s
 
   const source = readPage();
   assert.match(source, /className="detail-body"/);
-  assert.match(source, /idx === 0 && !showDistinctSummary \? 'detail-lead' : 'detail-p'/);
+  assert.match(source, /lead=\{i === 0 && !showSummary\}/);
 });
 
 test('Phase 6: image fallbacks, safe source links and request cleanup', () => {

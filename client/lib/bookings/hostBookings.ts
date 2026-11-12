@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Booking, BookingPerson } from './format';
-import type { Notify } from './clientBookings';
 
 // The host's booking requests (migrated from legacy-pages/bookings.html):
 // loading, approve / decline, the month filter, listing videos and table
@@ -41,11 +40,11 @@ export const RESPOND_FAILED = { approve: 'Failed to approve booking. Please try 
 
 /**
  * Approve or decline a pending request (only the host's own, only while still
- * pending), then tell the guest. A failed notification does not undo it.
+ * pending). The database tells the guest.
  */
 export async function respondToBooking(
   client: SupabaseClient,
-  { booking, userId, decision, notify, now = new Date() }: { booking: HostBooking; userId: string; decision: 'approve' | 'decline'; notify: Notify | null; now?: Date },
+  { booking, userId, decision, now = new Date() }: { booking: HostBooking; userId: string; decision: 'approve' | 'decline'; now?: Date },
 ): Promise<{ status: 'approved' | 'declined' }> {
   const status = decision === 'approve' ? 'approved' : 'declined';
   const { data, error } = await client
@@ -54,27 +53,10 @@ export async function respondToBooking(
     .eq('id', booking.id)
     .eq('host_id', userId)
     .eq('status', 'pending')
-    .select('id,client_id')
+    .select('id')
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('This booking request has already been processed.');
-  const title = (booking.listing && booking.listing.title) || 'this listing';
-  const payload = decision === 'approve'
-    ? { type: 'booking_approved', title: 'Booking confirmed', message: `Your booking for "${title}" has been confirmed.`, event_key: `booking-approved:${booking.id}` }
-    : { type: 'booking_declined', title: 'Booking declined', message: `Your booking request for "${title}" was declined.`, event_key: `booking-declined:${booking.id}` };
-  try {
-    await notify?.({
-      recipient_user_id: (data as { client_id: string }).client_id,
-      actor_user_id: userId,
-      ...payload,
-      related_entity_type: 'booking',
-      related_entity_id: booking.id,
-      booking_id: booking.id,
-      metadata: { booking_id: booking.id, listing_id: (booking.listing && booking.listing.id) || null },
-    });
-  } catch (notifyError) {
-    console.error(`Booking ${decision} notification failed:`, notifyError);
-  }
   return { status };
 }
 
@@ -133,8 +115,11 @@ export interface TableReservation {
   occasion_details?: string | null;
 }
 
-export async function fetchTableReservations(token: string, fetchFn: typeof fetch = fetch): Promise<TableReservation[]> {
-  const response = await fetchFn('/api/host/table-reservations', { headers: { Authorization: `Bearer ${token}` } });
+/** hostId: whose reservations (a team Manager's company); the server checks the role. */
+export async function fetchTableReservations(token: string, hostId?: string, fetchFn: typeof fetch = fetch): Promise<TableReservation[]> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (hostId) headers['X-VaRoom-Host'] = hostId;
+  const response = await fetchFn('/api/host/table-reservations', { headers });
   const payload = await response.json().catch(() => ({})) as { error?: string; reservations?: TableReservation[] };
   if (!response.ok) throw new Error(payload.error || 'Unable to load table reservations');
   return Array.isArray(payload.reservations) ? payload.reservations : [];

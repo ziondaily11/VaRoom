@@ -20,16 +20,18 @@ const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: strin
   { key: 'account', title: 'Your Account', desc: 'Manage your personal info, password and account status.' },
   { key: 'notifications', title: 'Notifications', desc: 'Choose what notifications you want to receive.' },
   { key: 'display', title: 'Display', desc: 'Customize appearance and accessibility settings.' },
+  { key: 'team', title: 'Team', desc: 'Invite people to help run your account, or work for a team you joined.' },
   { key: 'privacy', title: 'Privacy & Security', desc: 'Control your privacy, visibility and security preferences.' },
   { key: 'support', title: 'Support & About', desc: 'Get help, view policies and learn more about VaRoom.', href: '/support' },
   { key: 'login-accounts', title: 'Login & Accounts', desc: 'Log out of VaRoom.' },
 ];
 // Hosts only, after Your Account.
 const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'See your plan, listings left, payment method and invoices.' };
+const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings', desc: 'Instant book, notice, stay length and the rules new listings start with.' };
 
 export function CategoryList({ active, onOpen, isHost = false }: { active: string; onOpen: (key: string) => void; isHost?: boolean }) {
   const [query, setQuery] = useState('');
-  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
+  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, BOOKINGS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
   const q = query.trim().toLowerCase();
   const visible = (title: string) => !q || title.toLowerCase().includes(q);
   return (
@@ -88,16 +90,11 @@ export function SettingsSkeleton() {
 
 // ---------- Notifications ----------
 
-export function NotificationsSection({ userId, prefs, onBack, notify }: { userId: string; prefs: Preferences | null; onBack: () => void; notify: Notify }) {
-  const [values, setValues] = useState<Record<NotificationKey, boolean>>({ notify_messages: false, notify_bookings: false, notify_account_updates: false, notify_marketing: false });
+export function NotificationsSection({ userId, prefs, isHost = false, onBack, notify }: { userId: string; prefs: Preferences | null; isHost?: boolean; onBack: () => void; notify: Notify }) {
+  const rows = NOTIFICATION_ROWS.filter((row) => isHost || !row.hostOnly);
+  const [values, setValues] = useState<Partial<Record<NotificationKey, boolean>>>({});
   useEffect(() => {
-    if (!prefs) return;
-    setValues({
-      notify_messages: Boolean(prefs.notify_messages),
-      notify_bookings: Boolean(prefs.notify_bookings),
-      notify_account_updates: Boolean(prefs.notify_account_updates),
-      notify_marketing: Boolean(prefs.notify_marketing),
-    });
+    if (prefs) setValues(Object.fromEntries(NOTIFICATION_ROWS.map((row) => [row.key, Boolean(prefs[row.key])])));
   }, [prefs]);
 
   const change = async (key: NotificationKey, value: boolean) => {
@@ -116,14 +113,14 @@ export function NotificationsSection({ userId, prefs, onBack, notify }: { userId
       <DetailHead title="Notifications" onBack={onBack} />
       <p className="detail-sub">Choose what VaRoom is allowed to send you.</p>
       <div className="card">
-        {NOTIFICATION_ROWS.map((row) => (
+        {rows.map((row) => (
           <div className="toggle-row" key={row.key}>
-            <div><div className="toggle-label">{row.label}</div></div>
-            <label className="switch"><input type="checkbox" checked={values[row.key]} onChange={(event) => change(row.key, event.target.checked)} /><span className="switch-track" /></label>
+            <div><div className="toggle-label">{row.label}</div>{row.desc && <div className="toggle-desc">{row.desc}</div>}</div>
+            <label className="switch"><input type="checkbox" checked={Boolean(values[row.key])} onChange={(event) => change(row.key, event.target.checked)} /><span className="switch-track" /></label>
           </div>
         ))}
       </div>
-      <div className="note-box">In-app notifications (the bell icon) already reflect your activity. These preferences control which of them you get, and will extend to email/push once those exist.</div>
+      <div className="note-box">These switches control the notifications under the bell icon. Turned off, VaRoom doesn&apos;t create them at all.</div>
     </div>
   );
 }

@@ -71,6 +71,8 @@ async function createNotification({
     .select(notificationColumns)
     .single();
 
+  // The recipient turned this kind off (Settings → Notifications): not stored.
+  if (error && error.code === 'PGRST116') return null;
   if (error) {
     // The unique event_key index is the idempotency boundary. Read the
     // existing row on a retry instead of upserting read=false over it.

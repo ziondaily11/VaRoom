@@ -110,26 +110,14 @@ test('unanswered requests older than 48 hours show as expired', () => {
   assert.equal(approved.status, 'approved');
 });
 
-test('cancel: only the guest\'s own pending/approved booking becomes "cancelled"; the host is told by name', async () => {
+test('cancel: only the guest\'s own pending/approved booking becomes "cancelled" (the database tells the host)', async () => {
   const client = fakeClient([{ data: { id: 'b1' }, error: null }]);
-  const sent = [];
-  const result = await data.cancelClientBooking(client, { booking: booking(), userId: 'u1', guestName: 'Zion Daily', notify: async (p) => { sent.push(p); } });
-  assert.equal(result.notifyError, null);
+  await data.cancelClientBooking(client, { booking: booking(), userId: 'u1' });
   const ops = client.calls[0].ops;
   assert.deepEqual(ops.find((op) => op[0] === 'update'), ['update', { status: 'cancelled' }]);
   assert.deepEqual(ops.filter((op) => op[0] === 'eq'), [['eq', 'id', 'b1'], ['eq', 'client_id', 'u1']]);
   assert.deepEqual(ops.find((op) => op[0] === 'in'), ['in', 'status', ['pending', 'approved']]);
-  assert.equal(sent[0].recipient_user_id, 'h1');
-  assert.equal(sent[0].message, '"Zion Daily" cancelled their booking for "Garden Loft".');
-  assert.equal(sent[0].event_key, 'booking-cancelled:b1');
-  assert.doesNotMatch(JSON.stringify(sent[0]), /@/, 'no email address in the notification');
-
-  const gone = fakeClient([{ data: null, error: null }]);
-  await assert.rejects(data.cancelClientBooking(gone, { booking: booking(), userId: 'u1', guestName: null, notify: async () => {} }), /can no longer be cancelled/);
-
-  const failing = fakeClient([{ data: { id: 'b1' }, error: null }]);
-  const partial = await data.cancelClientBooking(failing, { booking: booking(), userId: 'u1', guestName: null, notify: async () => { throw new Error('offline'); } });
-  assert.equal(partial.notifyError.message, 'offline');
+  await assert.rejects(data.cancelClientBooking(fakeClient([{ data: null, error: null }]), { booking: booking(), userId: 'u1' }), /can no longer be cancelled/);
 });
 
 test('review: posts rating and comment with the session token; server errors are shown', async () => {
@@ -250,21 +238,15 @@ test('host: tabs, month filter, dates and request age (legacy rules)', () => {
   assert.equal(host.telHref('+254 700-123 456'), 'tel:+254700123456');
 });
 
-test('host: approve/decline only the host\'s own pending request; the guest is told the listing title', async () => {
+test('host: approve/decline only the host\'s own pending request (the database tells the guest)', async () => {
   const b = { ...booking(), status: 'pending', client_id: 'c1', client: null };
-  const client = fakeClient([{ data: { id: 'b1', client_id: 'c1' }, error: null }]);
-  const sent = [];
-  assert.deepEqual({ ...(await host.respondToBooking(client, { booking: b, userId: 'h1', decision: 'approve', notify: async (p) => { sent.push(p); } })) }, { status: 'approved' });
+  const client = fakeClient([{ data: { id: 'b1' }, error: null }]);
+  assert.deepEqual({ ...(await host.respondToBooking(client, { booking: b, userId: 'h1', decision: 'approve' })) }, { status: 'approved' });
   const ops = client.calls[0].ops;
   assert.equal(ops.find((op) => op[0] === 'update')[1].status, 'approved');
   assert.deepEqual(ops.filter((op) => op[0] === 'eq'), [['eq', 'id', 'b1'], ['eq', 'host_id', 'h1'], ['eq', 'status', 'pending']]);
-  assert.equal(sent[0].message, 'Your booking for "Garden Loft" has been confirmed.');
-  assert.equal(sent[0].metadata.listing_id, 'l1');
-  const declined = fakeClient([{ data: { id: 'b1', client_id: 'c1' }, error: null }]);
-  const sent2 = [];
-  await host.respondToBooking(declined, { booking: b, userId: 'h1', decision: 'decline', notify: async (p) => { sent2.push(p); } });
-  assert.equal(sent2[0].message, 'Your booking request for "Garden Loft" was declined.');
-  await assert.rejects(host.respondToBooking(fakeClient([{ data: null, error: null }]), { booking: b, userId: 'h1', decision: 'approve', notify: null }), /already been processed/);
+  assert.deepEqual({ ...(await host.respondToBooking(fakeClient([{ data: { id: 'b1' }, error: null }]), { booking: b, userId: 'h1', decision: 'decline' })) }, { status: 'declined' });
+  await assert.rejects(host.respondToBooking(fakeClient([{ data: null, error: null }]), { booking: b, userId: 'h1', decision: 'approve' }), /already been processed/);
 });
 
 test('host: listing video loads once per listing; videos are kept for less than their 5-minute URL', async () => {
@@ -290,7 +272,7 @@ test('host: listing video loads once per listing; videos are kept for less than 
 
 test('/bookings is the native page inside the app shell', () => {
   const page = read('pages', 'bookings.tsx');
-  assert.match(page, /<HostBookingsView showToast=\{toast\.show\} \/>/);
+  assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} \/>/);
   assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} \/>/);
   assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);

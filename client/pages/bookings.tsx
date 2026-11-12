@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
+import { managerHostId, useWorkspace } from '../lib/team/team';
 import { loginUrl } from '../lib/safeRedirect';
 import ClientBookingsView from '../components/bookings/ClientBookingsView';
 import HostBookingsView, { HostBookingSkeleton } from '../components/bookings/HostBookingsView';
@@ -36,8 +37,11 @@ function CheckingSkeleton() {
 
 export default function BookingsPage() {
   const router = useRouter();
-  const { status, profile } = useAuth();
-  const role = accountRole(profile);
+  const { status, profile, user } = useAuth();
+  const userId = user?.id || null;
+  const hostId = managerHostId(userId, useWorkspace(userId));
+  // Working as a company (Settings → Team) shows its bookings, whatever this account's own role.
+  const role = hostId !== userId ? 'host' : accountRole(profile);
   const toast = useToast();
 
   useEffect(() => {
@@ -66,7 +70,7 @@ export default function BookingsPage() {
               <span className="mobile-page-title">{role === 'host' ? 'Bookings' : 'My Bookings'}</span>
             </header>
             <div className={`content-row${role === 'host' ? ' host-layout' : ''}`} id="content-row">
-              {role === 'host' && <HostBookingsView showToast={toast.show} />}
+              {role === 'host' && hostId && <HostBookingsView key={hostId} hostId={hostId} showToast={toast.show} />}
               {role === 'client' && <ClientBookingsView showToast={toast.show} />}
               {!role && (
                 <>

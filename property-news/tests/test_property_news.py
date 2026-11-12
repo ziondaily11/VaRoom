@@ -2033,6 +2033,26 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.category, "property")
         self.assertIn(", ".join(sorted(PROPERTY_CATEGORIES)), prompts[0])
 
+    async def test_gemini_body_is_the_full_story_never_a_cut_down_summary(self):
+        from app.analysis import GeminiNewsAnalyzer
+
+        item = self.item().model_copy(update={"clean_text": "The council approved new land rates. " * 60})
+        prompts, bodies = [], iter(["Rates rose.", item.clean_text.strip()])
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            prompts.append(json.loads(request.content)["contents"][0]["parts"][0]["text"])
+            return httpx.Response(200, request=request, json={"candidates": [{"content": {"parts": [{"text": json.dumps(
+                {"relevant": True, "category": "land", "varoom_body": next(bodies), "confidence_score": 0.9, "source_tier": 1})}]}}]})
+
+        analyzer = GeminiNewsAnalyzer("key", "gemini-test")
+        analyzer._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        shortened = await analyzer.analyse(item, self.source)
+        complete = await analyzer.analyse(item, self.source)
+        await analyzer.close()
+        self.assertIn("varoom_body: the COMPLETE story", prompts[0])
+        self.assertEqual(shortened.varoom_body, item.clean_text.strip(), "a cut-down body falls back to the source text")
+        self.assertEqual(complete.varoom_body, item.clean_text.strip())
+
     def test_fallback_model_defaults_and_never_repeats_the_main_model(self):
         from app.config import DEFAULT_GEMINI_FALLBACK_MODEL, resolve_ai_fallback_model
 

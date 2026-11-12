@@ -12,6 +12,8 @@ import {
 } from '../lib/settings/settings';
 import AccountSection from '../components/settings/AccountSection';
 import PlansSection, { PLANS_STYLES } from '../components/settings/PlansSection';
+import BookingsSection from '../components/settings/BookingsSection';
+import TeamSection from '../components/settings/TeamSection';
 import {
   CategoryList, DeleteAccountDialog, DisplaySection, LoginAccountsSection, NotificationsSection, PrivacySection, SettingsSkeleton, SupportSection,
 } from '../components/settings/SettingsSections';
@@ -23,7 +25,7 @@ import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 // on phones the list, then the section. Identity comes from AuthProvider;
 // the profile's preferences are read once.
 
-type View = 'list' | 'account' | 'plans' | 'notifications' | 'display' | 'privacy' | 'support' | 'login-accounts';
+type View = 'list' | 'account' | 'plans' | 'bookings' | 'team' | 'notifications' | 'display' | 'privacy' | 'support' | 'login-accounts';
 
 const TOAST_STYLES = `
   .settings-toast{ position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%) translateY(20px); z-index:300; max-width:min(92vw, 30rem);
@@ -70,12 +72,12 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!router.isReady) return;
     const wanted = router.query.section;
-    if (wanted === 'notifications' || (wanted === 'plans' && role === 'host')) { setView(wanted); setMobileDetail(true); }
+    if (wanted === 'notifications' || wanted === 'team' || ((wanted === 'plans' || wanted === 'bookings') && role === 'host')) { setView(wanted); setMobileDetail(true); }
   }, [router.isReady, router.query.section, role]);
 
-  // Plans & Billing is for hosts; another account type falls back to Your Account.
+  // Plans & Billing and Bookings are for hosts; another account type falls back to Your Account.
   useEffect(() => {
-    if (view === 'plans' && profile && role !== 'host') setView('account');
+    if ((view === 'plans' || view === 'bookings') && profile && role !== 'host') setView('account');
   }, [view, profile, role]);
 
   // The profile's preferences (the app's profile already has the rest).
@@ -243,7 +245,11 @@ export default function SettingsPage() {
       );
     } else if (view === 'plans' && role === 'host') {
       section = <PlansSection userId={userId} token={token} billedTo={profile?.full_name || profile?.username || user?.email || ''} email={user?.email || ''} onBack={back} notify={notify} />;
-    } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} onBack={back} notify={notify} />;
+    } else if (view === 'bookings' && role === 'host') {
+      section = <BookingsSection userId={userId} onBack={back} />;
+    } else if (view === 'team') {
+      section = <TeamSection userId={userId} isHost={role === 'host'} onBack={back} />;
+    } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} isHost={role === 'host'} onBack={back} notify={notify} />;
     else if (view === 'display') section = <DisplaySection userId={userId} onBack={back} />;
     else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} onPassword={() => { setOpenPassword(true); show('account'); }} />;
     else if (view === 'support') section = <SupportSection onBack={back} />;

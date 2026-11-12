@@ -74,7 +74,7 @@ test('the portfolio refines the niche: restaurant-only hotels, homes for sale, h
   const sale = view(overview('property', { has_sale: true, has_rent: false }));
   assert.equal(sale.mode, 'sale');
   assert.equal(sale.showStatusBar, false);
-  assert.deepEqual(sale.funnel.map((s) => s.key), ['views', 'interest', 'contact']);
+  assert.deepEqual(sale.funnel.map((s) => s.key), ['views', 'viewers', 'contact']);
   assert.equal(view(overview('property', { has_sale: true, has_rent: true })).mode, 'leases');
 
   assert.ok(keys(view(overview('venue', { has_hourly: true })).secondary).includes('hours'));
@@ -156,4 +156,14 @@ test('the analytics page uses the shared session and never the v1 analytics func
   const apiSource = fs.readFileSync(lib('analytics', 'analyticsApi.ts'), 'utf8');
   assert.match(apiSource, /host_analytics_overview/);
   assert.doesNotMatch(apiSource, /host_booking_summary|host_listing_ranking|host_review_summary/);
+});
+
+test('the listing filter grows from its trigger, staggers rows by 30ms and shrinks back', () => {
+  const picker = fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', 'ListingPicker.tsx'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', 'analyticsStyles.ts'), 'utf8');
+  assert.match(picker, /ROW_STAGGER_MS = 30/);
+  assert.match(css, /\[data-state="open"\]\{animation:va-menu-in 200ms/);
+  assert.match(css, /\[data-state="closing"\]\{animation:va-menu-out 150ms/);
+  assert.match(css, /transform-origin:var\(--origin-x/);
+  assert.match(css, /prefers-reduced-motion:reduce\)\{\.va-menu/);
 });

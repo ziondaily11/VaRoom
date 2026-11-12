@@ -298,10 +298,14 @@ export const RAIL_STYLES = `
     }
     .shell-rail-layout .logo { display: flex; justify-content: center; padding: .2rem 0; }
     .shell-rail-layout .logo > span { display: none; }
+    /* The VaRoom favicon at the standard 32px desktop size (96px file on sharp screens). */
     .shell-rail-layout .logo::after {
-      content: ''; width: 30px; height: 30px; border-radius: 8px;
-      background: url('/favicon/favicon-96.png') center / contain no-repeat;
+      content: ''; width: 32px; height: 32px; border-radius: 8px;
+      background: url('/favicon/favicon-32_1.png') center / 32px 32px no-repeat;
+      background-image: image-set(url('/favicon/favicon-32_1.png') 1x, url('/favicon/favicon-96.png') 3x);
     }
+    /* Its black R needs a light tile on the dark rail. */
+    html[data-theme="dark"] .shell-rail-layout .logo::after { background-color: #fff; background-size: 26px 26px; }
     .shell-rail-layout .nav-group { align-items: center; width: 100%; }
     .shell-rail-layout .nav-label { display: none; }
     .shell-rail-layout .nav-item,

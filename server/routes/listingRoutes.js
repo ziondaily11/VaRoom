@@ -1,5 +1,6 @@
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
@@ -171,14 +172,21 @@ async function authenticatedHost(req, res) {
     res.status(401).json({ error: 'Invalid or expired session' });
     return null;
   }
+  // A team Manager working as a company acts for it (X-VaRoom-Host).
+  const host = await actAsHost(req, user);
+  if (!host) {
+    res.status(403).json({ error: 'You are not a Manager on this team' });
+    return null;
+  }
   const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
+    .from('profiles').select('role').eq('id', host.id).maybeSingle();
   if (profileError || !profile || profile.role !== 'host') {
     res.status(403).json({ error: 'Host access required' });
     return null;
   }
   if (await rejectSuspendedActivity(res, user.id)) return null;
-  return user;
+  if (host.id !== user.id && await rejectSuspendedActivity(res, host.id)) return null;
+  return host;
 }
 
 function isValidDraftFormData(value) {
@@ -644,6 +652,7 @@ router.patch('/listings/:id', async (req, res) => {
         'checkin_time', 'checkout_time', 'cleaning_fee', 'cancellation_policy', 'available_from',
         'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
         'sale_price_mode', 'units_available', 'bathrooms', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
+        'instant_book', 'min_notice_days', 'max_advance_days', 'max_stay_nights',
       ]);
     }
   } catch (error) {
@@ -727,6 +736,15 @@ router.patch('/listings/:id', async (req, res) => {
       } else if (key === 'amenities') {
         if (!Array.isArray(value) || value.length > 100) throw new ValidationError('amenities is invalid');
         detailUpdate[key] = value.map((amenity) => text(amenity, 'amenity', { max: 80 }));
+      } else if (key === 'min_notice_days') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 0, max: 365 });
+      } else if (key === 'max_advance_days') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 1095 });
+      } else if (key === 'max_stay_nights') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
+      } else if (key === 'instant_book') {
+        if (typeof value !== 'boolean') throw new ValidationError('instant_book is invalid');
+        detailUpdate[key] = value;
       } else if (key === 'utilities_included') {
         if (typeof value !== 'boolean') throw new ValidationError('utilities_included is invalid');
         detailUpdate[key] = value;
@@ -757,6 +775,9 @@ router.patch('/listings/:id', async (req, res) => {
         detailUpdate.office_shop_last_confirmed_at = new Date().toISOString();
       }
     });
+    if (detailUpdate.min_stay_nights != null && detailUpdate.max_stay_nights != null && detailUpdate.min_stay_nights > detailUpdate.max_stay_nights) {
+      throw new ValidationError('The maximum stay must be at least the minimum stay');
+    }
     if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available', 'bathrooms'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {
       throw new ValidationError('Property details are only valid for property listings');
     }

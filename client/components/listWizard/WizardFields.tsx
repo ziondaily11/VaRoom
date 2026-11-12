@@ -3,6 +3,7 @@ import type { Category, FieldBinding, FieldValue, HotelMode, PropertyPurpose, Sa
 import { SHORT_STAY, checked, isOfficeShop, text } from '../../lib/listWizard/formState';
 import type { WizardCopy } from '../../lib/listWizard/copy';
 import { priceUnitOptions } from '../../lib/listWizard/copy';
+import { ADVANCE_OPTIONS, NOTICE_OPTIONS } from '../../lib/settings/bookingDefaults';
 
 // The listing wizard's own fields for steps 1, 2 and 4 (ids, names,
 // classes and wording unchanged from legacy-pages/list.html). The office/shop
@@ -193,6 +194,28 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
             <option value="moderate">Moderate</option>
             <option value="strict">Strict</option>
           </select>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="max-stay">Maximum stay (nights)</label>
+            <input type="number" {...bind(binding, 'max-stay')} min="1" placeholder="No maximum" />
+          </div>
+          <div className="field">
+            <label htmlFor="min-notice">Minimum notice</label>
+            <select {...bind(binding, 'min-notice')}>
+              {NOTICE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="max-advance">How far ahead guests can book</label>
+          <select {...bind(binding, 'max-advance')}>
+            {ADVANCE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+        <div className="checkbox-row">
+          <input {...bindCheckbox(binding, 'instant-book')} />
+          <label htmlFor="instant-book">Instant book: confirm guests for open nights without waiting for my approval</label>
         </div>
         {calendar}
       </div>

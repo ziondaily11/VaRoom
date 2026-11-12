@@ -134,6 +134,7 @@ export function detailsFor(type: string): NotificationDetails {
       iconKind: 'approved',
     };
   }
+  if (type === 'team_invite') return { category: 'other', title: 'Team invitation', tint: 'tint-black', tag: 'Team', iconKind: 'request' };
   return { category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'request' };
 }
 
@@ -152,6 +153,7 @@ export function notificationTarget(notification: NotificationItem, role: 'host' 
   if (notification.related_entity_type === 'review' && notification.related_entity_id) {
     return '/profile';
   }
+  if (notification.related_entity_type === 'team') return '/settings?section=team';
   if (
     (notification.related_entity_type === 'booking' || notification.booking_id) &&
     bookingId

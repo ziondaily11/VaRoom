@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -18,6 +18,7 @@ import {
   bodyRepeatsSummary,
   cardLocation,
   classifyParagraph,
+  columnSplit,
   detailedLocation,
   formatDate,
   formatMastheadDate,
@@ -139,6 +140,85 @@ function EmptyState() {
       <div className="state-badge">
         <span className="state-dot"></span> 24/7 Source Monitoring Active
       </div>
+    </div>
+  );
+}
+
+// Place on one line, date (and source on articles) on the next.
+function Dateline({ news, detailed = false }: { news: PropertyNewsItem; detailed?: boolean }) {
+  const source = detailed ? news.source?.name : undefined;
+  return (
+    <div className="dateline">
+      <span className="dateline-place">{detailed ? detailedLocation(news) : cardLocation(news)}</span>
+      <span className="dateline-date">
+        {formatDate(news.source?.published_at || news.published_at)}
+        {source && <> · via {source}</>}
+      </span>
+    </div>
+  );
+}
+
+// Character-equivalent heights that balance the two newspaper columns.
+const MEDIA_WEIGHT = 700;
+const STANDFIRST_WEIGHT = 1.4;
+// Without media, shorter stories read better as one column.
+const MIN_TWO_COLUMN_CHARS = 1400;
+
+function ArticleBlock({ paragraph, lead }: { paragraph: string; lead: boolean }) {
+  const block = classifyParagraph(paragraph);
+  if (block.kind === 'subhead') return <h2 className="editorial-subhead">{block.text}</h2>;
+  if (block.kind === 'quote') return <blockquote className="editorial-pullquote"><p>{block.text}</p></blockquote>;
+  return <p className={lead ? 'detail-lead' : 'detail-p'}>{block.text}</p>;
+}
+
+/**
+ * The article as a newspaper page: standfirst and the opening paragraphs in
+ * the first column; media at the top of the second, with the story
+ * continuing beneath it so neither column leaves a blank trail.
+ */
+function ArticleColumns({ item, loading, media, mediaWeight }: {
+  item: PropertyNewsItem;
+  loading: boolean;
+  media: ReactNode;
+  mediaWeight: number;
+}) {
+  const bodyText = (item.body || '').trim();
+  const summaryText = (item.summary || '').trim();
+  const paragraphs = bodyText ? splitArticleParagraphs(bodyText) : [];
+  const showSummary = Boolean(summaryText) && !(paragraphs.length && bodyRepeatsSummary(summaryText, paragraphs[0]));
+  const standfirst = showSummary || (!bodyText && !loading)
+    ? <p className="detail-summary">{summaryText || 'Read the full update at the source below.'}</p>
+    : null;
+
+  let left: ReactNode;
+  let right: ReactNode[] = [];
+  if (!bodyText) {
+    left = loading
+      ? [100, 94, 97, 82].map((width) => <div key={width} className="newspaper-skeleton-line" style={{ width: `${width}%`, marginBottom: '14px' }} />)
+      : <div className="detail-notice">Full report not syndicated. Please refer to the official publication source below.</div>;
+  } else {
+    const blocks = paragraphs.map((p, i) => <ArticleBlock key={i} paragraph={p} lead={i === 0 && !showSummary} />);
+    const chars = paragraphs.reduce((n, p) => n + p.length, 0);
+    const split = media || chars >= MIN_TWO_COLUMN_CHARS
+      ? columnSplit(paragraphs, showSummary ? summaryText.length * STANDFIRST_WEIGHT : 0, mediaWeight)
+      : paragraphs.length;
+    left = blocks.slice(0, split);
+    right = blocks.slice(split);
+  }
+
+  const twoColumns = Boolean(media) || right.length > 0;
+  return (
+    <div className={`article-columns${twoColumns ? '' : ' single'}`}>
+      <div className="article-col">
+        {standfirst}
+        <div className="detail-body">{left}</div>
+      </div>
+      {twoColumns && (
+        <div className="article-col">
+          {media}
+          {right.length > 0 && <div className="detail-body">{right}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -324,11 +404,7 @@ export default function PropertyNewsPage() {
         {/* NEWSPAPER MASTHEAD */}
         <header className="newspaper-masthead-container">
           <div className="masthead-topbar">
-            <div className="masthead-edition">
-              <span>Original Country News Edition</span>
-              <span className="edition-sep">·</span>
-              <span>Nairobi, Kenya</span>
-            </div>
+            <span className="masthead-brand"><span className="masthead-badge-va">Va</span>Room</span>
             <div className="masthead-date-nav">
               <span className="masthead-date-text">{formatMastheadDate(mastheadDate)}</span>
               {articleId ? (
@@ -360,11 +436,6 @@ export default function PropertyNewsPage() {
             <Link href="/property-news" className="masthead-title-link">
               <h1 className="masthead-title">DAILY NEWS</h1>
             </Link>
-            <div className="masthead-sub-identity">
-              <span className="masthead-badge-va">Va</span>
-              <span className="masthead-badge-room">Room</span>
-              <span className="masthead-subtitle">Property Gazette · Official Kenyan Real Estate & Regulatory Intelligence</span>
-            </div>
           </div>
 
           <div className="masthead-rule-thin" />
@@ -393,112 +464,17 @@ export default function PropertyNewsPage() {
 
                     <h1 className="article-headline">{detailItem.title}</h1>
 
-                    <div className="article-meta meta">
-                      <span className="meta-location">{detailedLocation(detailItem).toUpperCase()}</span>
-                      <span className="meta-bullet">•</span>
-                      <span className="meta-date">
-                        {formatDate(detailItem.source?.published_at || detailItem.published_at).toUpperCase()}
-                      </span>
-                      {detailItem.source?.name && (
-                        <>
-                          <span className="meta-bullet">•</span>
-                          <span className="meta-source">VIA {detailItem.source.name.toUpperCase()}</span>
-                        </>
-                      )}
-                    </div>
+                    <Dateline news={detailItem} detailed />
                   </header>
 
                   <div className="editorial-divider" />
 
-                  {/* TWO-COLUMN EDITORIAL ARTICLE BODY */}
-                  <div className={`editorial-columns ${hasMedia ? 'has-media' : 'no-media'}`}>
-                    {/* Left Column — Text trail */}
-                    <div className="text-trail">
-                      {(() => {
-                        const bodyText = (detailItem.body || '').trim();
-                        const summaryText = (detailItem.summary || '').trim();
-
-                        // If full body is actively loading while preview is shown
-                        if (detailLoading && !bodyText) {
-                          return (
-                            <div className="detail-content-area">
-                              {summaryText && <p className="detail-summary">{summaryText}</p>}
-                              <div className="detail-body-loading">
-                                <div className="newspaper-skeleton-line" style={{ width: '100%', marginBottom: '14px' }}></div>
-                                <div className="newspaper-skeleton-line" style={{ width: '94%', marginBottom: '14px' }}></div>
-                                <div className="newspaper-skeleton-line" style={{ width: '97%', marginBottom: '14px' }}></div>
-                                <div className="newspaper-skeleton-line" style={{ width: '82%', marginBottom: '14px' }}></div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        // When full article body is available
-                        if (bodyText) {
-                          const paragraphs = splitArticleParagraphs(bodyText);
-
-                          // Avoid repeating exact summary if body begins with the same text
-                          const bodyStartsWithSummary = bodyRepeatsSummary(summaryText, paragraphs[0]);
-
-                          // If summary is distinct from body, display as editorial lead summary
-                          const showDistinctSummary = summaryText && !bodyStartsWithSummary;
-
-                          return (
-                            <div className="detail-content-area">
-                              {showDistinctSummary && (
-                                <p className="detail-summary">{summaryText}</p>
-                              )}
-                              <div className="detail-body">
-                                {paragraphs.map((paragraph, idx) => {
-                                  const block = classifyParagraph(paragraph);
-
-                                  if (block.kind === 'subhead') {
-                                    return (
-                                      <h2 key={idx} className="editorial-subhead">
-                                        {block.text}
-                                      </h2>
-                                    );
-                                  }
-
-                                  if (block.kind === 'quote') {
-                                    return (
-                                      <blockquote key={idx} className="editorial-pullquote">
-                                        <p>{block.text}</p>
-                                      </blockquote>
-                                    );
-                                  }
-
-                                  return (
-                                    <p
-                                      key={idx}
-                                      className={idx === 0 && !showDistinctSummary ? 'detail-lead' : 'detail-p'}
-                                    >
-                                      {paragraph}
-                                    </p>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        // Fallback when source genuinely provides only a summary excerpt
-                        return (
-                          <div className="detail-content-area">
-                            <p className="detail-summary">
-                              {summaryText || 'Read the full update at the source below.'}
-                            </p>
-                            <div className="detail-notice">
-                              Full report not syndicated. Please refer to the official publication source below.
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Right Column — Image trail (conditional) */}
-                    {hasMedia && (
-                      <aside className="image-trail" aria-label="Article Media">
+                  <ArticleColumns
+                    item={detailItem}
+                    loading={detailLoading}
+                    mediaWeight={hasMedia ? MEDIA_WEIGHT * Math.max(1, activeImages.length + (hasVideo ? 1 : 0)) : 0}
+                    media={hasMedia && (
+                      <aside className="article-media" aria-label="Article Media">
                         {hasVideo && (
                           <div className="newspaper-video-box">
                             <video
@@ -531,7 +507,7 @@ export default function PropertyNewsPage() {
                         ))}
                       </aside>
                     )}
-                  </div>
+                  />
 
                   {/* FACT GRID AND SOURCE VERIFICATION */}
                   <div className="editorial-divider" />
@@ -580,16 +556,6 @@ export default function PropertyNewsPage() {
           ) : (
             /* =================== NEWS INDEX VIEW =================== */
             <section id="news-index" aria-live="polite">
-              <header className="index-newspaper-header">
-                <p className="eyebrow">Property Intelligence</p>
-                <h1>Property News on VaRoom</h1>
-                <p className="intro">
-                  Relevant Kenyan property updates, presented with their source and regulatory status.
-                </p>
-              </header>
-
-              <div className="editorial-divider" />
-
               {listLoading && !newsItems ? (
                 <div className="index-loading-grid">
                   <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
@@ -616,7 +582,7 @@ export default function PropertyNewsPage() {
                     return (
                       <article className={`frontpage-lead-article ${leadHasImage ? 'has-image' : 'no-image'}`}>
                         <div className="lead-text-trail">
-                          <span className="lead-kicker">FRONT PAGE DISPATCH</span>
+                          {lead.category && <span className="lead-kicker">{lead.category}</span>}
                           <Link
                             className="lead-headline-link"
                             href={`/property-news?id=${encodeURIComponent(lead.id)}`}
@@ -627,11 +593,7 @@ export default function PropertyNewsPage() {
                           <p className="lead-excerpt">
                             {toExcerpt(lead.summary) || 'Read the lead Kenyan property and regulatory update on VaRoom.'}
                           </p>
-                          <div className="meta">
-                            <span>{cardLocation(lead).toUpperCase()}</span>
-                            <span>•</span>
-                            <span>{formatDate(leadSource.published_at || lead.published_at)}</span>
-                          </div>
+                          <Dateline news={lead} />
                           {leadSource.name && (
                             <div className="news-card-source">
                               {leadSourceUrl ? (
@@ -687,13 +649,7 @@ export default function PropertyNewsPage() {
                             <p>
                               {toExcerpt(news.summary) || 'Read the latest property update from VaRoom.'}
                             </p>
-                            <div className="meta">
-                              <span>{cardLocation(news)}</span>
-                              <span>•</span>
-                              <span>
-                                {formatDate(source.published_at || news.published_at)}
-                              </span>
-                            </div>
+                            <Dateline news={news} />
                             {news.image_url && <NewsCardImage src={news.image_url} />}
                           </Link>
 
@@ -771,11 +727,10 @@ export default function PropertyNewsPage() {
         html[data-theme="dark"] .newspaper-article-container,
         html[data-theme="dark"] .frontpage-lead-article,
         html[data-theme="dark"] .news-card,
-        html[data-theme="dark"] .index-newspaper-header,
         html[data-theme="dark"] .article-header,
-        html[data-theme="dark"] .text-trail,
-        html[data-theme="dark"] .image-trail,
-        html[data-theme="dark"] .editorial-columns,
+        html[data-theme="dark"] .article-columns,
+        html[data-theme="dark"] .article-col,
+        html[data-theme="dark"] .article-media,
         html[data-theme="dark"] .fact-grid,
         html[data-theme="dark"] .fact-item,
         html[data-theme="dark"] .source-box {
@@ -791,14 +746,12 @@ export default function PropertyNewsPage() {
         }
 
         html[data-theme="dark"] .masthead-topbar,
-        html[data-theme="dark"] .masthead-edition,
         html[data-theme="dark"] .masthead-date-nav,
         html[data-theme="dark"] .detail-image-caption,
         html[data-theme="dark"] .caption-text,
         html[data-theme="dark"] .caption-credit,
-        html[data-theme="dark"] .article-meta,
-        html[data-theme="dark"] .eyebrow,
-        html[data-theme="dark"] .meta {
+        html[data-theme="dark"] .dateline-date,
+        html[data-theme="dark"] .eyebrow {
           color: #555555 !important;
         }
 
@@ -822,14 +775,10 @@ export default function PropertyNewsPage() {
           padding-bottom: 0.5rem;
         }
 
-        .masthead-edition {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .edition-sep {
-          color: #999;
+        .masthead-brand {
+          font-weight: 900;
+          letter-spacing: 0.04em;
+          color: var(--newspaper-ink);
         }
 
         .masthead-date-nav {
@@ -905,31 +854,8 @@ export default function PropertyNewsPage() {
           color: var(--newspaper-ink);
         }
 
-        .masthead-sub-identity {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.35rem;
-          margin-top: 0.6rem;
-          font-size: 0.76rem;
-          font-weight: 700;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--newspaper-muted);
-        }
-
         .masthead-badge-va {
           color: var(--newspaper-accent);
-          font-weight: 900;
-        }
-
-        .masthead-badge-room {
-          color: var(--newspaper-ink);
-          font-weight: 900;
-        }
-
-        .masthead-subtitle {
-          margin-left: 0.4rem;
         }
 
         /* =================== MAIN EDITORIAL WRAPPER =================== */
@@ -977,41 +903,67 @@ export default function PropertyNewsPage() {
           color: var(--newspaper-ink);
         }
 
-        .article-meta {
+        /* Dateline: the place in small tracked capitals, the date beneath it
+           in the body face, so neither runs into the other. */
+        .dateline {
           display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.84rem;
-          font-weight: 600;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .dateline-place {
+          font-family: var(--font-sans);
+          font-size: 0.7rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          line-height: 1.45;
+          text-transform: uppercase;
+          color: var(--newspaper-ink);
+        }
+
+        .dateline-date {
+          font-family: var(--font-serif-body);
+          font-size: 0.92rem;
+          font-style: italic;
+          line-height: 1.4;
           color: var(--newspaper-muted);
-          letter-spacing: 0.05em;
         }
 
-        .meta-bullet {
-          color: #999;
+        .article-header .dateline-place {
+          font-size: 0.78rem;
         }
 
-        /* TWO-COLUMN EDITORIAL ARTICLE BODY */
-        .editorial-columns {
+        .article-header .dateline-date {
+          font-size: 1.02rem;
+        }
+
+        /* Newspaper columns: text in the first, media then text in the second. */
+        .article-columns {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           margin-bottom: 2.5rem;
         }
 
-        .editorial-columns.has-media {
-          display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-          gap: 2.5rem;
-          align-items: start;
+        .article-columns.single {
+          grid-template-columns: minmax(0, 720px);
+          justify-content: center;
         }
 
-        .editorial-columns.no-media {
-          display: block;
-          max-width: 780px;
-          margin: 0;
-        }
-
-        .text-trail {
+        .article-col {
           min-width: 0;
+        }
+
+        .article-col:first-child {
+          padding-right: 2.25rem;
+        }
+
+        .article-col + .article-col {
+          padding-left: 2.25rem;
+          border-left: 1px solid var(--newspaper-rule-light);
+        }
+
+        .article-columns.single .article-col:first-child {
+          padding-right: 0;
         }
 
         .detail-summary {
@@ -1096,12 +1048,11 @@ export default function PropertyNewsPage() {
           color: var(--newspaper-muted);
         }
 
-        /* Image Trail */
-        .image-trail {
+        .article-media {
           display: flex;
           flex-direction: column;
           gap: 2rem;
-          min-width: 0;
+          margin-bottom: 1.6rem;
         }
 
         .detail-image-wrap {
@@ -1209,28 +1160,6 @@ export default function PropertyNewsPage() {
         }
 
         /* =================== NEWSPAPER INDEX VIEW =================== */
-        .index-newspaper-header {
-          padding-bottom: 0.5rem;
-        }
-
-        .index-newspaper-header h1 {
-          margin: 0.35rem 0 0.65rem;
-          font-family: var(--font-display);
-          font-size: clamp(2rem, 4.5vw, 2.85rem);
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          color: var(--newspaper-ink);
-        }
-
-        .intro {
-          max-width: 680px;
-          margin: 0;
-          color: var(--newspaper-muted);
-          font-size: 1rem;
-          line-height: 1.55;
-          font-family: var(--font-serif-body);
-        }
-
         .frontpage-lead-article {
           display: grid;
           grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
@@ -1377,7 +1306,7 @@ export default function PropertyNewsPage() {
           color: var(--newspaper-body);
         }
 
-        .news-card .meta {
+        .news-card .dateline {
           margin-bottom: 0.6rem;
         }
 
@@ -1527,6 +1456,17 @@ export default function PropertyNewsPage() {
             grid-template-columns: 1fr;
             gap: 1.5rem;
           }
+          .article-columns {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .article-col:first-child,
+          .article-col + .article-col {
+            padding: 0;
+            border-left: 0;
+          }
+          .article-col + .article-col {
+            margin-top: 1.6rem;
+          }
           .lead-image-frame {
             flex: none;
             min-height: 0;
@@ -1549,11 +1489,6 @@ export default function PropertyNewsPage() {
           }
           .newspaper-main {
             padding: 1.5rem 1rem 3.5rem;
-          }
-          .editorial-columns.has-media {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
           }
           .news-list {
             grid-template-columns: 1fr;

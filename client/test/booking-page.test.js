@@ -77,12 +77,12 @@ test('prices and the booking payload are unchanged', () => {
     { listing_id: 'L1', host_id: 'H1', client_id: 'C1', price_unit: 'month', total_price: 30, lease_start_date: '2026-12-01', lease_months: 6 });
 });
 
-test("the host's notification names the guest from their profile (it always said \"A guest\")", () => {
-  const notice = bl.bookingNotification(listing(), 'B1', { id: 'C1', name: 'Zeni', email: 'z@example.com' });
-  assert.equal(notice.message, '"Zeni" requested to book "Palm View".');
-  assert.equal(notice.metadata.client_name, 'Zeni');
-  assert.equal(notice.event_key, 'booking-request:B1');
-  assert.equal(bl.bookingNotification(listing(), null, { id: 'C1', name: null, email: 'z@example.com' }).message, '"A guest" requested to book "Palm View".');
+test('booking notifications come from the database, not the page', () => {
+  assert.equal(bl.bookingNotification, undefined);
+  assert.doesNotMatch(read('pages', 'booking.tsx'), /VaRoomNotificationAPI/);
+  const sql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261112_000064_notification_preferences.sql'), 'utf8');
+  assert.match(sql, /body := format\('"%s" requested to book "%s"\.', coalesce\(guest_name, 'A guest'\), listing_title\);/, 'the host is told the guest\'s name');
+  assert.match(sql, /replace\(kind, '_', '-'\) \|\| ':' \|\| new\.id/, 'the event keys the pages used, so repeats are ignored');
 });
 
 test('commercial details: labels unchanged; unset service charge and utilities are left out (they read "null")', () => {
