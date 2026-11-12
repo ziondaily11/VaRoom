@@ -12,14 +12,14 @@ import {
   setCachedPage, type MarketplaceListing, type MarketplaceSearch,
 } from '../lib/marketplace/marketplace';
 import MarketplaceCard from '../components/marketplace/MarketplaceCard';
-import { MarketplaceBottomNav, RoleSidebarLinks } from '../components/marketplace/MarketplaceNav';
 import { MARKETPLACE_STYLES } from '../components/marketplace/marketplaceStyles';
 import { useCardGrid } from '../components/marketplace/useCardGrid';
 
 // Marketplace (migrated from legacy-pages/marketplace.html): every publicly
 // listed space, searchable and by category, for visitors, clients and
-// hosts. Its own icon sidebar on laptops and desktops; the app's mobile
-// navigation on phones.
+// hosts. Signed in, it sits in the account's shell (the role's own sidebar,
+// as an icon-only rail on laptops and desktops) with the app's mobile
+// navigation on phones; visitors get the page alone.
 
 type LoadState = 'idle' | 'loading' | 'error';
 
@@ -227,10 +227,6 @@ export default function MarketplacePage() {
         </header>
 
         <div className="mkt-body">
-          <aside className="desktop-sidebar" aria-label="Marketplace navigation">
-            <Link className="desktop-sidebar-brand" href={homeHref} aria-label="VaRoom home"><span className="va">Va</span><span className="room">Room</span></Link>
-            {role && <RoleSidebarLinks role={role} />}
-          </aside>
 
           <main className="results-col">
             {/* One strip for every width; it sticks while the listings scroll beneath it. */}
@@ -257,7 +253,6 @@ export default function MarketplacePage() {
           </main>
         </div>
 
-        {userId && <MarketplaceBottomNav homeHref={homeHref} />}
       </div>
     </>
   );

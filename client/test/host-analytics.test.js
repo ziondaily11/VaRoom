@@ -138,13 +138,15 @@ test('listing events are not resent within the repeat window', () => {
   assert.equal(events.shouldSend('l1', 'view', 31 * 60 * 1000, log), true);
 });
 
-test('analytics keeps the persistent host shell as an icon-only rail', () => {
+test('analytics and marketplace keep the persistent shell as an icon-only rail', () => {
   assert.equal(layout.usesIconRail('/analytics', '/analytics?listing=x'), true);
+  assert.equal(layout.usesIconRail('/marketplace', '/marketplace?category=hotel'), true);
   assert.equal(layout.usesIconRail('/host-home', '/host-home'), false);
   const app = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
   assert.match(app, /rail=\{usesIconRail\(path, asPath\)\}/);
   const styles = fs.readFileSync(path.join(__dirname, '..', 'components', 'shell', 'shellStyles.ts'), 'utf8');
-  assert.match(styles, /\.host-rail-layout \{ grid-template-columns: 76px/);
+  assert.match(styles, /\.shell-rail-layout \{ grid-template-columns: 76px/);
+  assert.match(styles, /favicon\/favicon-96\.png/, 'the rail shows the favicon where the full sidebar has the wordmark');
 });
 
 test('the analytics page uses the shared session and never the v1 analytics functions', () => {

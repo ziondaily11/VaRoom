@@ -73,6 +73,11 @@ test('card rules: price, sale price, title and location clean-up, category tag',
   assert.equal(mkt.categoryLabel('venue'), 'Event Venues');
   assert.equal(mkt.categoryTone('hotel'), 'amber');
   assert.equal(mkt.categoryTone('castle'), 'teal', 'unknown categories fall back to one tone');
+  const rooms = (category, details) => mkt.propertyRooms(listing({ category, listing_booking_details: [details] }));
+  assert.deepEqual(rooms('property', { size_or_type: '3 bedrooms', bathrooms: 2 }), { beds: '3', baths: 2 });
+  assert.deepEqual(rooms('property', { size_or_type: 'Studio', bathrooms: 0 }), { beds: 'Studio', baths: null });
+  assert.deepEqual(rooms('property', { size_or_type: 'Penthouse' }), { beds: null, baths: null });
+  assert.deepEqual(rooms('airbnb', { size_or_type: '2 bedrooms', bathrooms: 1 }), { beds: null, baths: null }, 'property cards only');
 });
 
 test('newest first; a looking-soon client sees their categories first only in the default view', () => {
@@ -151,7 +156,7 @@ test('listing videos: one request per listing, kept under the 5-minute URL lifet
   assert.equal(await video.loadListingVideo('l2', null, async () => { throw new Error('offline'); }), null);
 });
 
-test('page: legacy markup and wording; own icon sidebar; the hidden filters are gone; legacy file retired', () => {
+test('page: legacy markup and wording; the shared shell sidebar; the hidden filters are gone; legacy file retired', () => {
   const page = read('pages', 'marketplace.tsx');
   for (const text of ['Search by location, property name, or keyword...', 'Search properties, locations...', 'No listings match yet', 'Unable to load listings', 'Load more', 'Marketplace — VaRoom']) {
     assert.ok(page.includes(text), text);
@@ -159,8 +164,8 @@ test('page: legacy markup and wording; own icon sidebar; the hidden filters are 
   assert.match(page, /router\.push\(userId \? href : loginUrl\(href\)\)/, 'visitors sign in first, then return to the listing');
   assert.match(page, /\.appNavigation = true;/);
   assert.doesNotMatch(page, /price-min|verified-only|filters-reset/);
-  const nav = read('components', 'marketplace', 'MarketplaceNav.tsx');
-  assert.equal((nav.match(/className="sidebar-icon-link/g) || []).length, 22);
+  assert.equal(fs.existsSync(path.join(root, 'components', 'marketplace', 'MarketplaceNav.tsx')), false, 'the role sidebar comes from the shared shell');
+  assert.doesNotMatch(page, /desktop-sidebar|RoleSidebarLinks|MarketplaceBottomNav/);
   assert.doesNotMatch(read('components', 'marketplace', 'marketplaceStyles.ts'), /\.filters\b|\.filter-rail|\.price-inputs/);
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'marketplace.html')), false);
   assert.match(read('next.config.js'), /source: '\/marketplace\.html',\s*destination: '\/marketplace'/);

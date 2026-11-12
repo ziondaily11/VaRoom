@@ -283,36 +283,40 @@ export const HOST_SHELL_STYLES = `
     margin: 0 !important;
   }
 
-  /* ---------- Icon-only rail (host routes that need width, e.g. /analytics) ---------- */
-  /* Same sidebar element as every host page, collapsed with CSS only, so moving
+`;
+
+/** The icon-only rail, shared by the host and client sidebars. */
+export const RAIL_STYLES = `
+  /* ---------- Icon-only rail (routes that need width: /analytics, /marketplace) ---------- */
+  /* Same sidebar element as every host or client page, collapsed with CSS only, so moving
      between rail and full routes never remounts it. Desktop only: below 861px
      the sidebar is the usual drawer and the mobile bottom navigation shows. */
   @media (min-width: 861px) {
-    .host-rail-layout { grid-template-columns: 76px minmax(0, 1fr); }
-    .host-rail-layout > .sidebar {
+    .shell-rail-layout { grid-template-columns: 76px minmax(0, 1fr); }
+    .shell-rail-layout > .sidebar {
       width: 76px; padding: 1.1rem .45rem 1rem; gap: .65rem; align-items: center;
     }
-    .host-rail-layout .logo { display: flex; justify-content: center; padding: .2rem 0; }
-    .host-rail-layout .logo > span { display: none; }
-    .host-rail-layout .logo::after {
-      content: 'V'; color: var(--red, #C41E3A); font-family: var(--font-brand, inherit);
-      font-size: 1.35rem; font-weight: 800; line-height: 1;
+    .shell-rail-layout .logo { display: flex; justify-content: center; padding: .2rem 0; }
+    .shell-rail-layout .logo > span { display: none; }
+    .shell-rail-layout .logo::after {
+      content: ''; width: 30px; height: 30px; border-radius: 8px;
+      background: url('/favicon/favicon-96.png') center / contain no-repeat;
     }
-    .host-rail-layout .nav-group { align-items: center; width: 100%; }
-    .host-rail-layout .nav-label { display: none; }
-    .host-rail-layout .nav-item,
-    .host-rail-layout .list-space-btn {
+    .shell-rail-layout .nav-group { align-items: center; width: 100%; }
+    .shell-rail-layout .nav-label { display: none; }
+    .shell-rail-layout .nav-item,
+    .shell-rail-layout .list-space-btn {
       justify-content: center; width: 46px !important; height: 46px; padding: 0 !important; gap: 0 !important;
       font-size: 0 !important; line-height: 0; margin-inline: auto;
     }
-    .host-rail-layout .nav-item svg { width: 20px; height: 20px; }
-    .host-rail-layout .list-space-btn svg { width: 18px; height: 18px; }
-    .host-rail-layout .notif-nav-badge { top: 3px; right: 1px; transform: none; font-size: .6rem !important; line-height: 1; }
-    .host-rail-layout .account-identity { justify-content: center; width: 52px; padding: 6px; }
-    .host-rail-layout .account-identity-info,
-    .host-rail-layout .account-identity-dots { display: none; }
+    .shell-rail-layout .nav-item svg { width: 20px; height: 20px; }
+    .shell-rail-layout .list-space-btn svg { width: 18px; height: 18px; }
+    .shell-rail-layout .notif-nav-badge { top: 3px; right: 1px; transform: none; font-size: .6rem !important; line-height: 1; }
+    .shell-rail-layout .account-identity { justify-content: center; width: 52px; padding: 6px; }
+    .shell-rail-layout .account-identity-info,
+    .shell-rail-layout .account-identity-dots { display: none; }
     /* Menus open beside the narrow rail at their usual width. */
-    .host-rail-layout .account-menu { width: 260px !important; }
+    .shell-rail-layout .account-menu { width: 260px !important; }
   }
 `;
 
