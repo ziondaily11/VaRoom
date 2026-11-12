@@ -408,28 +408,6 @@ export function bookingPayload(listing: BookingListing, kind: BookingKind, clien
   return payload;
 }
 
-/** The host's "New booking request" notification; the guest is named from their profile. */
-export function bookingNotification(listing: BookingListing, bookingId: string | null, client: { id: string; name: string | null; email: string | null }, instant = false): Record<string, unknown> {
-  return {
-    recipient_user_id: listing.host_id,
-    actor_user_id: client.id,
-    type: 'booking_request',
-    title: instant ? 'New booking' : 'New booking request',
-    message: `"${client.name || 'A guest'}" ${instant ? 'booked' : 'requested to book'} "${listing.title || 'this listing'}".`,
-    related_entity_type: 'booking',
-    related_entity_id: bookingId,
-    booking_id: bookingId,
-    event_key: `booking-request:${bookingId || listing.id}`,
-    metadata: {
-      listing_id: listing.id,
-      listing_name: listing.title,
-      booking_id: bookingId,
-      client_id: client.id,
-      client_name: client.name || client.email || 'Guest',
-    },
-  };
-}
-
 export interface TableRequest {
   listing_id: string; phone: string; guest_count: number; table_count: number;
   requested_date: string; requested_time: string; special_occasion: boolean; occasion_details: string;

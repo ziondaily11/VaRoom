@@ -246,7 +246,7 @@ export default function SettingsPage() {
       section = <PlansSection userId={userId} token={token} billedTo={profile?.full_name || profile?.username || user?.email || ''} email={user?.email || ''} onBack={back} notify={notify} />;
     } else if (view === 'bookings' && role === 'host') {
       section = <BookingsSection userId={userId} onBack={back} />;
-    } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} onBack={back} notify={notify} />;
+    } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} isHost={role === 'host'} onBack={back} notify={notify} />;
     else if (view === 'display') section = <DisplaySection userId={userId} onBack={back} />;
     else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} onPassword={() => { setOpenPassword(true); show('account'); }} />;
     else if (view === 'support') section = <SupportSection onBack={back} />;

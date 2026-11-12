@@ -53,3 +53,30 @@ test('the database decides booking status and enforces the rules', () => {
   assert.match(sql, /\(to_jsonb\(new\) - 'status'\) is distinct from \(to_jsonb\(old\) - 'status'\)/, 'and change nothing else');
   assert.match(sql, /before insert or update on public\.bookings\s+for each row execute function public\.varoom_snapshot_booking_location\(\)/, 'instant bookings get the location snapshot');
 });
+
+test('hosts are reminded once, about 6 hours before a request expires', async () => {
+  const { remindExpiringRequests } = require('../lib/bookingExpiry');
+  const calls = [];
+  const query = {
+    select(columns) { calls.push(['select', columns]); return query; },
+    eq(column, value) { calls.push(['eq', column, value]); return query; },
+    lt(column, value) { calls.push(['lt', column, value]); return query; },
+    gte: async (column, value) => { calls.push(['gte', column, value]); return { data: [{ id: 'B1', host_id: 'H1', listing: { title: 'Palm View' } }], error: null }; },
+  };
+  const sent = [];
+  const now = Date.parse('2026-11-10T12:00:00Z');
+  assert.equal(await remindExpiringRequests({ from: () => query }, now, async (n) => { sent.push(n); }), 1);
+  assert.deepEqual(calls.slice(1), [['eq', 'status', 'pending'], ['lt', 'created_at', '2026-11-08T18:00:00.000Z'], ['gte', 'created_at', '2026-11-08T12:00:00.000Z']]);
+  assert.equal(sent[0].recipientUserId, 'H1');
+  assert.equal(sent[0].type, 'booking_expiring');
+  assert.equal(sent[0].eventKey, 'booking-expiring:B1', 'one reminder per request');
+  assert.match(sent[0].message, /"Palm View" expires in about 6 hours/);
+});
+
+test('a notification the recipient turned off is skipped, not an error', () => {
+  assert.match(read('lib', 'notifications.js'), /if \(error && error\.code === 'PGRST116'\) return null;/);
+  const sql = read('migrations', '20261112_000064_notification_preferences.sql');
+  assert.match(sql, /drop constraint if exists notifications_type_check/, 'every notification type can be stored');
+  assert.match(sql, /new\.type = 'new_message' and p\.message_notifications = false/);
+  assert.match(sql, /return null; -- turned off: not stored/);
+});

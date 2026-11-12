@@ -65,17 +65,8 @@ export async function expirePendingBookings(client: SupabaseClient, userId: stri
     .eq('client_id', userId);
 }
 
-export type Notify = (payload: Record<string, unknown>) => Promise<unknown>;
-
-/**
- * Cancel one of the client's own pending or approved bookings and tell the
- * host. Resolves the notification error (if any) so the caller can say the
- * booking was cancelled but the host was not notified.
- */
-export async function cancelClientBooking(
-  client: SupabaseClient,
-  { booking, userId, guestName, notify }: { booking: Booking; userId: string; guestName: string | null; notify: Notify | null },
-): Promise<{ notifyError: Error | null }> {
+/** Cancel one of the client's own pending or approved bookings (the database tells the host). */
+export async function cancelClientBooking(client: SupabaseClient, { booking, userId }: { booking: Booking; userId: string }): Promise<void> {
   const { data, error } = await client
     .from('bookings')
     .update({ status: 'cancelled' })
@@ -86,27 +77,6 @@ export async function cancelClientBooking(
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('This booking can no longer be cancelled.');
-
-  const listing = booking.listing || {};
-  const host = booking.host || {};
-  if (!notify || !host.id) return { notifyError: notify ? null : new Error('Notifications are unavailable.') };
-  try {
-    await notify({
-      recipient_user_id: host.id,
-      actor_user_id: userId,
-      type: 'booking_cancelled',
-      title: 'Booking cancelled',
-      message: `"${guestName || 'A guest'}" cancelled their booking for "${listing.title || 'this listing'}".`,
-      related_entity_type: 'booking',
-      related_entity_id: booking.id,
-      booking_id: booking.id,
-      event_key: `booking-cancelled:${booking.id}`,
-      metadata: { booking_id: booking.id, listing_id: listing.id || null, listing_name: listing.title || null, cancelled_by: 'client' },
-    });
-    return { notifyError: null };
-  } catch (notifyError) {
-    return { notifyError: notifyError instanceof Error ? notifyError : new Error(String(notifyError)) };
-  }
 }
 
 /** The chat with the booking's host, ready to ask about its listing (lib/chat/startChat). */

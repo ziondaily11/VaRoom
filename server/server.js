@@ -19,7 +19,7 @@ const { createAdminRoutes } = require('./routes/adminRoutes');
 const createAccountGroupRoutes = require('./routes/accountGroupRoutes');
 const { createAccountRoutes } = require('./routes/accountRoutes');
 const { runDeactivationMaintenance } = require('./lib/accountDeactivation');
-const { expireStaleRequests } = require('./lib/bookingExpiry');
+const { expireStaleRequests, remindExpiringRequests } = require('./lib/bookingExpiry');
 const { recordStepUp, verifiedTokenClaims } = require('./lib/stepUp');
 const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
@@ -861,10 +861,13 @@ function runDeactivationMaintenanceNow() {
 setTimeout(runDeactivationMaintenanceNow, 60 * 1000).unref();
 setInterval(runDeactivationMaintenanceNow, DEACTIVATION_MAINTENANCE_INTERVAL_MS).unref();
 
-// Booking requests left unanswered for 48 hours expire (hourly).
+// Booking requests left unanswered: the host is reminded 6 hours before they
+// expire, and they expire after 48 hours (hourly).
 const BOOKING_EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 function expireStaleBookingRequestsNow() {
-  expireStaleRequests(supabaseAdmin)
+  remindExpiringRequests(supabaseAdmin)
+    .catch((error) => console.error('Booking request reminders failed:', error))
+    .then(() => expireStaleRequests(supabaseAdmin))
     .then((ids) => { if (ids.length) console.log(`Expired ${ids.length} unanswered booking request(s).`); })
     .catch((error) => console.error('Booking request expiry failed:', error));
 }

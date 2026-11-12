@@ -5,13 +5,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Import-free apart from types, so it can be tested directly.
 
 /** Profile columns Settings needs that the app's profile store does not carry. */
-export const PREFERENCE_COLUMNS = 'phone,theme_preference,notify_messages,notify_bookings,notify_account_updates,notify_marketing,profile_visibility,who_can_message,location_visibility';
+export const PREFERENCE_COLUMNS = 'phone,theme_preference,message_notifications,notify_bookings,notify_booking_reminders,notify_reviews,notify_account_updates,notify_marketing,profile_visibility,who_can_message,location_visibility';
 
 export interface Preferences {
   phone: string | null;
   theme_preference: string | null;
-  notify_messages: boolean | null;
+  message_notifications: boolean | null;
   notify_bookings: boolean | null;
+  notify_booking_reminders: boolean | null;
+  notify_reviews: boolean | null;
   notify_account_updates: boolean | null;
   notify_marketing: boolean | null;
   profile_visibility: string | null;
@@ -19,11 +21,14 @@ export interface Preferences {
   location_visibility: string | null;
 }
 
-export type NotificationKey = 'notify_messages' | 'notify_bookings' | 'notify_account_updates' | 'notify_marketing';
+export type NotificationKey = 'message_notifications' | 'notify_bookings' | 'notify_booking_reminders' | 'notify_reviews' | 'notify_account_updates' | 'notify_marketing';
 
-export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string }> = [
-  { key: 'notify_messages', label: 'Messages' },
-  { key: 'notify_bookings', label: 'Bookings' },
+/** hostOnly rows are shown to hosts only. */
+export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string; desc?: string; hostOnly?: boolean }> = [
+  { key: 'message_notifications', label: 'Messages', desc: 'New messages in your chats (the same switch as in Chat settings).' },
+  { key: 'notify_bookings', label: 'Bookings', desc: 'Requests, confirmations, declines, cancellations and expiries.' },
+  { key: 'notify_booking_reminders', label: 'Requests about to expire', desc: 'A reminder 6 hours before an unanswered request expires.', hostOnly: true },
+  { key: 'notify_reviews', label: 'Reviews', desc: 'New reviews of your listings, and when your own reviews are published.' },
   { key: 'notify_account_updates', label: 'Important account updates' },
   { key: 'notify_marketing', label: 'Promotional & marketing' },
 ];
