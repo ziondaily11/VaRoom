@@ -20,6 +20,7 @@ const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: strin
   { key: 'account', title: 'Your Account', desc: 'Manage your personal info, password and account status.' },
   { key: 'notifications', title: 'Notifications', desc: 'Choose what notifications you want to receive.' },
   { key: 'display', title: 'Display', desc: 'Customize appearance and accessibility settings.' },
+  { key: 'team', title: 'Team', desc: 'Invite people to help run your account, or work for a team you joined.' },
   { key: 'privacy', title: 'Privacy & Security', desc: 'Control your privacy, visibility and security preferences.' },
   { key: 'support', title: 'Support & About', desc: 'Get help, view policies and learn more about VaRoom.', href: '/support' },
   { key: 'login-accounts', title: 'Login & Accounts', desc: 'Log out of VaRoom.' },

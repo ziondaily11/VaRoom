@@ -42,7 +42,7 @@ test('the shell is ready for legacy scripts once a variant is chosen or the role
 test('AppShell keeps one element structure for every variant so pages are not remounted', () => {
   // The element-structure guarantee cannot be checked without a DOM renderer.
   const shellCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'AppShell.tsx'), 'utf8');
-  assert.match(shellCode, /<main className=\{content\.className\} id=\{content\.id\}>\s*\{children\}\s*<\/main>/);
+  assert.match(shellCode, /<main className=\{content\.className\} id=\{content\.id\}>\s*<WorkspaceBanner \/>\s*\{children\}\s*<\/main>/);
   assert.match(shellCode, /variant === 'host' \? <HostSidebar rail=\{isRail\} \/> : variant === 'client' \? <ClientSidebar \/> : null/);
 });
 
