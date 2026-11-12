@@ -67,16 +67,12 @@ test('Navbar locks body scroll and supports Escape-key dismissal while open', ()
   );
 });
 
-test('Navbar mobile navigation closes on anchor navigation and auth actions', () => {
+test('Navbar mobile navigation closes on Elie and auth actions', () => {
   const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
   const content = fs.readFileSync(navbarPath, 'utf8');
 
-  // Verify anchor navigation handler closes menu
-  assert.match(
-    content,
-    /const handleNavAnchor = useCallback\(\(e: React\.MouseEvent<HTMLAnchorElement>,\s*hash: string\)\s*=>\s*\{[\s\S]*?closeMenu\(\);/,
-    'Anchor clicks must trigger closeMenu()'
-  );
+  // The landing page is one screen: no in-page section links.
+  assert.doesNotMatch(content, /href="#/, 'Navbar must not link to in-page sections');
 
   // Verify Elie navigation handler closes menu
   assert.match(
