@@ -4,7 +4,7 @@ import React, { useCallback, useEffect } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
-import HostAnalytics from '../components/analytics/Analytics';
+import HostAnalytics, { AnalyticsSkeleton } from '../components/analytics/Analytics';
 
 // Host analytics. Rendered inside the persistent host shell (icon-only rail,
 // see lib/accountRoleLayout.ts), with the session and profile from the shared
@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
         <title>Host Analytics — VaRoom</title>
       </Head>
       {error && <p style={{ ...messageStyle, color: '#8f1229' }} role="alert">{error}</p>}
-      {!error && (!isHost || !user || !client) && <p style={messageStyle}>Loading your host account…</p>}
+      {!error && !(isHost && user && client && router.isReady) && <AnalyticsSkeleton />}
       {!error && isHost && user && client && router.isReady && (
         // Keyed by account: a switch never shows the previous account's numbers.
         <HostAnalytics
