@@ -14,6 +14,7 @@ import {
 import MarketplaceCard from '../components/marketplace/MarketplaceCard';
 import { MarketplaceBottomNav, RoleSidebarLinks } from '../components/marketplace/MarketplaceNav';
 import { MARKETPLACE_STYLES } from '../components/marketplace/marketplaceStyles';
+import { useCardGrid } from '../components/marketplace/useCardGrid';
 
 // Marketplace (migrated from legacy-pages/marketplace.html): every publicly
 // listed space, searchable and by category, for visitors, clients and
@@ -27,12 +28,13 @@ const chipLabel = (category: string) => (category === 'all' ? 'All' : CATEGORY_L
 function SkeletonCard() {
   return (
     <div className="card skeleton-card" aria-hidden="true">
-      <div className="skeleton skeleton-media" />
+      <div className="card-media skeleton" />
       <div className="card-body">
-        <div className="skeleton skeleton-line title" />
-        <div className="skeleton skeleton-line" />
-        <div className="skeleton skeleton-line host" />
-        <div className="card-foot"><div className="skeleton skeleton-line price" /><div className="skeleton skeleton-line" style={{ width: '30%' }} /></div>
+        <div className="card-text">
+          <div className="skeleton skeleton-line title" />
+          <div className="skeleton skeleton-line host" />
+          <div className="skeleton skeleton-line price" />
+        </div>
       </div>
     </div>
   );
@@ -59,6 +61,8 @@ export default function MarketplacePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [saved, setSaved] = useState<ReadonlySet<string>>(new Set());
   const requestRef = useRef(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+  useCardGrid(gridRef);
 
   // The search starts from the URL (client home's "Browse as Marketplace").
   useEffect(() => {
@@ -255,7 +259,7 @@ export default function MarketplacePage() {
 
           <main className="results-col">
             <div id="grid-view">
-              <div className="grid" id="results-grid" aria-busy={loadState === 'loading'}>{grid}</div>
+              <div className="grid" id="results-grid" ref={gridRef} aria-busy={loadState === 'loading'}>{grid}</div>
               <div className="pagination" id="pagination">
                 {loadState === 'idle' && hasMore && (
                   <button type="button" className="load-more" disabled={loadingMore} onClick={loadMore}>Load more</button>
