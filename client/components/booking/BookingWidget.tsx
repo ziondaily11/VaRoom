@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  ksh, nightsBetween, pickStayDay, plural, priceLine,
+  bookingWindow, isInstantBooking, ksh, nightsBetween, pickStayDay, plural, priceLine, stayProblem, windowedCalendar,
   type BookingKind, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -57,7 +57,11 @@ const LEGEND = (
 
 export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, onBook, onOpenTable, onMessageHost }: Props) {
   const { details, isShortStay, isHourly, isHotel, isProperty, usesRentalBooking, supportsBoth, propertyPurpose, listingUnavailable, availabilityMessage } = kind;
-  const minLeaseDate = details.available_from || new Date().toISOString().slice(0, 10);
+  const bookable = useMemo(() => bookingWindow(details), [details]);
+  const instant = isInstantBooking(kind);
+  // Only days inside the host's booking window can be picked.
+  const dates = useMemo(() => (calendar ? windowedCalendar(calendar, bookable) : null), [calendar, bookable]);
+  const minLeaseDate = details.available_from && details.available_from > bookable.first ? details.available_from : bookable.first;
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
   const [hours, setHours] = useState('1');
@@ -79,7 +83,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     const count = parseInt(hours, 10) || 0;
     if (start && count > 0) line = priceLine(details.price_amount, count, plural(count, 'hour'), null);
   } else if (isShortStay) {
-    if (start && end) {
+    if (start && end && !stayProblem(details, nightsBetween(start, end))) {
       const nights = nightsBetween(start, end);
       line = priceLine(details.price_amount, nights, plural(nights, 'night'), details.cleaning_fee || null);
     }
@@ -102,15 +106,17 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     if (failure) {
       confirm.current?.error();
       submitting.current = false;
-      setResult({ text: `Something went wrong: ${failure}`, error: true });
+      setResult({ text: failure, error: true });
       return;
     }
     await confirm.current?.complete();
-    setResult({ text: 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.', error: false });
+    setResult(instant
+      ? { text: 'Booked! Your stay is confirmed — find it in your bookings.', error: false }
+      : { text: 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.', error: false });
   };
 
   const rangeSummary = !calendar ? 'Loading open dates…'
-    : start && end ? `${start} → ${end} (${plural(nightsBetween(start, end), 'night')})`
+    : start && end ? `${start} → ${end} (${plural(nightsBetween(start, end), 'night')})${stayProblem(details, nightsBetween(start, end)) ? ` — ${stayProblem(details, nightsBetween(start, end))}` : ''}`
     : start ? `Check-in: ${start} — now pick a check-out date.`
     : 'No dates selected yet.';
 
@@ -120,7 +126,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       <>
         <p className="picker-title">Pick a date &amp; duration</p>
         <p className="picker-sub">Choose an open date and how many hours you need.</p>
-        <BookingCalendar dates={calendar} dayClass={(day) => (day === start ? ' range-end' : '')} onPick={(day) => setStart(day)} />
+        <BookingCalendar dates={dates} dayClass={(day) => (day === start ? ' range-end' : '')} onPick={(day) => setStart(day)} />
         {LEGEND}
         <div className="field">
           <label htmlFor="hours-input">Hours</label>
@@ -134,11 +140,11 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         <p className="picker-title">{isHotel ? 'Choose your stay' : 'Pick your dates'}</p>
         <p className="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>
         <BookingCalendar
-          dates={calendar}
+          dates={dates}
           dayClass={(day) => `${day === start || day === end ? ' range-end' : ''}${start && end && day > start && day < end ? ' in-range' : ''}`}
           onPick={(day) => {
-            if (!calendar) return;
-            const next = pickStayDay(calendar, start, end, day);
+            if (!dates) return;
+            const next = pickStayDay(dates, start, end, day);
             setStart(next.start);
             // A range over closed days restarts at the tapped day (the old
             // "aren't open" note was overwritten at once, so it never showed).
@@ -167,7 +173,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   }
 
   const confirmButton = (text: string) => (
-    <SendingButton ref={confirm} type="button" className="confirm-btn" id="confirm-btn" disabled={!line} aria-disabled={listingUnavailable ? true : undefined} successText="Reservation request sent" onClick={() => { void book(); }}>
+    <SendingButton ref={confirm} type="button" className="confirm-btn" id="confirm-btn" disabled={!line} aria-disabled={listingUnavailable ? true : undefined} successText={instant ? 'Booked' : 'Reservation request sent'} onClick={() => { void book(); }}>
       {text}
     </SendingButton>
   );
@@ -268,7 +274,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       <CommercialDocuments documents={extraDocuments} />
       {confirmButton(supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now'))}
       {supportsBoth && <button type="button" id="choose-reservation-btn" style={{ width: '100%', marginTop: '.65rem', padding: '.78rem', border: '1px solid var(--red)', borderRadius: 8, background: 'transparent', color: 'var(--red)', fontWeight: 700, cursor: 'pointer' }} onClick={() => setChoosing(true)}>Choose reservation type</button>}
-      <p className="form-note">{availabilityMessage || (isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')}</p>
+      <p className="form-note">{availabilityMessage || (instant ? 'Instant book: your stay is confirmed as soon as you book.' : isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')}</p>
       {successMessage}
       {choice}
     </div>

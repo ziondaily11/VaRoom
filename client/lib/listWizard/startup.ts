@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category, WizardForm } from './formState';
-import { emptyForm, isOfficeShop } from './formState';
+import { emptyForm, isOfficeShop, SHORT_STAY } from './formState';
+import { bookingDefaultFields, loadBookingDefaults } from '../settings/bookingDefaults';
 import { CATEGORY_LABELS } from './copy';
 import type { ListingDraftCache } from './draftCache';
 import type { DocumentRefs, DraftSnapshot, RemoteDraft, WizardMedia } from './drafts';
@@ -255,6 +256,13 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
     } catch (error) {
       return { status: 'stopped', text: `Unable to load this listing: ${errorMessage(error, 'Please try again.')}` };
     }
+  }
+  // A new listing starts from the host's booking defaults (Settings → Bookings).
+  if (!params.edit && !form && SHORT_STAY.includes(niche)) {
+    try {
+      const defaults = await loadBookingDefaults(client, hostId);
+      if (defaults) { const fresh = emptyForm(); form = { ...fresh, fields: { ...fresh.fields, ...bookingDefaultFields(defaults) } }; }
+    } catch (error) { console.warn('Booking defaults could not be loaded; the listing starts blank:', error); }
   }
   if (flags.subscriptionVerified) messages.push({ text: 'Your plan is active. Your saved listing has been restored for review and publishing.', error: false });
   else if (flags.returnedPaymentVerified) messages.push({ text: 'Payment confirmed. Review your listing, then select Publish Listing when you are ready.', error: false });

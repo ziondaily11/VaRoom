@@ -26,10 +26,11 @@ const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: strin
 ];
 // Hosts only, after Your Account.
 const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'See your plan, listings left, payment method and invoices.' };
+const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings', desc: 'Instant book, notice, stay length and the rules new listings start with.' };
 
 export function CategoryList({ active, onOpen, isHost = false }: { active: string; onOpen: (key: string) => void; isHost?: boolean }) {
   const [query, setQuery] = useState('');
-  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
+  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, BOOKINGS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
   const q = query.trim().toLowerCase();
   const visible = (title: string) => !q || title.toLowerCase().includes(q);
   return (

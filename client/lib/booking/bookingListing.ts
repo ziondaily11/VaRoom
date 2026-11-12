@@ -27,6 +27,11 @@ export interface BookingDetails {
   checkin_time?: string | null;
   checkout_time?: string | null;
   cancellation_policy?: string | null;
+  instant_book?: boolean | null;
+  min_notice_days?: number | null;
+  max_advance_days?: number | null;
+  min_stay_nights?: number | null;
+  max_stay_nights?: number | null;
   listing_purpose?: string | null;
   office_shop_details?: unknown;
   [key: string]: unknown;
@@ -333,6 +338,37 @@ export function pickStayDay(dates: CalendarDates, start: string | null, end: str
   return { start: day, end: null, blocked: false };
 }
 
+// ---------- Booking rules (the database enforces the same ones) ----------
+
+const dayString = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
+
+/** The first and last day a guest can start a booking (minimum notice, how far ahead). */
+export function bookingWindow(details: BookingDetails, today: Date = new Date()): { first: string; last: string | null } {
+  return {
+    first: dayString(addDays(today, Math.max(0, Number(details.min_notice_days) || 0))),
+    last: details.max_advance_days ? dayString(addDays(today, Number(details.max_advance_days))) : null,
+  };
+}
+
+/** Open dates limited to the booking window. */
+export function windowedCalendar(dates: CalendarDates, window: { first: string; last: string | null }): CalendarDates {
+  return { ...dates, open: new Set(Array.from(dates.open).filter((day) => day >= window.first && (!window.last || day <= window.last))) };
+}
+
+/** Why a stay of these nights can't be booked, or null. */
+export function stayProblem(details: BookingDetails, nights: number): string | null {
+  if (details.min_stay_nights && nights < Number(details.min_stay_nights)) return `The minimum stay is ${plural(Number(details.min_stay_nights), 'night')}.`;
+  if (details.max_stay_nights && nights > Number(details.max_stay_nights)) return `The maximum stay is ${plural(Number(details.max_stay_nights), 'night')}.`;
+  return null;
+}
+
+/** Nightly stays on an instant-book listing are confirmed at once. */
+export const isInstantBooking = (kind: BookingKind) => Boolean(kind.isShortStay && !kind.isHourly && kind.details.instant_book);
+
+/** The guest-facing text for a failed booking insert. */
+export const bookingFailureText = (message: string) => (message.startsWith('booking_rule: ') ? message.slice('booking_rule: '.length) : `Something went wrong: ${message}`);
+
 export const nightsBetween = (start: string, end: string) => Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000);
 export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -373,13 +409,13 @@ export function bookingPayload(listing: BookingListing, kind: BookingKind, clien
 }
 
 /** The host's "New booking request" notification; the guest is named from their profile. */
-export function bookingNotification(listing: BookingListing, bookingId: string | null, client: { id: string; name: string | null; email: string | null }): Record<string, unknown> {
+export function bookingNotification(listing: BookingListing, bookingId: string | null, client: { id: string; name: string | null; email: string | null }, instant = false): Record<string, unknown> {
   return {
     recipient_user_id: listing.host_id,
     actor_user_id: client.id,
     type: 'booking_request',
-    title: 'New booking request',
-    message: `"${client.name || 'A guest'}" requested to book "${listing.title || 'this listing'}".`,
+    title: instant ? 'New booking' : 'New booking request',
+    message: `"${client.name || 'A guest'}" ${instant ? 'booked' : 'requested to book'} "${listing.title || 'this listing'}".`,
     related_entity_type: 'booking',
     related_entity_id: bookingId,
     booking_id: bookingId,

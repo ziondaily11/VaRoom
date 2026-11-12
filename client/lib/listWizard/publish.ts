@@ -124,6 +124,10 @@ export function bookingDetailsFor(category: Category, form: WizardForm, editMode
     details.checkout_time = text(fields, 'checkout-time') || null;
     details.cleaning_fee = float(text(fields, 'cleaning-fee'));
     details.cancellation_policy = text(fields, 'cancellation-policy') || 'moderate';
+    details.max_stay_nights = int(text(fields, 'max-stay'));
+    details.min_notice_days = int(text(fields, 'min-notice'));
+    details.max_advance_days = int(text(fields, 'max-advance'));
+    details.instant_book = checked(fields, 'instant-book');
   } else {
     details.available_from = text(fields, 'available-from') || null;
     lease();
@@ -232,6 +236,8 @@ export function editForm(base: WizardForm, category: Category, listing: EditList
   set('property-units-available', details.units_available); set('property-sale-price', details.sale_price_amount);
   set('dining-restaurant-name', details.restaurant_name); set('dining-opening-hours', details.opening_hours); set('dining-tables-available', details.tables_available);
   fields['utilities-included'] = details.utilities_included === true;
+  set('max-stay', details.max_stay_nights); set('min-notice', details.min_notice_days); set('max-advance', details.max_advance_days);
+  fields['instant-book'] = details.instant_book === true;
   let form: WizardForm = { ...base, fields };
   (Array.isArray(details.amenities) ? (details.amenities as string[]) : []).forEach((key) => { form.amenities = setAmenityChecked(form.amenities, key, true); });
   if (isOfficeShop(category)) {
