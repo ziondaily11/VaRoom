@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { workspaceHostWith } from '../team/team';
 import type {
   AnalyticsOverview,
   DateRange,
@@ -222,6 +223,9 @@ export async function fetchOverview(
     p_granularity: granularity,
     p_listing: listingId,
   });
+  // A Finance member working as a company sees its numbers; the database checks the role.
+  const company = workspaceHostWith('finance');
+  if (company) request = request.setHeader('X-VaRoom-Host', company);
   if (signal) request = request.abortSignal(signal);
   const { data, error } = await request;
   if (error) throw new Error(error.message || 'Analytics could not be loaded.');
@@ -230,6 +234,8 @@ export async function fetchOverview(
 
 export async function fetchPlanPayments(client: SupabaseClient, signal?: AbortSignal): Promise<PlanPayment[]> {
   let request = client.rpc('host_plan_payments', {});
+  const company = workspaceHostWith('finance');
+  if (company) request = request.setHeader('X-VaRoom-Host', company);
   if (signal) request = request.abortSignal(signal);
   const { data, error } = await request;
   if (error) throw new Error(error.message || 'Plan payments could not be loaded.');

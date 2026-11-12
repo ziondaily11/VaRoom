@@ -42,7 +42,7 @@ test('host booking defaults: normalised, checked, and turned into the wizard fie
 });
 
 test('wiring: Settings → Bookings for hosts, new listings start from the defaults, listings save their rules', () => {
-  assert.match(read('components', 'settings', 'SettingsSections.tsx'), /isHost \? \[CATEGORIES\[0\], PLANS_CATEGORY, BOOKINGS_CATEGORY, \.\.\.CATEGORIES\.slice\(1\)\]/);
+  assert.match(read('components', 'settings', 'SettingsSections.tsx'), /const categories = \[CATEGORIES\[0\], \.\.\.\(showPlans \? \[PLANS_CATEGORY\] : \[\]\), \.\.\.\(isHost \? \[BOOKINGS_CATEGORY\] : \[\]\), \.\.\.CATEGORIES\.slice\(1\)\];/);
   assert.match(read('pages', 'settings.tsx'), /view === 'bookings' && role === 'host'/);
   assert.match(read('lib', 'listWizard', 'startup.ts'), /if \(!params\.edit && !form && SHORT_STAY\.includes\(niche\)\)/);
   const publish = read('lib', 'listWizard', 'publish.ts');

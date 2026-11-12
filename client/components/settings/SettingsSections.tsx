@@ -29,9 +29,10 @@ const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: strin
 const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'See your plan, listings left, payment method and invoices.' };
 const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings', desc: 'Instant book, notice, stay length and the rules new listings start with.' };
 
-export function CategoryList({ active, onOpen, isHost = false }: { active: string; onOpen: (key: string) => void; isHost?: boolean }) {
+/** showPlans: hosts, and Finance members working as a company. */
+export function CategoryList({ active, onOpen, isHost = false, showPlans = isHost }: { active: string; onOpen: (key: string) => void; isHost?: boolean; showPlans?: boolean }) {
   const [query, setQuery] = useState('');
-  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, BOOKINGS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
+  const categories = [CATEGORIES[0], ...(showPlans ? [PLANS_CATEGORY] : []), ...(isHost ? [BOOKINGS_CATEGORY] : []), ...CATEGORIES.slice(1)];
   const q = query.trim().toLowerCase();
   const visible = (title: string) => !q || title.toLowerCase().includes(q);
   return (

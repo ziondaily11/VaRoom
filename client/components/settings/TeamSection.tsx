@@ -145,7 +145,7 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
               ))}
             </div>
           )}
-          <div className="note-box">Only you manage the team, Your Account, Plans and deleting the account. Managers handle your bookings and listings; chats for Messaging and billing for Finance follow.</div>
+          <div className="note-box">Only you manage the team, Your Account and deleting the account. Managers handle bookings and listings, Messaging answers chats, and Finance handles Plans & Billing and analytics. Each person also gets the company's notifications for their roles.</div>
         </div>
       )}
 

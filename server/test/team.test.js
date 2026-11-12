@@ -53,3 +53,14 @@ test('chats: Messaging staff act for the company and each message records who wr
   const sql = read('migrations', '20261113_000067_team_chats.sql');
   assert.match(sql, /c\.client_id = auth\.uid\(\) or public\.varoom_can_act_for\(c\.host_id, 'messaging'\)/);
 });
+
+test('billing: Finance staff act for the company, billed to the company\'s own email', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'billingRoutes.js'), 'utf8');
+  assert.match(routes, /const host = await actAsHost\(req, user, 'finance', supabaseAdmin\);/);
+  assert.match(routes, /return \{ user: \{ \.\.\.host, email: owner\.user\.email \} \};/);
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261113_000068_team_finance_notifications.sql'), 'utf8');
+  assert.match(sql, /v_uid uuid := public\.varoom_acting_host\('finance'\);/);
+  assert.match(sql, /if coalesce\(new\.metadata, '\{\}'::jsonb\) \? 'team_host' then\s+return new; -- already a team copy/);
+});

@@ -2,6 +2,7 @@
 
 const express = require('express');
 const supabaseDefault = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const { createPaystackClient } = require('../lib/paystackClient');
 const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
@@ -131,9 +132,16 @@ async function authenticatedHost(req, supabaseAdmin) {
   if (!token) return { error: [401, 'Missing access token'] };
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return { error: [401, 'Invalid or expired session'] };
-  const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  // A Finance member working as a company acts for it (X-VaRoom-Host).
+  const host = await actAsHost(req, user, 'finance', supabaseAdmin);
+  if (!host) return { error: [403, 'You are not on Finance for this team'] };
+  const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('role').eq('id', host.id).maybeSingle();
   if (profileError || !profile || profile.role !== 'host') return { error: [403, 'Host access required'] };
-  return { user };
+  if (host.id === user.id) return { user };
+  // Paystack bills the company's own email, so its plan stays on its account.
+  const { data: owner, error: ownerError } = await supabaseAdmin.auth.admin.getUserById(host.id);
+  if (ownerError || !owner || !owner.user || !owner.user.email) return { error: [502, 'The company account could not be loaded'] };
+  return { user: { ...host, email: owner.user.email } };
 }
 
 function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient(), baseUrl = process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL, nodeEnv = process.env.NODE_ENV, port = process.env.PORT || 3000 } = {}) {
