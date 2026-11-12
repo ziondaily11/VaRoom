@@ -291,12 +291,12 @@ export const MARKETPLACE_STYLES = `
      keeps its proportions on phones and desktops alike. */
   .marketplace-page{
     --mkt-panel-bg:#FFFFFF; --mkt-panel-ink:#1B1D21; --mkt-panel-muted:#8A8F98;
-    --mkt-accent:#3157E6; --mkt-accent-soft:#EEF2FF; --mkt-accent-soft-hover:#DDE5FF;
+    --mkt-accent:#000000; --mkt-accent-soft:rgba(0,0,0,.06); --mkt-accent-soft-hover:rgba(0,0,0,.12);
     --mkt-card-placeholder:#E9E7E2;
   }
   [data-theme="dark"] .marketplace-page{
     --mkt-panel-bg:#151515; --mkt-panel-ink:#FFFFFF; --mkt-panel-muted:#A1A1AA;
-    --mkt-accent:#8AA4FF; --mkt-accent-soft:rgba(138,164,255,.14); --mkt-accent-soft-hover:rgba(138,164,255,.24);
+    --mkt-accent:#FFFFFF; --mkt-accent-soft:rgba(255,255,255,.10); --mkt-accent-soft-hover:rgba(255,255,255,.18);
     --mkt-card-placeholder:#1A1A1A;
   }
   .marketplace-page .grid{
@@ -310,7 +310,7 @@ export const MARKETPLACE_STYLES = `
   }
   .marketplace-page .card{
     position:relative; container-type:inline-size; isolation:isolate; min-width:0; width:100%;
-    aspect-ratio:1 / 0.95; border-radius:16px; overflow:hidden; background:var(--mkt-card-placeholder);
+    aspect-ratio:1 / 0.95; border-radius:clamp(18px, calc(var(--mkt-card-w, 280px) * .09), 28px); overflow:hidden; background:var(--mkt-card-placeholder);
     cursor:pointer; transition:transform .2s ease, box-shadow .2s ease;
   }
   .marketplace-page .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(20,24,28,.14); }
@@ -323,6 +323,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .card-media img{ transition:transform .25s ease; }
   .marketplace-page .card:hover .card-media img{ transform:scale(1.03); }
   .marketplace-page .card-media.is-loading{ position:absolute; }
+  .marketplace-page .card-media.is-loading::before{ position:absolute; z-index:1; top:50%; left:50%; margin:-9px 0 0 -9px; }
   .marketplace-page .card-media-loading{ position:absolute; inset:0; height:100%; aspect-ratio:auto; }
 
   .marketplace-page .card-category{
@@ -347,7 +348,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .card-body{
     position:absolute; z-index:2; left:4cqw; right:4cqw; bottom:4cqw;
     display:flex; align-items:flex-start; gap:3cqw; padding:4.4cqw 4.4cqw 4cqw;
-    border-radius:clamp(10px, 5cqw, 14px); background:var(--mkt-panel-bg); color:var(--mkt-panel-ink);
+    border-radius:clamp(12px, 6cqw, 20px); background:var(--mkt-panel-bg); color:var(--mkt-panel-ink);
     box-shadow:0 6px 18px rgba(15,19,24,.12);
   }
   .marketplace-page .card-text{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1.6cqw; }
