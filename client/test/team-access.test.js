@@ -56,3 +56,11 @@ test('working as a company: API calls name it; the listing wizard and Team page 
   assert.match(section, /href=\{`\/list\?edit=\$\{encodeURIComponent\(listing\.id\)\}`\}/);
   assert.match(read('components', 'shell', 'WorkspaceBanner.tsx'), /if \(userId && stored && stored\.userId !== userId\) setWorkspace\(null\);/, 'another account on this tab goes back to its own');
 });
+
+test('Messaging staff working as a company answer its chats; Elie stays their own', () => {
+  const page = read('pages', 'chats.tsx');
+  assert.match(page, /const curUserId = actingHostFor\(currentSession\.user\.id, 'messaging'\);/);
+  assert.match(page, /return <ChatsView key=\{inbox\} \{\.\.\.props\} \/>;/, 'switching remounts the inbox');
+  assert.match(page, /const elie = useElie\(session\?\.user\.id \|\| null\);/);
+  assert.match(page, /workingAs && workingAs\.roles\.includes\('messaging'\) \? 'host' : accountRole\(ownProfile\)/);
+});

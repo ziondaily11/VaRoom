@@ -109,6 +109,12 @@ export function useWorkspace(userId: string | null): Workspace | null {
   return workspace && workspace.userId === userId ? workspace : null;
 }
 
+/** The company this account works as with the role, else the account itself (read once, outside React). */
+export function actingHostFor(userId: string, role: TeamRole): string {
+  const workspace = read();
+  return workspace && workspace.userId === userId && workspace.roles.includes(role) ? workspace.hostId : userId;
+}
+
 /** Whose bookings and listings a page works on: the company's for a Manager working as it, otherwise the account's own. */
 export const managerHostId = (userId: string | null, workspace: Workspace | null) =>
   (workspace && workspace.roles.includes('manager') ? workspace.hostId : userId);

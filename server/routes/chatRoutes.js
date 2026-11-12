@@ -14,6 +14,7 @@ const { previewsFor } = require('../lib/chatPreviews');
 const { clearedAtByConversation, visibleAfterClear, clearChat, conversationsBetween } = require('../lib/chatClears');
 const { MESSAGES_OFF, MESSAGES_OFF_ERROR, acceptsNewConversations } = require('../lib/privacySettings');
 const { deactivationState, isDeactivated } = require('../lib/accountDeactivation');
+const { actAsHost } = require('../lib/team');
 
 const ACCOUNT_DEACTIVATED = 'account_deactivated';
 const ACCOUNT_DEACTIVATED_ERROR = 'This account is deactivated, so it can’t receive messages.';
@@ -25,7 +26,9 @@ async function authenticatedUser(req) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return null;
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  return error || !user ? null : user;
+  if (error || !user) return null;
+  // Messaging staff working as a company read and reply as it (X-VaRoom-Host).
+  return (await actAsHost(req, user, 'messaging')) || user;
 }
 
 async function memberConversation(conversationId, userId) {
@@ -725,6 +728,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       .insert({
         conversation_id: conversationId,
         sender_id: user.id,
+        sent_by: user.actorId || null, // the staff member who wrote it, when sent for a company
         ...encryptedMessage,
         message_type: messageType,
         attachment_id: attachmentId || null,
