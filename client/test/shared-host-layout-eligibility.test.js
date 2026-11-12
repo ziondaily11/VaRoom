@@ -6,15 +6,15 @@ const { getAccountLayout } = require('./helpers/loadTs').loadTs(require('node:pa
 
 const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
 
-test('Chats, Support, and Marketplace retain their page layouts outside HostLayout', () => {
-  for (const route of ['/chats', '/support', '/marketplace']) {
+test('Chats and Support retain their page layouts outside HostLayout', () => {
+  for (const route of ['/chats', '/support']) {
     assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'none', `${route} remains outside HostLayout`);
   }
   assert.match(appCode, /getAccountLayout\(path, asPath, shownRole\)/);
 });
 
 test('Home and intended shared routes select the authenticated account layout', () => {
-  for (const route of ['/bookings', '/notifications', '/profile', '/settings']) {
+  for (const route of ['/bookings', '/notifications', '/profile', '/settings', '/marketplace']) {
     assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'host', `${route} remains available to hosts`);
     assert.equal(getAccountLayout('/[...slug]', route, 'client'), 'client', `${route} selects client shell for clients`);
     assert.equal(getAccountLayout('/[...slug]', route, null), 'none', `${route} does not add a layout before role resolves`);

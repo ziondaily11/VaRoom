@@ -29,7 +29,7 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
   const isClientHome = matches('/client-home');
   const isHostHome = matches('/host-home');
   const isHostProfile = paths.some((path) => path.startsWith('/host/'));
-  const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings'].some(matches);
+  const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings', '/marketplace'].some(matches);
 
   if (isClientHome || isHostHome || isHostProfile || isSharedRoute) {
     if (role === 'client') return 'client';
@@ -53,9 +53,9 @@ export function homeShellHint(pathname: string | null | undefined): ShellRole | 
 }
 
 /**
- * Routes that keep the host shell but collapse its sidebar to an icon-only
- * rail, so wide pages get the room. The sidebar stays mounted either way.
+ * Routes that keep the account's shell but collapse its sidebar to an
+ * icon-only rail, so wide pages get the room. The sidebar stays mounted.
  */
 export function usesIconRail(pathname: string | null | undefined, asPath: string | null | undefined): boolean {
-  return [pathname || '', asPath || ''].some((path) => matchesPath(path, '/analytics'));
+  return [pathname || '', asPath || ''].some((path) => matchesPath(path, '/analytics') || matchesPath(path, '/marketplace'));
 }

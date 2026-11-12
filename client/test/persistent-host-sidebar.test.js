@@ -43,7 +43,7 @@ test('AppShell keeps one element structure for every variant so pages are not re
   // The element-structure guarantee cannot be checked without a DOM renderer.
   const shellCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'AppShell.tsx'), 'utf8');
   assert.match(shellCode, /<main className=\{content\.className\} id=\{content\.id\}>\s*<WorkspaceBanner \/>\s*\{children\}\s*<\/main>/);
-  assert.match(shellCode, /variant === 'host' \? <HostSidebar rail=\{isRail\} \/> : variant === 'client' \? <ClientSidebar \/> : null/);
+  assert.match(shellCode, /variant === 'host' \? <HostSidebar rail=\{isRail\} \/> : variant === 'client' \? <ClientSidebar rail=\{isRail\} \/> : null/);
 });
 
 test('HostSidebar keeps its reference navigation, More menu and account switcher', () => {
@@ -114,14 +114,14 @@ test('confirmed client roles select ClientLayout on shared routes and never Host
 });
 
 test('account layout per route and role: shell routes only, none until the role is known', () => {
-  for (const route of ['/host-home', '/client-home', '/bookings', '/notifications', '/profile', '/settings', '/host/abc']) {
+  for (const route of ['/host-home', '/client-home', '/bookings', '/notifications', '/profile', '/settings', '/marketplace', '/host/abc']) {
     assert.equal(getAccountLayout(route, route, 'host'), 'host', route);
     assert.equal(getAccountLayout(route, route, 'client'), 'client', route);
     assert.equal(getAccountLayout(route, route, null), 'none', `${route} waits for the role`);
   }
   assert.equal(getAccountLayout('/bookings', '/bookings?tab=past', 'host'), 'host', 'query strings still match');
   assert.equal(getAccountLayout('/profile', '/profile/edit', 'client'), 'client', 'sub-paths still match');
-  for (const route of ['/', '/marketplace', '/chats', '/list', '/support', '/bookingsx']) {
+  for (const route of ['/', '/chats', '/list', '/support', '/bookingsx']) {
     assert.equal(getAccountLayout(route, route, 'host'), 'none', route);
   }
   assert.equal(getAccountLayout('/analytics', '/analytics', 'host'), 'host', 'analytics keeps the persistent host shell');

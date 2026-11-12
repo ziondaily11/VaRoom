@@ -23,6 +23,9 @@ export interface BookingDetails {
   max_guests?: number | null;
   amenities?: string[] | null;
   location_text?: string | null;
+  /** Property: the bedroom type ('Studio', '2 bedrooms', ...). */
+  size_or_type?: string | null;
+  bathrooms?: number | null;
 }
 
 export interface MarketplaceListing {
@@ -91,6 +94,20 @@ export function normalizeListingTitle(value: unknown): string {
 
 export function cardLocation(listing: MarketplaceListing): string {
   return sanitizeLocationText(listing.location_text || (first(listing.listing_booking_details) || {}).location_text || '');
+}
+
+/**
+ * A property's beds and baths for its card: the bedroom count ('2 bedrooms'
+ * → '2'; 'Studio' and 'Bedsitter' as named), and the bathroom count.
+ */
+export function propertyRooms(listing: MarketplaceListing): { beds: string | null; baths: number | null } {
+  if (listing.category !== 'property') return { beds: null, baths: null };
+  const d = first(listing.listing_booking_details) || {};
+  const type = String(d.size_or_type || '').trim();
+  const count = type.match(/^(\d+)\s*bed/i);
+  const beds = count ? count[1] : /^(studio|bedsitter)$/i.test(type) ? type : null;
+  const baths = d.bathrooms != null && Number(d.bathrooms) > 0 ? Number(d.bathrooms) : null;
+  return { beds, baths };
 }
 
 export type CategoryTone = 'green' | 'amber' | 'violet' | 'blue' | 'rose' | 'teal';

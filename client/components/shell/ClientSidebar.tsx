@@ -37,8 +37,10 @@ const DRAWER_EVENTS = {
   toggleEvents: ['varoom-toggle-sidebar'],
 };
 
-export default function ClientSidebar({ activeNav: explicitActiveNav }: { activeNav?: string } = {}) {
+export default function ClientSidebar({ activeNav: explicitActiveNav, rail = false }: { activeNav?: string; rail?: boolean } = {}) {
   const router = useRouter();
+  // In the icon-only rail the labels are hidden, so each item gets a tooltip.
+  const tip = (label: string) => (rail ? label : undefined);
   const { user, hasMounted } = useShellIdentity(clientInitialIdentity(), clientInitialIdentity());
   // Shared counts store (one realtime channel for the app); no sidebar polling.
   const unreadCount = useCounts().notifications;
@@ -122,6 +124,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
         <a
           href="/client-home"
           className="logo"
+          title={tip('VaRoom home')}
           onClick={(e) => handleNav(e, '/client-home')}
         >
           <span className="va">Va</span>
@@ -134,6 +137,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
             href="/client-home"
             className={`nav-item ${activeNav === 'home' ? 'active' : ''}`}
             data-nav="home"
+            title={tip('Home')}
             onClick={(e) => handleNav(e, '/client-home')}
           >
             <svg
@@ -156,6 +160,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
             href="/marketplace"
             className={`nav-item ${activeNav === 'marketplace' ? 'active' : ''}`}
             data-nav="marketplace"
+            title={tip('Marketplace')}
             onClick={(e) => handleNav(e, '/marketplace')}
           >
             <svg
@@ -177,6 +182,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
           <div
             className={`nav-item ${activeNav === 'saved' ? 'active' : ''}`}
             data-nav="saved"
+            title={tip('Saved')}
             role="button"
             tabIndex={0}
             onClick={(e) => handleNav(e, '/client-home?view=saved', 'saved')}
@@ -205,6 +211,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
           <a
             href="/bookings"
             className={`nav-item ${activeNav === 'bookings' ? 'active' : ''}`}
+            title={tip('Bookings')}
             onClick={(e) => handleNav(e, '/bookings')}
           >
             <svg
@@ -226,6 +233,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
           <a
             href="/chats"
             className={`nav-item ${activeNav === 'chats' ? 'active' : ''}`}
+            title={tip('Chats')}
             data-mobile-hide
             onClick={(e) => handleNav(e, '/chats')}
           >
@@ -248,6 +256,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
             href="/notifications"
             className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
             data-nav="notifications"
+            title={tip('Notifications')}
             id="notif-nav-item"
             onClick={(e) => handleNav(e, '/notifications')}
           >
@@ -382,6 +391,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
           ref={moreBtnRef}
           className={`nav-item ${isMoreActive || moreOpen ? 'active' : ''}`}
           id="more-nav-btn"
+          title={tip('More')}
           aria-haspopup="true"
           aria-expanded={moreOpen}
           aria-controls="more-menu"
@@ -501,6 +511,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav }: { active
           ref={identityBtnRef}
           className="account-identity"
           id="account-identity-btn"
+          title={tip('Account')}
           aria-haspopup="true"
           aria-expanded={accountOpen}
           aria-controls="account-menu"
