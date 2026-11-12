@@ -294,10 +294,14 @@ export const HOST_SHELL_STYLES = `
     }
     .host-rail-layout .logo { display: flex; justify-content: center; padding: .2rem 0; }
     .host-rail-layout .logo > span { display: none; }
+    /* The VaRoom favicon at the standard 32px desktop size (96px file on sharp screens). */
     .host-rail-layout .logo::after {
-      content: 'V'; color: var(--red, #C41E3A); font-family: var(--font-brand, inherit);
-      font-size: 1.35rem; font-weight: 800; line-height: 1;
+      content: ''; width: 32px; height: 32px; border-radius: 8px;
+      background: url('/favicon/favicon-32_1.png') center / 32px 32px no-repeat;
+      background-image: image-set(url('/favicon/favicon-32_1.png') 1x, url('/favicon/favicon-96.png') 3x);
     }
+    /* Its black R needs a light tile on the dark rail. */
+    html[data-theme="dark"] .host-rail-layout .logo::after { background-color: #fff; background-size: 26px 26px; }
     .host-rail-layout .nav-group { align-items: center; width: 100%; }
     .host-rail-layout .nav-label { display: none; }
     .host-rail-layout .nav-item,

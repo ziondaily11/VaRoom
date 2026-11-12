@@ -208,6 +208,22 @@ function Dashboard({ data, rk, listingId, onListingChange, paymentsBody }: {
   );
 }
 
+/** The page's shape while the account or its analytics load. */
+export function AnalyticsSkeleton() {
+  return (
+    <main className="va-analytics" aria-busy="true" aria-label="Loading analytics">
+      <style dangerouslySetInnerHTML={{ __html: ANALYTICS_CSS }} />
+      <div className="va-wrap">
+        <header className="va-top">
+          <div className="va-skel" style={{ width: 280, height: 40, borderRadius: 14 }} />
+          <div className="va-skel" style={{ width: 260, height: 44, borderRadius: 999 }} />
+        </header>
+        <GhostBento />
+      </div>
+    </main>
+  );
+}
+
 /* ---------- Page ---------- */
 
 export default function HostAnalytics({ client, userId, firstName, listingId, onListingChange }: {
