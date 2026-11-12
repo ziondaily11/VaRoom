@@ -93,13 +93,15 @@ export function cardLocation(listing: MarketplaceListing): string {
   return sanitizeLocationText(listing.location_text || (first(listing.listing_booking_details) || {}).location_text || '');
 }
 
-/** Up to four known amenity keys, in the listing's order. */
-export function cardAmenities(listing: MarketplaceListing, known: (key: string) => boolean): string[] {
-  const raw = (first(listing.listing_booking_details) || {}).amenities;
-  return (Array.isArray(raw) ? raw : [])
-    .map((key) => String(key).trim().toLowerCase())
-    .filter((key) => key && known(key))
-    .slice(0, 4);
+export type CategoryTone = 'green' | 'amber' | 'violet' | 'blue' | 'rose' | 'teal';
+
+const CATEGORY_TONES: Record<string, CategoryTone> = {
+  airbnb: 'green', hotel: 'amber', venue: 'violet', office: 'blue', shop: 'rose', property: 'teal',
+};
+
+/** The colour of a card's category tag. */
+export function categoryTone(category: string | null | undefined): CategoryTone {
+  return (category && CATEGORY_TONES[category]) || 'teal';
 }
 
 /** A looking-soon client's chosen categories, ranked first in the default view. */
