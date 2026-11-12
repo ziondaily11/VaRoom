@@ -5,9 +5,9 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  applyPlans, checkoutBody, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
+  applyPlans, cardsForNiche, checkoutBody, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
   LISTING_AFTER_UPGRADE_KEY, pendingListingId, readDraftPointer, RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout,
-  yearlyReady, type PlanCard,
+  readCachedPlans, writeCachedPlans, yearlyReady, type PlanCard,
 } from '../lib/billing/pricing';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
 
@@ -36,7 +36,9 @@ function readSession(key: string): string | null {
 export default function PricingPage() {
   const router = useRouter();
   const { status, user, session, profile, profileError } = useAuth();
-  const [cards, setCards] = useState<PlanCard[]>(DEFAULT_PLAN_CARDS);
+  // No cards until the host's niche is known: showing defaults first flashed
+  // Property plans to Airbnb, Hotel and Venue hosts.
+  const [cards, setCards] = useState<PlanCard[] | null>(null);
   const [billing, setBilling] = useState<Billing>('monthly');
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -46,7 +48,8 @@ export default function PricingPage() {
 
   const isHost = profile?.role === 'host';
   const userId = user?.id || null;
-  const canToggle = yearlyReady(cards);
+  const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] || null : null;
+  const canToggle = Boolean(cards && cards.length && yearlyReady(cards));
 
   // Hosts only: signed out → login, clients → their home.
   useEffect(() => {
@@ -61,10 +64,16 @@ export default function PricingPage() {
     const token = tokenRef.current;
     if (!isHost || !userId || !token) return undefined;
     let cancelled = false;
+    let storage: Storage | null = null;
+    try { storage = window.sessionStorage; } catch { /* Storage unavailable. */ }
+    // Paint at once: this account's cached plans, else the niche's own cards.
+    const cached = readCachedPlans(storage, userId, hostNiche);
+    setCards(cached ? applyPlans(DEFAULT_PLAN_CARDS, cached) : cardsForNiche(hostNiche));
     (async () => {
       try {
         const plans = await fetchPlans(token);
         if (cancelled) return;
+        writeCachedPlans(storage, userId, hostNiche, plans);
         setCards(applyPlans(DEFAULT_PLAN_CARDS, plans));
         const planId = currentPlanId(await fetchEntitlements(token));
         if (!cancelled && planId) setCurrentId(planId);
@@ -73,7 +82,7 @@ export default function PricingPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isHost, userId]);
+  }, [isHost, userId, hostNiche]);
 
   // Back from Paystack: poll until the server confirms or rejects the payment.
   useEffect(() => {
@@ -162,8 +171,8 @@ export default function PricingPage() {
           <p className="eyebrow">Host plans</p>
           <h1 className="pricing-title">Pricing</h1>
 
-          <div className={`plans${cards.length === 4 ? ' plans--four' : ''}`}>
-            {cards.map((card, index) => {
+          <div className={`plans${cards && cards.length === 4 ? ' plans--four' : ''}`} aria-busy={cards ? undefined : 'true'}>
+            {(cards || []).map((card, index) => {
               const current = card.id === currentId;
               const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;
               const price = yearly ? card.yearly : card.monthly;

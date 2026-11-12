@@ -82,6 +82,50 @@ export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
 
 export const formatPrice = (value: number) => Number(value).toLocaleString('en-KE');
 
+const PROPERTY_SHOP_NICHES = new Set(['property', 'shop', 'office']);
+const copyCards = (cards: PlanCard[]) => cards.map((card) => ({ ...card, features: [...card.features] }));
+
+/**
+ * The cards to show for the host's posting niche before the server's plans
+ * arrive, so a host never sees another niche's plans first. Null when the
+ * niche is unknown (wait for the server instead of guessing).
+ */
+export function cardsForNiche(hostNiche: string | null | undefined): PlanCard[] | null {
+  if (!hostNiche) return null;
+  if (NICHE_PLAN_CARDS[hostNiche]) return copyCards(NICHE_PLAN_CARDS[hostNiche]);
+  if (PROPERTY_SHOP_NICHES.has(hostNiche)) return copyCards(DEFAULT_PLAN_CARDS);
+  return null;
+}
+
+// ---- Plans cache (per account, this tab) ----
+
+export const PLANS_CACHE_PREFIX = 'varoom_billing_plans:';
+export const PLANS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface CachedPlans { hostNiche: string | null; savedAt: number; plans: BillingPlan[] }
+
+/** The server's plans saved for this account and niche within the TTL, else null. */
+export function readCachedPlans(storage: Storage | null, userId: string, hostNiche: string | null, now = Date.now()): BillingPlan[] | null {
+  if (!storage || !userId) return null;
+  try {
+    const raw = storage.getItem(PLANS_CACHE_PREFIX + userId);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as CachedPlans;
+    if (!cached || cached.hostNiche !== hostNiche || !Array.isArray(cached.plans) || !cached.plans.length
+        || !Number.isFinite(cached.savedAt) || now - cached.savedAt > PLANS_CACHE_TTL_MS) return null;
+    return cached.plans;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedPlans(storage: Storage | null, userId: string, hostNiche: string | null, plans: BillingPlan[], now = Date.now()) {
+  if (!storage || !userId) return;
+  try {
+    storage.setItem(PLANS_CACHE_PREFIX + userId, JSON.stringify({ hostNiche, savedAt: now, plans } satisfies CachedPlans));
+  } catch { /* Storage full or unavailable: the next visit fetches again. */ }
+}
+
 /** Yearly billing switches on only when every plan has a yearly price. */
 export const yearlyReady = (cards: PlanCard[]) => cards.every((card) => Number(card.yearly) > 0);
 

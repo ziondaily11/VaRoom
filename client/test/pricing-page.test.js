@@ -66,6 +66,38 @@ test('Airbnb, Hotel and Venue plans use their own cards, priced and listed by th
   assert.match(read('pages', 'pricing.tsx'), /plans--four/);
 });
 
+test('first paint shows only the host\'s own niche cards, never another niche\'s', () => {
+  assert.deepEqual(pricing.cardsForNiche('hotel').map((c) => c.id), ['hotel_dining', 'hotel_boutique', 'hotel_standard', 'hotel_plus']);
+  assert.deepEqual(pricing.cardsForNiche('airbnb').map((c) => c.id), ['airbnb_starter', 'airbnb_pro', 'airbnb_business']);
+  assert.deepEqual(pricing.cardsForNiche('venue').map((c) => c.id), ['venue_basic', 'venue_pro', 'venue_premium']);
+  for (const niche of ['property', 'shop', 'office']) assert.equal(pricing.cardsForNiche(niche)[0].name, 'Basic');
+  assert.equal(pricing.cardsForNiche(null), null, 'unknown niche waits for the server');
+  assert.equal(pricing.cardsForNiche('unknown'), null);
+  pricing.cardsForNiche('hotel')[0].features.push('mutated');
+  assert.equal(pricing.NICHE_PLAN_CARDS.hotel[0].features.includes('mutated'), false, 'returns copies');
+
+  const page = read('pages', 'pricing.tsx');
+  assert.match(page, /useState<PlanCard\[\] \| null>\(null\)/, 'no default cards before the niche is known');
+  assert.doesNotMatch(page, /useState<PlanCard\[\]>\(DEFAULT_PLAN_CARDS\)/);
+});
+
+test('plans cache is per account and niche, and expires', () => {
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  const plans = [{ id: 'hotel_dining', display_name: 'Dining', monthly_amount_minor: 200000, niche: 'hotel' }];
+  pricing.writeCachedPlans(storage, 'user-a', 'hotel', plans, 1000);
+  assert.deepEqual(pricing.readCachedPlans(storage, 'user-a', 'hotel', 2000), plans);
+  assert.equal(pricing.readCachedPlans(storage, 'user-b', 'hotel', 2000), null, 'other accounts never see it');
+  assert.equal(pricing.readCachedPlans(storage, 'user-a', 'airbnb', 2000), null, 'a niche change ignores it');
+  assert.equal(pricing.readCachedPlans(storage, 'user-a', 'hotel', 1000 + pricing.PLANS_CACHE_TTL_MS + 1), null, 'expired');
+  store.set(pricing.PLANS_CACHE_PREFIX + 'user-a', '{not json');
+  assert.equal(pricing.readCachedPlans(storage, 'user-a', 'hotel', 2000), null, 'corrupt entries are ignored');
+  assert.equal(pricing.readCachedPlans(null, 'user-a', 'hotel'), null);
+  const throwing = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('full'); } };
+  assert.equal(pricing.readCachedPlans(throwing, 'user-a', 'hotel'), null);
+  assert.doesNotThrow(() => pricing.writeCachedPlans(throwing, 'user-a', 'hotel', plans));
+});
+
 test('plans, entitlements and checkout send the token; errors carry the server message', async () => {
   let seen;
   const plans = await pricing.fetchPlans('tok', async (url, init) => { seen = init; return json(200, { plans: [{ id: 'p' }] }); });

@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import { loadPublicListingVideo, type ListingVideo } from '../../lib/media/listingVideo';
 import {
-  cardAmenities, cardLocation, categoryLabel, formatPrice, normalizeListingTitle, type MarketplaceListing,
+  cardLocation, categoryLabel, categoryTone, formatPrice, normalizeListingTitle, type MarketplaceListing,
 } from '../../lib/marketplace/marketplace';
-import { AMENITY_ICONS, ICON_BOOKMARK_FILLED, ICON_BOOKMARK_OUTLINE } from './marketplaceIcons';
+import { ICON_BOOKMARK_FILLED, ICON_BOOKMARK_OUTLINE, ICON_PIN } from './marketplaceIcons';
 
-// One Marketplace listing card (legacy createListingCard): photo, or the
-// listing's muted looping video once the card is near the viewport.
+// One Marketplace listing card: a full-bleed photo (or the listing's muted
+// looping video once the card is near the viewport), a category tag, and a
+// floating panel with the title, location, price and save button.
 
 // One observer for every card on the page.
 const nearViewCallbacks = new Map<Element, () => void>();
@@ -81,7 +81,6 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
   const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
   const price = formatPrice(listing.listing_booking_details, listing.category);
   const location = cardLocation(listing);
-  const amenities = cardAmenities(listing, (key) => Boolean(AMENITY_ICONS[key]));
   const showVideo = Boolean(video && video.videoUrl && !videoFailed);
 
   let media: React.ReactNode;
@@ -146,42 +145,32 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
     >
       <div className={`card-media${videoPending ? ' is-loading' : ''}`} data-media-listing-id={listing.id} ref={mediaRef}>
         {media}
-        <span className="card-verified">{label}</span>
-        <button
-          type="button"
-          className={`card-save ${saved ? 'saved' : ''}`}
-          data-listing-id={listing.id}
-          aria-label="Save"
-          onClick={(event) => { event.stopPropagation(); onSave(listing.id); }}
-          dangerouslySetInnerHTML={svg(saved ? ICON_BOOKMARK_FILLED : ICON_BOOKMARK_OUTLINE)}
-        />
       </div>
+      <span className={`card-category card-category--${categoryTone(listing.category)}`}>{label}</span>
       <div className="card-body">
-        <div className="card-title">{title}</div>
-        {location && <div className="card-loc">{location}</div>}
-        <div className="card-amenities" aria-label="Property amenities">
-          {amenities.map((key) => {
-            const name = key.replace(/_/g, ' ');
-            return <span key={key} className="card-amenity" title={name} aria-label={name} dangerouslySetInnerHTML={svg(AMENITY_ICONS[key])} />;
-          })}
-        </div>
-        <div className="card-foot">
+        <div className="card-text">
+          <div className="card-title">{title}</div>
+          {location && (
+            <div className="card-loc">
+              <span className="card-loc-pin" aria-hidden="true" dangerouslySetInnerHTML={svg(ICON_PIN)} />
+              <span className="card-loc-text">{location}</span>
+            </div>
+          )}
           {price
             ? (price.isSale
               ? <div className="card-price">{`${price.isStarting ? 'From ' : ''}KSh ${price.amount.toLocaleString()}`}</div>
-              : <div className="card-price">{`KSh ${price.amount.toLocaleString()} `}<span>{`/ ${price.unit}`}</span></div>)
+              : <div className="card-price">{`KSh ${price.amount.toLocaleString()}`}<span>{`/${price.unit}`}</span></div>)
             : <div className="card-price"><span>Price on request</span></div>}
-          <Link
-            href={href}
-            className="card-book"
-            aria-label="View listing"
-            onClick={(event) => {
-              // A modified click opens a new tab; a plain click is the card's.
-              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) event.stopPropagation();
-              else event.preventDefault();
-            }}
-          >View property →</Link>
         </div>
+        <button
+          type="button"
+          className={`card-save${saved ? ' saved' : ''}`}
+          data-listing-id={listing.id}
+          aria-label={saved ? 'Remove from saved' : 'Save'}
+          aria-pressed={saved}
+          onClick={(event) => { event.stopPropagation(); onSave(listing.id); }}
+          dangerouslySetInnerHTML={svg(saved ? ICON_BOOKMARK_FILLED : ICON_BOOKMARK_OUTLINE)}
+        />
       </div>
     </div>
   );

@@ -61,7 +61,7 @@ test('guests from a link filter the embedded details and the rows', async () => 
   await assert.rejects(mkt.fetchListingPage(fakeClient({ data: null, error: { message: 'down' } }), { q: '', category: 'all', guests: '' }, 0));
 });
 
-test('card rules: price, sale price, title and location clean-up, four known amenities', () => {
+test('card rules: price, sale price, title and location clean-up, category tag', () => {
   assert.deepEqual({ ...mkt.formatPrice([{ price_amount: '4500', price_unit: null }], 'airbnb') }, { amount: 4500, unit: 'night' });
   assert.deepEqual({ ...mkt.formatPrice({ listing_purpose: 'sale', sale_price_amount: 9000000, sale_price_mode: 'starting' }, 'property') }, { amount: 9000000, unit: '', isSale: true, isStarting: true });
   assert.equal(mkt.formatPrice([{}], 'hotel'), null);
@@ -70,9 +70,9 @@ test('card rules: price, sale price, title and location clean-up, four known ame
   assert.equal(mkt.normalizeListingTitle('Sea  View'), 'Sea View');
   assert.equal(mkt.sanitizeLocationText('Location to be added'), '');
   assert.equal(mkt.cardLocation(listing({ location_text: null, listing_booking_details: [{ location_text: ' Westlands ' }] })), 'Westlands');
-  const known = new Set(['wifi', 'pool', 'parking', 'tv', 'gym']);
-  assert.deepEqual(mkt.cardAmenities(listing(), (k) => known.has(k)), ['wifi', 'pool', 'parking', 'tv']);
   assert.equal(mkt.categoryLabel('venue'), 'Event Venues');
+  assert.equal(mkt.categoryTone('hotel'), 'amber');
+  assert.equal(mkt.categoryTone('castle'), 'teal', 'unknown categories fall back to one tone');
 });
 
 test('newest first; a looking-soon client sees their categories first only in the default view', () => {
