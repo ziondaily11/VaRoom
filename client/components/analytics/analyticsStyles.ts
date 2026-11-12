@@ -38,6 +38,21 @@ export const ANALYTICS_CSS = `
 .va-segctl button[aria-pressed="true"]{background:var(--fg);color:var(--card)}
 .va-select{font-size:.84rem;font-weight:550;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 34px 9px 14px;max-width:240px;appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.va-picker{position:relative}
+.va-picker .va-select{cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.va-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:30;min-width:100%;width:max-content;max-width:300px;max-height:320px;overflow-y:auto;padding:6px;
+  display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 40px -16px rgba(0,0,0,.28);
+  transform-origin:var(--origin-x,50%) -8px}
+.va-menu[data-state="open"]{animation:va-menu-in 200ms cubic-bezier(.2,.8,.2,1) both}
+.va-menu[data-state="closing"]{animation:va-menu-out 150ms cubic-bezier(.4,0,1,1) both;pointer-events:none}
+.va-menu button{border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:10px;font-size:.84rem;font-weight:550;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.va-menu button:hover,.va-menu button:focus-visible{background:var(--soft);color:var(--fg);outline:none}
+.va-menu button[aria-selected="true"]{color:var(--fg);background:var(--accent-soft)}
+.va-menu[data-state="open"] button{animation:va-row-in 200ms cubic-bezier(.2,.8,.2,1) both}
+@keyframes va-menu-in{from{opacity:0;transform:translateY(-6px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes va-menu-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px) scale(.92)}}
+@keyframes va-row-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.va-menu,.va-menu button{animation-duration:1ms!important;animation-delay:0ms!important}}
 .va-iconbtn{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .va-iconbtn:hover{border-color:var(--fg)}
 
