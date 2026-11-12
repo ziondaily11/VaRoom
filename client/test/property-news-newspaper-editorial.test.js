@@ -13,13 +13,13 @@ const format = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'proper
 test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
 
-  // Prominent newspaper masthead
+  // The masthead names the paper once: no edition line or strapline explaining it.
   assert.match(source, /className="newspaper-masthead-container"/);
   assert.match(source, /className="masthead-title">DAILY NEWS<\/h1>/);
-  assert.match(source, /className="masthead-sub-identity"/);
+  assert.match(source, /className="masthead-brand"/);
   assert.match(source, /className="masthead-rule-thick"/);
   assert.match(source, /className="masthead-rule-thin"/);
-  assert.match(source, /Original Country News Edition/);
+  assert.doesNotMatch(source, /Original Country News Edition|masthead-sub-identity|FRONT PAGE DISPATCH/);
   assert.match(source, /formatMastheadDate\(mastheadDate\)/);
 
   // The masthead dates the edition by the article's publication date (long
@@ -31,31 +31,36 @@ test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () 
   assert.equal(format.formatMastheadDate(undefined), today);
   assert.equal(format.formatMastheadDate('not a date'), today);
 
-  // Article Header
+  // Article Header: the place and the date sit on separate lines.
   assert.match(source, /className="article-header"/);
   assert.match(source, /className="eyebrow"/);
   assert.match(source, /className="article-headline"/);
-  assert.match(source, /className="article-meta meta"/);
+  assert.match(source, /<Dateline news=\{detailItem\} detailed \/>/);
+  assert.match(source, /className="dateline-place"/);
+  assert.match(source, /className="dateline-date"/);
+  assert.match(source, /\.dateline\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;/);
   assert.match(source, /className="editorial-divider"/);
 });
 
-test('Section 3: Two-Column Editorial Article Body with Text Trail and Image Trail', () => {
+test('Section 3: Newspaper columns: media heads the second column and the story continues beneath it', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
 
-  // Editorial columns container
-  assert.match(source, /className=\{`editorial-columns \$\{hasMedia \? 'has-media' : 'no-media'\}`\}/);
-
-  // Left column: text trail
-  assert.match(source, /className="text-trail"/);
+  assert.match(source, /className=\{`article-columns\$\{twoColumns \? '' : ' single'\}`\}/);
   assert.match(source, /className="detail-body"/);
   assert.match(source, /className="editorial-subhead"/);
   assert.match(source, /className="editorial-pullquote"/);
   assert.match(source, /detail-lead/);
   assert.match(source, /detail-p/);
-
-  // Right column: image trail
-  assert.match(source, /className="image-trail"/);
+  assert.match(source, /className="article-media"/);
   assert.match(source, /aria-label="Article Media"/);
+
+  // Columns balance: equal paragraphs split in half; media on the right moves text left.
+  const p = ['a'.repeat(400), 'b'.repeat(400), 'c'.repeat(400), 'd'.repeat(400)];
+  assert.equal(format.columnSplit(p), 2);
+  assert.equal(format.columnSplit(p, 0, 800), 3);
+  assert.equal(format.columnSplit(p, 800, 0), 1, 'a long standfirst keeps less body on the left');
+  assert.equal(format.columnSplit(['only']), 1, 'the first column always keeps a paragraph');
+  assert.equal(format.columnSplit(p, 0, 100000), 4, 'very large media leaves the whole body on the left');
 });
 
 test('Section 4: Conditional Image and Media Rendering', () => {
@@ -81,7 +86,7 @@ test('Section 4: Conditional Image and Media Rendering', () => {
   ]);
   assert.equal(format.extractImages({ id: 'b', title: 'T', image_url: 'https://img.test/x.jpg', credit: 'Own' })[0].credit, 'Own');
 
-  // Failed images drop out; the right column exists only while an image or a video remains.
+  // Failed images drop out; media exists only while an image or a video remains.
   const one = { id: 'c', title: 'T', image_url: 'https://img.test/only.jpg' };
   assert.equal(format.articleMedia(one, {}).hasMedia, true);
   assert.deepEqual(format.articleMedia(one, { 'https://img.test/only.jpg': true }), { activeImages: [], hasVideo: false, hasMedia: false });
@@ -89,11 +94,10 @@ test('Section 4: Conditional Image and Media Rendering', () => {
   assert.deepEqual(format.articleMedia(null, {}), { activeImages: [], hasVideo: false, hasMedia: false });
   assert.match(source, /articleMedia\(detailItem, failedImageUrls\)/);
 
-  // When hasMedia is false, right column is omitted
-  assert.match(source, /\{hasMedia && \(\s*<aside className="image-trail"/);
-
-  // No-media CSS ensures comfortable reading width without empty gap
-  assert.match(source, /\.editorial-columns\.no-media\s*\{\s*display:\s*block;\s*max-width:\s*780px;/);
+  // Without media, a long story still uses two columns; a short one is a single centred column.
+  assert.match(source, /media=\{hasMedia && \(\s*<aside className="article-media"/);
+  assert.match(source, /const MIN_TWO_COLUMN_CHARS = 1400;/);
+  assert.match(source, /\.article-columns\.single\s*\{\s*grid-template-columns:\s*minmax\(0,\s*720px\);\s*justify-content:\s*center;/);
 
   // A failing image is reported so it leaves the media list
   assert.match(source, /onFailed=\{.*?handleImageFail\(img\.url\).*?\}/);
@@ -107,14 +111,13 @@ test('Section 4: Conditional Image and Media Rendering', () => {
 test('Section 5: Responsive Design across Desktop, Tablet, and Mobile', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
 
-  // Desktop two-column grid
-  assert.match(source, /\.editorial-columns\.has-media\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s*minmax\(0,\s*1fr\)/);
+  // Desktop: two equal columns with a rule between them.
+  assert.match(source, /\.article-columns\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
+  assert.match(source, /\.article-col \+ \.article-col\s*\{[\s\S]*?border-left:\s*1px solid/);
 
-  // Tablet breakpoint (max-width: 900px)
-  assert.match(source, /@media\s*\(max-width:\s*900px\)/);
-
-  // Mobile single column reflow (max-width: 768px)
-  assert.match(source, /@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?\.editorial-columns\.has-media\s*\{[\s\S]*?flex-direction:\s*column/);
+  // Tablet and phone (max-width: 900px): one column.
+  assert.match(source, /@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*?\.article-columns\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+  assert.match(source, /@media\s*\(max-width:\s*768px\)/);
 });
 
 test('Section 6: Routing and Property News Links to Native TSX Page', () => {
