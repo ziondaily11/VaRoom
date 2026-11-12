@@ -14,6 +14,7 @@ import {
   Card, DiningPanel, GhostBento, GuestInterest, Hero, ListingTable, LockedAnalytics, PlanPayments, Responsiveness, Reviews, Tile,
 } from './AnalyticsSections';
 import { Icon } from './analyticsIcons';
+import ListingPicker from './ListingPicker';
 import { ANALYTICS_CSS } from './analyticsStyles';
 
 /* ---------- Cached loading ---------- */
@@ -261,10 +262,7 @@ export default function HostAnalytics({ client, userId, firstName, listingId, on
           {(!data || data.access) && (
             <div className="va-controls">
               {(options.data?.length ?? 0) > 1 && (
-                <select className="va-select" aria-label="Listing" value={listingId || ''} onChange={(e) => onListingChange(e.target.value || null)}>
-                  <option value="">All listings</option>
-                  {(options.data || []).map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
-                </select>
+                <ListingPicker options={options.data || []} value={listingId} onChange={onListingChange} />
               )}
               <div className="va-segctl" role="group" aria-label="Date range">
                 {ranges.map((k) => <button key={k} type="button" aria-pressed={rk === k} onClick={() => chooseRange(k)}>{RANGE_SHORT[k]}</button>)}
