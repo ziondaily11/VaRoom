@@ -9,7 +9,8 @@ import {
 
 const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message) || fallback;
 
-export default function AddAccountModal() {
+/** `openOnMount`: loaded on first use (LazyAddAccountModal), so it opens straight away. */
+export default function AddAccountModal({ openOnMount = false }: { openOnMount?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,6 +66,8 @@ export default function AddAccountModal() {
       }
     };
   }, [handleOpen]);
+
+  useEffect(() => { if (openOnMount) handleOpen(); }, [openOnMount, handleOpen]);
 
   // Focus email input on open & manage body scroll
   useEffect(() => {
