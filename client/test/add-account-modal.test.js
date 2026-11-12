@@ -144,10 +144,18 @@ test('both sidebars open the in-app modal instead of redirecting to a login page
   }
 });
 
-test('_app renders AddAccountModal globally across the application', () => {
+test('_app renders AddAccountModal globally, loading its code on first open', () => {
   const appCode = read('pages', '_app.tsx');
-  assert.match(appCode, /import AddAccountModal from '\.\.\/components\/AddAccountModal';/);
-  assert.match(appCode, /<AddAccountModal \/>/);
+  assert.match(appCode, /import LazyAddAccountModal from '\.\.\/components\/LazyAddAccountModal';/);
+  assert.match(appCode, /<LazyAddAccountModal \/>/);
+  assert.doesNotMatch(appCode, /import AddAccountModal from/, 'the modal is not in every page\'s bundle');
+  const lazy = read('components', 'LazyAddAccountModal.tsx');
+  assert.match(lazy, /dynamic\(\(\) => import\('\.\/AddAccountModal'\), \{ ssr: false \}\)/);
+  assert.match(lazy, /window\.__varoomAddAccountModalMounted = true;/, 'the legacy switcher still defers to it');
+  assert.match(lazy, /addEventListener\('varoom:open-add-account', open\)/);
+  assert.match(lazy, /if \(switcher && !switcher\.openAddAccountModal\) switcher\.openAddAccountModal = open;/);
+  assert.match(lazy, /return opened \? <AddAccountModal openOnMount \/> : null;/);
+  assert.match(read('components', 'AddAccountModal.tsx'), /useEffect\(\(\) => \{ if \(openOnMount\) handleOpen\(\); \}, \[openOnMount, handleOpen\]\);/);
 });
 
 // ---------- The legacy vanilla dialog (public/js/account-switcher.js) ----------
