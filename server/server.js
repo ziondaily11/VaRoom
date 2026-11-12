@@ -20,6 +20,7 @@ const createAccountGroupRoutes = require('./routes/accountGroupRoutes');
 const { createAccountRoutes } = require('./routes/accountRoutes');
 const { runDeactivationMaintenance } = require('./lib/accountDeactivation');
 const { expireStaleRequests, remindExpiringRequests } = require('./lib/bookingExpiry');
+const { sendUnreadChatAlerts } = require('./lib/chatEmailAlerts');
 const { recordStepUp, verifiedTokenClaims } = require('./lib/stepUp');
 const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
@@ -873,6 +874,16 @@ function expireStaleBookingRequestsNow() {
 }
 setTimeout(expireStaleBookingRequestsNow, 90 * 1000).unref();
 setInterval(expireStaleBookingRequestsNow, BOOKING_EXPIRY_INTERVAL_MS).unref();
+
+// Chat messages left unread: emailed about after each person's chosen time
+// (Chat Settings), checked every 5 minutes.
+function sendUnreadChatAlertsNow() {
+  sendUnreadChatAlerts(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Sent ${count} unread chat email(s).`); })
+    .catch((error) => console.error('Unread chat emails failed:', error));
+}
+setTimeout(sendUnreadChatAlertsNow, 2 * 60 * 1000).unref();
+setInterval(sendUnreadChatAlertsNow, 5 * 60 * 1000).unref();
 
 const videoCleanupTimer = setInterval(() => {
   runFullCleanup().catch((error) => {

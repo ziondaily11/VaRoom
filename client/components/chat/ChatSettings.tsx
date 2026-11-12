@@ -2,8 +2,8 @@ import React, { useEffect, useId, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, loadProfileSettings, readStored, resolveSettings, saveProfileSetting,
-  type ChatSettingsState, type ToggleKey,
+  cleanAwayMessage, COPY, DEFAULT_AWAY_MESSAGE, effectiveEmailAlertMinutes, EMAIL_ALERT_CHOICES, loadProfileSettings, readStored,
+  resolveSettings, saveProfileSetting, type ChatSettingsState, type EmailAlertMinutes, type ToggleKey,
 } from '../../lib/chat/chatSettings';
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
 import { CHAT_THEMES, chatThemeStyle, type ChatThemeId } from '../../lib/chat/chatThemes';
@@ -30,6 +30,27 @@ function ToggleRow({ label, description, checked, onChange }: { label: string; d
         <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>
       </div>
       <button type="button" className="cs-switch" role="switch" aria-checked={checked} aria-labelledby={`${id}-label`} aria-describedby={`${id}-desc`} onClick={() => onChange(!checked)} />
+    </div>
+  );
+}
+
+function ChoiceRow({ label, description, value, choices, onChange }: {
+  label: string;
+  description: string;
+  value: number;
+  choices: { minutes: number; label: string }[];
+  onChange: (value: number) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="cs-row cs-row--choice">
+      <div className="cs-row__text">
+        <label className="cs-row__label" htmlFor={id}>{label}</label>
+        <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>
+      </div>
+      <select id={id} className="cs-select" aria-describedby={`${id}-desc`} value={value} onChange={(event) => onChange(Number(event.target.value))}>
+        {choices.map((choice) => <option key={choice.minutes} value={choice.minutes}>{choice.label}</option>)}
+      </select>
     </div>
   );
 }
@@ -119,6 +140,12 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     void saveProfileSetting(getSupabaseClient(), userId, 'chatTheme', chatTheme, storage());
   };
 
+  const setEmailAlerts = (minutes: number) => {
+    const emailAlertMinutes = minutes as EmailAlertMinutes;
+    setSettings((current) => ({ ...current, emailAlertMinutes }));
+    void saveProfileSetting(getSupabaseClient(), userId, 'emailAlertMinutes', emailAlertMinutes, storage());
+  };
+
   const editAwayMessage = () => {
     const next = window.prompt('Edit away message', settings.awayMessage || DEFAULT_AWAY_MESSAGE);
     if (next === null) return;
@@ -141,6 +168,13 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
       <Section title="NOTIFICATIONS">
         <ToggleRow label="Message notifications" description="Receive notifications for new messages." checked={settings.messageNotifications} onChange={(v) => setToggle('messageNotifications', v)} />
         <ToggleRow label="Message previews" description="Show message content in notifications." checked={settings.messagePreviews} onChange={(v) => setToggle('messagePreviews', v)} />
+        <ChoiceRow
+          label="Email me about unread messages"
+          description="When a message waits unread, we email you once. The email never includes the message."
+          value={effectiveEmailAlertMinutes(settings.emailAlertMinutes, role)}
+          choices={EMAIL_ALERT_CHOICES}
+          onChange={setEmailAlerts}
+        />
       </Section>
       <Section title="PRIVACY & MESSAGING">
         <ToggleRow label="Read receipts" description="Let others know when you’ve read their messages." checked={settings.readReceipts} onChange={(v) => setToggle('readReceipts', v)} />
