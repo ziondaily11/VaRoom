@@ -46,6 +46,7 @@ import { AmenitiesField, AmenitiesLibrary } from '../components/listWizard/Ameni
 import { OfficeShopDetails, OfficeShopLocation, OfficeShopMedia, OfficeShopPricing, OfficeShopReview } from '../components/listWizard/OfficeShopFields';
 import type { ExistingListingDocument } from '../components/listWizard/OfficeShopFields';
 import { profileWithNiche } from '../lib/auth/session';
+import { managerHostId, useWorkspace } from '../lib/team/team';
 
 // List a space (migrated from legacy-pages/list.html; also served at
 // /properties): the five-step listing wizard for creating or editing
@@ -64,7 +65,9 @@ export default function ListPage() {
   const router = useRouter();
   const { status, user } = useAuth();
   const client = getSupabaseClient();
-  const userId = user?.id || null;
+  const ownId = user?.id || null;
+  // The host whose listing this is: the account's own, or the company a team Manager works as.
+  const userId = managerHostId(ownId, useWorkspace(ownId));
 
   // ---------- State ----------
   const [checkingText, setCheckingText] = useState('Checking your account...');
@@ -128,8 +131,8 @@ export default function ListPage() {
   const token = useCallback(async (): Promise<string | null> => {
     if (!client || !userId) return null;
     const { data: { session } } = await client.auth.getSession();
-    return session && session.access_token && session.user.id === userId ? session.access_token : null;
-  }, [client, userId]);
+    return session && session.access_token && session.user.id === ownId ? session.access_token : null;
+  }, [client, ownId]);
 
   /** Updates the chosen media/documents now (for the flow in progress) and on screen. */
   const patchMedia = useCallback((patch: Partial<WizardMedia>) => {
