@@ -214,10 +214,13 @@ function queryValue(value: string | string[] | undefined): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
-export default function HostBookingsView({ showToast }: { showToast: (message: string) => void }) {
+/** hostId: the account's own id, or the company a team Manager works as. */
+export default function HostBookingsView({ hostId, showToast }: { hostId: string; showToast: (message: string) => void }) {
   const router = useRouter();
   const { user, session } = useAuth();
-  const userId = user?.id || null;
+  const ownId = user?.id || null;
+  // Cached per viewer and host, so a company's bookings never show as the account's own.
+  const userId = ownId ? (hostId === ownId ? ownId : `${ownId}@${hostId}`) : null;
   const token = session?.access_token || null;
   const cached = userId ? getHostBookings(userId) : null;
   const [bookings, setBookings] = useState<HostBooking[] | null>(cached ? cached.bookings : null);
@@ -253,7 +256,7 @@ export default function HostBookingsView({ showToast }: { showToast: (message: s
     const current = getHostBookings(userId);
     if (current && Date.now() - current.fetchedAt < BOOKINGS_STALE_MS) return undefined;
     let cancelled = false;
-    fetchHostBookings(client, userId).then((rows) => {
+    fetchHostBookings(client, hostId).then((rows) => {
       save({ bookings: rows });
       if (cancelled) return;
       setBookings(rows);
@@ -264,13 +267,13 @@ export default function HostBookingsView({ showToast }: { showToast: (message: s
       if (!cancelled && !current) setLoadError(true);
     });
     if (tokenRef.current) {
-      fetchTableReservations(tokenRef.current).then((rows) => {
+      fetchTableReservations(tokenRef.current, hostId).then((rows) => {
         save({ reservations: rows });
         if (!cancelled) setReservations(rows);
       }, (error) => console.error('Failed to load table reservations:', error));
     }
     return () => { cancelled = true; };
-  }, [userId, save]);
+  }, [userId, hostId, save]);
 
   // Fade the first results in (as before).
   useEffect(() => {
@@ -345,7 +348,7 @@ export default function HostBookingsView({ showToast }: { showToast: (message: s
     if (busy || !client || !userId) return;
     setBusy(true);
     try {
-      const { status } = await respondToBooking(client, { booking, userId, decision });
+      const { status } = await respondToBooking(client, { booking, userId: hostId, decision });
       const next = (bookings || []).map((b) => (b.id === booking.id ? { ...b, status } : b));
       save({ bookings: next });
       setBookings(next);

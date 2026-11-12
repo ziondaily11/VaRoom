@@ -272,7 +272,7 @@ test('host: listing video loads once per listing; videos are kept for less than 
 
 test('/bookings is the native page inside the app shell', () => {
   const page = read('pages', 'bookings.tsx');
-  assert.match(page, /<HostBookingsView showToast=\{toast\.show\} \/>/);
+  assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} \/>/);
   assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} \/>/);
   assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);

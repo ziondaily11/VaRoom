@@ -115,8 +115,11 @@ export interface TableReservation {
   occasion_details?: string | null;
 }
 
-export async function fetchTableReservations(token: string, fetchFn: typeof fetch = fetch): Promise<TableReservation[]> {
-  const response = await fetchFn('/api/host/table-reservations', { headers: { Authorization: `Bearer ${token}` } });
+/** hostId: whose reservations (a team Manager's company); the server checks the role. */
+export async function fetchTableReservations(token: string, hostId?: string, fetchFn: typeof fetch = fetch): Promise<TableReservation[]> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (hostId) headers['X-VaRoom-Host'] = hostId;
+  const response = await fetchFn('/api/host/table-reservations', { headers });
   const payload = await response.json().catch(() => ({})) as { error?: string; reservations?: TableReservation[] };
   if (!response.ok) throw new Error(payload.error || 'Unable to load table reservations');
   return Array.isArray(payload.reservations) ? payload.reservations : [];

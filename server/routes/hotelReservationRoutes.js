@@ -3,6 +3,7 @@ const supabaseAdmin = require('../lib/supabaseClient');
 const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, number } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
+const { actingHostId } = require('../lib/team');
 
 const router = express.Router();
 
@@ -151,9 +152,12 @@ router.post('/table-reservations', async (req, res) => {
 });
 
 router.get('/host/table-reservations', async (req, res) => {
-  const auth = await authenticatedUser(req, res, 'host');
+  const auth = await authenticatedUser(req, res);
   if (!auth) return;
-  const { data, error } = await supabaseAdmin.from('table_reservations').select('*').eq('host_id', auth.user.id).order('created_at', { ascending: false });
+  // The host's own, or (team Managers) the host they work for.
+  const hostId = await actingHostId(req, auth.user.id, 'manager');
+  if (!hostId || (hostId === auth.user.id && auth.profile.role !== 'host')) return res.status(403).json({ error: 'Host access required' });
+  const { data, error } = await supabaseAdmin.from('table_reservations').select('*').eq('host_id', hostId).order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: 'Unable to load table reservations' });
   return res.json({ reservations: data || [] });
 });

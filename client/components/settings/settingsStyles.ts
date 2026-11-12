@@ -225,6 +225,21 @@ export const SETTINGS_STYLES = `
   .settings-page .toggle-row:last-child{ border-bottom:none; }
   .settings-page .toggle-label{ font-size:.9rem; font-weight:600; }
   .settings-page .toggle-desc{ font-size:.76rem; color:var(--muted); margin-top:.15rem; }
+  .settings-page .team-roles{ display:grid; gap:.45rem; margin:.2rem 0 1rem; }
+  .settings-page .team-role{ display:flex; align-items:center; gap:.6rem; padding:.55rem .75rem; border:1px solid var(--line); border-radius:10px; font-size:.84rem; cursor:pointer; }
+  .settings-page .team-role.on{ border-color:var(--red); background:var(--nav-active-bg); }
+  .settings-page .team-role input{ accent-color:var(--red); }
+  .settings-page .team-list{ margin-top:.9rem; }
+  .settings-page .team-row{ padding:1rem 1.2rem; border-bottom:1px solid var(--line); }
+  .settings-page .team-row:last-child{ border-bottom:0; }
+  .settings-page .team-person{ display:flex; flex-wrap:wrap; align-items:baseline; gap:.2rem .6rem; margin-bottom:.6rem; }
+  .settings-page .team-person span{ color:var(--muted); font-size:.82rem; }
+  .settings-page .team-chip{ padding:.1rem .5rem; border-radius:999px; background:var(--nav-active-bg); font-size:.72rem !important; font-weight:600; }
+  .settings-page .team-chip.on{ color:var(--red) !important; }
+  .settings-page .team-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:.8rem; }
+  .settings-page .team-link{ border:0; background:none; padding:0; color:var(--muted); font:inherit; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .settings-page .team-link.danger{ color:var(--red-deep); }
+  .settings-page .team-empty{ margin:.8rem 0 0; color:var(--muted); font-size:.88rem; }
   .settings-page .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:0 1rem; }
   @media (max-width:560px){ .settings-page .field-pair{ grid-template-columns:1fr; } }
   .settings-page .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
