@@ -41,3 +41,15 @@ test('listing, photo, video and document routes act for the company a Manager wo
   assert.match(read('listingDocumentRoutes.js'), /return error \? null : actAsHost\(req, user\);/);
   assert.match(read('videoRoutes.js'), /return \{ user: host, error: null \};/);
 });
+
+test('chats: Messaging staff act for the company and each message records who wrote it', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', ...parts), 'utf8');
+  const routes = read('routes', 'chatRoutes.js');
+  assert.match(routes, /return \(await actAsHost\(req, user, 'messaging'\)\) \|\| user;/);
+  assert.match(routes, /sent_by: user\.actorId \|\| null,/);
+  assert.match(read('routes', 'chatAttachmentRoutes.js'), /return \(await actAsHost\(req, user, 'messaging'\)\) \|\| user;/);
+  const sql = read('migrations', '20261113_000067_team_chats.sql');
+  assert.match(sql, /c\.client_id = auth\.uid\(\) or public\.varoom_can_act_for\(c\.host_id, 'messaging'\)/);
+});

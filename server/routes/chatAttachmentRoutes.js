@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { ValidationError, assertAllowedKeys, text, uuid, number, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
@@ -20,7 +21,8 @@ async function authenticatedUser(req) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return null;
   const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  return user || null;
+  if (!user) return null;
+  return (await actAsHost(req, user, 'messaging')) || user;
 }
 
 async function conversationMember(conversationId, userId) {

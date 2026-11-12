@@ -6,6 +6,7 @@ import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
+import { actingHostFor, useWorkspace } from '../lib/team/team';
 import chatCache, {
   ChatConversation,
   ChatMessage,
@@ -76,7 +77,15 @@ function chatsStylesheetApplied(): boolean {
 const ELIE_ID = 'elie';
 
 
-export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
+/** Remounts when the account starts or stops working as a company (Settings → Team), so nothing of the other inbox stays. */
+export default function ChatsPage(props: { initialConversationId?: string } = {}) {
+  const { user } = useAuth();
+  const workspace = useWorkspace(user?.id || null);
+  const inbox = workspace && workspace.roles.includes('messaging') ? workspace.hostId : 'own';
+  return <ChatsView key={inbox} {...props} />;
+}
+
+function ChatsView({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
 
   // Session & User
@@ -126,7 +135,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Elie State
   const isElie = activeId === ELIE_ID;
   const [elieHistoryOpen, setElieHistoryOpen] = useState<boolean>(false);
-  const elie = useElie(userId);
+  // Elie is the signed-in person's own assistant, also while working as a company.
+  const elie = useElie(session?.user.id || null);
   const elieResetRef = useRef(elie.reset);
   elieResetRef.current = elie.reset;
 
@@ -530,7 +540,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, [api, scrollToBottom, updateSidebarCounts, bumpConversation, clearTyping, showTyping]);
 
   // Role follows the verified account's profile from AuthProvider.
-  const verifiedRole = accountRole(useAuth().profile);
+  const { profile: ownProfile, user: ownUser } = useAuth();
+  const workingAs = useWorkspace(ownUser?.id || null);
+  const verifiedRole = workingAs && workingAs.roles.includes('messaging') ? 'host' : accountRole(ownProfile);
   useEffect(() => {
     if (!verifiedRole) return;
     setRole(verifiedRole);
@@ -554,7 +566,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       if (cancelled) return;
       setSession(currentSession);
-      const curUserId = currentSession.user.id;
+      // Messaging staff working as a company see its chats (Settings → Team).
+      const curUserId = actingHostFor(currentSession.user.id, 'messaging');
       setUserId(curUserId);
     };
 
