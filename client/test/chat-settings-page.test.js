@@ -91,7 +91,7 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   const ChatSettings = loadChats('components/chat/ChatSettings.tsx', { user: { id: 'h1' } }).default;
   const sections = (html) => [...html.matchAll(/<h2 class="cs-section__title"[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
   const host = render(ChatSettings, { role: 'host', onOpenArchived() {} });
-  assert.deepEqual(sections(host), ['AWAY MODE', 'THEME', 'NOTIFICATIONS', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS']);
+  assert.deepEqual(sections(host), ['AWAY MODE', 'THEME', 'NOTIFICATIONS', 'QUICK REPLIES', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS']);
   for (const text of ['Away Mode', 'Away message', 'Message notifications', 'Message previews', 'Read receipts', 'Typing indicators', 'Archived conversations']) {
     assert.match(host, new RegExp(`<span class="cs-row__label"[^>]*>${text}</span>`), text);
   }
@@ -100,7 +100,7 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   assert.equal((host.match(/role="switch" aria-checked="true"/g) || []).length, 4, 'notifications, previews, receipts, typing');
   assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 1, 'away mode off');
   const client = render(ChatSettings, { role: 'client', onOpenArchived() {} });
-  assert.deepEqual(sections(client), ['THEME', 'NOTIFICATIONS', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS'], 'no away mode for clients');
+  assert.deepEqual(sections(client), ['THEME', 'NOTIFICATIONS', 'QUICK REPLIES', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS'], 'no away mode for clients');
 
   const page = loadChats('pages/chat-settings.tsx', { router: fakeRouter({ pathname: '/chat-settings', query: { role: 'client' } }) }).default;
   const html = render(page, {});

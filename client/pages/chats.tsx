@@ -34,6 +34,9 @@ import { ALBUM_MAX, addToSelection, albumAt, albumCaption, albumStatus } from '.
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
+import { useQuickReplies } from '../components/chat/useQuickReplies';
+import QuickReplyPicker from '../components/chat/QuickReplyPicker';
+import { matchQuickReplies, slashQuery, type QuickReply } from '../lib/chat/quickReplies';
 import { activeChatTheme, chatShellStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
 import {
   archiveOnServer, archiveStatusNote, bumpInbox, conversationPreview, conversationRouteQuery, deleteChatsQuestion,
@@ -952,6 +955,60 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (dropped) showStatusNote(`Up to ${ALBUM_MAX} photos can be sent at a time.`, 3500);
   };
 
+  // Quick replies (Chat Settings): "/" at the start of a message, or the
+  // composer's button, opens them; picking one fills the composer to edit.
+  const quickReplies = useQuickReplies(userId);
+  const [quickPickerOpen, setQuickPickerOpen] = useState(false);
+  const [slashDismissed, setSlashDismissed] = useState(false);
+  const [quickIndex, setQuickIndex] = useState(0);
+  const slash = isElie ? null : slashQuery(composerText);
+  const quickOpen = Boolean(activeId && !isElie && (quickPickerOpen || (slash !== null && !slashDismissed)));
+  const quickMatches = matchQuickReplies(quickReplies, slash ?? '');
+  useEffect(() => { setQuickIndex(0); }, [slash, quickOpen]);
+  useEffect(() => { if (slash === null) setSlashDismissed(false); }, [slash]);
+  useEffect(() => { setQuickPickerOpen(false); }, [activeId]);
+  const closeQuickReplies = () => { setQuickPickerOpen(false); setSlashDismissed(true); };
+  const pickQuickReply = (reply: QuickReply) => {
+    setQuickPickerOpen(false);
+    setComposerText(reply.body);
+    const editor = desktopEditorRef.current;
+    const onDesktop = window.matchMedia('(min-width: 761px)').matches;
+    if (editor && onDesktop) {
+      editor.textContent = reply.body;
+      editor.focus();
+      const selection = window.getSelection();
+      selection?.selectAllChildren(editor);
+      selection?.collapseToEnd();
+    } else {
+      window.requestAnimationFrame(() => { mobileTextareaRef.current?.focus(); updateComposerUI(); });
+    }
+  };
+  /** ↑ ↓ Enter Escape while the quick replies are open; true when the key was theirs. */
+  const quickReplyKey = (event: React.KeyboardEvent): boolean => {
+    if (!quickOpen) return false;
+    if (event.key === 'Escape') { event.preventDefault(); closeQuickReplies(); return true; }
+    if (!quickMatches.length) return false;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setQuickIndex((at) => (at + (event.key === 'ArrowDown' ? 1 : -1) + quickMatches.length) % quickMatches.length);
+      return true;
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      pickQuickReply(quickMatches[Math.min(quickIndex, quickMatches.length - 1)]);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (!quickPickerOpen) return undefined;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target as Element).closest('.qr-picker, .fmt-qr')) setQuickPickerOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [quickPickerOpen]);
+
   // Ctrl+V of a screenshot or a copied image opens the photo preview, as
   // choosing a photo does; text pastes are left to the composer.
   const onComposerPaste = (event: React.ClipboardEvent) => {
@@ -1241,6 +1298,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
           <symbol id="i-pin" viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4v5l-2 2-2-6-6-2 2-2h5l4-4z"/><path d="m9 15-5 5"/></symbol>
           <symbol id="i-list-dot" viewBox="0 0 24 24"><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+          <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H12L11 22l8.5-11.5H12L13 2Z"/></symbol>
           <symbol id="i-list-sq" viewBox="0 0 24 24"><rect x="3.7" y="5.2" width="1.6" height="1.6"/><rect x="3.7" y="11.2" width="1.6" height="1.6"/><rect x="3.7" y="17.2" width="1.6" height="1.6"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
           <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
           <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
@@ -1890,6 +1948,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 if (text.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
+                if (quickReplyKey(e)) return;
                 const action = composerKeyAction(e, { editor: 'desktop', isElie, replying: Boolean(replyTo), isPhone: () => window.matchMedia('(max-width: 760px)').matches });
                 if (action === 'block') {
                   e.preventDefault();
@@ -1918,6 +1977,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 if (e.target.value.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
+                if (quickReplyKey(e)) return;
                 const action = composerKeyAction(e, { editor: 'phone', isElie, replying: Boolean(replyTo), isPhone: () => window.matchMedia('(max-width: 760px)').matches });
                 if (action === 'cancel-reply') {
                   setReplyTo(null);
@@ -1928,6 +1988,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   handleSendMessage(e.currentTarget.value);
                 }
               }}
+            />
+
+            <QuickReplyPicker
+              open={quickOpen}
+              items={quickMatches}
+              hasAny={quickReplies.length > 0}
+              activeIndex={quickIndex}
+              onPick={pickQuickReply}
+              onHover={setQuickIndex}
+              onManage={() => { closeQuickReplies(); openChatSettings(); }}
             />
 
             {/* The listing this chat was opened from: sent with the next message */}
@@ -1988,6 +2058,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('insertOrderedList', false); }}>
                   <svg className="icon"><use href="#i-list-sq" /></svg>
+                </button>
+                <span className="divider" />
+                <button type="button" className="fmt-qr" aria-label="Quick replies" title="Quick replies (or type /)" aria-expanded={quickOpen}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setSlashDismissed(true); setQuickPickerOpen((was) => !was); }}>
+                  <svg className="icon"><use href="#i-bolt" /></svg>
                 </button>
               </div>
 
