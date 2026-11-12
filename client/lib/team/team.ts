@@ -35,6 +35,16 @@ export async function loadMemberships(client: SupabaseClient, userId: string): P
   return ((data || []) as unknown as Membership[]).filter((row) => row.host);
 }
 
+export interface CompanyListing { id: string; title: string | null; publication_state: string | null; availability_status: string | null }
+
+/** A company's listings, for a Manager working as it (newest first). */
+export async function loadCompanyListings(client: SupabaseClient, hostId: string): Promise<CompanyListing[]> {
+  const { data, error } = await client.from('listings').select('id,title,publication_state,availability_status')
+    .eq('host_id', hostId).order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []) as CompanyListing[];
+}
+
 /** The database's reason ("team: …") without the prefix. */
 const reason = (error: { message: string } | null) => (error ? error.message.replace(/^team: /, '') : null);
 
@@ -72,6 +82,25 @@ export function setWorkspace(next: Workspace | null): void {
   listeners.forEach((listener) => listener());
 }
 
+// While working as a company, VaRoom's own API calls say so (X-VaRoom-Host);
+// the server acts for the company only if this account has the role.
+let headerInstalled = false;
+function installHostHeader(): void {
+  if (headerInstalled || typeof window === 'undefined') return;
+  headerInstalled = true;
+  const original = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const workspace = read();
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const ownApi = url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
+    if (!workspace || !ownApi) return original(input, init);
+    const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+    if (!headers.has('X-VaRoom-Host')) headers.set('X-VaRoom-Host', workspace.hostId);
+    return original(input, { ...init, headers });
+  };
+}
+installHostHeader();
+
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 
 /** The company the signed-in account is working as, or null (another account's choice never applies). */
@@ -80,6 +109,6 @@ export function useWorkspace(userId: string | null): Workspace | null {
   return workspace && workspace.userId === userId ? workspace : null;
 }
 
-/** Whose bookings the page shows: the company's for a Manager working as it, otherwise the account's own. */
-export const bookingsHostId = (userId: string | null, workspace: Workspace | null) =>
+/** Whose bookings and listings a page works on: the company's for a Manager working as it, otherwise the account's own. */
+export const managerHostId = (userId: string | null, workspace: Workspace | null) =>
   (workspace && workspace.roles.includes('manager') ? workspace.hostId : userId);

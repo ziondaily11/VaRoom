@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
-import { bookingsHostId, useWorkspace } from '../lib/team/team';
+import { managerHostId, useWorkspace } from '../lib/team/team';
 import { loginUrl } from '../lib/safeRedirect';
 import ClientBookingsView from '../components/bookings/ClientBookingsView';
 import HostBookingsView, { HostBookingSkeleton } from '../components/bookings/HostBookingsView';
@@ -39,7 +39,7 @@ export default function BookingsPage() {
   const router = useRouter();
   const { status, profile, user } = useAuth();
   const userId = user?.id || null;
-  const hostId = bookingsHostId(userId, useWorkspace(userId));
+  const hostId = managerHostId(userId, useWorkspace(userId));
   // Working as a company (Settings → Team) shows its bookings, whatever this account's own role.
   const role = hostId !== userId ? 'host' : accountRole(profile);
   const toast = useToast();

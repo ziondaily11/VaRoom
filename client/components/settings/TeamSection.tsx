@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  acceptTeam, inviteToTeam, leaveTeam, loadMemberships, loadTeam, personName, setTeamRoles, setWorkspace, TEAM_ROLES, useWorkspace,
-  type Membership, type TeamMember, type TeamRole,
+  acceptTeam, inviteToTeam, leaveTeam, loadCompanyListings, loadMemberships, loadTeam, personName, setTeamRoles, setWorkspace, TEAM_ROLES, useWorkspace,
+  type CompanyListing, type Membership, type TeamMember, type TeamRole,
 } from '../../lib/team/team';
 import { DetailHead } from './SettingsIcons';
 
@@ -25,6 +26,29 @@ function RolePicker({ value, onChange, idPrefix }: { value: TeamRole[]; onChange
           />
           <span><strong>{role.label}</strong> · {role.desc}</span>
         </label>
+      ))}
+    </div>
+  );
+}
+
+/** The company's listings for a Manager working as it: edit one, or add a new one. */
+function CompanyListings({ hostId }: { hostId: string }) {
+  const [listings, setListings] = useState<CompanyListing[] | null>(null);
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return undefined;
+    let active = true;
+    loadCompanyListings(client, hostId).then((rows) => { if (active) setListings(rows); }, () => { if (active) setListings([]); });
+    return () => { active = false; };
+  }, [hostId]);
+  return (
+    <div className="team-listings">
+      <div className="team-listings-head"><strong>Listings</strong><Link href="/list" className="team-link">+ Add a listing</Link></div>
+      {listings === null ? <p className="team-empty">Loading listings…</p> : !listings.length ? <p className="team-empty">No listings yet.</p> : listings.map((listing) => (
+        <div className="team-listing" key={listing.id}>
+          <span>{listing.title || 'Untitled listing'}{listing.publication_state !== 'published' ? ' · Draft' : listing.availability_status === 'paused' ? ' · Paused' : ''}</span>
+          <Link href={`/list?edit=${encodeURIComponent(listing.id)}`} className="team-link">Edit</Link>
+        </div>
       ))}
     </div>
   );
@@ -152,6 +176,7 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
                       </>
                     )}
                   </div>
+                  {current && row.roles.includes('manager') && <CompanyListings hostId={row.host.id} />}
                 </div>
               );
             })}
