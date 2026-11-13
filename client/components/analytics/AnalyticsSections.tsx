@@ -6,6 +6,7 @@ import { change, contactTaps, lockedFeatures, NICHE_LABEL, sortListings, type Kp
 import type { DiningSummary, HostNiche, ListingRow, PeriodMetrics, PlanPayment, ReviewSummary } from '../../lib/analytics/types';
 import { Gauge, MiniColumns, MixBar, Sparkline, statusTone } from './AnalyticsCharts';
 import { Icon, kpiIcon } from './analyticsIcons';
+import { Count, SeenSection } from './motion';
 
 // Cards of the analytics page. Each takes ready data; loading and errors are
 // handled once by the page. Copy is kept to labels: the numbers do the talking.
@@ -14,7 +15,7 @@ export function Card({ title, icon, action, className = '', children }: {
   title?: string; icon?: string; action?: ReactNode; className?: string; children: ReactNode;
 }) {
   return (
-    <section className={`va-card ${className}`}>
+    <SeenSection className={`va-card ${className}`}>
       {(title || action) && (
         <div className="va-card-h">
           {title && <h2>{icon && <span className="va-ico"><Icon name={icon} size={16} /></span>}{title}</h2>}
@@ -22,7 +23,7 @@ export function Card({ title, icon, action, className = '', children }: {
         </div>
       )}
       {children}
-    </section>
+    </SeenSection>
   );
 }
 
@@ -43,37 +44,37 @@ export function Delta({ kpi, vs }: { kpi: Pick<Kpi, 'value' | 'previous' | 'bett
 
 export function Hero({ kpi, spark, vs }: { kpi: Kpi; spark: number[]; vs: string }) {
   return (
-    <section className="va-card va-hero" aria-label={kpi.label}>
+    <SeenSection className="va-card va-hero" aria-label={kpi.label}>
       <div className="va-hero-top">
         <span className="va-hero-label" title={kpi.note}>{kpi.label}</span>
         <span className="va-ico"><Icon name={kpiIcon(kpi.key)} /></span>
       </div>
       <div>
-        <p className="va-hero-value">{formatMetric(kpi.value, kpi.format)}</p>
+        <p className="va-hero-value"><Count value={kpi.value} format={kpi.format} /></p>
         <div className="va-hero-foot" style={{ marginTop: 12 }}><Delta kpi={kpi} vs={vs} /></div>
       </div>
       <div className="va-hero-spark"><Sparkline values={spark} width={300} height={76} variant="hero" /></div>
-    </section>
+    </SeenSection>
   );
 }
 
 export function Tile({ kpi, spark, vs }: { kpi: Kpi; spark: number[] | null; vs: string }) {
   const none = kpi.value === null;
   return (
-    <section className="va-card va-tile" aria-label={kpi.label}>
+    <SeenSection className="va-card va-tile" aria-label={kpi.label}>
       <div className="va-tile-top">
         <span className="va-tile-label" title={kpi.note}>{kpi.label}</span>
         <span className="va-ico"><Icon name={kpiIcon(kpi.key)} /></span>
       </div>
-      <p className={`va-tile-value${none ? ' none' : ''}`}>{none ? '—' : formatMetric(kpi.value, kpi.format)}</p>
+      <p className={`va-tile-value${none ? ' none' : ''}`}>{none ? '—' : <Count value={kpi.value} format={kpi.format} />}</p>
       {kpi.format === 'percent' && kpi.value !== null && (
-        <span className="va-meter" aria-hidden="true"><i style={{ width: `${Math.min(100, kpi.value * 100)}%` }} /></span>
+        <span className="va-meter" aria-hidden="true"><i className="va-growx" style={{ width: `${Math.min(100, kpi.value * 100)}%` }} /></span>
       )}
       <div className="va-tile-foot">
         <Delta kpi={kpi} vs={vs} />
         {spark && <Sparkline values={spark} />}
       </div>
-    </section>
+    </SeenSection>
   );
 }
 
@@ -113,7 +114,7 @@ export function ListingTable({ rows, columns, initialSort, onSelect }: {
               {columns.map((c) => (
                 <td key={c.key} className="num">
                   {c.format === 'kes' ? kes.format(r[c.key]) : num.format(r[c.key])}
-                  {c.key === sortKey && r[c.key] > 0 && <span className="va-cellbar" style={{ width: `${(r[c.key] / top) * 100}%` }} />}
+                  {c.key === sortKey && r[c.key] > 0 && <span className="va-cellbar va-growx" style={{ width: `${(r[c.key] / top) * 100}%` }} />}
                 </td>
               ))}
             </tr>
@@ -157,7 +158,7 @@ export function GuestInterest({ current }: { current: PeriodMetrics }) {
   ];
   return (
     <>
-      <p className="va-readout">{num.format(contactTaps(current))}<small>contact taps</small></p>
+      <p className="va-readout"><Count value={contactTaps(current)} format="count" /><small>contact taps</small></p>
       <MixBar parts={parts} />
       <ul className="va-legend">
         {parts.map((p) => <li key={p.key}><i className={p.swatch} />{p.label} <b>{num.format(p.value)}</b></li>)}
@@ -212,13 +213,13 @@ export function Reviews({ reviews }: { reviews: ReviewSummary }) {
   return (
     <>
       <div className="va-rating" aria-label={`${avg.toFixed(1)} out of 5 from ${reviews.count} reviews`}>
-        <b>{avg.toFixed(1)}</b>
+        <b><Count value={avg} format="decimal" /></b>
         <div><Stars value={avg} /><small>{num.format(reviews.count)} reviews{reviews.inPeriod ? ` · ${num.format(reviews.inPeriod)} new` : ''}</small></div>
       </div>
       {([5, 4, 3, 2, 1] as const).map((n) => (
         <div className="va-dist" key={n}>
           <span>{n}</span>
-          <span className="t"><i style={{ width: `${(reviews.distribution[n] / reviews.count) * 100}%` }} /></span>
+          <span className="t"><i className="va-growx" style={{ width: `${(reviews.distribution[n] / reviews.count) * 100}%` }} /></span>
           <span className="n">{reviews.distribution[n]}</span>
         </div>
       ))}

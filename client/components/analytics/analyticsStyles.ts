@@ -153,7 +153,7 @@ export const ANALYTICS_CSS = `
 .va-gauge{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
 .va-gauge svg{flex:0 0 auto}
 .va-gauge-track{fill:none;stroke:var(--soft);stroke-width:12}
-.va-gauge-fill{fill:none;stroke:var(--accent);stroke-width:12;stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.va-gauge-fill{fill:none;stroke:var(--accent);stroke-width:12;stroke-linecap:round;transition:stroke-dasharray 1.2s cubic-bezier(.2,.8,.2,1) .15s}
 .va-gauge-num{fill:var(--fg);font-size:1.75rem;font-weight:750;letter-spacing:-.03em}
 .va-gauge-sub{fill:var(--mute);font-size:.6875rem}
 .va-stats{display:grid;gap:14px;flex:1;min-width:170px}
@@ -223,4 +223,18 @@ export const ANALYTICS_CSS = `
 .va-lock .va-ico{background:rgba(255,255,255,.18);color:#fff;width:46px;height:46px;border-radius:15px}
 .va-cta{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:999px;background:#fff;color:var(--accent);font-weight:700;text-decoration:none}
 .va-cta:hover{background:#fff4f6}
+/* ---------- motion: plays once per card, when the card is first seen ---------- */
+@media (prefers-reduced-motion:no-preference){
+.va-draw{stroke-dasharray:1;stroke-dashoffset:1;animation:va-draw 1.3s cubic-bezier(.45,0,.2,1) .1s forwards paused}
+.va-fade{opacity:0;animation:va-fade .8s ease-out .8s forwards paused}
+.va-rise{transform-box:fill-box;transform-origin:50% 100%;animation:va-rise .7s cubic-bezier(.2,.8,.2,1) both paused}
+.va-growx{transform-origin:left center;animation:va-growx 1s cubic-bezier(.2,.8,.2,1) .15s both paused}
+.va-reveal{animation:va-reveal 1.1s cubic-bezier(.45,0,.2,1) .1s both paused}
+[data-seen] :is(.va-draw,.va-fade,.va-rise,.va-growx,.va-reveal){animation-play-state:running}
+}
+@keyframes va-draw{to{stroke-dashoffset:0}}
+@keyframes va-fade{to{opacity:1}}
+@keyframes va-rise{from{transform:scaleY(0)}}
+@keyframes va-growx{from{transform:scaleX(0)}}
+@keyframes va-reveal{from{clip-path:inset(0 100% 0 0)}}
 `;
