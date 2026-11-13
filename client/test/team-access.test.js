@@ -64,3 +64,16 @@ test('Messaging staff working as a company answer its chats; Elie stays their ow
   assert.match(page, /const elie = useElie\(session\?\.user\.id \|\| null\);/);
   assert.match(page, /workingAs && workingAs\.roles\.includes\('messaging'\) \? 'host' : accountRole\(ownProfile\)/);
 });
+
+test('Finance staff working as a company: its Plans & Billing and analytics; team notifications open Settings → Team', () => {
+  const api = read('lib', 'analytics', 'analyticsApi.ts');
+  assert.equal((api.match(/if \(company\) request = request\.setHeader\('X-VaRoom-Host', company\);/g) || []).length, 2);
+  const analytics = read('pages', 'analytics.tsx');
+  assert.match(analytics, /const isHost = Boolean\(financeFor\) \|\| profile\?\.role === 'host';/);
+  assert.match(analytics, /userId=\{financeFor \? financeFor\.hostId : user\.id\}/);
+  const settings = read('pages', 'settings.tsx');
+  assert.match(settings, /const showPlans = role === 'host' \|\| Boolean\(financeFor\);/);
+  assert.match(settings, /<PlansSection key=\{financeFor\.hostId\} userId=\{financeFor\.hostId\}/);
+  const notes = loadTs(path.join(root, 'lib', 'notificationsCache.ts'));
+  assert.equal(notes.notificationTarget({ type: 'booking_request', related_entity_type: 'booking', related_entity_id: 'b1', metadata: { team_host: 'h1' } }, 'client'), '/settings?section=team');
+});

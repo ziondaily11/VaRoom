@@ -4,6 +4,7 @@ import React, { useCallback, useEffect } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { useAuth } from '../lib/auth/AuthProvider';
+import { useWorkspace } from '../lib/team/team';
 import HostAnalytics, { AnalyticsSkeleton } from '../components/analytics/Analytics';
 
 // Host analytics. Rendered inside the persistent host shell (icon-only rail,
@@ -21,15 +22,18 @@ export default function AnalyticsPage() {
   const client = getSupabaseClient();
   const rawListing = router.query.listing;
   const listingId = typeof rawListing === 'string' && UUID.test(rawListing) ? rawListing : null;
-  const isHost = profile?.role === 'host';
+  // A Finance member working as a company sees the company's analytics.
+  const company = useWorkspace(user?.id || null);
+  const financeFor = company && company.roles.includes('finance') ? company : null;
+  const isHost = Boolean(financeFor) || profile?.role === 'host';
 
   useEffect(() => {
     if (status === 'signed-out') {
       window.location.assign(loginUrl(router.asPath || '/analytics'));
-    } else if (status === 'signed-in' && profile && profile.role !== 'host') {
+    } else if (status === 'signed-in' && profile && !isHost) {
       void router.replace('/');
     }
-  }, [status, profile, router]);
+  }, [status, profile, isHost, router]);
 
   const changeListing = useCallback((next: string | null) => {
     void router.replace({ pathname: '/analytics', query: next ? { listing: next } : {} }, undefined, { shallow: true, scroll: false });
@@ -49,8 +53,8 @@ export default function AnalyticsPage() {
       {!error && isHost && user && client && router.isReady && (
         // Keyed by account: a switch never shows the previous account's numbers.
         <HostAnalytics
-          key={user.id} client={client} userId={user.id}
-          firstName={(profile?.full_name || '').trim().split(/\s+/)[0] || null}
+          key={financeFor ? financeFor.hostId : user.id} client={client} userId={financeFor ? financeFor.hostId : user.id}
+          firstName={financeFor ? financeFor.name : (profile?.full_name || '').trim().split(/\s+/)[0] || null}
           listingId={listingId} onListingChange={changeListing}
         />
       )}

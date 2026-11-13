@@ -106,11 +106,11 @@ test('cancel and update card call the billing API; a bad link is refused', async
 
 test('Plans & Billing: hosts only, after Your Account, with every part of the section', () => {
   const sections = read('components', 'settings', 'SettingsSections.tsx');
-  assert.match(sections, /isHost \? \[CATEGORIES\[0\], PLANS_CATEGORY, BOOKINGS_CATEGORY, \.\.\.CATEGORIES\.slice\(1\)\] : CATEGORIES/);
+  assert.match(sections, /const categories = \[CATEGORIES\[0\], \.\.\.\(showPlans \? \[PLANS_CATEGORY\] : \[\]\), \.\.\.\(isHost \? \[BOOKINGS_CATEGORY\] : \[\]\), \.\.\.CATEGORIES\.slice\(1\)\];/);
   const page = read('pages', 'settings.tsx');
   assert.match(page, /isHost=\{role === 'host'\}/);
-  assert.match(page, /view === 'plans' && role === 'host'/);
-  assert.match(page, /\(wanted === 'plans' \|\| wanted === 'bookings'\) && role === 'host'/);
+  assert.match(page, /view === 'plans' && showPlans/);
+  assert.match(page, /\(wanted === 'plans' && showPlans\) \|\| \(wanted === 'bookings' && role === 'host'\)/);
   const plans = read('components', 'settings', 'PlansSection.tsx');
   for (const text of ['Subscription', 'Remaining listings', 'Payment Method', 'Billing Information', 'Invoices', 'Danger Zone', 'Cancel subscription', 'Yes, cancel subscription', 'Keep my plan', 'Print or save as PDF', 'Update card']) {
     assert.ok(plans.includes(text), text);

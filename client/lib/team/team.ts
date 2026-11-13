@@ -115,6 +115,12 @@ export function actingHostFor(userId: string, role: TeamRole): string {
   return workspace && workspace.userId === userId && workspace.roles.includes(role) ? workspace.hostId : userId;
 }
 
+/** The company this tab works as with the role (any account; another account clears it), or null. */
+export function workspaceHostWith(role: TeamRole): string | null {
+  const workspace = read();
+  return workspace && workspace.roles.includes(role) ? workspace.hostId : null;
+}
+
 /** Whose bookings and listings a page works on: the company's for a Manager working as it, otherwise the account's own. */
 export const managerHostId = (userId: string | null, workspace: Workspace | null) =>
   (workspace && workspace.roles.includes('manager') ? workspace.hostId : userId);

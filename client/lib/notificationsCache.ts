@@ -139,6 +139,8 @@ export function detailsFor(type: string): NotificationDetails {
 }
 
 export function notificationTarget(notification: NotificationItem, role: 'host' | 'client'): string | null {
+  // A copy for a team member: work as the company (Settings → Team) to act on it.
+  if (notification.metadata && typeof notification.metadata === 'object' && 'team_host' in notification.metadata) return '/settings?section=team';
   const bookingId = notification.related_entity_id || notification.booking_id;
   if (
     role === 'host' &&
