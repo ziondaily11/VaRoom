@@ -6,6 +6,7 @@ const { loadTs } = require('./helpers/loadTs');
 
 const root = path.join(__dirname, '..');
 const cs = loadTs(path.join(root, 'lib', 'chat', 'chatSettings.ts'));
+const bh = loadTs(path.join(root, 'lib', 'chat', 'businessHours.ts'));
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 
 function memory(initial) {
@@ -16,7 +17,7 @@ function memory(initial) {
 test('settings: this browser keeps a copy; the profile decides', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
-  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal', emailAlertMinutes: null });
+  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS });
   const fromProfile = cs.resolveSettings(cs.readStored(stored), { awayMode: false, readReceipts: true });
   assert.equal(fromProfile.awayMode, false, 'the profile wins');
   assert.equal(fromProfile.readReceipts, true, 'the profile wins');
@@ -46,11 +47,11 @@ test('profile settings: every Chat Setting is read once per account in one query
       return chain;
     },
   };
-  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal', emailAlertMinutes: null };
+  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS };
   const [first, second] = await Promise.all([cs.loadProfileSettings(client, 'h1'), cs.loadProfileSettings(client, 'h1')]);
   assert.deepEqual({ ...first }, loaded, 'unset switches are on; no away message shows the default');
   assert.equal(first, second, 'requests at the same time share one read');
-  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme,email_alert_minutes']], 'one read per account');
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme,email_alert_minutes,away_schedule']], 'one read per account');
 
   const seen = [];
   const unsubscribe = cs.subscribeProfileSettings('h1', (settings) => seen.push(settings.typingIndicators));
@@ -98,7 +99,7 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   assert.match(host, new RegExp(cs.DEFAULT_AWAY_MESSAGE.replace(/[.?]/g, '\\$&')), 'the default away message until one is set');
   // Defaults on the first paint (this browser's and the account's values follow once mounted).
   assert.equal((host.match(/role="switch" aria-checked="true"/g) || []).length, 4, 'notifications, previews, receipts, typing');
-  assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 1, 'away mode off');
+  assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 2, 'away mode and business hours off');
   const client = render(ChatSettings, { role: 'client', onOpenArchived() {} });
   assert.deepEqual(sections(client), ['THEME', 'NOTIFICATIONS', 'QUICK REPLIES', 'PRIVACY &amp; MESSAGING', 'CONVERSATIONS'], 'no away mode for clients');
 
