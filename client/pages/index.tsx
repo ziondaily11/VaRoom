@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
-import { getSupabaseClient } from '../lib/supabase/client';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -56,29 +55,6 @@ export default function LandingPage() {
       setAuthOpen(true);
     }
   }, [router.isReady, router.query.auth, router.query.signup, router.query.role, router.query.step, router.query.mode]);
-
-  // Try Elie AI session handler (preserves existing VaRoom Elie flow)
-  async function handleTryElie(event: React.MouseEvent) {
-    event.preventDefault();
-    const destination = '/signup-client';
-
-    const client = getSupabaseClient();
-    if (!client) {
-      window.location.assign(destination);
-      return;
-    }
-
-    try {
-      const { data, error } = await client.auth.getSession();
-      if (error || !data.session) {
-        window.location.assign(destination);
-        return;
-      }
-      window.location.assign('/chats?conversation=elie');
-    } catch {
-      window.location.assign(destination);
-    }
-  }
 
   return (
     <>
@@ -193,15 +169,10 @@ export default function LandingPage() {
             will-change: transform;
           }
           .hero-header-logo,
-          .hero-header-nav a,
           .hero-header-actions > *,
           .hero-header-mobile > * {
             animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
           }
-          .hero-header-nav a:nth-child(1) { animation-delay: 50ms; }
-          .hero-header-nav a:nth-child(2) { animation-delay: 90ms; }
-          .hero-header-nav a:nth-child(3) { animation-delay: 130ms; }
-          .hero-header-nav a:nth-child(4) { animation-delay: 170ms; }
           .hero-header-actions > :nth-child(1) { animation-delay: 150ms; }
           .hero-header-actions > :nth-child(2) { animation-delay: 200ms; }
           .hero-header-mobile > :nth-child(1) { animation-delay: 150ms; }
@@ -231,7 +202,6 @@ export default function LandingPage() {
             }
             .hero-background-image,
             .hero-header-logo,
-            .hero-header-nav a,
             .hero-header-actions > *,
             .hero-header-mobile > *,
             .hero-headline,
@@ -295,7 +265,6 @@ export default function LandingPage() {
             onOpenAuth={openSignIn}
             onCloseAuth={closeAuth}
             onOpenSignup={() => openSignup()}
-            onTryElie={handleTryElie}
           />
         </div>
 

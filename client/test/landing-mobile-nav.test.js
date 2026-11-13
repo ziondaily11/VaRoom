@@ -67,19 +67,12 @@ test('Navbar locks body scroll and supports Escape-key dismissal while open', ()
   );
 });
 
-test('Navbar mobile navigation closes on Elie and auth actions', () => {
+test('Navbar mobile navigation closes on auth actions', () => {
   const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
   const content = fs.readFileSync(navbarPath, 'utf8');
 
   // The landing page is one screen: no in-page section links.
   assert.doesNotMatch(content, /href="#/, 'Navbar must not link to in-page sections');
-
-  // Verify Elie navigation handler closes menu
-  assert.match(
-    content,
-    /const handleElieClick = useCallback\(\(e: React\.MouseEvent<HTMLAnchorElement>\)\s*=>\s*\{[\s\S]*?closeMenu\(\);[\s\S]*?onTryElie\(e\);/,
-    'Elie clicks must trigger closeMenu() and call onTryElie()'
-  );
 
   // Verify Sign in action closes menu
   assert.match(
@@ -100,12 +93,8 @@ test('Desktop navigation links and actions remain intact and hidden on mobile', 
   const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
   const content = fs.readFileSync(navbarPath, 'utf8');
 
-  // Verify desktop navigation remains hidden on mobile and flex on md
-  assert.match(
-    content,
-    /className="hero-header-nav hidden md:flex items-center gap-5 lg:gap-8 shrink"/,
-    'Desktop nav links must retain hidden md:flex styling'
-  );
+  // No page links until the new sections exist; only the actions.
+  assert.doesNotMatch(content, /<nav\b/, 'Navbar must not render page links yet');
   assert.match(
     content,
     /className="hero-header-actions hidden md:flex items-center gap-3 shrink-0"/,

@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 interface NavbarProps {
   isAuthOpen: boolean;
   onOpenAuth: () => void;
   onCloseAuth: () => void;
   onOpenSignup: () => void;
-  onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup, onTryElie }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(72);
@@ -18,11 +17,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
   const closeMenu = useCallback(() => {
     setMobileMenuOpen(false);
   }, []);
-
-  const handleElieClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    closeMenu();
-    onTryElie(e);
-  }, [closeMenu, onTryElie]);
 
   const handleSignInClick = useCallback(() => {
     closeMenu();
@@ -120,18 +114,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
         </span>
       </Link>
 
-      {/* Desktop Navigation Links */}
-      <nav className="hero-header-nav hidden md:flex items-center gap-5 lg:gap-8 shrink" aria-label="Main navigation">
-        <a
-          href="/login"
-          onClick={onTryElie}
-          className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors inline-flex items-center gap-1.5 relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-        >
-          <span>Elie</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#bd2337] inline-block animate-pulse" />
-        </a>
-      </nav>
-
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
       <div className="hero-header-actions hidden md:flex items-center gap-3 shrink-0">
         {isAuthOpen ? (
@@ -189,27 +171,12 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
           role="dialog"
           aria-modal="true"
           aria-label="Mobile navigation"
-          className="absolute top-full left-0 w-full bg-[#faf6f0] border-t border-[#2d2724]/10 shadow-2xl md:hidden flex flex-col justify-between px-6 py-5 overflow-y-auto overscroll-contain animate-in fade-in slide-in-from-top-2 duration-200 z-50"
+          className="absolute top-full left-0 w-full bg-[#faf6f0] border-t border-[#2d2724]/10 shadow-2xl md:hidden flex flex-col px-6 py-5 overflow-y-auto overscroll-contain animate-in fade-in slide-in-from-top-2 duration-200 z-50"
           style={{
             height: `calc(100dvh - ${headerHeight}px)`,
             maxHeight: `calc(100dvh - ${headerHeight}px)`,
           }}
         >
-          {/* Nav Links */}
-          <div className="flex flex-col gap-1">
-            <a
-              href="/login"
-              onClick={handleElieClick}
-              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-            >
-              <span className="flex items-center gap-2">
-                Elie AI Assistant
-                <span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" />
-              </span>
-              <ArrowRight size={16} className="text-[#2d2724]/40" />
-            </a>
-          </div>
-
           {/* Action CTAs */}
           <div className="pt-4 pb-6 flex flex-col gap-2.5 shrink-0">
             {isAuthOpen ? (
