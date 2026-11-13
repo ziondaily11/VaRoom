@@ -469,3 +469,15 @@ test('"Chat" on a listing reuses the conversation with that host; a new one only
     assert.deepEqual(fresh.conversations.map((c) => [c.listing_id, c.host_id, c.client_id]), [[LISTING, HOST, GUEST]]);
   });
 });
+
+test('outside the host\'s business hours, a guest gets the away message and Elie even with Away mode off', async () => {
+  const db = makeDb({ awayMode: false });
+  // Switched on with every day closed: away at any time.
+  db.profiles.find((p) => p.id === HOST).away_schedule = { enabled: true, days: Array.from({ length: 7 }, () => null) };
+  await withServer(db, () => jsonResponse(200, { reply: 'Elie here.', alternative_listing_ids: [] }), async ({ call, chatbot }) => {
+    assert.equal((await sendAsGuest(call, 'Hello')).status, 201);
+    await waitForIdle();
+    assert.equal(chatbot.calls.length, 1);
+    assert.deepEqual(autoReplies(db).map(plain), [autoReply.DEFAULT_AWAY_MESSAGE, 'Elie here.']);
+  });
+});

@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
 import { DEFAULT_CHAT_THEME, isChatThemeId, type ChatThemeId } from './chatThemes';
+import { DEFAULT_BUSINESS_HOURS, readBusinessHours, type BusinessHours } from './businessHours';
 
 // Chat Settings (migrated from legacy-pages/chat-settings.html). Every
 // setting is saved on the profile, where it takes effect:
-// - away_mode, away_message: auto-reply sends the away message, then Elie;
+// - away_mode, away_message, away_schedule: auto-reply sends the away message,
+//   then Elie, while Away mode is on or outside the business hours;
 // - message_notifications: "New message" notifications are created;
 // - message_previews: notifications show the message (decrypted on view);
 // - read_receipts: read ticks; typing_indicators: "typing…" in a chat;
@@ -17,6 +19,9 @@ export const DEFAULT_AWAY_MESSAGE = '“I’m currently away and will respond as
 export const COPY = {
   awayOn: 'When enabled, Varoom will automatically respond to new incoming messages while you’re away.',
   awayOff: 'Turn this on when you don’t want to manually respond to every incoming message.',
+  awayOutsideHours: 'Away now: outside your business hours, guests get your away message.',
+  hoursOff: 'Be away automatically outside the hours you set.',
+  hoursOpen: 'Open now. Outside these hours you’re away automatically.',
 };
 
 export interface ChatSettingsState {
@@ -29,6 +34,8 @@ export interface ChatSettingsState {
   chatTheme: ChatThemeId;
   /** Minutes before an unread message is emailed about (0 never); null: the account's default. */
   emailAlertMinutes: EmailAlertMinutes | null;
+  /** Business hours: away automatically outside them (lib/chat/businessHours). */
+  awaySchedule: BusinessHours;
 }
 
 export type EmailAlertMinutes = 0 | 15 | 60;
@@ -55,6 +62,7 @@ export const DEFAULTS: ChatSettingsState = {
   awayMessage: DEFAULT_AWAY_MESSAGE,
   chatTheme: DEFAULT_CHAT_THEME,
   emailAlertMinutes: null,
+  awaySchedule: DEFAULT_BUSINESS_HOURS,
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'> | null;
@@ -98,6 +106,7 @@ const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = {
   typingIndicators: 'typing_indicators',
   chatTheme: 'chat_theme',
   emailAlertMinutes: 'email_alert_minutes',
+  awaySchedule: 'away_schedule',
 };
 
 /** Settings to show: the profile's values win over this browser's copy. */
@@ -113,6 +122,7 @@ export function resolveSettings(stored: Partial<ChatSettingsState>, profile: Pro
     awayMessage: cleanAwayMessage(stored.awayMessage),
     chatTheme: isChatThemeId(stored.chatTheme) ? stored.chatTheme : DEFAULT_CHAT_THEME,
     emailAlertMinutes: asAlertMinutes(stored.emailAlertMinutes),
+    awaySchedule: readBusinessHours(stored.awaySchedule),
   };
 }
 
@@ -127,6 +137,7 @@ export function profileSettingsFromRow(row: Record<string, unknown>): ProfileCha
     typingIndicators: row.typing_indicators !== false,
     chatTheme: isChatThemeId(row.chat_theme) ? row.chat_theme : DEFAULT_CHAT_THEME,
     emailAlertMinutes: asAlertMinutes(row.email_alert_minutes),
+    awaySchedule: readBusinessHours(row.away_schedule),
   };
 }
 

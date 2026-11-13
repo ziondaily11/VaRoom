@@ -59,6 +59,16 @@ html[data-theme="dark"] .cs-theme {
 .cs-choice-option[aria-selected="true"] { font-weight:700; color:var(--cs-accent); }
 @media (prefers-reduced-motion: reduce) { .cs-select__chevron { transition:none; } }
 
+/* Business hours */
+.cs-hours { display:flex; flex-direction:column; gap:6px; padding:4px 0 10px; }
+.cs-hours-day { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; }
+.cs-hours-open { display:flex; align-items:center; gap:8px; width:64px; font-size:.8125rem; font-weight:600; color:var(--cs-text); cursor:pointer; }
+.cs-hours-open input { accent-color:var(--cs-accent); }
+.cs-hours-times { display:flex; align-items:center; gap:6px; color:var(--cs-muted); }
+.cs-hours-times input { height:30px; padding:0 6px; border:1px solid var(--cs-divider); border-radius:7px; background:var(--cs-bg); color:var(--cs-text); font:inherit; font-size:.8125rem; }
+.cs-hours-times input:focus { outline:none; border-color:var(--cs-accent); }
+.cs-hours-closed { font-size:.75rem; color:var(--cs-muted); }
+
 /* Quick replies */
 .cs-qr { display:flex; flex-direction:column; gap:8px; padding:6px 0 4px; }
 .cs-qr-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--cs-divider); }

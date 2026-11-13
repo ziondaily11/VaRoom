@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const supabaseAdmin = require('./supabaseClient');
 const { notifyNewMessage } = require('./chatNotifications');
+const { hostAwayNow } = require('./businessHours');
 const { accountCanCreateActivity } = require('./accountAccess');
 const { encryptMessage, decryptMessage } = require('./messageEncryptionService');
 
@@ -280,9 +281,10 @@ async function awayReplyOnce(conversation, state, correlationId) {
   };
 
   const { data: hostProfile, error: profileError } = await supabaseAdmin
-    .from('profiles').select('away_mode,away_message').eq('id', conversation.host_id).maybeSingle();
+    .from('profiles').select('away_mode,away_message,away_schedule').eq('id', conversation.host_id).maybeSingle();
   if (profileError) throw new AutoReplyError('Unable to read the host profile', { stage: 'profile' });
-  if (!hostProfile || !hostProfile.away_mode) return skip('host not away');
+  // Away mode on, or outside the host's business hours.
+  if (!hostAwayNow(hostProfile)) return skip('host not away');
   if (!(await accountCanCreateActivity(conversation.host_id))) return skip('host suspended');
 
   const history = await loadHistory(conversation.id);

@@ -8,6 +8,8 @@ import {
 import { CHAT_SETTINGS_STYLES } from './chatSettingsStyles';
 import AnimatedMenu, { menuItemStyle } from './AnimatedMenu';
 import QuickRepliesEditor from './QuickRepliesEditor';
+import BusinessHoursEditor from './BusinessHoursEditor';
+import { outsideBusinessHours, type BusinessHours } from '../../lib/chat/businessHours';
 import { CHAT_THEMES, chatThemeStyle, type ChatThemeId } from '../../lib/chat/chatThemes';
 
 // The chat settings (legacy VaroomChatSettings.mount): away mode for hosts,
@@ -198,6 +200,18 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
   };
 
+  // Business hours: shown at once, saved once the host stops adjusting them.
+  const scheduleTimerRef = useRef<number | null>(null);
+  useEffect(() => () => { if (scheduleTimerRef.current) window.clearTimeout(scheduleTimerRef.current); }, []);
+  const setSchedule = (awaySchedule: BusinessHours) => {
+    setSettings((current) => ({ ...current, awaySchedule }));
+    if (scheduleTimerRef.current) window.clearTimeout(scheduleTimerRef.current);
+    scheduleTimerRef.current = window.setTimeout(() => {
+      void saveProfileSetting(getSupabaseClient(), userId, 'awaySchedule', awaySchedule, storage());
+    }, 600);
+  };
+  const outsideHours = outsideBusinessHours(settings.awaySchedule);
+
   const setTheme = (chatTheme: ChatThemeId) => {
     setSettings((current) => ({ ...current, chatTheme }));
     void saveProfileSetting(getSupabaseClient(), userId, 'chatTheme', chatTheme, storage());
@@ -221,8 +235,15 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     <div className="cs">
       {role === 'host' && (
         <Section title="AWAY MODE">
-          <ToggleRow label="Away Mode" description={settings.awayMode ? COPY.awayOn : COPY.awayOff} checked={settings.awayMode} onChange={(v) => setToggle('awayMode', v)} />
+          <ToggleRow label="Away Mode" description={settings.awayMode ? COPY.awayOn : outsideHours ? COPY.awayOutsideHours : COPY.awayOff} checked={settings.awayMode} onChange={(v) => setToggle('awayMode', v)} />
           <NavRow label="Away message" description={settings.awayMessage} onClick={editAwayMessage} />
+          <ToggleRow
+            label="Business hours"
+            description={!settings.awaySchedule.enabled ? COPY.hoursOff : outsideHours ? COPY.awayOutsideHours : COPY.hoursOpen}
+            checked={settings.awaySchedule.enabled}
+            onChange={(enabled) => setSchedule({ ...settings.awaySchedule, enabled })}
+          />
+          {settings.awaySchedule.enabled && <BusinessHoursEditor value={settings.awaySchedule} onChange={setSchedule} />}
         </Section>
       )}
       <Section title="THEME">
