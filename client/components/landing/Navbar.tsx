@@ -1,53 +1,37 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
+import { originOf, useTriggerReveal } from '../../lib/landing/useTriggerReveal';
+import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
 
 interface NavbarProps {
-  isAuthOpen: boolean;
-  onOpenAuth: () => void;
-  onCloseAuth: () => void;
-  onOpenSignup: () => void;
+  /** Each receives the control that was pressed, so the panel can open from it. */
+  onOpenAuth: (trigger: HTMLElement) => void;
+  onOpenSignup: (trigger: HTMLElement) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup }) => {
+// The menu shares the auth panel's dark surface; its buttons are light on dark.
+const menuButton = 'flex h-12 w-full items-center justify-center rounded-[18px] px-4 text-sm font-semibold';
+
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
-  const [headerHeight, setHeaderHeight] = useState<number>(72);
+  const [menuOrigin, setMenuOrigin] = useState<RevealOrigin>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuShown = useTriggerReveal(menuRef, mobileMenuOpen, menuOrigin);
 
   const closeMenu = useCallback(() => {
     setMobileMenuOpen(false);
   }, []);
 
-  const handleSignInClick = useCallback(() => {
+  const handleSignInClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     closeMenu();
-    onOpenAuth();
+    onOpenAuth(e.currentTarget);
   }, [closeMenu, onOpenAuth]);
 
-  const handleCloseAuthClick = useCallback(() => {
+  const handleGetStartedClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     closeMenu();
-    onCloseAuth();
-  }, [closeMenu, onCloseAuth]);
-
-  const handleGetStartedClick = useCallback(() => {
-    closeMenu();
-    onOpenSignup();
+    onOpenSignup(e.currentTarget);
   }, [closeMenu, onOpenSignup]);
-
-  // Track header height on mount and resize
-  useEffect(() => {
-    const updateHeaderHeight = () => {
-      if (headerRef.current) {
-        const height = headerRef.current.offsetHeight;
-        if (height > 0) {
-          setHeaderHeight(height);
-        }
-      }
-    };
-
-    updateHeaderHeight();
-    window.addEventListener('resize', updateHeaderHeight);
-    return () => window.removeEventListener('resize', updateHeaderHeight);
-  }, []);
 
   // Lock body scroll and listen for Escape key when mobile menu is open
   useEffect(() => {
@@ -66,14 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
     };
 
     const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        closeMenu();
-      } else if (headerRef.current) {
-        const height = headerRef.current.offsetHeight;
-        if (height > 0) {
-          setHeaderHeight(height);
-        }
-      }
+      if (window.innerWidth >= 768) closeMenu();
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -89,9 +66,8 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
 
   return (
     <header
-      ref={headerRef}
-      className={`hero-header relative w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between transition-colors ${
-        mobileMenuOpen ? 'z-40 bg-[#faf6f0] md:bg-transparent' : 'z-20'
+      className={`hero-header relative w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between ${
+        menuShown ? 'z-40' : 'z-20'
       }`}
     >
       {/* Brand Wordmark - completely free of any underline or text decoration */}
@@ -116,27 +92,16 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
       <div className="hero-header-actions hidden md:flex items-center gap-3 shrink-0">
-        {isAuthOpen ? (
-          <button
-            type="button"
-            onClick={onCloseAuth}
-            className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
-            aria-label="Close sign in"
-          >
-            Close
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onOpenAuth}
-            className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
-          >
-            Sign in
-          </button>
-        )}
         <button
           type="button"
-          onClick={onOpenSignup}
+          onClick={(e) => onOpenAuth(e.currentTarget)}
+          className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          onClick={(e) => onOpenSignup(e.currentTarget)}
           className="landing-cta landing-cta-primary text-sm font-semibold px-5 flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Get started</span>
@@ -147,61 +112,55 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
       <div className="hero-header-mobile flex md:hidden items-center gap-2.5 shrink-0">
         <button
           type="button"
-          onClick={onOpenSignup}
+          onClick={(e) => onOpenSignup(e.currentTarget)}
           className="landing-cta landing-cta-primary landing-cta-compact text-sm font-semibold px-4 whitespace-nowrap"
         >
           Get started
         </button>
         <button
           type="button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          onClick={(e) => {
+            setMenuOrigin(originOf(e.currentTarget));
+            setMobileMenuOpen(true);
+          }}
           className="p-2 text-[#181513] rounded-full hover:bg-black/5 transition"
-          aria-label="Toggle navigation menu"
+          aria-label="Open navigation menu"
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-navigation-menu"
         >
-          {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          <Menu size={22} />
         </button>
       </div>
 
-      {/* Mobile Menu Overlay / Drawer */}
-      {mobileMenuOpen && (
+      {/* Mobile menu: a full-screen panel that grows out of the menu button and folds back into it */}
+      {menuShown && (
         <div
+          ref={menuRef}
           id="mobile-navigation-menu"
           role="dialog"
           aria-modal="true"
           aria-label="Mobile navigation"
-          className="absolute top-full left-0 w-full bg-[#faf6f0] border-t border-[#2d2724]/10 shadow-2xl md:hidden flex flex-col px-6 py-5 overflow-y-auto overscroll-contain animate-in fade-in slide-in-from-top-2 duration-200 z-50"
-          style={{
-            height: `calc(100dvh - ${headerHeight}px)`,
-            maxHeight: `calc(100dvh - ${headerHeight}px)`,
-          }}
+          className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-[#1c1b1a] px-5 py-5 text-[#f5efe7] sm:px-8 md:hidden"
         >
-          {/* Action CTAs */}
-          <div className="pt-4 pb-6 flex flex-col gap-2.5 shrink-0">
-            {isAuthOpen ? (
-              <button
-                type="button"
-                onClick={handleCloseAuthClick}
-                className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
-                aria-label="Close sign in"
-              >
-                Close
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSignInClick}
-                className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
-              >
-                Sign in
-              </button>
-            )}
+          <div className="flex items-center justify-between">
+            <span className="font-serif text-2xl font-bold tracking-tight">
+              <span className="text-[#bd2337]">Va</span>Room
+            </span>
             <button
               type="button"
-              onClick={handleGetStartedClick}
-              className="landing-cta landing-cta-primary w-full justify-center text-center text-sm font-semibold px-4"
+              onClick={closeMenu}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[#f4efe9] transition-colors hover:bg-white/10"
+              aria-label="Close navigation menu"
             >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-auto flex flex-col gap-3 pb-4">
+            <button type="button" onClick={handleSignInClick} className={`${menuButton} border border-white/20 bg-transparent text-[#f5efe7] hover:bg-white/5`}>
+              Sign in
+            </button>
+            <button type="button" onClick={handleGetStartedClick} className={`${menuButton} border border-[#f5efe7] bg-[#f5efe7] text-[#151310] hover:bg-white`}>
               Get started
             </button>
           </div>

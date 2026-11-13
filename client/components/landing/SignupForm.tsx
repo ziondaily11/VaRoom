@@ -40,7 +40,7 @@ const subheading: Record<Exclude<SignupStep, 'details'>, string> = {
   start: 'Join VaRoom in under a minute.',
   role: 'Choose the account that fits you.',
 };
-const choiceButton = 'flex h-12 w-full max-w-[400px] items-center justify-center gap-3 rounded-md border border-[#111111] bg-[#111111] px-4 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70';
+const choiceButton = 'flex h-12 w-full max-w-[400px] items-center justify-center gap-3 rounded-[18px] border border-[#111111] bg-[#111111] px-4 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70';
 const consent = (
   <p className="mt-5 text-center text-xs leading-relaxed text-[#d9d2c9]/70">
     By continuing you agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a>.

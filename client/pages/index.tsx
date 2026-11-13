@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
+import { originOf } from '../lib/landing/useTriggerReveal';
+import type { RevealOrigin } from '../lib/landing/useTriggerReveal';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -11,20 +13,24 @@ export default function LandingPage() {
   const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
   const [initialRecoveryStep, setInitialRecoveryStep] = useState<'email' | 'password'>('email');
   const [signupRole, setSignupRole] = useState<'host' | 'client'>('client');
+  // The control that opened the auth panel: it grows out of it and closes back into it.
+  const [authOrigin, setAuthOrigin] = useState<RevealOrigin>(null);
   const closeAuth = useCallback(() => {
     setInitialRecoveryStep('email');
     setAuthOpen(false);
   }, []);
-  const openSignIn = useCallback(() => {
+  const openSignIn = useCallback((trigger?: HTMLElement) => {
+    setAuthOrigin(originOf(trigger));
     setInitialAuthView('login');
     setInitialRecoveryStep('email');
     setSignupRole('client');
     setAuthOpen(true);
   }, []);
-  const openSignup = useCallback((role: 'host' | 'client' = 'client') => {
+  const openSignup = useCallback((trigger?: HTMLElement) => {
+    setAuthOrigin(originOf(trigger));
     setInitialAuthView('signup');
     setInitialRecoveryStep('email');
-    setSignupRole(role);
+    setSignupRole('client');
     setAuthOpen(true);
   }, []);
 
@@ -52,6 +58,7 @@ export default function LandingPage() {
       setInitialAuthView(isRecovery ? 'recovery' : isSignup ? 'signup' : 'login');
       setInitialRecoveryStep(isRecovery && (router.query.step === 'password' || router.query.mode === 'reset') ? 'password' : 'email');
       setSignupRole(isSignup ? normalizeSignupRole(router.query.role) : 'client');
+      setAuthOrigin(null);
       setAuthOpen(true);
     }
   }, [router.isReady, router.query.auth, router.query.signup, router.query.role, router.query.step, router.query.mode]);
@@ -108,8 +115,10 @@ export default function LandingPage() {
             }
             .hero-cta .landing-cta {
               min-height: 48px;
-              border-radius: 4px !important;
             }
+          }
+          .landing-page {
+            --radius-cta: 18px;
           }
           @media (min-width: 1280px) and (min-height: 850px) {
             .hero-animated-content {
@@ -263,14 +272,14 @@ export default function LandingPage() {
           <HeroSection
             isAuthOpen={isAuthOpen}
             onOpenAuth={openSignIn}
-            onCloseAuth={closeAuth}
-            onOpenSignup={() => openSignup()}
+            onOpenSignup={openSignup}
           />
         </div>
 
         <AuthPanel
           isOpen={isAuthOpen}
           onClose={closeAuth}
+          origin={authOrigin}
           initialView={initialAuthView}
           initialRole={signupRole}
           initialRecoveryStep={initialRecoveryStep}

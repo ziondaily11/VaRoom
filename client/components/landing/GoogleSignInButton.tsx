@@ -88,7 +88,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         disabled={!active || !client || isLoading}
         aria-label={label}
         aria-busy={isLoading}
-        className="flex h-12 w-full max-w-[400px] items-center justify-center gap-3 rounded-md border border-[#111111] bg-[#111111] px-4 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-wait disabled:opacity-70"
+        className="flex h-12 w-full max-w-[400px] items-center justify-center gap-3 rounded-[18px] border border-[#111111] bg-[#111111] px-4 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-wait disabled:opacity-70"
       >
         {isLoading && (
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden="true" />
