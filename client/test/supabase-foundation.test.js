@@ -143,9 +143,10 @@ test('getSafeRedirect keeps same-origin paths and rejects everything else', () =
 });
 
 test('native pages use the shared client instead of creating their own', () => {
+  // index.tsx (landing) no longer talks to Supabase itself; it is still checked for a stray key or SDK.
   for (const page of ['client-home.tsx', 'chats.tsx', 'notifications.tsx', 'index.tsx', 'analytics.tsx']) {
     const source = fs.readFileSync(path.join(root, 'pages', page), 'utf8');
-    assert.match(source, /getSupabaseClient/, page);
+    if (page !== 'index.tsx') assert.match(source, /getSupabaseClient/, page);
     assert.doesNotMatch(source, /eyJhbGciOi/, page + ' must not hard-code the anon key');
     assert.doesNotMatch(source, /cdn\.jsdelivr\.net\/npm\/@supabase/, page + ' must not load the CDN SDK');
   }
