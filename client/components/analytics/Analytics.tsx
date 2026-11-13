@@ -15,6 +15,7 @@ import {
 } from './AnalyticsSections';
 import { Icon } from './analyticsIcons';
 import ListingPicker from './ListingPicker';
+import { Count } from './motion';
 import { ANALYTICS_CSS } from './analyticsStyles';
 
 /* ---------- Cached loading ---------- */
@@ -135,7 +136,7 @@ function Dashboard({ data, rk, listingId, onListingChange, paymentsBody }: {
         </div>
       )}
     >
-      <p className="va-readout" style={{ marginBottom: 6 }}>{formatMetric(total, metric.format)}<small>{metric.label.toLowerCase()} · {RANGE_SHORT[rk]}</small></p>
+      <p className="va-readout" style={{ marginBottom: 6 }}><Count value={total} format={metric.format} /><small>{metric.label.toLowerCase()} · {RANGE_SHORT[rk]}</small></p>
       {data.trend.length ? <AreaChart points={data.trend} g={g} metric={metric} /> : <div className="va-empty">No activity yet</div>}
     </Card>
   );

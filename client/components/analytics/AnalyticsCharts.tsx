@@ -4,6 +4,7 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 import { fmtDate, formatMetric, label, num, short } from '../../lib/analytics/format';
 import type { FunnelStep, MetricFormat, TrendMetric } from '../../lib/analytics/niche';
 import type { Granularity, StatusCount, TrendPoint } from '../../lib/analytics/types';
+import { Count, useSeen } from './motion';
 
 // Charts for the analytics page: SVG and CSS only, no chart library. Marks
 // follow the dataviz specs: 2px lines, bars <= 24px with 4px rounded ends and
@@ -52,7 +53,7 @@ export function Sparkline({ values, width = 76, height = 26, variant = 'tile' }:
   const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
   if (variant === 'hero') {
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+      <svg className="va-reveal" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="#fff" stopOpacity=".32" />
@@ -66,7 +67,7 @@ export function Sparkline({ values, width = 76, height = 26, variant = 'tile' }:
   }
   const last = values.length - 1;
   return (
-    <svg className="va-spark" viewBox={`-4 -4 ${width + 8} ${height + 8}`} aria-hidden="true">
+    <svg className="va-spark va-reveal" viewBox={`-4 -4 ${width + 8} ${height + 8}`} aria-hidden="true">
       <path className="l" d={line} />
       <circle cx={x(last)} cy={y(values[last])} r="3.5" />
     </svg>
@@ -102,6 +103,7 @@ export function AreaChart({ points, g, metric }: { points: TrendPoint[]; g: Gran
     setHover(Math.min(points.length - 1, Math.max(0, i)));
   };
   const total = vals.reduce((s, v) => s + v, 0);
+  const drawKey = `${metric.key}:${points[0]?.bucket}:${points.length}`;
 
   return (
     <div className="va-chart" ref={ref}>
@@ -128,8 +130,8 @@ export function AreaChart({ points, g, metric }: { points: TrendPoint[]; g: Gran
             <text className="va-axis" x={m.l - 10} y={y(t * max) + 4} textAnchor="end">{short(t * max)}</text>
           </g>
         ))}
-        <path d={area} fill={`url(#${id})`} />
-        <path className="va-line" d={line} />
+        <path key={`a:${drawKey}`} className="va-fade" d={area} fill={`url(#${id})`} />
+        <path key={`l:${drawKey}`} className="va-line va-draw" d={line} pathLength={1} />
         {points.map((p, i) => i % every === 0 && (
           <text key={p.bucket} className="va-axis" x={x(i)} y={H - 6} textAnchor="middle">{fmtDate(p.bucket, g)}</text>
         ))}
@@ -198,8 +200,10 @@ export function RequestColumns({ points, g }: { points: TrendPoint[]; g: Granula
               aria-label={`${fmtDate(p.bucket, g)}: ${p.requests} requests, ${p.approved} approved`}
             >
               <rect x={m.l + slot * i} y={m.t} width={slot} height={ih} fill="transparent" />
-              <path className="va-col-approved" d={colPath(x, base - approvedH, approvedH, restH === 0)} />
-              <path className="va-col-rest" d={colPath(x, base - approvedH - gap - restH, restH, true)} />
+              <g className="va-rise" style={{ animationDelay: `${i * 20}ms` }}>
+                <path className="va-col-approved" d={colPath(x, base - approvedH, approvedH, restH === 0)} />
+                <path className="va-col-rest" d={colPath(x, base - approvedH - gap - restH, restH, true)} />
+              </g>
             </g>
           );
         })}
@@ -225,7 +229,7 @@ export function StatusStrip({ items }: { items: StatusCount[] }) {
   if (!shown.length) return null;
   return (
     <>
-      <div className="va-thinbar" role="img" aria-label={shown.map((i) => `${label(i.status)} ${i.count}`).join(', ')}>
+      <div className="va-thinbar va-reveal" role="img" aria-label={shown.map((i) => `${label(i.status)} ${i.count}`).join(', ')}>
         {shown.map((i) => <span key={i.status} className={`st-${statusTone(i.status)}`} style={{ flex: `${i.count} 1 0` }} />)}
       </div>
       <ul className="va-legend">
@@ -247,8 +251,8 @@ export function Funnel({ steps }: { steps: FunnelStep[] }) {
           <li key={step.key}>
             {prev !== null && <span className="rate"><b aria-hidden="true">↓</b>{prev && step.value <= prev ? formatMetric(step.value / prev, 'percent') : '–'}</span>}
             <span className="lbl">{step.label}</span>
-            <span className="val">{num.format(step.value)}</span>
-            <span className="bar" aria-hidden="true"><i style={{ width: `${Math.max(step.value ? 2 : 0, (step.value / top) * 100)}%` }} /></span>
+            <span className="val"><Count value={step.value} format="count" /></span>
+            <span className="bar" aria-hidden="true"><i className="va-growx" style={{ width: `${Math.max(step.value ? 2 : 0, (step.value / top) * 100)}%` }} /></span>
           </li>
         );
       })}
@@ -261,14 +265,15 @@ export function Funnel({ steps }: { steps: FunnelStep[] }) {
 export function Gauge({ value, caption }: { value: number | null; caption: string }) {
   const size = 150, r = 60, c = 2 * Math.PI * r;
   const arc = 0.75; // a 270° meter, open at the bottom
-  const filled = value === null ? 0 : Math.max(0, Math.min(1, value)) * arc * c;
+  const seen = useSeen();
+  const filled = value === null || !seen ? 0 : Math.max(0, Math.min(1, value)) * arc * c;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${caption}: ${formatMetric(value, 'percent')}`}>
       <g transform={`rotate(135 ${size / 2} ${size / 2})`}>
         <circle className="va-gauge-track" cx={size / 2} cy={size / 2} r={r} strokeDasharray={`${arc * c} ${c}`} strokeLinecap="round" />
-        {filled > 0 && <circle className="va-gauge-fill" cx={size / 2} cy={size / 2} r={r} strokeDasharray={`${filled} ${c}`} />}
+        {value !== null && <circle className="va-gauge-fill" cx={size / 2} cy={size / 2} r={r} strokeDasharray={`${filled} ${c}`} />}
       </g>
-      <text className="va-gauge-num" x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">{value === null ? '–' : formatMetric(value, 'percent')}</text>
+      <text className="va-gauge-num" x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">{value === null ? '–' : <Count value={value} format="percent" />}</text>
       <text className="va-gauge-sub" x="50%" y={size / 2 + 24} textAnchor="middle">{caption}</text>
     </svg>
   );
@@ -280,7 +285,7 @@ export function MixBar({ parts }: { parts: { key: string; label: string; value: 
   const total = parts.reduce((s, p) => s + p.value, 0);
   if (!total) return <div className="va-mix" aria-hidden="true"><span style={{ flex: 1, background: 'var(--soft)' }} /></div>;
   return (
-    <div className="va-mix" role="img" aria-label={parts.map((p) => `${p.label} ${p.value} (${Math.round((p.value / total) * 100)}%)`).join(', ')}>
+    <div className="va-mix va-reveal" role="img" aria-label={parts.map((p) => `${p.label} ${p.value} (${Math.round((p.value / total) * 100)}%)`).join(', ')}>
       {parts.filter((p) => p.value > 0).map((p) => {
         const share = p.value / total;
         return (
@@ -320,6 +325,7 @@ export function MiniColumns({ items, format = 'count', height = 120 }: { items: 
               <rect x={slot * i} y={m.t} width={slot} height={ih} fill="transparent" />
               {h > 0 && (
                 <path
+                  className="va-rise" style={{ animationDelay: `${i * 30}ms` }}
                   d={`M${x},${m.t + ih}V${top + r}Q${x},${top} ${x + r},${top}H${x + bw - r}Q${x + bw},${top} ${x + bw},${top + r}V${m.t + ih}Z`}
                   fill={i === peak ? 'var(--accent)' : 'var(--rest)'} opacity={i === peak ? 1 : 0.35}
                 />

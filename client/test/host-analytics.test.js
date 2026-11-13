@@ -167,3 +167,14 @@ test('the listing filter grows from its trigger, staggers rows by 30ms and shrin
   assert.match(css, /transform-origin:var\(--origin-x/);
   assert.match(css, /prefers-reduced-motion:reduce\)\{\.va-menu/);
 });
+
+test('numbers count up, the curve draws and the gauge fills once each card is seen', () => {
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', f), 'utf8');
+  const motion = read('motion.tsx'), charts = read('AnalyticsCharts.tsx'), css = read('analyticsStyles.ts');
+  assert.match(motion, /new IntersectionObserver/);
+  assert.match(motion, /prefers-reduced-motion: reduce/);
+  assert.match(charts, /className="va-line va-draw" d=\{line\} pathLength=\{1\}/);
+  assert.match(charts, /value === null \|\| !seen \? 0/);
+  assert.match(css, /\[data-seen\] :is\(\.va-draw/);
+  assert.match(css, /prefers-reduced-motion:no-preference\)\{\s*\.va-draw/);
+});
