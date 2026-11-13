@@ -5,42 +5,18 @@ const path = require('node:path');
 
 const clientRoot = path.join(__dirname, '..');
 
-test('Navbar mobile navigation stacking context fix elevates header to z-40', () => {
-  const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
-  const content = fs.readFileSync(navbarPath, 'utf8');
+test('Navbar mobile menu is a full-screen dark panel above the hero, revealed from its button', () => {
+  const content = fs.readFileSync(path.join(clientRoot, 'components', 'landing', 'Navbar.tsx'), 'utf8');
 
-  // Verify that when mobileMenuOpen is true, the header receives z-40 to escape and exceed .hero-animated-content (z-30)
-  assert.match(
-    content,
-    /mobileMenuOpen\s*\?\s*['"]z-40\s+bg-\[#faf6f0\]\s+md:bg-transparent['"]\s*:\s*['"]z-20['"]/,
-    'Header must elevate to z-40 and apply opaque background when mobileMenuOpen is true, reverting to z-20 when closed'
-  );
-});
-
-test('Navbar mobile drawer uses opaque background, independent scroll, and viewport boundary', () => {
-  const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
-  const content = fs.readFileSync(navbarPath, 'utf8');
-
-  // Verify opaque background #faf6f0 (no /95 opacity)
-  assert.match(
-    content,
-    /bg-\[#faf6f0\]/,
-    'Mobile drawer must use opaque #faf6f0 background to completely obscure underlying hero content'
-  );
-
-  // Verify independent vertical scrolling and overscroll containment
-  assert.match(
-    content,
-    /overflow-y-auto\s+overscroll-contain/,
-    'Mobile drawer must specify overflow-y-auto and overscroll-contain for independent vertical scrolling'
-  );
-
-  // Verify viewport-relative height bounds calculated below header
-  assert.match(
-    content,
-    /height:\s*`calc\(100dvh - \$\{headerHeight\}px\)`,/,
-    'Mobile drawer must bind height to calc(100dvh - headerHeight)'
-  );
+  // The header rises above the hero copy (z-30) while the menu is shown, so the fixed panel covers it.
+  assert.match(content, /menuShown \? 'z-40' : 'z-20'/);
+  // Same surface as the auth panel, never the old cream drop-down.
+  assert.match(content, /fixed inset-0 z-50[^"]*bg-\[#1c1b1a\][^"]*text-\[#f5efe7\]/);
+  assert.doesNotMatch(content, /bg-\[#faf6f0\]/);
+  assert.match(content, /overflow-y-auto overscroll-contain/);
+  // Opens from the menu button and folds back into it.
+  assert.match(content, /setMenuOrigin\(originOf\(e\.currentTarget\)\)/);
+  assert.match(content, /useTriggerReveal\(menuRef, mobileMenuOpen, menuOrigin\)/);
 });
 
 test('Navbar locks body scroll and supports Escape-key dismissal while open', () => {
@@ -77,14 +53,14 @@ test('Navbar mobile navigation closes on auth actions', () => {
   // Verify Sign in action closes menu
   assert.match(
     content,
-    /const handleSignInClick = useCallback\(\(\)\s*=>\s*\{[\s\S]*?closeMenu\(\);[\s\S]*?onOpenAuth\(\);/,
+    /const handleSignInClick = useCallback\(\(e[^)]*\)\s*=>\s*\{[\s\S]*?closeMenu\(\);[\s\S]*?onOpenAuth\(e\.currentTarget\);/,
     'Sign-in clicks must trigger closeMenu() and call onOpenAuth()'
   );
 
   // Verify Get started action closes menu
   assert.match(
     content,
-    /const handleGetStartedClick = useCallback\(\(\)\s*=>\s*\{[\s\S]*?closeMenu\(\);[\s\S]*?onOpenSignup\(\);/,
+    /const handleGetStartedClick = useCallback\(\(e[^)]*\)\s*=>\s*\{[\s\S]*?closeMenu\(\);[\s\S]*?onOpenSignup\(e\.currentTarget\);/,
     'Get-started clicks must trigger closeMenu() and call onOpenSignup()'
   );
 });

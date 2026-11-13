@@ -9,10 +9,14 @@ import { getSafeRedirect } from '../../lib/safeRedirect';
 import { profileStore } from '../../lib/auth/session';
 import { deactivationNotice } from '../../lib/auth/reactivation';
 import { errorMessage } from '../../lib/errors';
+import { useTriggerReveal } from '../../lib/landing/useTriggerReveal';
+import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
 
 interface AuthPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  /** The control that opened the panel; it grows out of and closes back into it. */
+  origin: RevealOrigin;
   initialView: AuthView;
   initialRole: 'host' | 'client';
   initialRecoveryStep: 'email' | 'password';
@@ -31,13 +35,15 @@ function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
   return ['Join VaRoom.', 'Every kind of space, one account.'];
 }
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialView, initialRole, initialRecoveryStep }) => {
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, initialView, initialRole, initialRecoveryStep }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [recoveryStep, setRecoveryStep] = useState(initialRecoveryStep);
   const [contentAnimation, setContentAnimation] = useState<ContentAnimation>('idle');
   const [signupRole, setSignupRole] = useState<SignupRole | null>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  const panelShown = useTriggerReveal(asideRef, isOpen, origin);
   const transitionTimer = useRef<number | null>(null);
   const transitionLocked = useRef(false);
   const [email, setEmail] = useState('');
@@ -91,13 +97,14 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
       contentScrollRef.current?.scrollTo(0, 0);
       return;
     }
+    if (panelShown) return; // still folding back into its trigger: keep the content as it was
     if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
     transitionTimer.current = null;
     transitionLocked.current = false;
     setAuthView('login');
     setRecoveryStep('email');
     setContentAnimation('idle');
-  }, [isOpen, initialView, initialRecoveryStep]);
+  }, [isOpen, panelShown, initialView, initialRecoveryStep]);
 
   useEffect(() => () => {
     if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
@@ -203,24 +210,20 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
     <div
       className="fixed inset-0 z-40 pointer-events-none"
       aria-hidden={!isOpen}
-      style={{
-        opacity: isOpen ? 1 : 0,
-        transition: 'opacity 260ms ease',
-      }}
     >
       <button
         type="button"
         aria-label="Close sign-in panel"
         className="absolute inset-0 bg-transparent"
         onClick={closePanel}
-        style={{
-          pointerEvents: isOpen ? 'auto' : 'none',
-          opacity: isOpen ? 1 : 0,
-          transition: 'opacity 260ms ease',
-        }}
+        style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       />
 
-      <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 items-end px-10 pb-[12vh] md:flex lg:px-14" aria-hidden="true">
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 items-end px-10 pb-[12vh] md:flex lg:px-14"
+        aria-hidden="true"
+        style={{ opacity: isOpen ? 1 : 0, transition: isOpen ? 'opacity 220ms ease' : 'none' }}
+      >
         <div className="max-w-md">
           <p className="m-0 font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.3)] lg:text-6xl">
             {sideCopy(authView, signupRole)[0]}
@@ -232,12 +235,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
       </div>
 
       <aside
+        ref={asideRef}
         className="absolute inset-y-0 right-0 h-[100dvh] w-full overflow-hidden md:w-1/2"
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
-          transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-          opacity: isOpen ? 1 : 0,
-          transition: 'transform 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease',
+          visibility: panelShown ? 'visible' : 'hidden',
         }}
         aria-modal="true"
         role="dialog"
@@ -408,7 +410,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                 aria-hidden={authView !== 'signup'}
               >
                 <SignupForm
-                  key={`${isOpen ? 'open' : 'closed'}-${initialRole}`}
+                  key={`${panelShown ? 'open' : 'closed'}-${initialRole}`}
                   redirect={redirect}
                   initialRole={initialRole}
                   active={isOpen && authView === 'signup'}
@@ -422,7 +424,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                 aria-hidden={authView !== 'recovery'}
               >
                 <PasswordRecovery
-                  key={`${isOpen ? 'open' : 'closed'}-${recoveryStep}`}
+                  key={`${panelShown ? 'open' : 'closed'}-${recoveryStep}`}
                   initialStep={recoveryStep}
                   onSwitchToLogin={() => switchAuthView('login')}
                 />
