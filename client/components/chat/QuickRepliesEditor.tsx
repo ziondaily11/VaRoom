@@ -54,7 +54,7 @@ export default function QuickRepliesEditor({ userId }: { userId: string | null }
 
   return (
     <div className="cs-qr">
-      <p className="cs-row__desc">Save answers you send often. In a chat, type “/” or use the quick-reply button to add one.</p>
+      <p className="cs-row__desc">In a chat, type “/” to use one.</p>
       {replies.map((reply) => (draft && draft.id === reply.id ? <React.Fragment key={reply.id}>{form}</React.Fragment> : (
         <div key={reply.id} className="cs-qr-item">
           <div className="cs-row__text">

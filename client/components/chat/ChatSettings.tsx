@@ -24,24 +24,26 @@ function storage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
 }
 
-function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void }) {
+// anchor: the row's element id (Settings search scrolls to it).
+function ToggleRow({ label, description, checked, onChange, anchor }: { label: string; description?: string; checked: boolean; onChange: (value: boolean) => void; anchor?: string }) {
   const id = useId();
   return (
     // The whole row is the tap target; the switch is the one keyboard stop.
-    <div className="cs-row cs-row--toggle" onClick={(event) => { if (!(event.target as Element).closest('.cs-switch')) onChange(!checked); }}>
+    <div className="cs-row cs-row--toggle" id={anchor} onClick={(event) => { if (!(event.target as Element).closest('.cs-switch')) onChange(!checked); }}>
       <div className="cs-row__text">
         <span className="cs-row__label" id={`${id}-label`}>{label}</span>
-        <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>
+        {description && <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>}
       </div>
-      <button type="button" className="cs-switch" role="switch" aria-checked={checked} aria-labelledby={`${id}-label`} aria-describedby={`${id}-desc`} onClick={() => onChange(!checked)} />
+      <button type="button" className="cs-switch" role="switch" aria-checked={checked} aria-labelledby={`${id}-label`} aria-describedby={description ? `${id}-desc` : undefined} onClick={() => onChange(!checked)} />
     </div>
   );
 }
 
 /** A setting with a few choices: a button showing the current one, opening an animated list (AnimatedMenu). */
-function ChoiceRow({ label, description, value, choices, onChange }: {
+function ChoiceRow({ label, description, value, choices, onChange, anchor }: {
   label: string;
   description: string;
+  anchor?: string;
   value: number;
   choices: { minutes: number; label: string }[];
   onChange: (value: number) => void;
@@ -80,7 +82,7 @@ function ChoiceRow({ label, description, value, choices, onChange }: {
   };
 
   return (
-    <div className="cs-row cs-row--choice">
+    <div className="cs-row cs-row--choice" id={anchor}>
       <div className="cs-row__text">
         <span className="cs-row__label" id={`${id}-label`}>{label}</span>
         <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>
@@ -120,10 +122,10 @@ function ChoiceRow({ label, description, value, choices, onChange }: {
   );
 }
 
-function NavRow({ label, description, onClick }: { label: string; description?: string; onClick: () => void }) {
+function NavRow({ label, description, onClick, anchor }: { label: string; description?: string; onClick: () => void; anchor?: string }) {
   const id = useId();
   return (
-    <button type="button" className="cs-row cs-row--nav" aria-labelledby={`${id}-label`} aria-describedby={description ? `${id}-desc` : undefined} onClick={onClick}>
+    <button type="button" id={anchor} className="cs-row cs-row--nav" aria-labelledby={`${id}-label`} aria-describedby={description ? `${id}-desc` : undefined} onClick={onClick}>
       <div className="cs-row__text">
         <span className="cs-row__label" id={`${id}-label`}>{label}</span>
         {description && <p className="cs-row__desc" id={`${id}-desc`}>{description}</p>}
@@ -161,10 +163,10 @@ function ThemePicker({ value, onChange }: { value: ChatThemeId; onChange: (theme
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, anchor }: { title: string; children: React.ReactNode; anchor?: string }) {
   const id = useId();
   return (
-    <section className="cs-section" aria-labelledby={id}>
+    <section className="cs-section" id={anchor} aria-labelledby={id}>
       <h2 className="cs-section__title" id={id}>{title}</h2>
       <div className="cs-section__list">{children}</div>
     </section>
@@ -234,10 +236,11 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
   return (
     <div className="cs">
       {role === 'host' && (
-        <Section title="AWAY MODE">
-          <ToggleRow label="Away Mode" description={settings.awayMode ? COPY.awayOn : outsideHours ? COPY.awayOutsideHours : COPY.awayOff} checked={settings.awayMode} onChange={(v) => setToggle('awayMode', v)} />
-          <NavRow label="Away message" description={settings.awayMessage} onClick={editAwayMessage} />
+        <Section title="Away Mode">
+          <ToggleRow anchor="cs-away-mode" label="Away Mode" description={settings.awayMode ? COPY.awayOn : outsideHours ? COPY.awayOutsideHours : COPY.awayOff} checked={settings.awayMode} onChange={(v) => setToggle('awayMode', v)} />
+          <NavRow anchor="cs-away-message" label="Away message" description={settings.awayMessage} onClick={editAwayMessage} />
           <ToggleRow
+            anchor="cs-business-hours"
             label="Business hours"
             description={!settings.awaySchedule.enabled ? COPY.hoursOff : outsideHours ? COPY.awayOutsideHours : COPY.hoursOpen}
             checked={settings.awaySchedule.enabled}
@@ -246,29 +249,30 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
           {settings.awaySchedule.enabled && <BusinessHoursEditor value={settings.awaySchedule} onChange={setSchedule} />}
         </Section>
       )}
-      <Section title="THEME">
+      <Section title="Theme" anchor="cs-theme">
         <ThemePicker value={settings.chatTheme} onChange={setTheme} />
       </Section>
-      <Section title="NOTIFICATIONS">
-        <ToggleRow label="Message notifications" description="Receive notifications for new messages." checked={settings.messageNotifications} onChange={(v) => setToggle('messageNotifications', v)} />
-        <ToggleRow label="Message previews" description="Show message content in notifications." checked={settings.messagePreviews} onChange={(v) => setToggle('messagePreviews', v)} />
+      <Section title="Notifications">
+        <ToggleRow anchor="cs-message-notifications" label="Message notifications" checked={settings.messageNotifications} onChange={(v) => setToggle('messageNotifications', v)} />
+        <ToggleRow anchor="cs-message-previews" label="Message previews" description="Show message text in notifications." checked={settings.messagePreviews} onChange={(v) => setToggle('messagePreviews', v)} />
         <ChoiceRow
+          anchor="cs-email-alerts"
           label="Email me about unread messages"
-          description="When a message waits unread, we email you once. The email never includes the message."
+          description="Sent once. It never includes the message."
           value={effectiveEmailAlertMinutes(settings.emailAlertMinutes, role)}
           choices={EMAIL_ALERT_CHOICES}
           onChange={setEmailAlerts}
         />
       </Section>
-      <Section title="QUICK REPLIES">
+      <Section title="Quick Replies" anchor="cs-quick-replies">
         <QuickRepliesEditor userId={userId} />
       </Section>
-      <Section title="PRIVACY & MESSAGING">
-        <ToggleRow label="Read receipts" description="Let others know when you’ve read their messages." checked={settings.readReceipts} onChange={(v) => setToggle('readReceipts', v)} />
-        <ToggleRow label="Typing indicators" description="Show others when you’re typing." checked={settings.typingIndicators} onChange={(v) => setToggle('typingIndicators', v)} />
+      <Section title="Privacy & Messaging">
+        <ToggleRow anchor="cs-read-receipts" label="Read receipts" checked={settings.readReceipts} onChange={(v) => setToggle('readReceipts', v)} />
+        <ToggleRow anchor="cs-typing-indicators" label="Typing indicators" checked={settings.typingIndicators} onChange={(v) => setToggle('typingIndicators', v)} />
       </Section>
-      <Section title="CONVERSATIONS">
-        <NavRow label="Archived conversations" onClick={onOpenArchived} />
+      <Section title="Conversations">
+        <NavRow anchor="cs-archived" label="Archived conversations" onClick={onOpenArchived} />
       </Section>
     </div>
   );

@@ -4,7 +4,8 @@ import {
   ADVANCE_OPTIONS, bookingDefaultsProblem, CANCELLATION_OPTIONS, EMPTY_BOOKING_DEFAULTS, loadBookingDefaults, NOTICE_OPTIONS, saveBookingDefaults,
   type BookingDefaults, type CancellationPolicy,
 } from '../../lib/settings/bookingDefaults';
-import { DetailHead } from './SettingsIcons';
+import { DetailHead, INFO_ICONS } from './SettingsIcons';
+import SettingsBox from './SettingsBox';
 
 // Settings → Bookings (hosts): the booking rules every new stay listing starts with.
 
@@ -42,31 +43,26 @@ export default function BookingsSection({ userId, onBack }: { userId: string; on
     setSaving(true);
     const error = await saveBookingDefaults(client, userId, values);
     setSaving(false);
-    setMsg(error ? { text: error, kind: 'error' } : { text: 'Saved. New listings will start with these rules.', kind: 'success' });
+    setMsg(error ? { text: error, kind: 'error' } : { text: 'Saved.', kind: 'success' });
   };
 
   return (
     <div id="view-bookings">
       <DetailHead title="Bookings" onBack={onBack} />
-      <p className="detail-sub">Set the booking rules every new stay listing starts with. You can still change them on each listing.</p>
-      <div className="settings-section">
-        <p className="section-title">How guests book</p>
-        <div className="card">
+      <p className="detail-sub">Rules every new stay listing starts with.</p>
+      <SettingsBox title="How guests book" icon={INFO_ICONS.zap}>
           <div className="toggle-row">
             <div>
               <div className="toggle-label">Instant book</div>
-              <div className="toggle-desc">Guests are confirmed straight away for open dates, without waiting for you to approve.</div>
+              <div className="toggle-desc">Confirm guests without waiting for your approval.</div>
             </div>
             <label className="switch">
               <input type="checkbox" id="booking-instant" checked={values.instant_book} disabled={loading} onChange={(event) => set('instant_book', event.target.checked)} />
               <span className="switch-track" />
             </label>
           </div>
-        </div>
-      </div>
-      <div className="settings-section">
-        <p className="section-title">When guests can book</p>
-        <div className="card" style={{ padding: '1.2rem' }}>
+      </SettingsBox>
+      <SettingsBox title="When guests can book" icon={INFO_ICONS.calendar} padded>
           <div className="field-pair">
             <div className="field">
               <label htmlFor="booking-notice">Minimum notice</label>
@@ -91,11 +87,8 @@ export default function BookingsSection({ userId, onBack }: { userId: string; on
               <input type="number" id="booking-max-stay" min={1} inputMode="numeric" placeholder="No maximum" disabled={loading} value={values.max_stay_nights ?? ''} onChange={(event) => set('max_stay_nights', toNumber(event.target.value))} />
             </div>
           </div>
-        </div>
-      </div>
-      <div className="settings-section">
-        <p className="section-title">House times &amp; cancellations</p>
-        <div className="card" style={{ padding: '1.2rem' }}>
+      </SettingsBox>
+      <SettingsBox title="House times & cancellations" icon={INFO_ICONS.clock} padded>
           <div className="field-pair">
             <div className="field">
               <label htmlFor="booking-checkin">Check-in from</label>
@@ -116,9 +109,8 @@ export default function BookingsSection({ userId, onBack }: { userId: string; on
             {saving ? 'Saving…' : 'Save booking defaults'}
           </button>
           <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`} role="status" aria-live="polite">{msg.text}</p>
-        </div>
-        <div className="note-box">These rules apply to short stays, hotels and venues. Listings you already have keep their own rules; change them by editing the listing.</div>
-      </div>
+      </SettingsBox>
+      <p className="note-box">For short stays, hotels and venues. Existing listings keep their own rules.</p>
     </div>
   );
 }

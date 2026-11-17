@@ -24,6 +24,7 @@ export const CAT_ICONS: Record<string, React.ReactNode> = {
   bookings: icon(20, <><rect x="3" y="4.5" width="18" height="16.5" rx="2" /><path d="M16 2.5v4M8 2.5v4M3 10h18" /><path d="m9 15.5 2 2 4-4" /></>),
   team: icon(20, <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17" cy="9" r="2.5" /><path d="M16 14.2a5 5 0 0 1 5.5 4.8" /></>),
   plans: icon(20, <><path d="M6 3h12l4 6-10 12L2 9Z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>),
+  chats: icon(20, <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" /><path d="M8 9h8M8 13h5" /></>),
 };
 
 export const INFO_ICONS = {
@@ -43,6 +44,16 @@ export const INFO_ICONS = {
   diamond: icon(16, <><path d="M6 3h12l4 6-10 12L2 9Z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>),
   sparkle: icon(16, <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3Z" />),
   listings: icon(16, <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9h10M7 13h10M7 17h6" /></>),
+  bell: icon(16, <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>),
+  monitor: icon(16, <><rect x="2.5" y="4" width="19" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>),
+  text: icon(16, <path d="M4 7V5h16v2M9 19h6M12 5v14" />),
+  users: icon(16, <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17" cy="9" r="2.5" /><path d="M16 14.2a5 5 0 0 1 5.5 4.8" /></>),
+  calendar: icon(16, <><rect x="3" y="4.5" width="18" height="16.5" rx="2" /><path d="M16 2.5v4M8 2.5v4M3 10h18" /></>),
+  clock: icon(16, <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  zap: icon(16, <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />),
+  eye: icon(16, <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>),
+  logout: icon(16, <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>),
+  info: icon(16, <><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></>),
 };
 
 export const LockLarge = () => icon(20, <><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>);

@@ -8,7 +8,10 @@ import {
   applyFontSize, canDelete, DEFAULT_FONT_INDEX, DELETE_REASONS, FONT_SIZE_KEY, FONT_SIZES, fontSizeIndex, NOTIFICATION_ROWS, savedTheme, savePreferences,
   THEME_KEY, type NotificationKey, type Preferences, type ThemeChoice,
 } from '../../lib/settings/settings';
+import { searchSettings, SECTION_TITLES, type SearchEntry } from '../../lib/settings/settingsSearch';
+import ChatSettings from '../chat/ChatSettings';
 import { CAT_ICONS, ChevronRight, DetailHead, INFO_ICONS, SearchIcon, THEME_ICONS } from './SettingsIcons';
+import SettingsBox from './SettingsBox';
 
 // The Settings sections other than Your Account (legacy settings.html).
 
@@ -16,54 +19,88 @@ type Notify = (message: string) => void;
 
 // ---------- Category list ----------
 
-const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: string }> = [
-  { key: 'account', title: 'Your Account', desc: 'Manage your personal info, password and account status.' },
-  { key: 'notifications', title: 'Notifications', desc: 'Choose what notifications you want to receive.' },
-  { key: 'display', title: 'Display', desc: 'Customize appearance and accessibility settings.' },
-  { key: 'team', title: 'Team', desc: 'Invite people to help run your account, or work for a team you joined.' },
-  { key: 'privacy', title: 'Privacy & Security', desc: 'Control your privacy, visibility and security preferences.' },
-  { key: 'support', title: 'Support & About', desc: 'Get help, view policies and learn more about VaRoom.', href: '/support' },
-  { key: 'login-accounts', title: 'Login & Accounts', desc: 'Log out of VaRoom.' },
+const CATEGORIES: Array<{ key: string; title: string; href?: string }> = [
+  { key: 'account', title: 'Your Account' },
+  { key: 'notifications', title: 'Notifications' },
+  { key: 'chats', title: 'Chats' },
+  { key: 'display', title: 'Display' },
+  { key: 'team', title: 'Team' },
+  { key: 'privacy', title: 'Privacy & Security' },
+  { key: 'support', title: 'Support & About', href: '/support' },
+  { key: 'login-accounts', title: 'Login & Accounts' },
 ];
 // Hosts only, after Your Account.
-const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'See your plan, listings left, payment method and invoices.' };
-const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings', desc: 'Instant book, notice, stay length and the rules new listings start with.' };
+const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing' };
+const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings' };
 
-/** showPlans: hosts, and Finance members working as a company. */
-export function CategoryList({ active, onOpen, isHost = false, showPlans = isHost }: { active: string; onOpen: (key: string) => void; isHost?: boolean; showPlans?: boolean }) {
+/**
+ * The categories, or while searching, the matching settings (lib/settings/settingsSearch).
+ * showPlans: hosts, and Finance members working as a company.
+ */
+export function CategoryList({ active, onOpen, onPick, isHost = false, showPlans = isHost }: {
+  active: string; onOpen: (key: string) => void; onPick: (entry: SearchEntry) => void; isHost?: boolean; showPlans?: boolean;
+}) {
   const [query, setQuery] = useState('');
   const categories = [CATEGORIES[0], ...(showPlans ? [PLANS_CATEGORY] : []), ...(isHost ? [BOOKINGS_CATEGORY] : []), ...CATEGORIES.slice(1)];
-  const q = query.trim().toLowerCase();
-  const visible = (title: string) => !q || title.toLowerCase().includes(q);
+  const searching = query.trim() !== '';
+  const results = searching ? searchSettings(query, { isHost, showPlans }) : [];
   return (
     <div id="view-list">
       <h1 className="page-title">Settings</h1>
-      <div className="settings-search">
+      <div className="settings-search" role="search">
         <SearchIcon />
-        <input type="search" id="settings-search-input" placeholder="Search Settings" aria-label="Search settings" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input
+          type="search"
+          id="settings-search-input"
+          placeholder="Search Settings"
+          aria-label="Search settings"
+          aria-controls="settings-search-results"
+          autoComplete="off"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setQuery('');
+            if (event.key === 'Enter' && results[0]) { event.preventDefault(); onPick(results[0]); }
+          }}
+        />
       </div>
-      <div className="cat-list">
-        {categories.map((cat) => {
-          const inner = (
-            <>
-              <span className="cat-icon">{CAT_ICONS[cat.key]}</span>
-              <span className="cat-main"><span className="cat-title">{cat.title}</span><span className="cat-desc">{cat.desc}</span></span>
+      {searching ? (
+        <div className="cat-list" id="settings-search-results" aria-live="polite">
+          {results.map((entry) => (
+            <button key={`${entry.section}:${entry.label}`} type="button" className="cat-row" onClick={() => onPick(entry)}>
+              <span className="cat-icon">{CAT_ICONS[entry.section]}</span>
+              <span className="cat-main">
+                <span className="cat-title">{entry.label}</span>
+                {entry.label !== SECTION_TITLES[entry.section] && <span className="search-where">{SECTION_TITLES[entry.section]}</span>}
+              </span>
               <span className="cat-chevron"><ChevronRight /></span>
-            </>
-          );
-          if (cat.href) return <Link key={cat.key} href={cat.href} className="cat-row" hidden={!visible(cat.title)}>{inner}</Link>;
-          return <button key={cat.key} type="button" className={`cat-row${active === cat.key ? ' active' : ''}`} hidden={!visible(cat.title)} onClick={() => onOpen(cat.key)}>{inner}</button>;
-        })}
-        <div className="soon-divider">Coming soon</div>
-        <div className="cat-row disabled" hidden={!visible('Payments & Payouts')}>
-          <span className="cat-icon">{CAT_ICONS.payments}</span>
-          <span className="cat-main">
-            <span className="cat-title-row"><span className="cat-title">Payments &amp; Payouts</span><span className="soon-badge">Soon</span></span>
-            <span className="cat-desc">Manage payment methods, payouts and transaction history.</span>
-          </span>
-          <span className="cat-chevron mobile-only-chevron"><ChevronRight /></span>
+            </button>
+          ))}
+          {!results.length && <p className="search-empty">No results for “{query.trim()}”</p>}
         </div>
-      </div>
+      ) : (
+        <div className="cat-list">
+          {categories.map((cat) => {
+            const inner = (
+              <>
+                <span className="cat-icon">{CAT_ICONS[cat.key]}</span>
+                <span className="cat-main"><span className="cat-title">{cat.title}</span></span>
+                <span className="cat-chevron"><ChevronRight /></span>
+              </>
+            );
+            if (cat.href) return <Link key={cat.key} href={cat.href} className="cat-row">{inner}</Link>;
+            return <button key={cat.key} type="button" className={`cat-row${active === cat.key ? ' active' : ''}`} onClick={() => onOpen(cat.key)}>{inner}</button>;
+          })}
+          <div className="soon-divider">Coming soon</div>
+          <div className="cat-row disabled">
+            <span className="cat-icon">{CAT_ICONS.payments}</span>
+            <span className="cat-main">
+              <span className="cat-title-row"><span className="cat-title">Payments &amp; Payouts</span><span className="soon-badge">Soon</span></span>
+            </span>
+            <span className="cat-chevron mobile-only-chevron"><ChevronRight /></span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -81,9 +118,9 @@ export function SettingsSkeleton() {
       <div className="page-title" aria-hidden="true"><div className="skeleton-heading" /></div>
       <div className="skeleton-search" aria-hidden="true"><span className="skeleton-search-glyph" /><span className="skeleton-search-placeholder" /></div>
       <div className="cat-list" aria-hidden="true">
-        {[0, 1, 2, 3, 4, 5].map((i) => row(true, i))}
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => row(true, i))}
         <div className="soon-divider skeleton-soon-divider" aria-hidden="true">Coming soon</div>
-        {row(false, 6)}
+        {row(false, 7)}
       </div>
     </div>
   );
@@ -112,16 +149,29 @@ export function NotificationsSection({ userId, prefs, isHost = false, onBack, no
   return (
     <div id="view-notifications">
       <DetailHead title="Notifications" onBack={onBack} />
-      <p className="detail-sub">Choose what VaRoom is allowed to send you.</p>
-      <div className="card">
+      <SettingsBox>
         {rows.map((row) => (
-          <div className="toggle-row" key={row.key}>
+          <div className="toggle-row" key={row.key} id={`notify-${row.key}`}>
             <div><div className="toggle-label">{row.label}</div>{row.desc && <div className="toggle-desc">{row.desc}</div>}</div>
             <label className="switch"><input type="checkbox" checked={Boolean(values[row.key])} onChange={(event) => change(row.key, event.target.checked)} /><span className="switch-track" /></label>
           </div>
         ))}
+      </SettingsBox>
+    </div>
+  );
+}
+
+// ---------- Chats ----------
+
+/** The Chat Settings from Chats (components/chat/ChatSettings), shown in grey boxes. */
+export function ChatsSection({ role, onBack }: { role: 'host' | 'client'; onBack: () => void }) {
+  const router = useRouter();
+  return (
+    <div id="view-chats">
+      <DetailHead title="Chats" onBack={onBack} />
+      <div className="settings-chats">
+        <ChatSettings key={role} role={role} onOpenArchived={() => { void router.push('/chats?archived=1'); }} />
       </div>
-      <div className="note-box">These switches control the notifications under the bell icon. Turned off, VaRoom doesn&apos;t create them at all.</div>
     </div>
   );
 }
@@ -166,9 +216,7 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
   return (
     <div id="view-display">
       <DetailHead title="Display" onBack={onBack} />
-      <p className="detail-sub">Appearance and accessibility preferences.</p>
-      <div className="settings-section">
-        <p className="section-title">Appearance</p>
+      <SettingsBox title="Appearance" icon={INFO_ICONS.monitor} padded>
         <div className="appearance-options" id="appearance-options">
           {(['light', 'dark', 'system'] as ThemeChoice[]).map((choice) => (
             <button key={choice} type="button" className={`appearance-pill${theme === choice ? ' active' : ''}`} data-theme-choice={choice} onClick={() => chooseTheme(choice)}>
@@ -176,6 +224,8 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
             </button>
           ))}
         </div>
+      </SettingsBox>
+      <SettingsBox title="Font size" icon={INFO_ICONS.text} padded>
         <div className="font-size-setting">
           {/* How text reads at this size (resizes as the slider moves). */}
           <div className="font-preview" aria-hidden="true">
@@ -186,7 +236,6 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
             </div>
           </div>
           <div className="font-size-setting-head">
-            <span className="font-size-setting-label">Font size</span>
             <span className="font-size-setting-value">{label}</span>
           </div>
           <div className="font-size-slider-row">
@@ -219,9 +268,9 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
             </div>
             <span className="font-size-mark large" aria-hidden="true">Aa</span>
           </div>
-          <p className="font-size-note">Applies on every VaRoom page on this device.</p>
+          <p className="font-size-note">This device only.</p>
         </div>
-      </div>
+      </SettingsBox>
     </div>
   );
 }
@@ -251,22 +300,19 @@ export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: 
   return (
     <div id="view-privacy">
       <DetailHead title="Privacy & Security" onBack={onBack} />
-      <p className="detail-sub">Control your visibility and how people can reach you.</p>
-      <div className="settings-section">
-        <p className="section-title">Privacy</p>
-        <div className="card" style={{ padding: '1.2rem' }}>
+      <SettingsBox title="Privacy" icon={INFO_ICONS.eye} padded>
           <div className="field">
             <label htmlFor="profile-visibility">Profile visibility</label>
             <select id="profile-visibility" value={values.profile_visibility} onChange={set('profile_visibility')}>
-              <option value="public">Public — visible to anyone browsing VaRoom</option>
-              <option value="private">Private</option>
+              <option value="public">Public</option>
+              <option value="private">Private — only people you’ve chatted or booked with</option>
             </select>
           </div>
           <div className="field">
             <label htmlFor="who-can-message">Who can message you</label>
             <select id="who-can-message" value={values.who_can_message} onChange={set('who_can_message')}>
               <option value="everyone">Everyone</option>
-              <option value="no_one">No one</option>
+              <option value="no_one">No one — existing chats carry on</option>
             </select>
           </div>
           <div className="field">
@@ -277,22 +323,16 @@ export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: 
               <option value="exact">Exact location only when required for a booking</option>
             </select>
           </div>
-          <button type="button" className="btn" onClick={save}>Save privacy settings</button>
+          <button type="button" className="btn" onClick={save}>Save</button>
           <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
-        </div>
-        <div className="note-box">Private: only people you already have a chat or booking with can open your host profile. No one: nobody can start a new chat with you, and chats you already have carry on. Location visibility is saved for when location-based search uses it.</div>
-      </div>
-      <div className="settings-section">
-        <p className="section-title">Security</p>
-        <div className="card">
+      </SettingsBox>
+      <SettingsBox title="Security" icon={INFO_ICONS.shield}>
           <a href="#" className="info-row clickable" onClick={(event) => { event.preventDefault(); onPassword(); }}>
             <span className="info-icon">{INFO_ICONS.lock}</span>
-            <span className="info-main"><span className="info-label">Password</span><span className="info-value" style={{ fontWeight: 500 }}>Manage it from Your Account</span></span>
+            <span className="info-main"><span className="info-label">Change password</span></span>
             <span className="info-chevron"><ChevronRight size={16} /></span>
           </a>
-        </div>
-        <div className="note-box">Login activity, device management and two-factor authentication aren&apos;t built yet — they&apos;ll land here as the platform matures.</div>
-      </div>
+      </SettingsBox>
     </div>
   );
 }
@@ -317,33 +357,23 @@ export function SupportSection({ onBack }: { onBack: () => void }) {
   return (
     <div id="view-support">
       <DetailHead title="Support & About" onBack={onBack} />
-      <p className="detail-sub">Help, contact, policies and information about VaRoom.</p>
-      <div className="settings-section">
-        <p className="section-title">Help</p>
-        <div className="card">
-          <LinkRow href="/support" icon={INFO_ICONS.help} label="Help Centre" value="Answers to common questions" />
-          <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20Support" icon={INFO_ICONS.chat} label="Contact VaRoom" value="Get in touch with the team" />
-          <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20—%20Problem%20report" icon={INFO_ICONS.warning} label="Report a Problem" value="Something not working right?" />
-        </div>
-      </div>
-      <div className="settings-section">
-        <p className="section-title">Policies</p>
-        <div className="card">
+      <SettingsBox title="Help" icon={INFO_ICONS.help}>
+          <LinkRow href="/support" icon={INFO_ICONS.help} label="Help Centre" />
+          <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20Support" icon={INFO_ICONS.chat} label="Contact VaRoom" />
+          <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20—%20Problem%20report" icon={INFO_ICONS.warning} label="Report a Problem" />
+      </SettingsBox>
+      <SettingsBox title="Policies" icon={INFO_ICONS.file}>
           <LinkRow href="/privacy" icon={INFO_ICONS.shield} label="Privacy Policy" external />
           <LinkRow href="/terms" icon={INFO_ICONS.file} label="Terms & Conditions" external />
-        </div>
-      </div>
-      <div className="settings-section">
-        <p className="section-title">About</p>
-        <div className="card">
+      </SettingsBox>
+      <SettingsBox title="About" icon={INFO_ICONS.info}>
           <div className="about-block">
             <strong>VaRoom</strong> is a hospitality marketplace connecting hosts and guests across Kenya.
             <br /><br />
             VaRoom, Nairobi, Kenya.<br />
             © {new Date().getFullYear()} VaRoom. All rights reserved.
           </div>
-        </div>
-      </div>
+      </SettingsBox>
     </div>
   );
 }
@@ -399,7 +429,7 @@ export function LoginAccountsSection({ userId, onBack, onDelete, notify, onLogou
     // The row goes at once; the switcher updates the group and the list.
     setHidden((current) => new Set(current).add(account.id));
     s.removeLinkedAccount(getSupabaseClient(), account.id).then(() => {
-      notify('Saved account removed. Its VaRoom account and data were not deleted.');
+      notify('Account removed from this dashboard.');
     }).catch((error: Error & { removalSucceeded?: boolean }) => {
       if (!error?.removalSucceeded) setHidden((current) => { const next = new Set(current); next.delete(account.id); return next; });
       notify(error?.message || 'Unable to remove this saved account.');
@@ -432,27 +462,26 @@ export function LoginAccountsSection({ userId, onBack, onDelete, notify, onLogou
   return (
     <div id="view-login-accounts">
       <DetailHead title="Login & Accounts" onBack={onBack} />
-      <p className="detail-sub">Manage how you&apos;re signed in to VaRoom.</p>
-      <div className="settings-section">
-        <p className="section-title">Accounts on this dashboard</p>
-        <div className="card dashboard-accounts" id="dashboard-accounts-list">
+      <SettingsBox title="Accounts on this dashboard" icon={INFO_ICONS.users} id="dashboard-accounts-list">
+        <div className="dashboard-accounts">
           {current && row(current, true)}
-          {!others.length && <p className="accounts-empty">No other accounts are stored on this dashboard.</p>}
+          {!others.length && <p className="accounts-empty">No other accounts.</p>}
           {others.map((account) => row(account, false))}
         </div>
+      </SettingsBox>
+      <div className="settings-section">
         <button
           type="button"
+          id="add-account-btn"
           className="btn btn-ghost"
-          style={{ marginTop: '.9rem' }}
           disabled={atLimit}
           aria-disabled={atLimit}
           onClick={() => { if (!atLimit) switcher()?.startAddAccount?.('/settings'); }}
         >+ Add account</button>
-        <p className="account-limit-note">{atLimit ? 'Account limit reached (3/3).' : `${accounts.length}/3 accounts stored on this dashboard.`}</p>
+        <p className="account-limit-note">{atLimit ? 'Account limit reached (3/3).' : `${accounts.length}/3 accounts`}</p>
       </div>
-      <div className="accounts-divider" aria-hidden="true" />
       <div className="logout-section">
-        <button type="button" className="btn btn-ghost" onClick={() => setConfirmLogout(true)}>Log out</button>
+        <button type="button" id="logout-btn" className="btn btn-ghost" onClick={() => setConfirmLogout(true)}>Log out</button>
         <div className={`logout-confirm-panel${confirmLogout ? ' show' : ''}`}>
           <p className="inline-msg neutral">Are you sure you want to log out?</p>
           <div className="logout-confirm-actions">
@@ -464,8 +493,8 @@ export function LoginAccountsSection({ userId, onBack, onDelete, notify, onLogou
       <dialog className="delete-account-dialog" ref={removeDialog} aria-labelledby="remove-linked-account-title" onClose={() => setRemoving(null)}>
         <h2 id="remove-linked-account-title">Remove saved account?</h2>
         <p>{removing
-          ? `Remove ${name} from this dashboard? This only removes the saved account association. The VaRoom account and its listings, bookings, chats, profile, and other data will remain available.`
-          : 'This removes the saved account association from this dashboard. The VaRoom account and its listings, bookings, chats, profile, and other data will remain available.'}</p>
+          ? `Removes ${name} from this dashboard only. The account and its data aren’t deleted.`
+          : 'Removes it from this dashboard only. The account and its data aren’t deleted.'}</p>
         <div className="delete-account-actions">
           <button type="button" className="btn btn-ghost" onClick={() => removeDialog.current?.close?.()}>Cancel</button>
           <button type="button" className="btn btn-danger" onClick={confirmRemove}>Remove account</button>
@@ -503,7 +532,7 @@ export function DeleteAccountDialog({ open, onClose, onConfirm }: { open: boolea
   return (
     <dialog className="delete-account-dialog" ref={ref} aria-labelledby="delete-account-title" onClose={onClose}>
       <h2 id="delete-account-title">Delete account?</h2>
-      <p>Your account is deactivated straight away: your profile, listings and other content are hidden from other people, and you&apos;re signed out on every device. If you don&apos;t sign in within 30 days, the account and its data are permanently deleted and can&apos;t be recovered. Signing in before then restores everything.</p>
+      <p>You&apos;re signed out everywhere and your profile and listings are hidden. After 30 days the account and its data are deleted for good. Sign in before then to restore it.</p>
       <form onSubmit={submit}>
         <label htmlFor="delete-account-reason">Why are you deleting your account?</label>
         <select id="delete-account-reason" required value={reason} onChange={(event) => setReason(event.target.value)}>

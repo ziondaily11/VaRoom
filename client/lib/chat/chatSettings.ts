@@ -17,11 +17,11 @@ export const STORAGE_KEY = 'varoom:chat-settings';
 export const DEFAULT_AWAY_MESSAGE = '“I’m currently away and will respond as soon as I can.”';
 
 export const COPY = {
-  awayOn: 'When enabled, Varoom will automatically respond to new incoming messages while you’re away.',
-  awayOff: 'Turn this on when you don’t want to manually respond to every incoming message.',
-  awayOutsideHours: 'Away now: outside your business hours, guests get your away message.',
-  hoursOff: 'Be away automatically outside the hours you set.',
-  hoursOpen: 'Open now. Outside these hours you’re away automatically.',
+  awayOn: 'New messages get your away message automatically.',
+  awayOff: 'Reply automatically while you’re away.',
+  awayOutsideHours: 'Away now: outside your business hours.',
+  hoursOff: 'Away automatically outside the hours you set.',
+  hoursOpen: 'Open now.',
 };
 
 export interface ChatSettingsState {

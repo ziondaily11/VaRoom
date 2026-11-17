@@ -8,6 +8,7 @@ import {
 } from '../../lib/settings/accountDetails';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
 import ReachOutSection from './ReachOutSection';
+import SettingsBox from './SettingsBox';
 
 // Your Account (legacy #view-account): the account details, email and
 // password changes, Reach Out (hosts) and account status. Locked only when
@@ -187,9 +188,8 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
   return (
     <div id="account-verify-view">
       <DetailHead title="Your Account" onBack={onBack} />
-      <p className="detail-sub">Enter your current account password to view your account details.</p>
       <div className="settings-section">
-        <div className="card" style={{ padding: '1.8rem', maxWidth: '440px' }}>
+        <SettingsBox padded style={{ maxWidth: '440px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem', marginBottom: '1.4rem' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)', flexShrink: 0 }}>
               <LockLarge />
@@ -228,12 +228,12 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
           </form>
           {googleOffered && (
             <div style={{ marginTop: '1rem' }}>
-              <p style={{ fontSize: '.82rem', color: 'var(--muted)', textAlign: 'center', marginBottom: '.75rem' }}>or verify with the Google account linked to VaRoom</p>
+              <p style={{ fontSize: '.82rem', color: 'var(--muted)', textAlign: 'center', marginBottom: '.75rem' }}>or</p>
               <button type="button" className="btn btn-block" disabled={googleBusy} onClick={verifyWithGoogle}>{googleBusy ? 'Starting Google verification...' : 'Verify with Google'}</button>
               {googleError && <p className="inline-msg error" style={{ marginTop: '.5rem' }}>{googleError}</p>}
             </div>
           )}
-        </div>
+        </SettingsBox>
       </div>
     </div>
   );
@@ -277,7 +277,7 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
     const { error } = await client.auth.updateUser({ email: value });
     setEmailMsg(error
       ? { text: error.message, kind: 'error' }
-      : { text: 'Check both your old and new email for confirmation links — the change applies once confirmed.', kind: 'success' });
+      : { text: 'Confirm the change from the links sent to both addresses.', kind: 'success' });
   };
 
   const savePassword = async () => {
@@ -305,14 +305,10 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
   return (
     <div id="account-verified-view">
       <DetailHead title="Your Account" onBack={onBack} />
-      <p className="detail-sub">Manage your personal information and account settings.</p>
-
-      <div className="settings-section">
-        <p className="section-title">Account Information</p>
-        <div className="card">
+      <SettingsBox title="Account Information" icon={INFO_ICONS.user}>
           <DetailRow
             userId={userId} field="username" label="Username" icon={INFO_ICONS.user} value={username} shown={username ? `@${username}` : 'Not set'}
-            placeholder="e.g. palmviewstays" hint="3–20 lowercase letters, numbers or underscores. Your public profile link changes with it."
+            placeholder="e.g. palmviewstays" hint="3–20 lowercase letters, numbers or underscores. Your profile link changes too."
             open={Boolean(open.username)} onToggle={() => toggle('username')} onSaved={(value) => onDetailSaved('username', value)}
           />
           <DetailRow
@@ -332,13 +328,10 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
             userId={userId} field="phone" label="Phone number" icon={INFO_ICONS.phone} value={phone} shown={phone || 'Not set'} inputType="tel"
             placeholder="e.g. 0712 345 678" open={Boolean(open.phone)} onToggle={() => toggle('phone')} onSaved={(value) => onDetailSaved('phone', value)}
           />
-        </div>
-      </div>
+      </SettingsBox>
 
-      <div className="settings-section">
-        <p className="section-title">Password</p>
-        <div className="card">
-          <InfoRow icon={INFO_ICONS.lock} label="Change password" value="Update your password regularly" valueStyle={{ fontWeight: 500 }} onClick={() => toggle('password')} id="password-row" />
+      <SettingsBox title="Password" icon={INFO_ICONS.lock}>
+          <InfoRow icon={INFO_ICONS.lock} label="Change password" onClick={() => toggle('password')} id="password-row" />
           <div className={`expand-panel${open.password ? ' show' : ''}`} id="password-panel">
             <div className="field">
               <label htmlFor="new-password-input">New password</label>
@@ -357,28 +350,23 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
             <button type="button" className="btn" onClick={savePassword}>Update password</button>
             <p className={`inline-msg${passwordMsg.kind ? ` ${passwordMsg.kind}` : ''}`}>{passwordMsg.text}</p>
           </div>
-        </div>
-      </div>
+      </SettingsBox>
 
       {isHost && <ReachOutSection userId={userId} accountPhone={phone} accountEmail={email} />}
 
-      <div className="settings-section">
-        <p className="section-title">Account Status</p>
-        <div className="card">
-          <InfoRow icon={INFO_ICONS.alert} label="Deactivate account" value="Temporarily deactivate your account" valueStyle={{ fontWeight: 500 }} onClick={() => toggle('deactivate')} id="deactivate-row" />
+      <SettingsBox title="Account Status" icon={INFO_ICONS.alert}>
+          <InfoRow icon={INFO_ICONS.alert} label="Deactivate account" onClick={() => toggle('deactivate')} id="deactivate-row" />
           <div className={`expand-panel${open.deactivate ? ' show' : ''}`} id="deactivate-panel">
-            <p className="inline-msg neutral">Your profile, listings and reviews are hidden from other people and you&apos;re signed out on every device. Nothing is deleted. Sign in again at any time to reactivate your account.</p>
-            <button type="button" className="btn btn-danger btn-block" disabled={deactivating} onClick={() => { void deactivate(); }}>{deactivating ? 'Deactivating...' : 'Deactivate my account'}</button>
+            <p className="inline-msg neutral">Your profile and listings are hidden and you&apos;re signed out everywhere. Nothing is deleted; sign in again to reactivate.</p>
+            <button type="button" className="btn btn-danger btn-block" style={{ marginTop: '.8rem' }} disabled={deactivating} onClick={() => { void deactivate(); }}>{deactivating ? 'Deactivating...' : 'Deactivate my account'}</button>
             <p className={`inline-msg${deactivateMsg.kind ? ` ${deactivateMsg.kind}` : ''}`}>{deactivateMsg.text}</p>
           </div>
-          <InfoRow icon={INFO_ICONS.trash} label="Delete account" value="Permanently delete your account" valueStyle={{ fontWeight: 500 }} danger onClick={() => toggle('delete')} id="show-delete-confirm" />
+          <InfoRow icon={INFO_ICONS.trash} label="Delete account" danger onClick={() => toggle('delete')} id="show-delete-confirm" />
           <div className={`expand-panel${open.delete ? ' show' : ''}`} id="delete-confirm">
-            <p className="inline-msg neutral">Your account is deactivated straight away and permanently deleted after 30 days. Sign in during those 30 days to keep it.</p>
-            <button type="button" className="btn btn-danger btn-block" onClick={onDelete}>Delete my account</button>
-            <p className="inline-msg" />
+            <p className="inline-msg neutral">Permanently deleted after 30 days. Sign in before then to keep it.</p>
+            <button type="button" className="btn btn-danger btn-block" style={{ marginTop: '.8rem' }} onClick={onDelete}>Delete my account</button>
           </div>
-        </div>
-      </div>
+      </SettingsBox>
     </div>
   );
 }

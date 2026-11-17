@@ -28,7 +28,7 @@ export default function BusinessHoursEditor({ value, onChange }: { value: Busine
           </div>
         );
       })}
-      <p className="cs-row__desc">Nairobi time. Hours can run past midnight (e.g. 18:00–02:00).</p>
+      <p className="cs-row__desc">Nairobi time.</p>
     </div>
   );
 }

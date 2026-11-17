@@ -305,7 +305,7 @@ test('Settings keeps saved-account removal separate from permanent account delet
   const settingsLib = read('lib', 'settings', 'settings.ts');
   assert.match(settingsCode, /Remove saved account\?/);
   assert.match(settingsCode, /Remove account/);
-  assert.match(settingsCode, /The VaRoom account and its listings, bookings, chats, profile, and other data will remain available/);
+  assert.match(settingsCode, /from this dashboard only\. The account and its data aren’t deleted\./);
   assert.match(settingsCode, /removeLinkedAccount\(getSupabaseClient\(\), account\.id\)/);
   const accountRow = settingsCode.slice(settingsCode.indexOf('const row = (account: LinkedAccount, isActive: boolean)'), settingsCode.indexOf('const name = removing'));
   assert.match(accountRow, /\{!isActive && \([\s\S]*?Remove account/);
