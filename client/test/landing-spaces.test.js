@@ -134,6 +134,37 @@ test('several empty niches borrow without repeating a listing, largest niche fir
   assert.equal(new Set(ids).size, ids.length);
 });
 
+test('each card gets more listings of its niche to rotate through, dealt fairly', async () => {
+  const checked = [];
+  const cards = await spaces.buildFeaturedSpaces([
+    listingsOf('property', 2, 2),
+    listingsOf('office', 1, 1),
+    listingsOf('airbnb', 7, 40),
+    listingsOf('venue', 0, 0),
+    listingsOf('hotel', 3, 9),
+  ], null, async (url) => { checked.push(url); return !url.includes('airbnb-5'); });
+  const alternates = cards.map((c) => [c.slot, (c.alternates || []).map((slide) => slide.listing.id)]);
+  assert.deepEqual(alternates, [
+    ['property', ['property-2']],
+    ['office', []],
+    // airbnb-5's photo is broken, so it is skipped.
+    ['airbnb', ['airbnb-3', 'airbnb-6']],
+    // The borrowed card rotates through more of the niche it borrowed from.
+    ['venue', ['airbnb-4', 'airbnb-7']],
+    ['hotel', ['hotel-2', 'hotel-3']],
+  ]);
+  // No listing appears twice anywhere in the row.
+  const ids = cards.flatMap((c) => [c.listing.id, ...(c.alternates || []).map((slide) => slide.listing.id)]);
+  assert.equal(new Set(ids).size, ids.length);
+  // Every slide has a photo and opens its own listing.
+  const slide = cards[4].alternates[0];
+  assert.equal(slide.href, '/booking?listing=hotel-2');
+  assert.match(slide.listing.photoUrl, /hotel-2\.jpg/);
+  // Each photo is checked once, however often it is considered.
+  assert.equal(new Set(checked).size, checked.length);
+  assert.ok(cards.every((c) => (c.alternates || []).length <= spaces.SLIDES_PER_CARD - 1));
+});
+
 test('build-time photo check: only a definite failure rules a photo out', async () => {
   const seen = [];
   const fetcher = (status) => async (url) => { seen.push(url); return { ok: status < 400 }; };
@@ -225,6 +256,21 @@ test('only cards with a photo are rendered; a missing price says so', () => {
   assert.equal((html.match(/<img/g) || []).length, 3);
   assert.doesNotMatch(html, /Event Venues|Hotels/);
   assert.match(html, /Price on request/);
+});
+
+test('a rotating card renders its first listing; a card whose first has no photo shows its next', () => {
+  const niche = spaces.SPACE_NICHES.find((n) => n.id === 'hotel');
+  const slideFor = (id) => ({ listing: { id, title: `Hotel ${id}`, summary: '', photoUrl: `https://storage.example/${id}.jpg`, price: null, priceUnit: '' }, href: `/booking?listing=${id}` });
+  const card = { ...spaces.toFeaturedSpace(niche, row({ id: 'h1', title: 'First Hotel', category: 'hotel' })), alternates: [slideFor('h2'), slideFor('h3')] };
+  const html = renderSection([card]);
+  assert.match(html, /First Hotel/);
+  assert.doesNotMatch(html, /Hotel h2|Hotel h3/);
+  assert.equal((html.match(/<img/g) || []).length, 1);
+
+  const noPhoto = { ...spaces.toFeaturedSpace(niche, row({ id: 'h1', category: 'hotel', listing_photos: [] })), alternates: [slideFor('h2')] };
+  const next = renderSection([noPhoto]);
+  assert.match(next, /Hotel h2/);
+  assert.match(next, /href="\/booking\?listing=h2"/);
 });
 
 test('an empty list renders nothing', () => {

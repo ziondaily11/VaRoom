@@ -89,6 +89,30 @@
 /* A card wrapping from one end to the other moves without crossing the row. */
 .cardJump { transition: none; }
 
+/*
+ * A card's listing. When the card rotates, the next listing fades in on top
+ * while the old one's text fades out underneath, so the two never read over
+ * each other; the old layer is removed when the fade ends.
+ */
+.layer {
+  position: absolute;
+  inset: 0;
+}
+
+.layerIn { animation: layerIn 0.8s ease both; }
+.layerIn .body { animation: layerTextIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards; }
+.layerOut .body { opacity: 0; transition: opacity 0.25s ease; }
+
+@keyframes layerIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes layerTextIn {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
 .photo {
   position: absolute;
   inset: 0;
@@ -307,4 +331,7 @@
   .entrancePlaying .header,
   .entrancePlaying .card,
   .entrancePlaying .controls { animation: none; }
+  .layerIn,
+  .layerIn .body { animation: none; }
+  .layerOut { display: none; }
 }
