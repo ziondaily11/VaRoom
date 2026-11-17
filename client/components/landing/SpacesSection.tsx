@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import type { FeaturedSpace } from '../../lib/landing/featuredSpaces';
+import type { FeaturedSpace, SpaceNicheId } from '../../lib/landing/featuredSpaces';
 import styles from './SpacesSection.module.css';
 
 interface SpacesSectionProps {
   spaces: FeaturedSpace[];
 }
+
+type ShownSpace = FeaturedSpace & { listing: NonNullable<FeaturedSpace['listing']> & { photoUrl: string } };
 
 /** A card's place relative to the centre card: -2 … 2 for five cards, wrapping around. */
 function offsetOf(index: number, active: number, count: number): number {
@@ -18,21 +20,36 @@ const SWIPE_PX = 40;
 
 // Page 2: one card per niche in a fanned row, the centre card largest.
 // Side cards come to the centre when pressed; arrows, keys and swipes rotate.
+// Every card shows a photo: one whose photo fails to load leaves the row.
 export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
-  const count = spaces.length;
-  const [active, setActive] = useState(Math.floor(count / 2));
+  const [failed, setFailed] = useState<ReadonlySet<SpaceNicheId>>(() => new Set());
+  const shown = useMemo(
+    () => spaces.filter((space): space is ShownSpace => Boolean(space.listing?.photoUrl) && !failed.has(space.slot)),
+    [spaces, failed],
+  );
+  const count = shown.length;
+
+  // The centre card is remembered by its slot, so it stays put when another card leaves.
+  const [activeSlot, setActiveSlot] = useState<SpaceNicheId | null>(null);
+  const foundActive = shown.findIndex((space) => space.slot === activeSlot);
+  const active = foundActive >= 0 ? foundActive : Math.floor(count / 2);
+
+  const offsets = shown.map((_, i) => offsetOf(i, active, count));
   // A card that wraps from one end to the other jumps instead of sliding across.
-  const previousOffsets = useRef<number[]>(spaces.map((_, i) => offsetOf(i, Math.floor(count / 2), count)));
+  const previousOffsets = useRef<Map<SpaceNicheId, number>>(new Map());
+  useEffect(() => {
+    previousOffsets.current = new Map(shown.map((space, i) => [space.slot, offsets[i]]));
+  });
   const swipeStart = useRef<number | null>(null);
 
-  const offsets = spaces.map((_, i) => offsetOf(i, active, count));
-  useEffect(() => {
-    previousOffsets.current = offsets;
-  });
-
   const step = useCallback((delta: number) => {
-    setActive((current) => (current + delta + count) % count);
-  }, [count]);
+    if (!count) return;
+    setActiveSlot(shown[(active + delta + count) % count].slot);
+  }, [active, count, shown]);
+
+  const dropCard = useCallback((slot: SpaceNicheId) => {
+    setFailed((current) => new Set(current).add(slot));
+  }, []);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'ArrowLeft') { event.preventDefault(); step(-1); }
@@ -50,12 +67,10 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
   };
 
   if (!count) return null;
-  const current = spaces[active];
 
   return (
     <section id="spaces" className={`snap-page ${styles.section}`} aria-labelledby="spaces-heading">
       <div className={styles.header}>
-        <p className={styles.eyebrow}>The spaces</p>
         <h2 id="spaces-heading" className={styles.headline}>
           Discover <em>Spaces for</em>
           <br />
@@ -74,10 +89,10 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
         onPointerUp={onPointerUp}
         onPointerCancel={() => { swipeStart.current = null; }}
       >
-        {spaces.map((space, i) => {
+        {shown.map((space, i) => {
           const offset = offsets[i];
           const isActive = offset === 0;
-          const wrapped = Math.abs(offset - (previousOffsets.current[i] ?? offset)) > 1;
+          const wrapped = Math.abs(offset - (previousOffsets.current.get(space.slot) ?? offset)) > 1;
           return (
             <article
               key={space.slot}
@@ -86,15 +101,15 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
               aria-roledescription="slide"
               aria-label={`${space.label}, ${i + 1} of ${count}`}
               aria-hidden={Math.abs(offset) > 1 ? true : undefined}
-              onClickCapture={isActive ? undefined : (event) => { event.preventDefault(); event.stopPropagation(); setActive(i); }}
+              onClickCapture={isActive ? undefined : (event) => { event.preventDefault(); event.stopPropagation(); setActiveSlot(space.slot); }}
             >
-              <SpaceCard space={space} focusable={isActive} />
+              <SpaceCard space={space} focusable={isActive} onPhotoError={dropCard} />
             </article>
           );
         })}
       </div>
 
-      <p className={styles.srOnly} aria-live="polite">{current.label}</p>
+      <p className={styles.srOnly} aria-live="polite">{shown[active].label}</p>
 
       <div className={styles.controls}>
         <button type="button" className={styles.arrow} onClick={() => step(-1)} aria-label="Previous space">
@@ -109,33 +124,41 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
   );
 };
 
-const SpaceCard: React.FC<{ space: FeaturedSpace; focusable: boolean }> = ({ space, focusable }) => {
-  const { listing } = space;
-  const [photoFailed, setPhotoFailed] = useState(false);
-  const photo = listing?.photoUrl && !photoFailed ? listing.photoUrl : null;
+interface SpaceCardProps {
+  space: ShownSpace;
+  focusable: boolean;
+  onPhotoError: (slot: SpaceNicheId) => void;
+}
 
+const SpaceCard: React.FC<SpaceCardProps> = ({ space, focusable, onPhotoError }) => {
+  const { listing } = space;
+  // A photo that failed before hydration fires no error React can see.
+  const checkLoaded = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth === 0) onPhotoError(space.slot);
+  }, [onPhotoError, space.slot]);
   return (
     <>
-      {photo
-        ? <img className={styles.photo} src={photo} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setPhotoFailed(true)} />
-        : <div className={`${styles.photo} ${styles.photoEmpty}`} data-niche={space.niche} aria-hidden="true" />}
+      <img
+        ref={checkLoaded}
+        className={styles.photo}
+        src={listing.photoUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        onError={() => onPhotoError(space.slot)}
+      />
       <div className={styles.shade} aria-hidden="true" />
 
       <div className={styles.body}>
-        <h3 className={styles.title}>{listing ? listing.title : space.label}</h3>
+        <h3 className={styles.title}>{listing.title}</h3>
         <span className={styles.category}>{space.label}</span>
-        <p className={styles.summary}>
-          {listing
-            ? (listing.summary || 'Details from the host are on the listing.')
-            : `${space.label} are coming to VaRoom soon.`}
+        <p className={styles.summary}>{listing.summary || 'Details from the host are on the listing.'}</p>
+        <p className={styles.price}>
+          {listing.price
+            ? <>{listing.price}{listing.priceUnit && <span>{` ${listing.priceUnit}`}</span>}</>
+            : <span>Price on request</span>}
         </p>
-        {listing && (
-          <p className={styles.price}>
-            {listing.price
-              ? <>{listing.price}{listing.priceUnit && <span>{` ${listing.priceUnit}`}</span>}</>
-              : <span>Price on request</span>}
-          </p>
-        )}
         <Link href={space.href} className={styles.explore} tabIndex={focusable ? undefined : -1}>
           Explore
         </Link>

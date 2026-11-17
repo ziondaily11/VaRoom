@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { SpacesSection } from '../components/landing/SpacesSection';
-import { emptyFeaturedSpaces, fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
+import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
@@ -313,7 +313,7 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
     return { props: { spaces: await fetchFeaturedSpaces(client) }, revalidate: SPACES_REVALIDATE_SECONDS };
   } catch (error) {
     console.warn('Landing spaces unavailable at build time', error);
-    // Retry sooner when the database could not be reached.
-    return { props: { spaces: emptyFeaturedSpaces() }, revalidate: 60 };
+    // No cards (the section is left out); retry sooner.
+    return { props: { spaces: [] }, revalidate: 60 };
   }
 };
