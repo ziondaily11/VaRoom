@@ -74,7 +74,7 @@ const destinations = [
   { city: 'Nakuru', image: '/assets/destinations/nakuru.jpg' },
 ];
 
-type View = 'home' | 'marketplace' | 'saved';
+type View = 'home' | 'marketplace';
 type Photo = { storage_path: string; width?: number; height?: number };
 type Host = { full_name?: string; verified?: boolean; avatar_url?: string | null; username?: string };
 type Listing = {
@@ -837,15 +837,17 @@ export default function ClientHome() {
   }, [search]);
 
   useEffect(() => {
-    const nextView = router.query.view === 'saved'
-      ? 'saved'
-      : router.query.view === 'marketplace' ? 'marketplace' : 'home';
+    // Saved moved to Profile → Saved; old links and bookmarks still arrive here.
+    if (router.query.view === 'saved') { void router.replace('/profile?tab=saved'); return; }
+    const nextView = router.query.view === 'marketplace' ? 'marketplace' : 'home';
     setView(nextView);
     if (nextView === 'home') {
       setCategory('all');
       setSearch('');
       setTerm('');
     }
+    // The router object is stable; only the view matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.view]);
 
   useEffect(() => {
@@ -1097,35 +1099,8 @@ export default function ClientHome() {
   }, [feedReady, fetcher, key, user, view]);
 
   useIsomorphicLayoutEffect(() => {
-    if (view !== 'saved') void loadFeed();
-  }, [loadFeed, view]);
-
-  useEffect(() => {
-    if (view !== 'saved' || !user || !ready) return;
-    let active = true;
-    setLoading(true);
-    setError('');
-    if (saved.size === 0) {
-      setItems([]);
-      setLoadedFeedKey(key);
-      setHasMore(false);
-      setLoading(false);
-      return () => { active = false; };
-    }
-    getSupabaseClient()!.from('listings').select(select)
-      .in('id', Array.from(saved))
-      .eq('moderation_status', 'active')
-      .eq('availability_status', 'available')
-      .then(({ data, error: savedError }) => {
-        if (!active) return;
-        setItems((data || []) as unknown as Listing[]);
-        setLoadedFeedKey(key);
-        setHasMore(false);
-        setLoading(false);
-        if (savedError) setError(savedError.message || 'Saved listings could not be loaded.');
-      });
-    return () => { active = false; };
-  }, [key, ready, saved, user, view]);
+    void loadFeed();
+  }, [loadFeed]);
 
   // Like summaries for listings not asked about yet: a new page asks only for
   // its own listings (each listing once per account), not the whole feed again.
@@ -1298,7 +1273,7 @@ export default function ClientHome() {
   // (lib/discover/deferredWork.ts); their cached values are already shown.
   // The lightbox and report code is fetched then too.
   const [secondaryReady, setSecondaryReady] = useState(false);
-  const feedSettled = loadedFeedKey !== '' || Boolean(error) || view === 'saved';
+  const feedSettled = loadedFeedKey !== '' || Boolean(error);
   useEffect(() => {
     if (secondaryReady || !user?.id) return undefined;
     return afterFeedSettles(feedSettled, () => {
@@ -1417,7 +1392,7 @@ export default function ClientHome() {
   // in range); a failed page is retried while the reader is still there.
   const pageTrigger = useLoadMore({
     root: scrollRoot,
-    enabled: hasMore && view !== 'saved' && loadedFeedKey === key && !loadingMore,
+    enabled: hasMore && loadedFeedKey === key && !loadingMore,
     onLoadMore: () => loadFeed(true),
     itemCount: visibleItems.length,
   });
@@ -1585,7 +1560,7 @@ export default function ClientHome() {
         <main className={styles.feedArea} ref={feed}>
           <div className={styles.headingRow}>
             <h1 className={styles.feedTitle}>
-              {view === 'saved' ? 'Saved' : view === 'marketplace' ? 'Marketplace' : interests.length > 0 ? 'For you' : 'Find the perfect space'}
+              {view === 'marketplace' ? 'Marketplace' : interests.length > 0 ? 'For you' : 'Find the perfect space'}
             </h1>
             {(view === 'marketplace' || term) && <a className={styles.marketplaceSwitch} href={marketplaceHref}>Browse as Marketplace →</a>}
           </div>
@@ -1646,7 +1621,7 @@ export default function ClientHome() {
             </div>
           )}
           {showEmpty && (
-            <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
+            <p className={styles.stateMessage}>{emptyMessage}</p>
           )}
           {/* Every listing keeps its wrapper (the scroll-restoration anchor);
               only those near the screen hold the card, the rest keep its height. */}
@@ -1753,7 +1728,7 @@ export default function ClientHome() {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
             Inbox
           </a>
-          <a className={view === 'saved' ? styles.bottomActive : ''} href="/client-home?view=saved">
+          <a href="/profile?tab=saved">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" /></svg>
             Saved
           </a>

@@ -11,7 +11,6 @@ type Item = [href: string, label: string, icon: string, active?: boolean];
 const HOST_ITEMS: Item[] = [
   ['/host-home', 'Home', SIDEBAR_ICONS.home],
   ['/marketplace', 'Marketplace', SIDEBAR_ICONS.hostMarketplace, true],
-  ['/host-home', 'Saved', SIDEBAR_ICONS.saved],
   ['/bookings', 'Bookings', SIDEBAR_ICONS.bookings],
   ['/chats', 'Chats', SIDEBAR_ICONS.chats],
   ['/notifications', 'Notifications', SIDEBAR_ICONS.notifications],
@@ -27,7 +26,6 @@ const HOST_ITEMS: Item[] = [
 const CLIENT_ITEMS: Item[] = [
   ['/client-home', 'Home', SIDEBAR_ICONS.home],
   ['/marketplace', 'Discover marketplace', SIDEBAR_ICONS.clientMarketplace, true],
-  ['/client-home?view=saved', 'Saved', SIDEBAR_ICONS.saved],
   ['/bookings', 'Bookings', SIDEBAR_ICONS.bookings],
   ['/chats', 'Chat', SIDEBAR_ICONS.chats],
   ['/notifications', 'Notifications', SIDEBAR_ICONS.notifications],

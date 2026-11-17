@@ -49,8 +49,9 @@ export const CATEGORY_TABS: Array<{ value: string; label: string }> = [
   { value: 'property', label: 'Property' },
 ];
 
-export type HostView = 'home' | 'saved' | 'my-listings';
-export const viewFromQuery = (value: unknown): HostView => (value === 'saved' || value === 'my-listings' ? value : 'home');
+/** Host Home's ?view= (Saved moved to Profile → Saved; ?view=saved redirects there). */
+export type HostView = 'home' | 'my-listings';
+export const viewFromQuery = (value: unknown): HostView => (value === 'my-listings' ? value : 'home');
 
 // ---------- Feed ----------
 
@@ -103,13 +104,6 @@ export function mergeSearchResults(byLocation: FeedListing[], byHost: FeedListin
     .filter((listing) => (seen.has(listing.id) ? false : (seen.add(listing.id), true)))
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime() || String(b.id).localeCompare(String(a.id)))
     .slice(0, limit);
-}
-
-export async function fetchSavedListings(client: SupabaseClient, ids: string[]): Promise<FeedListing[]> {
-  if (!ids.length) return [];
-  const { data, error } = await client.from('listings').select(FEED_SELECT).in('id', ids);
-  if (error) throw new Error(error.message);
-  return (data || []) as unknown as FeedListing[];
 }
 
 export function timeAgo(dateStr: string, now: number = Date.now()): string {

@@ -12,6 +12,8 @@ let ownerId: string | null = null;
 let saved: Set<string> | null = null;
 let pending: Promise<ReadonlySet<string>> | null = null;
 const listeners = new Set<Listener>();
+// Bumped on every saved / unsaved listing, so the Saved list knows when it is out of date.
+let version = 0;
 
 function publish() {
   if (!ownerId || !saved) return;
@@ -48,6 +50,7 @@ export async function toggleBookmark(client: SupabaseClient, userId: string, lis
   const set = saved as Set<string>;
   const wasSaved = set.has(listingId);
   if (wasSaved) set.delete(listingId); else set.add(listingId);
+  version += 1;
   publish();
   const { error } = wasSaved
     ? await client.from('bookmarks').delete().eq('client_id', userId).eq('listing_id', listingId)
@@ -55,6 +58,7 @@ export async function toggleBookmark(client: SupabaseClient, userId: string, lis
   if (error) {
     if (ownerId === userId && saved) {
       if (wasSaved) saved.add(listingId); else saved.delete(listingId);
+      version += 1;
       publish();
     }
     throw error;
@@ -71,4 +75,64 @@ export function clearBookmarks(): void {
   ownerId = null;
   saved = null;
   pending = null;
+  savedListings = null;
+  savedListingsPending = null;
+  version += 1;
+}
+
+// ---------- The Saved list (Profile → Saved) ----------
+
+export interface SavedListing {
+  id: string;
+  title: string | null;
+  location_text: string | null;
+  category: string | null;
+  availability_status: string | null;
+  listing_photos: Array<{ storage_path: string | null }> | null;
+  listing_booking_details: SavedListingPrice | SavedListingPrice[] | null;
+}
+export interface SavedListingPrice {
+  price_amount: number | string | null;
+  price_unit: string | null;
+  listing_purpose?: string | null;
+  sale_price_amount?: number | string | null;
+}
+
+const SAVED_SELECT = 'created_at,listing:listings(id,title,location_text,category,availability_status,'
+  + 'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,listing_purpose,sale_price_amount))';
+const SAVED_TTL_MS = 2 * 60 * 1000;
+
+let savedListings: { owner: string; version: number; at: number; rows: SavedListing[] } | null = null;
+let savedListingsPending: { owner: string; version: number; request: Promise<SavedListing[]> } | null = null;
+
+/** The Saved list if it is still current for this account (shown at once on return). */
+export function peekSavedListings(userId: string, now: number = Date.now()): SavedListing[] | null {
+  return savedListings && savedListings.owner === userId && savedListings.version === version && now - savedListings.at < SAVED_TTL_MS
+    ? savedListings.rows
+    : null;
+}
+
+/**
+ * The account's saved listings, most recently saved first, in one request.
+ * Listings no longer visible (removed or hidden) are left out.
+ */
+export function loadSavedListings(client: SupabaseClient, userId: string, now: () => number = Date.now): Promise<SavedListing[]> {
+  const current = peekSavedListings(userId, now());
+  if (current) return Promise.resolve(current);
+  if (savedListingsPending && savedListingsPending.owner === userId && savedListingsPending.version === version) return savedListingsPending.request;
+  const requestVersion = version;
+  const request = Promise.resolve(
+    client.from('bookmarks').select(SAVED_SELECT).eq('client_id', userId).order('created_at', { ascending: false }),
+  ).then(({ data, error }) => {
+    if (error) throw error;
+    const rows = ((data || []) as unknown as Array<{ listing: SavedListing | SavedListing[] | null }>)
+      .map((row) => (Array.isArray(row.listing) ? row.listing[0] : row.listing))
+      .filter((listing): listing is SavedListing => Boolean(listing && listing.id));
+    if (ownerId === null || ownerId === userId) savedListings = { owner: userId, version: requestVersion, at: now(), rows };
+    return rows;
+  }).finally(() => {
+    if (savedListingsPending && savedListingsPending.request === request) savedListingsPending = null;
+  });
+  savedListingsPending = { owner: userId, version: requestVersion, request };
+  return request;
 }

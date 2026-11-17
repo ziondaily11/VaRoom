@@ -13,7 +13,7 @@ test('feed: the same cache keys and scroll keys; ?view= picks Home, Saved or My 
   assert.equal(hh.feedKey('U1', false, 'all', 'Mombasa'), 'host:U1:all:all:mombasa');
   assert.equal(hh.feedKey('U1', true, 'hotel', ''), 'host:U1:mine:hotel:');
   assert.equal(hh.scrollKey('host:U1:all:all:'), 'varoom:listings:scroll:host:U1:all:all:');
-  assert.equal(hh.viewFromQuery('saved'), 'saved');
+  assert.equal(hh.viewFromQuery('saved'), 'home', 'Saved moved to Profile → Saved');
   assert.equal(hh.viewFromQuery('my-listings'), 'my-listings');
   assert.equal(hh.viewFromQuery('anything'), 'home');
   assert.deepEqual(hh.CATEGORY_TABS.map((tab) => tab.label), ['All', 'Airbnbs', 'Hotels', 'Event Venues', 'Offices', 'Shops', 'Property']);

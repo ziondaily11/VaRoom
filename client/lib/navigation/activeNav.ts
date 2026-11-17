@@ -6,7 +6,6 @@ export function hostActiveNav(pathname: string, rawAsPath: string, view: string 
   const currentPath = pathname;
   const asPath = rawAsPath.split('?')[0];
   if (view === 'my-listings') return 'my-listings';
-  if (view === 'saved') return 'saved';
   if (asPath.startsWith('/host-home') || currentPath === '/host-home') return 'home';
   if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace')) return 'marketplace';
   if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) return 'bookings';
@@ -24,10 +23,7 @@ export const HOST_MORE_ITEMS = ['analytics', 'settings', 'support', 'upgrade'];
 
 /** Client sidebar. */
 export function clientActiveNav(p: string, as: string): string {
-  if (p === '/client-home' || as.startsWith('/client-home')) {
-    if (as.includes('view=saved')) return 'saved';
-    return 'home';
-  }
+  if (p === '/client-home' || as.startsWith('/client-home')) return 'home';
   if (p === '/marketplace' || as.startsWith('/marketplace')) return 'marketplace';
   if (p === '/bookings' || as.startsWith('/bookings')) return 'bookings';
   if (p === '/chats' || as.startsWith('/chats')) return 'chats';

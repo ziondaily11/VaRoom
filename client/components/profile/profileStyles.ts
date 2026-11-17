@@ -590,4 +590,19 @@ export const PROFILE_STYLES = `
   .client-layout-active .client-page-content #profile-content .profile-main{
     width:100%; height:auto; min-height:100vh; overflow:visible;
   }
+  /* Saved (bookmark tab): the account's saved listings. */
+  .profile-page .profile-category-row .saved-tab{display:inline-flex;align-items:center;justify-content:center;min-width:40px}
+  .profile-page .profile-category-row .saved-tab svg{width:19px;height:19px}
+  .profile-page .profile-category-row .saved-tab[aria-selected="true"]{color:var(--ink)}
+  .profile-page .profile-category-row button:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:6px}
+  .profile-page .saved-card-unsave{
+    position:absolute;top:10px;right:10px;z-index:2;display:grid;place-items:center;width:34px;height:34px;padding:0;
+    border:0;border-radius:999px;background:rgba(255,255,255,.94);color:#111;cursor:pointer;
+    box-shadow:0 2px 10px rgba(0,0,0,.18);transition:transform .15s ease, background-color .15s ease
+  }
+  .profile-page .saved-card-unsave svg{width:17px;height:17px}
+  .profile-page .saved-card-unsave:hover{transform:scale(1.06);background:#fff}
+  .profile-page .saved-card-unsave:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+  .profile-page .saved-retry{border:0;background:none;padding:0;color:var(--red);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+  @media (prefers-reduced-motion: reduce){.profile-page .saved-card-unsave{transition:none}}
 `;

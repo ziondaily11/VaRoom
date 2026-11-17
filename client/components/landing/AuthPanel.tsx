@@ -7,6 +7,7 @@ import { SignupForm } from './SignupForm';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { getSafeRedirect } from '../../lib/safeRedirect';
 import { profileStore } from '../../lib/auth/session';
+import { startPageFor } from '../../lib/navigation/startPage';
 import { deactivationNotice } from '../../lib/auth/reactivation';
 import { errorMessage } from '../../lib/errors';
 import { useTriggerReveal } from '../../lib/landing/useTriggerReveal';
@@ -191,7 +192,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         return;
       }
 
-      window.location.assign(redirect || (role === 'host' ? '/host-home' : '/client-home'));
+      // A host's pinned start page comes before the usual home.
+      window.location.assign(redirect || startPageFor(profile) || (role === 'host' ? '/host-home' : '/client-home'));
     } catch (err) {
       const message = errorMessage(err) || 'Login failed. Please try again.';
       const normalized = String(message).toLowerCase();

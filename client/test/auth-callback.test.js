@@ -86,6 +86,24 @@ test('a signed-in user with a profile goes to onboarding until done, then to the
   assert.deepEqual(r.log.replaced, ['/client-home']);
 });
 
+test("a host's pinned start page opens after Google sign-in; a requested page and onboarding still come first", async () => {
+  const host = (start_page, onboarding_completed = true) => fakeClient({ profile: { role: 'host', onboarding_completed, start_page } });
+  let r = await run('', { client: host('/bookings') });
+  assert.deepEqual(r.log.replaced, ['/bookings']);
+  r = await run('', { client: host('/host-home?view=my-listings') });
+  assert.deepEqual(r.log.replaced, ['/host-home?view=my-listings']);
+  r = await run('?redirect=%2Fchats', { client: host('/bookings') });
+  assert.deepEqual(r.log.replaced, ['/chats'], 'an explicit redirect wins');
+  r = await run('', { client: host('/bookings', false) });
+  assert.deepEqual(r.log.replaced, ['/onboarding'], 'onboarding first');
+  for (const bad of ['https://evil.example', '//evil.example', '/list', '/admin', '']) {
+    r = await run('', { client: host(bad) });
+    assert.deepEqual(r.log.replaced, ['/host-home'], `ignored: ${bad}`);
+  }
+  r = await run('', { client: fakeClient({ profile: { role: 'client', onboarding_completed: true, start_page: '/bookings' } }) });
+  assert.deepEqual(r.log.replaced, ['/client-home'], 'clients have no start page');
+});
+
 test('redirects to another origin are never followed', async () => {
   for (const evil of ['https://evil.example/x', '//evil.example/x', '/\\evil.example', 'javascript:alert(1)']) {
     const r = await run(`?redirect=${encodeURIComponent(evil)}`, { client: fakeClient({ profile: { role: 'host', onboarding_completed: true } }) });

@@ -54,16 +54,17 @@ test('HostSidebar keeps its reference navigation, More menu and account switcher
   }
   assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
   assert.match(sidebarCode, /<span className="va">Va<\/span>/, 'Contains VaRoom branding');
-  for (const label of ['Home', 'Marketplace', 'Saved', 'Bookings', 'Chats', 'Notifications', 'List a space', 'My Listings', 'Profile', 'Analytics', 'Settings', 'Help &amp; Support']) {
+  for (const label of ['Home', 'Marketplace', 'Bookings', 'Chats', 'Notifications', 'List a space', 'My Listings', 'Profile', 'Analytics', 'Settings', 'Help & Support']) {
     assert.ok(sidebarCode.includes(label), label);
   }
+  // Saved moved to Profile → Saved.
+  assert.doesNotMatch(sidebarCode, /data-nav="saved"/);
 });
 
 test('host sidebar active item follows the route, Host Home views and the More menu', () => {
   assert.equal(hostActiveNav('/host-home', '/host-home', ''), 'home');
   assert.equal(hostActiveNav('/host-home', '/host-home?view=my-listings', 'my-listings'), 'my-listings');
-  assert.equal(hostActiveNav('/host-home', '/host-home?view=saved', 'saved'), 'saved');
-  assert.equal(hostActiveNav('/host-home', '/host-home?view=saved', ''), 'home', 'views are ignored before hydration');
+  assert.equal(hostActiveNav('/host-home', '/host-home?view=my-listings', ''), 'home', 'views are ignored before hydration');
   assert.equal(hostActiveNav('/marketplace', '/marketplace?q=x', ''), 'marketplace');
   assert.equal(hostActiveNav('/bookings', '/bookings', ''), 'bookings');
   assert.equal(hostActiveNav('/chats', '/chats', ''), 'chats');
@@ -77,9 +78,8 @@ test('host sidebar active item follows the route, Host Home views and the More m
   assert.deepEqual(HOST_MORE_ITEMS, ['analytics', 'settings', 'support', 'upgrade']);
 });
 
-test('client sidebar active item follows the route; Saved is a Client Home view', () => {
+test('client sidebar active item follows the route', () => {
   assert.equal(clientActiveNav('/client-home', '/client-home'), 'home');
-  assert.equal(clientActiveNav('/client-home', '/client-home?view=saved'), 'saved');
   assert.equal(clientActiveNav('/marketplace', '/marketplace'), 'marketplace');
   assert.equal(clientActiveNav('/bookings', '/bookings'), 'bookings');
   assert.equal(clientActiveNav('/chats', '/chats'), 'chats');

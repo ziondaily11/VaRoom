@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
 import { HOST_MORE_ITEMS, hostActiveNav } from '../../lib/navigation/activeNav';
@@ -7,6 +7,8 @@ import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/account
 import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity } from './useShellChrome';
 import { HOST_FALLBACK_IDENTITY, hostInitialIdentity } from '../../lib/shell/shellIdentity';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
+import type { HostStartPage } from '../../lib/navigation/startPage';
+import { PinIcon, PinnableRow, StartPageMenu, StartPageToast, useStartPage, type MenuRequest } from './StartPagePin';
 
 // The host sidebar (formerly components/SharedHostSidebar.jsx). Markup, ids
 // and classes are unchanged; identity, counts, linked accounts, menus and the
@@ -16,6 +18,17 @@ function getInitial(name?: string | null): string {
   const str = String(name || '').trim();
   return str ? str.charAt(0).toUpperCase() : '?';
 }
+
+/** The More items: a popup on laptops and desktops, listed in full in the phone drawer. */
+const HOST_MORE: Array<{ key: string; href: HostStartPage; label: string; icon: React.ReactNode }> = [
+  { key: 'analytics', href: '/analytics', label: 'Analytics', icon: <><path d="M4 19V10M11 19V5M18 19v-7" /><path d="M3 19h18" /></> },
+  {
+    key: 'settings', href: '/settings', label: 'Settings',
+    icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
+  },
+  { key: 'support', href: '/support', label: 'Help & Support', icon: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5" /><path d="M12 17.2v.1" /></> },
+  { key: 'upgrade', href: '/pricing', label: 'Premium', icon: <><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" /><path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z" /></> },
+];
 
 const DRAWER_EVENTS = {
   toggleSelector: '#topbar-avatar-btn, #menu-toggle',
@@ -37,6 +50,15 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
     mobileOpen, setMobileOpen, closeMobile,
     moreBtnRef, moreMenuRef, identityBtnRef, accountMenuRef,
   } = useShellChrome(DRAWER_EVENTS);
+  // The start page: pinned from a row's pin, its right-click menu or a long press.
+  const startPage = useStartPage();
+  const [pinMenu, setPinMenu] = useState<MenuRequest | null>(null);
+  const closePinMenu = useCallback(() => setPinMenu(null), []);
+  const openPinMenu = useCallback((request: MenuRequest) => {
+    setMoreOpen(false);
+    setAccountOpen(false);
+    setPinMenu(request);
+  }, [setMoreOpen, setAccountOpen]);
 
   // Compute active navigation item from router or explicit prop
   const currentPath = router.pathname || '';
@@ -121,155 +143,90 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
 
         {/* Primary nav group */}
         <nav className="nav-group">
-          <a
-            href="/host-home"
-            className={`nav-item ${activeNav === 'home' ? 'active' : ''}`}
-            data-nav="home"
-            title={tip('Home')}
-            id="bookings-home-link"
-            onClick={(e) => handleNav(e, '/host-home')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+          <PinnableRow page="/host-home" label="Home" href="/host-home" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/host-home"
+              className={`nav-item ${activeNav === 'home' ? 'active' : ''}`}
+              data-nav="home"
+              title={tip('Home')}
+              id="bookings-home-link"
+              onClick={(e) => handleNav(e, '/host-home')}
             >
-              <path d="M3 11.5 12 4l9 7.5" />
-              <path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 1 1-1v-9" />
-            </svg>
-            Home
-          </a>
-          <a
-            href="/marketplace"
-            className={`nav-item ${activeNav === 'marketplace' ? 'active' : ''}`}
-            data-nav="marketplace"
-            title={tip('Marketplace')}
-            onClick={(e) => handleNav(e, '/marketplace')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 11.5 12 4l9 7.5" />
+                <path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 1 1-1v-9" />
+              </svg>
+              Home
+            </a>
+          </PinnableRow>
+          <PinnableRow page="/marketplace" label="Marketplace" href="/marketplace" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/marketplace"
+              className={`nav-item ${activeNav === 'marketplace' ? 'active' : ''}`}
+              data-nav="marketplace"
+              title={tip('Marketplace')}
+              onClick={(e) => handleNav(e, '/marketplace')}
             >
-              <circle cx="12" cy="12" r="9" />
-              <path d="m15 9-2 6-6 2 2-6 6-2Z" />
-            </svg>
-            Marketplace
-          </a>
-          <div
-            className={`nav-item ${activeNav === 'saved' ? 'active' : ''}`}
-            data-nav="saved"
-            title={tip('Saved')}
-            role="button"
-            tabIndex={0}
-            onClick={(e) => handleNav(e, '/host-home', 'saved')}
-            onKeyDown={(e) => e.key === 'Enter' && handleNav(e, '/host-home', 'saved')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
-            </svg>
-            Saved
-          </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="m15 9-2 6-6 2 2-6 6-2Z" />
+              </svg>
+              Marketplace
+            </a>
+          </PinnableRow>
         </nav>
 
         {/* My activity nav group */}
         <nav className="nav-group">
           <p className="nav-label">My activity</p>
-          <a
-            href="/bookings"
-            className={`nav-item ${activeNav === 'bookings' ? 'active' : ''}`}
-            title={tip('Bookings')}
-            onClick={(e) => handleNav(e, '/bookings')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+          <PinnableRow page="/bookings" label="Bookings" href="/bookings" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/bookings"
+              className={`nav-item ${activeNav === 'bookings' ? 'active' : ''}`}
+              title={tip('Bookings')}
+              onClick={(e) => handleNav(e, '/bookings')}
             >
-              <rect x="3.5" y="5" width="17" height="16" rx="2" />
-              <path d="M8 3v4M16 3v4M3.5 10h17" />
-            </svg>
-            Bookings
-          </a>
-          <a
-            href="/chats"
-            className={`nav-item ${activeNav === 'chats' ? 'active' : ''}`}
-            title={tip('Chats')}
-            data-mobile-hide
-            onClick={(e) => handleNav(e, '/chats')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="16" rx="2" />
+                <path d="M8 3v4M16 3v4M3.5 10h17" />
+              </svg>
+              Bookings
+            </a>
+          </PinnableRow>
+          <PinnableRow page="/chats" label="Chats" href="/chats" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/chats"
+              className={`nav-item ${activeNav === 'chats' ? 'active' : ''}`}
+              title={tip('Chats')}
+              onClick={(e) => handleNav(e, '/chats')}
             >
-              <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
-            </svg>
-            Chats
-          </a>
-          <a
-            href="/notifications"
-            className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
-            data-nav="notifications"
-            title={tip('Notifications')}
-            id="notif-nav-item"
-            onClick={(e) => handleNav(e, '/notifications')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
+              </svg>
+              Chats
+            </a>
+          </PinnableRow>
+          <PinnableRow page="/notifications" label="Notifications" href="/notifications" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/notifications"
+              className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
+              data-nav="notifications"
+              title={tip('Notifications')}
+              id="notif-nav-item"
+              onClick={(e) => handleNav(e, '/notifications')}
             >
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            Notifications
-            {unreadCount > 0 && (
-              <span className="notif-nav-badge" id="notif-nav-badge">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </a>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              Notifications
+              {unreadCount > 0 && (
+                <span className="notif-nav-badge" id="notif-nav-badge">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </a>
+          </PinnableRow>
         </nav>
 
         {/* Host nav group */}
@@ -281,72 +238,65 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
             title={tip('List a space')}
             onClick={(e) => handleNav(e, '/list')}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             List a space
           </a>
-          <div
-            className={`nav-item ${activeNav === 'my-listings' ? 'active' : ''}`}
-            data-nav="my-listings"
-            title={tip('My Listings')}
-            role="button"
-            tabIndex={0}
-            onClick={(e) => handleNav(e, '/host-home', 'my-listings')}
-            onKeyDown={(e) => e.key === 'Enter' && handleNav(e, '/host-home', 'my-listings')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+          <PinnableRow page="/host-home?view=my-listings" label="My Listings" href="/host-home?view=my-listings" state={startPage} onMenu={openPinMenu}>
+            <div
+              className={`nav-item ${activeNav === 'my-listings' ? 'active' : ''}`}
+              data-nav="my-listings"
+              title={tip('My Listings')}
+              role="button"
+              tabIndex={0}
+              onClick={(e) => handleNav(e, '/host-home', 'my-listings')}
+              onKeyDown={(e) => e.key === 'Enter' && handleNav(e, '/host-home', 'my-listings')}
             >
-              <rect x="3.5" y="4" width="17" height="16" rx="2" />
-              <path d="M7.5 9h9M7.5 13h9M7.5 17h5" />
-            </svg>
-            My Listings
-          </div>
-          <a
-            href="/profile"
-            className={`nav-item ${activeNav === 'profile' ? 'active' : ''}`}
-            id="host-profile-nav-link"
-            title={tip('Profile')}
-            onClick={(e) => handleNav(e, '/profile')}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3.5" y="4" width="17" height="16" rx="2" />
+                <path d="M7.5 9h9M7.5 13h9M7.5 17h5" />
+              </svg>
+              My Listings
+            </div>
+          </PinnableRow>
+          <PinnableRow page="/profile" label="Profile" href="/profile" state={startPage} onMenu={openPinMenu}>
+            <a
+              href="/profile"
+              className={`nav-item ${activeNav === 'profile' ? 'active' : ''}`}
+              id="host-profile-nav-link"
+              title={tip('Profile')}
+              onClick={(e) => handleNav(e, '/profile')}
             >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" />
-            </svg>
-            Profile
-          </a>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" />
+              </svg>
+              Profile
+            </a>
+          </PinnableRow>
         </nav>
 
-        {/* More menu popup (fixed-position, opened upward) */}
+        {/* Phones: the More items listed in full (the drawer has room; no popup). */}
+        <nav className="nav-group more-inline" aria-label="More">
+          {HOST_MORE.map((item) => (
+            <PinnableRow key={item.key} page={item.href} label={item.label} href={item.href} state={startPage} onMenu={openPinMenu}>
+              <a
+                href={item.href}
+                className={`nav-item ${activeNav === item.key ? 'active' : ''}`}
+                onClick={(e) => handleNav(e, item.href)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {item.icon}
+                </svg>
+                {item.label}
+              </a>
+            </PinnableRow>
+          ))}
+        </nav>
+
+        {/* More menu popup (fixed-position, opened upward; laptops and desktops) */}
         <div
           id="more-menu"
           ref={moreMenuRef}
@@ -355,95 +305,38 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
           aria-label="More options"
           hidden={!moreOpen}
         >
-          <a
-            href="/analytics"
-            className={`account-menu-action ${activeNav === 'analytics' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/analytics')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
+          {HOST_MORE.map((item) => (
+            <a
+              key={item.key}
+              href={item.href}
+              className={`account-menu-action ${activeNav === item.key ? 'active' : ''}`}
+              role="menuitem"
+              onClick={(e) => handleNav(e, item.href)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMoreOpen(false);
+                openPinMenu({ page: item.href, label: item.label, href: item.href, x: e.clientX, y: e.clientY, returnFocus: moreBtnRef.current });
+              }}
             >
-              <path d="M4 19V10M11 19V5M18 19v-7" />
-              <path d="M3 19h18" />
-            </svg>
-            Analytics
-          </a>
-          <a
-            href="/settings"
-            className={`account-menu-action ${activeNav === 'settings' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/settings')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
-            </svg>
-            Settings
-          </a>
-          <a
-            href="/support"
-            className={`account-menu-action ${activeNav === 'support' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/support')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5" />
-              <path d="M12 17.2v.1" />
-            </svg>
-            Help &amp; Support
-          </a>
-          <a
-            href="/pricing"
-            className={`account-menu-action ${activeNav === 'upgrade' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/pricing')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" />
-              <path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z" />
-            </svg>
-            Premium
-          </a>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
+              >
+                {item.icon}
+              </svg>
+              {item.label}
+              {startPage.pinned === item.href && (
+                <span className="more-menu-pin" title="Start page" aria-label="(start page)"><PinIcon filled /></span>
+              )}
+            </a>
+          ))}
         </div>
 
         {/* More button */}
@@ -463,17 +356,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
             setMoreOpen((prev) => !prev);
           }}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10" />
             <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none" />
             <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
@@ -481,6 +364,9 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
           </svg>
           More
         </button>
+
+        <StartPageMenu request={pinMenu} state={startPage} onOpen={(href) => { closeMobile(); void router.push(href); }} onClose={closePinMenu} />
+        <StartPageToast message={startPage.message} />
 
         {/* Account identity popup */}
         <div

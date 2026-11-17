@@ -12,7 +12,7 @@ import { getCachedNewsPreview, setCachedNewsPreview, type PropertyNewsItem } fro
 import { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
 import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 import {
-  CATEGORY_TABS, feedFetcher, feedKey, fetchHostListings, fetchLatestNews, fetchSavedListings, fetchSuspended, fetchUpdates,
+  CATEGORY_TABS, feedFetcher, feedKey, fetchHostListings, fetchLatestNews, fetchSuspended, fetchUpdates,
   openChat, PROPERTY_NEWS_REFRESH_MS, saveNiche, scrollKey, submitReport, viewFromQuery,
   type FeedListing, type GlanceListing, type NewsItem, type VaroomUpdate,
 } from '../lib/hostHome/hostHome';
@@ -30,13 +30,13 @@ import { preloadVideoPlayer } from '../components/media/lazyVideoPlayer';
 import { releaseRetainedPlayers } from '../lib/media/videoPlayback';
 
 // Host home (migrated from legacy-pages/host-home.html), inside the persistent
-// host shell: the Discover feed (or Saved, or My Listings, from ?view=), the
+// host shell: the Discover feed (or My Listings, from ?view=), the
 // host's listings at a glance, Property News and VaRoom Updates. Identity
 // comes from AuthProvider; the feed is the shared listing-feed cache (same
 // keys and scroll positions), so a return shows the cards at once and
 // refreshes them in the background when stale.
 
-type Mode = 'home' | 'mine' | 'saved';
+type Mode = 'home' | 'mine';
 type FeedState = { status: 'loading' | 'ready' | 'error'; message?: string };
 type VideoEntry = { state: MediaState; video: CardVideo | null };
 
@@ -75,7 +75,7 @@ export default function HostHomePage() {
   const ready = Boolean(userId && profile && profile.role === 'host' && profile.onboarding_completed);
   const view = viewFromQuery(router.query.view);
 
-  const [mode, setMode] = useState<Mode>(view === 'saved' ? 'saved' : view === 'my-listings' ? 'mine' : 'home');
+  const [mode, setMode] = useState<Mode>(view === 'my-listings' ? 'mine' : 'home');
   const [category, setCategory] = useState('all');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,7 +83,6 @@ export default function HostHomePage() {
   const [visible, setVisible] = useState(0);
   const [feedState, setFeedState] = useState<FeedState>({ status: 'loading' });
   const [loadingMore, setLoadingMore] = useState(false);
-  const [savedListings, setSavedListings] = useState<FeedListing[] | null>(null);
   const [saved, setSaved] = useState<ReadonlySet<string> | null>(null);
   const [suspended, setSuspended] = useState(false);
   const [glance, setGlance] = useState<Loadable<GlanceListing[]>>(null);
@@ -136,18 +135,21 @@ export default function HostHomePage() {
     else if (!profile.onboarding_completed) void router.replace('/onboarding');
   }, [status, profile, router]);
 
+  // Saved moved to Profile → Saved; old links and bookmarks still arrive here.
+  useEffect(() => {
+    if (router.isReady && router.query.view === 'saved') void router.replace('/profile?tab=saved');
+  }, [router, router.isReady, router.query.view]);
+
   // ---------- The view (from the shell sidebar's ?view=) ----------
   const firstView = useRef(true);
   useEffect(() => {
     if (firstView.current) { firstView.current = false; return; }
-    setMode(view === 'saved' ? 'saved' : view === 'my-listings' ? 'mine' : 'home');
-    if (view !== 'saved') {
-      // Home and My Listings start from all categories and no search; Home refreshes.
-      setCategory('all');
-      setSearchDraft('');
-      setSearchTerm('');
-      if (view === 'home') revalidateNext.current = true;
-    }
+    setMode(view === 'my-listings' ? 'mine' : 'home');
+    // Home and My Listings start from all categories and no search; Home refreshes.
+    setCategory('all');
+    setSearchDraft('');
+    setSearchTerm('');
+    if (view === 'home') revalidateNext.current = true;
     if (dashMain.current) dashMain.current.scrollTo({ top: 0, behavior: 'smooth' });
   }, [view]);
 
@@ -189,7 +191,7 @@ export default function HostHomePage() {
 
   useEffect(() => {
     const cache = getListingFeedCache();
-    if (!ready || !client || !userId || !cache || mode === 'saved') return undefined;
+    if (!ready || !client || !userId || !cache) return undefined;
     const term = searchTerm.trim();
     const key = feedKey(userId, mode === 'mine', category, term);
     const fetcher = feedFetcher(client, userId, mode === 'mine', category, term);
@@ -249,7 +251,7 @@ export default function HostHomePage() {
   const loadMore = useCallback(async (): Promise<boolean> => {
     const cache = getListingFeedCache();
     const key = activeKey.current;
-    if (!cache || !key || loadingMore || !client || !userId || mode === 'saved') return true;
+    if (!cache || !key || loadingMore || !client || !userId) return true;
     const current = cache.snapshot<FeedListing>(key);
     if (visible < current.items.length) {
       setVisible(Math.min(visible + cache.pageSize, current.items.length));
@@ -271,7 +273,7 @@ export default function HostHomePage() {
   }, [loadingMore, client, userId, mode, category, searchTerm, visible, showSnapshot]);
 
   const items = useMemo(() => (snapshot ? snapshot.items.slice(0, visible) : []), [snapshot, visible]);
-  const cards = mode === 'saved' ? (savedListings || []) : items;
+  const cards = items;
 
   // Load more only after the reader has scrolled towards the end: the
   // sentinel's observer (lib/discover/feedWindow.ts) says when the end is in
@@ -281,7 +283,7 @@ export default function HostHomePage() {
   loadMoreRef.current = loadMore;
   const pageTrigger = useLoadMore({
     root: scrollRoot,
-    enabled: ready && mode !== 'saved' && !loadingMore,
+    enabled: ready && !loadingMore,
     canLoad: () => lastScroll.current >= 0 && lastScroll.current > lastLoadScroll.current,
     onLoadMore: async () => {
       lastLoadScroll.current = lastScroll.current;
@@ -313,7 +315,7 @@ export default function HostHomePage() {
 
   useEffect(() => () => cancelAnimationFrame(restoring.current), []);
 
-  // ---------- Saved (waits for the account's saves; it used to show "Nothing saved" first) ----------
+  // ---------- The account's saved listings (the cards' bookmark buttons) ----------
   useEffect(() => {
     if (!client || !userId || !ready) return undefined;
     let active = true;
@@ -321,16 +323,6 @@ export default function HostHomePage() {
     loadBookmarks(client, userId).then((ids) => { if (active) setSaved(ids); }, () => { if (active) setSaved(new Set()); });
     return () => { active = false; unsubscribe(); };
   }, [client, userId, ready]);
-
-  useEffect(() => {
-    if (mode !== 'saved' || !client || !saved) return undefined;
-    let active = true;
-    setSavedListings(null);
-    fetchSavedListings(client, Array.from(saved)).then((rows) => { if (active) setSavedListings(rows); }, () => { if (active) setSavedListings([]); });
-    return () => { active = false; };
-    // The saved list loads when Saved opens, not on every save.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, client, saved === null]);
 
   // ---------- Likes and videos for the cards on screen ----------
   const cardIds = useMemo(() => cards.map((listing) => String(listing.id)), [cards]);
@@ -446,7 +438,7 @@ export default function HostHomePage() {
   // After the feed has had its turn (lib/discover/deferredWork.ts); cached
   // Property News and Updates are already on screen.
   const [secondaryReady, setSecondaryReady] = useState(false);
-  const feedSettled = mode === 'saved' ? savedListings !== null : feedState.status !== 'loading';
+  const feedSettled = feedState.status !== 'loading';
   useEffect(() => {
     if (secondaryReady || !ready) return undefined;
     return afterFeedSettles(feedSettled, () => setSecondaryReady(true));
@@ -505,7 +497,6 @@ export default function HostHomePage() {
   }, [showSnapshot]);
   const onDeleted = useCallback((id: string) => {
     setGlance((current) => (Array.isArray(current) ? current.filter((listing) => listing.id !== id) : current));
-    setSavedListings((current) => (current ? current.filter((listing) => listing.id !== id) : current));
     if (activeKey.current) showSnapshot(activeKey.current);
   }, [showSnapshot]);
 
@@ -540,18 +531,14 @@ export default function HostHomePage() {
 
   const pickCategory = (value: string) => {
     setCategory(value);
-    // A tab shows the Discover feed (as before, also from Saved).
-    if (mode === 'saved') setMode('home');
   };
 
-  const showMobileUpdates = mode !== 'mine' && mode !== 'saved' && category === 'all' && !searchTerm.trim() && mobile;
+  const showMobileUpdates = mode !== 'mine' && category === 'all' && !searchTerm.trim() && mobile;
 
   let feed: React.ReactNode;
   // Until the account is known only the feed waits; the shell, tabs and rail are already drawn.
   if (!ready) feed = <><SkeletonCard /><SkeletonCard /></>;
-  else if (mode === 'saved' && savedListings === null) feed = <><SkeletonCard /><SkeletonCard /><SkeletonCard /></>;
-  else if (mode === 'saved' && savedListings && savedListings.length === 0) feed = <p className="state-msg">Nothing saved yet — tap the bookmark icon on a listing to save it here.</p>;
-  else if (mode !== 'saved' && feedState.status === 'loading') {
+  else if (feedState.status === 'loading') {
     feed = (
       <>
         <SkeletonCard />
@@ -559,13 +546,13 @@ export default function HostHomePage() {
         <SkeletonCard /><SkeletonCard />
       </>
     );
-  } else if (mode !== 'saved' && feedState.status === 'error') feed = <p className="state-msg">Couldn&apos;t load listings: {feedState.message}</p>;
+  } else if (feedState.status === 'error') feed = <p className="state-msg">Couldn&apos;t load listings: {feedState.message}</p>;
   else if (cards.length === 0) {
     feed = <>{suspended && SUSPENSION}<p className="state-msg">{mode === 'mine' ? 'You haven\'t listed a space yet.' : 'No listings match yet — try a different category, location, or @username.'}</p></>;
   } else {
     feed = (
       <>
-        {suspended && mode !== 'saved' && SUSPENSION}
+        {suspended && SUSPENSION}
         {/* Each listing keeps a wrapper; only those near the screen hold the card. */}
         {cards.map((listing, index) => (
           <div key={listing.id} data-feed-item={listing.id} {...feedWindow.itemProps(listing.id, index)}>
@@ -596,9 +583,9 @@ export default function HostHomePage() {
             </>}
           </div>
         ))}
-        {mode !== 'saved' && (loadingMore
+        {loadingMore
           ? <p className="state-msg" id="listing-feed-sentinel" ref={pageTrigger.ref}>Loading more listings…</p>
-          : <div id="listing-feed-sentinel" aria-hidden="true" ref={pageTrigger.ref} />)}
+          : <div id="listing-feed-sentinel" aria-hidden="true" ref={pageTrigger.ref} />}
       </>
     );
   }

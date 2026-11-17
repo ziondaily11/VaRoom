@@ -30,6 +30,17 @@ function resolveAvatar(url?: string | null): string | null {
   return url;
 }
 
+/** The More items: a popup on laptops and desktops, listed in full in the phone drawer. */
+const CLIENT_MORE: Array<{ key: string; href: string; label: string; icon: React.ReactNode }> = [
+  { key: 'profile', href: '/profile', label: 'Profile', icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" /></> },
+  {
+    key: 'settings', href: '/settings', label: 'Settings',
+    icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
+  },
+  { key: 'support', href: '/support', label: 'Help & Support', icon: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5" /><path d="M12 17.2v.1" /></> },
+  { key: 'signup-host', href: '/signup-host', label: 'Become a Host', icon: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></> },
+];
+
 const DRAWER_EVENTS = {
   toggleSelector: '#topbar-avatar-btn, #menu-toggle, .menu-toggle',
   openEvents: ['open-client-sidebar'],
@@ -58,19 +69,9 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
   const isMoreActive = CLIENT_MORE_ITEMS.includes(activeNav);
 
   // Navigation click handler
-  const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string, navKey?: string) => {
+  const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string) => {
     // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
     if (isModifiedClick(e)) return;
-    if (navKey === 'saved' && (router.pathname === '/client-home' || router.asPath.startsWith('/client-home'))) {
-      e.preventDefault();
-      setMobileOpen(false);
-      if (typeof window !== 'undefined' && typeof window.showSavedView === 'function') {
-        window.showSavedView();
-      } else {
-        router.push('/client-home?view=saved');
-      }
-      return;
-    }
     if (path) {
       e.preventDefault();
       setMobileOpen(false);
@@ -179,30 +180,6 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
             </svg>
             Marketplace
           </a>
-          <div
-            className={`nav-item ${activeNav === 'saved' ? 'active' : ''}`}
-            data-nav="saved"
-            title={tip('Saved')}
-            role="button"
-            tabIndex={0}
-            onClick={(e) => handleNav(e, '/client-home?view=saved', 'saved')}
-            onKeyDown={(e) => e.key === 'Enter' && handleNav(e, '/client-home?view=saved', 'saved')}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
-            </svg>
-            Saved
-          </div>
         </nav>
 
         {/* My Activity */}
@@ -234,7 +211,6 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
             href="/chats"
             className={`nav-item ${activeNav === 'chats' ? 'active' : ''}`}
             title={tip('Chats')}
-            data-mobile-hide
             onClick={(e) => handleNav(e, '/chats')}
           >
             <svg
@@ -283,7 +259,24 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
           </a>
         </nav>
 
-        {/* More menu popup (fixed-position, opened upward) */}
+        {/* Phones: the More items listed in full (the drawer has room; no popup). */}
+        <nav className="nav-group more-inline" aria-label="More">
+          {CLIENT_MORE.map((item) => (
+            <a
+              key={item.key}
+              href={item.href}
+              className={`nav-item ${activeNav === item.key ? 'active' : ''}`}
+              onClick={(e) => handleNav(e, item.href)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {item.icon}
+              </svg>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        {/* More menu popup (fixed-position, opened upward; laptops and desktops) */}
         <div
           id="more-menu"
           ref={moreMenuRef}
@@ -292,97 +285,30 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
           aria-label="More options"
           hidden={!moreOpen}
         >
-          <a
-            href="/profile"
-            className={`account-menu-action ${activeNav === 'profile' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/profile')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
+          {CLIENT_MORE.map((item) => (
+            <a
+              key={item.key}
+              href={item.href}
+              className={`account-menu-action ${activeNav === item.key ? 'active' : ''}`}
+              role="menuitem"
+              onClick={(e) => handleNav(e, item.href)}
             >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" />
-            </svg>
-            Profile
-          </a>
-          <a
-            href="/settings"
-            className={`account-menu-action ${activeNav === 'settings' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/settings')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
-            </svg>
-            Settings
-          </a>
-          <a
-            href="/support"
-            className={`account-menu-action ${activeNav === 'support' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/support')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5" />
-              <path d="M12 17.2v.1" />
-            </svg>
-            Help &amp; Support
-          </a>
-          <a
-            href="/signup-host"
-            className={`account-menu-action ${activeNav === 'signup-host' ? 'active' : ''}`}
-            role="menuitem"
-            onClick={(e) => handleNav(e, '/signup-host')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <line x1="19" y1="8" x2="19" y2="14" />
-              <line x1="22" y1="11" x2="16" y2="11" />
-            </svg>
-            Become a Host
-          </a>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
+              >
+                {item.icon}
+              </svg>
+              {item.label}
+            </a>
+          ))}
         </div>
 
         {/* More button */}

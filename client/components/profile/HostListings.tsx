@@ -7,12 +7,13 @@ import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import VideoPlayer, { type VideoDetails } from '../media/VideoPlayer';
 import HostListingMenu from '../listings/HostListingMenu';
 import { EmptyListingsIcon } from './ProfileIcons';
+import SavedListings, { SavedTab } from './SavedListings';
 
 // A host's listings on their own profile: category tabs (owners manage
 // them), listing cards (video when the listing has one, loaded as the card
 // nears the screen), saved drafts, and reviews.
 
-export type Tab = { kind: 'all' } | { kind: 'category'; id: string } | { kind: 'reviews' };
+export type Tab = { kind: 'all' } | { kind: 'category'; id: string } | { kind: 'reviews' } | { kind: 'saved' };
 
 function ListingMedia({ listing, token, details }: { listing: ProfileListing; token: string | null; details: VideoDetails }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -127,6 +128,8 @@ const SkeletonGrid = () => (
 );
 
 export interface HostListingsProps {
+  /** The signed-in owner (for the Saved tab). */
+  userId: string;
   listings: ProfileListing[] | null;
   listingsError: boolean;
   drafts: ListingDraft[];
@@ -146,7 +149,7 @@ export interface HostListingsProps {
 }
 
 export default function HostListings(props: HostListingsProps) {
-  const { listings, listingsError, drafts, categories, reviews, tab, onTab, token, details, notify, onStatus, onDeleted, onManage, onSelectListings, onCategoryMenu } = props;
+  const { userId, listings, listingsError, drafts, categories, reviews, tab, onTab, token, details, notify, onStatus, onDeleted, onManage, onSelectListings, onCategoryMenu } = props;
   const longPress = useRef<{ timer: number | null; suppressUntil: number }>({ timer: null, suppressUntil: 0 });
   const rows = listings || [];
   const listed = new Set(rows.map((listing) => listing.id));
@@ -217,10 +220,12 @@ export default function HostListings(props: HostListingsProps) {
           );
         })}
         {tabButton('Reviews', tab.kind === 'reviews', () => onTab({ kind: 'reviews' }))}
+        <SavedTab selected={tab.kind === 'saved'} onSelect={() => onTab({ kind: 'saved' })} />
         {tabButton('+ Manage categories', false, onManage, {}, 'category-manage')}
       </div>
       {tab.kind === 'reviews' && <Reviews reviews={reviews} />}
-      {tab.kind !== 'reviews' && (listingsError
+      {tab.kind === 'saved' && <SavedListings userId={userId} notify={notify} />}
+      {tab.kind !== 'reviews' && tab.kind !== 'saved' && (listingsError
         ? <div className="listings-grid" id="listings-grid"><div className="listings-empty">Couldn&apos;t load your listings right now. Please refresh and try again.</div></div>
         : !listings
           ? <SkeletonGrid />

@@ -22,8 +22,7 @@ test('the feed cache is used only once the account and its profile filters are k
   assert.equal(feed.canLoadClientHomeFeed({ ...ready, key: '' }), false, 'no account-scoped key');
 });
 
-test('the Saved view never reads the unfiltered feed cache', () => {
-  assert.equal(feed.canLoadClientHomeFeed({ ...ready, view: 'saved' }), false);
+test('the Marketplace view reads the feed cache too (Saved moved to Profile → Saved)', () => {
   assert.equal(feed.canLoadClientHomeFeed({ ...ready, view: 'marketplace' }), true);
 });
 
@@ -96,13 +95,6 @@ test('errors replace both the skeleton and the empty state', () => {
   assert.equal(state.showEmpty, false);
 });
 
-test('the Saved view waits for bookmark readiness, not feed readiness', () => {
-  assert.equal(view({ view: 'saved', ready: false, loadedFeedKey: '', items: [] }).showSkeleton, false);
-  assert.equal(view({ view: 'saved', ready: true, loadedFeedKey: '', items: [] }).showSkeleton, true);
-  assert.equal(view({ view: 'saved', ready: false, items: [] }).showEmpty, false);
-  assert.equal(view({ view: 'saved', ready: true, items: [] }).showEmpty, true);
-});
-
 test('auth events before the cache and getSession() resolve are coalesced into one resolution with the latest session', () => {
   const gate = feed.createInitialSessionGate();
   assert.equal(gate.defer({ user: { id: 'u1' } }), true);
@@ -146,8 +138,9 @@ test('session resolution clears the old account before selecting the new cache k
 
 test('the page feeds the tested decisions from an account-scoped key, before paint', () => {
   assert.match(source, /\['client', user\.id, view, category, interests\.slice\(\)\.sort\(\)\.join\(','\), term\.toLowerCase\(\)\]/);
-  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{\s*if \(view !== 'saved'\) void loadFeed\(\);\s*\}, \[loadFeed, view\]\)/);
-  assert.match(source, /if \(view !== 'saved' \|\| !user \|\| !ready\) return/);
+  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{\s*void loadFeed\(\);\s*\}, \[loadFeed\]\)/);
+  // Saved moved to Profile → Saved: the old address redirects there.
+  assert.match(source, /if \(router\.query\.view === 'saved'\) \{ void router\.replace\('\/profile\?tab=saved'\); return; \}/);
   assert.match(source, /if \(currentVersion !== loadVersion\.current\) return/);
   assert.match(source, /else \{\s*setLoading\(true\);\s*setItems\(\[\]\);\s*setLoadedFeedKey\(''\);\s*setHasMore\(false\);/);
   // Every listing keeps its data-media wrapper (the scroll anchor); the feed window decides whether it holds the card.

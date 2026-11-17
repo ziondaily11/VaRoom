@@ -664,3 +664,71 @@ export const MOBILE_NAV_STYLES = `
   }
   @media (prefers-reduced-motion:reduce){.varoom-mobile-nav{transition:none;}}
 `;
+
+/** Shared by the host and client sidebars: the More items on phones, and the host's start-page pin. */
+export const SIDEBAR_EXTRA_STYLES = `
+  /* ---------- More: a popup on laptops and desktops, listed in full in the phone drawer ---------- */
+  .host-app-layout .nav-group.more-inline,
+  .client-app-layout .nav-group.more-inline { display: none; }
+  @media (max-width: 860px) {
+    .host-app-layout .nav-group.more-inline,
+    .client-app-layout .nav-group.more-inline { display: flex; }
+    .host-app-layout #more-nav-btn, .client-app-layout #more-nav-btn,
+    .host-app-layout #more-menu, .client-app-layout #more-menu { display: none !important; }
+  }
+
+  /* ---------- Start page pin (host): at the end of a page's row, on hover or focus ---------- */
+  .host-app-layout .nav-row { position: relative; display: flex; align-items: center; width: 100%; }
+  .host-app-layout .nav-pin {
+    position: absolute; top: 50%; right: .4rem; transform: translateY(-50%);
+    display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+    border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+    color: var(--muted, var(--layout-muted));
+    opacity: 0; transition: opacity .15s ease, background-color .15s ease, color .15s ease;
+  }
+  .host-app-layout .nav-row:hover .nav-pin,
+  .host-app-layout .nav-row:focus-within .nav-pin,
+  .host-app-layout .nav-row.is-start-page .nav-pin { opacity: 1; }
+  .host-app-layout .nav-pin:hover { background: var(--control-active, var(--layout-control-active)); color: var(--ink, var(--layout-ink)); }
+  .host-app-layout .nav-pin:focus-visible { outline: 2px solid var(--red, #C41E3A); outline-offset: 1px; }
+  .host-app-layout .nav-row.is-start-page .nav-pin { color: var(--red, #C41E3A); }
+  .host-app-layout .nav-row.is-start-page .nav-pin:hover { color: var(--red, #C41E3A); }
+  /* The unread badge steps aside for the pin. */
+  .host-app-layout .nav-row:hover .notif-nav-badge,
+  .host-app-layout .nav-row:focus-within .notif-nav-badge,
+  .host-app-layout .nav-row.is-start-page .notif-nav-badge { right: 2.5rem; }
+  /* Touch screens: no hover, so only the pinned page shows its pin; a long press opens the menu. */
+  @media (hover: none) {
+    .host-app-layout .nav-row:not(.is-start-page) .nav-pin { display: none; }
+  }
+  @media (min-width: 861px) {
+    /* Icon-only rail: no room for the pin; right-click still works, and a dot marks the start page. */
+    .shell-rail-layout .nav-pin { display: none; }
+    .shell-rail-layout .nav-row { justify-content: center; }
+    .shell-rail-layout .nav-row.is-start-page::after {
+      content: ''; position: absolute; top: 5px; left: calc(50% - 19px); width: 7px; height: 7px;
+      border-radius: 50%; background: var(--red, #C41E3A); pointer-events: none;
+    }
+  }
+  .host-app-layout .more-menu-pin { display: inline-flex; margin-left: auto; padding-left: .5rem; color: var(--red, #C41E3A); }
+
+  .host-app-layout .start-page-menu { width: 240px; padding: .4rem; }
+  .host-app-layout .start-page-menu .account-menu-action { padding: .6rem .7rem; }
+  .host-app-layout .start-page-menu-pin svg { margin-right: .5rem; flex-shrink: 0; }
+  .host-app-layout .start-page-menu-hint { margin: .1rem .7rem .4rem; font-size: .74rem; line-height: 1.35; color: var(--muted, var(--layout-muted)); }
+
+  .start-page-toast {
+    position: fixed; left: 50%; bottom: 1.5rem; z-index: 100001; max-width: calc(100vw - 32px);
+    padding: .65rem 1.05rem; border-radius: 999px;
+    background: var(--ink, #0F1419); color: var(--paper, #FFFFFF);
+    font-size: .85rem; font-weight: 600; line-height: 1.3; text-align: center;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .2);
+    opacity: 0; transform: translate(-50%, 12px); pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .start-page-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 860px) { .start-page-toast { bottom: 5.5rem; } }
+  @media (prefers-reduced-motion: reduce) {
+    .start-page-toast, .host-app-layout .nav-pin { transition: none; }
+  }
+`;

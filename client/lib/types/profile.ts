@@ -16,6 +16,8 @@ export interface Profile {
   listing_categories?: string[] | null;
   /** Set while the account is deactivated (Settings → Account Status); signing in again clears it. */
   deactivated_at?: string | null;
+  /** A host's pinned start page (lib/navigation/startPage.ts); null for the usual home. */
+  start_page?: string | null;
 }
 
 export function accountRole(profile: Pick<Profile, 'role'> | null | undefined): AccountRole | null {

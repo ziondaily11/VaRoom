@@ -6,7 +6,7 @@ import ClientSidebar from './ClientSidebar';
 import AddAccountNotice from './AddAccountNotice';
 import WorkspaceBanner from './WorkspaceBanner';
 import { isShellSettled, shellFrame, shellState, type ShellVariant } from '../../lib/shell/appShell';
-import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES, RAIL_STYLES } from './shellStyles';
+import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES, RAIL_STYLES, SIDEBAR_EXTRA_STYLES } from './shellStyles';
 
 export type { ShellVariant };
 
@@ -58,7 +58,7 @@ export default function AppShell({ variant, className = '', rail = false, childr
   const settled = useShellSettled();
   useActiveAccountSync(Boolean(variant));
   const isRail = rail && Boolean(variant);
-  const styles = variant === 'host' ? HOST_SHELL_STYLES + RAIL_STYLES : variant === 'client' ? CLIENT_SHELL_STYLES + RAIL_STYLES : PENDING_SHELL_STYLES;
+  const styles = variant === 'host' ? HOST_SHELL_STYLES + RAIL_STYLES + SIDEBAR_EXTRA_STYLES : variant === 'client' ? CLIENT_SHELL_STYLES + RAIL_STYLES + SIDEBAR_EXTRA_STYLES : PENDING_SHELL_STYLES;
   const { key, shellClass, content } = shellFrame(variant, `${className}${isRail ? ' shell-rail-layout' : ''}`);
 
   return (
