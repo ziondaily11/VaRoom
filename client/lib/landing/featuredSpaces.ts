@@ -80,34 +80,46 @@ const firstPhotoPath = (row: ListingRow): string | null => row.listing_photos?.f
 
 /**
  * The listing shown for a niche: the newest with a real title whose photo
- * loads; else the newest with a real title, shown without a photo.
+ * loads. A listing without a working photo is never shown.
  * `photoLoads` checks a resolved photo URL; it defaults to trusting it.
  */
 export async function pickListing(
   rows: ListingRow[],
   photoUrlOf: (row: ListingRow) => string | null,
   photoLoads: (url: string) => Promise<boolean> = async () => true,
-): Promise<{ row: ListingRow; photoUrl: string | null } | null> {
+): Promise<{ row: ListingRow; photoUrl: string } | null> {
   const titled = rows.filter((row) => normalizeListingTitle(row.title) !== 'Property' || row.category === 'property');
   for (const row of titled) {
     const photoUrl = photoUrlOf(row);
     if (photoUrl && await photoLoads(photoUrl)) return { row, photoUrl };
   }
-  return titled[0] ? { row: titled[0], photoUrl: null } : null;
+  return null;
 }
 
+/** Where the site's /api requests go (the /api rewrite in vercel.json). */
+const API_ORIGIN = process.env.VAROOM_API_ORIGIN || 'https://server-4jlx.onrender.com';
+/** The API can take several seconds to wake up. */
+const PHOTO_CHECK_TIMEOUT_MS = 15000;
+
 /**
- * Absolute photo URLs (older Supabase storage) are checked, since some point
- * at deleted files. /api/photos URLs are relative to the site and served by
- * the API, so they are trusted here.
+ * Whether a card photo loads, checked at build time. Some stored photos
+ * point at deleted files. The check downloads the first byte only: a HEAD
+ * request cannot be used, since /api/photos redirects to a signed download
+ * address that answers HEAD with 403. A photo is ruled out only by a
+ * definite answer (an error status, or something that is not an image); a
+ * timeout or network error keeps it, so a slow build never empties the
+ * section. The page drops a card whose photo still fails in the browser.
  */
-async function absolutePhotoLoads(url: string): Promise<boolean> {
-  if (!/^https?:\/\//i.test(url)) return true;
+export async function photoLoadsAtBuild(url: string, fetcher: typeof fetch = fetch): Promise<boolean> {
+  const absolute = /^https?:\/\//i.test(url) ? url : url.startsWith('/api/') ? `${API_ORIGIN}${url}` : null;
+  if (!absolute) return true;
   try {
-    const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
-    return response.ok;
+    const response = await fetcher(absolute, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(PHOTO_CHECK_TIMEOUT_MS) });
+    await response.body?.cancel().catch(() => {});
+    const type = response.headers?.get('content-type') || '';
+    return response.ok && (!type || type.startsWith('image/'));
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -163,15 +175,15 @@ async function fetchNicheListings(client: SupabaseClient, niche: SpaceNiche, now
 type PhotoLoads = (url: string) => Promise<boolean>;
 
 /**
- * One card per niche. A niche with no listing (or whose query failed) shows
- * another listing from the niche with the most listings, then the next
- * largest, never the same listing twice. Only when no niche has one to spare
- * does the card say the niche is coming soon.
+ * One card per niche, every one with a photo. A niche with no listing with a
+ * working photo (or whose query failed) shows another listing from the niche
+ * with the most listings, then the next largest, never the same listing
+ * twice. A slot nothing can fill is left out.
  */
 export async function buildFeaturedSpaces(
   found: NicheListings[],
   client?: Pick<SupabaseClient, 'storage'> | null,
-  photoLoads: PhotoLoads = absolutePhotoLoads,
+  photoLoads: PhotoLoads = photoLoadsAtBuild,
 ): Promise<FeaturedSpace[]> {
   const photoUrlOf = (row: ListingRow) => cardPhotoUrl(row, client);
   const used = new Set<string>();
@@ -196,18 +208,13 @@ export async function buildFeaturedSpaces(
       borrowed = toFeaturedSpace(donor.niche, picked.row, client, picked.photoUrl, slot.id);
       break;
     }
-    cards[i] = borrowed || toFeaturedSpace(slot, null);
+    cards[i] = borrowed;
   }
-  return cards as FeaturedSpace[];
+  return cards.filter((card): card is FeaturedSpace => card !== null);
 }
 
-export async function fetchFeaturedSpaces(client: SupabaseClient): Promise<FeaturedSpace[]> {
+export async function fetchFeaturedSpaces(client: SupabaseClient, photoLoads: PhotoLoads = photoLoadsAtBuild): Promise<FeaturedSpace[]> {
   const nowIso = new Date().toISOString();
   const found = await Promise.all(SPACE_NICHES.map((niche) => fetchNicheListings(client, niche, nowIso)));
-  return buildFeaturedSpaces(found, client);
-}
-
-/** Cards for a build that could not reach the database at all. */
-export function emptyFeaturedSpaces(): FeaturedSpace[] {
-  return SPACE_NICHES.map((niche) => toFeaturedSpace(niche, null));
+  return buildFeaturedSpaces(found, client, photoLoads);
 }

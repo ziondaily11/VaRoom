@@ -63,8 +63,8 @@ test('picks the newest titled listing whose photo loads', async () => {
   assert.equal(picked.row.id, 'good');
   assert.equal(picked.photoUrl, 'https://storage.example/good.jpg');
 
-  const none = await spaces.pickListing([row({ id: 'a' }), row({ id: 'b' })], photoUrlOf, async () => false);
-  assert.deepEqual({ id: none.row.id, photoUrl: none.photoUrl }, { id: 'a', photoUrl: null });
+  // No listing with a working photo: none is picked (never one without a photo).
+  assert.equal(await spaces.pickListing([row({ id: 'a' }), row({ id: 'b', listing_photos: [] })], photoUrlOf, async () => false), null);
 
   assert.equal(await spaces.pickListing([], photoUrlOf), null);
 });
@@ -72,9 +72,15 @@ test('picks the newest titled listing whose photo loads', async () => {
 const nicheOf = (id) => spaces.SPACE_NICHES.find((n) => n.id === id);
 const listingsOf = (id, count, total = count) => ({
   niche: nicheOf(id),
-  rows: Array.from({ length: count }, (_, i) => row({ id: `${id}-${i + 1}`, category: nicheOf(id).categories[0] })),
+  rows: Array.from({ length: count }, (_, i) => row({
+    id: `${id}-${i + 1}`,
+    category: nicheOf(id).categories[0],
+    listing_photos: [{ storage_path: `photos/production/listing-photos/${id}-${i + 1}.jpg` }],
+  })),
   total,
 });
+// Every photo loads unless a test says otherwise (no network in tests).
+const allLoad = async () => true;
 const cardsSummary = (cards) => cards.map((c) => [c.slot, c.niche, c.listing ? c.listing.id : null]);
 
 test('an empty niche shows a second listing from the niche with the most listings', async () => {
@@ -84,7 +90,7 @@ test('an empty niche shows a second listing from the niche with the most listing
     listingsOf('airbnb', 3, 40),
     listingsOf('venue', 0, 0),
     listingsOf('hotel', 2, 9),
-  ]);
+  ], null, allLoad);
   assert.deepEqual(cardsSummary(cards), [
     ['property', 'property', 'property-1'],
     ['office', 'office', 'office-1'],
@@ -97,6 +103,18 @@ test('an empty niche shows a second listing from the niche with the most listing
   assert.equal(cards[3].href, '/booking?listing=airbnb-2');
 });
 
+test('a niche whose listings have no working photo borrows too', async () => {
+  const cards = await spaces.buildFeaturedSpaces([
+    listingsOf('property', 2, 2),
+    listingsOf('office', 1, 1),
+    listingsOf('airbnb', 3, 40),
+    listingsOf('venue', 1, 1),
+    listingsOf('hotel', 1, 9),
+  ], null, async (url) => !url.includes('venue'));
+  assert.deepEqual(cardsSummary(cards)[3], ['venue', 'airbnb', 'airbnb-2']);
+  assert.ok(cards.every((c) => c.listing && c.listing.photoUrl));
+});
+
 test('several empty niches borrow without repeating a listing, largest niche first', async () => {
   const cards = await spaces.buildFeaturedSpaces([
     listingsOf('property', 0, 0),
@@ -104,19 +122,37 @@ test('several empty niches borrow without repeating a listing, largest niche fir
     listingsOf('airbnb', 2, 12),
     listingsOf('venue', 0, 0),
     listingsOf('hotel', 2, 5),
-  ]);
+  ], null, allLoad);
   assert.deepEqual(cardsSummary(cards), [
     ['property', 'airbnb', 'airbnb-2'],
     ['office', 'hotel', 'hotel-2'],
     ['airbnb', 'airbnb', 'airbnb-1'],
-    ['venue', 'venue', null],
     ['hotel', 'hotel', 'hotel-1'],
   ]);
-  const ids = cards.filter((c) => c.listing).map((c) => c.listing.id);
+  // Nothing left to borrow for the venue slot: it is left out, never shown without a photo.
+  const ids = cards.map((c) => c.listing.id);
   assert.equal(new Set(ids).size, ids.length);
-  // Nothing left to borrow: that niche says it is coming soon.
-  assert.equal(cards[3].listing, null);
-  assert.equal(cards[3].href, '/marketplace?category=venue');
+});
+
+test('build-time photo check: only a definite failure rules a photo out', async () => {
+  const seen = [];
+  const fetcher = (status) => async (url) => { seen.push(url); return { ok: status < 400 }; };
+  assert.equal(await spaces.photoLoadsAtBuild('https://storage.example/a.jpg', fetcher(400)), false);
+  assert.equal(await spaces.photoLoadsAtBuild('https://storage.example/a.jpg', fetcher(200)), true);
+  // /api/photos URLs are checked against the API the site rewrites /api to.
+  assert.equal(await spaces.photoLoadsAtBuild('/api/photos/listing-photos/x.jpg?w=800', fetcher(404)), false);
+  assert.equal(seen.at(-1), 'https://server-4jlx.onrender.com/api/photos/listing-photos/x.jpg?w=800');
+  // A one-byte download, not HEAD (signed R2 addresses answer HEAD with 403).
+  let init = null;
+  await spaces.photoLoadsAtBuild('/api/photos/a.jpg', async (_url, options) => { init = options; return { ok: true }; });
+  assert.equal(init.method, undefined);
+  assert.equal(init.headers.Range, 'bytes=0-0');
+  // An answer that is not an image (an error page) rules the photo out.
+  const answer = (type) => async () => ({ ok: true, headers: { get: () => type } });
+  assert.equal(await spaces.photoLoadsAtBuild('/api/photos/a.jpg', answer('application/json')), false);
+  assert.equal(await spaces.photoLoadsAtBuild('/api/photos/a.jpg', answer('image/webp')), true);
+  // A timeout or network error (the API waking up) keeps the photo.
+  assert.equal(await spaces.photoLoadsAtBuild('/api/photos/listing-photos/x.jpg', async () => { throw new Error('timeout'); }), true);
 });
 
 test('a niche whose query fails borrows like an empty one', async () => {
@@ -136,7 +172,7 @@ test('a niche whose query fails borrows like an empty one', async () => {
   const warn = console.warn;
   console.warn = () => {};
   try {
-    const result = await spaces.fetchFeaturedSpaces({ from: query, storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) } });
+    const result = await spaces.fetchFeaturedSpaces({ from: query, storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) } }, allLoad);
     assert.deepEqual(cardsSummary(result), [
       ['property', 'property', 'property-1'],
       ['office', 'office', 'office-1'],
@@ -171,13 +207,19 @@ test('the section: centred heading, middle card first in focus, cards fanned aro
   assert.match(html, /href="\/marketplace"[^>]*>View more spaces/);
 });
 
-test('a card without a listing or price says so instead of inventing one', () => {
+test('no eyebrow above the headline', () => {
+  const list = spaces.SPACE_NICHES.map((niche) => spaces.toFeaturedSpace(niche, row({ id: niche.id, category: niche.categories[0] })));
+  assert.doesNotMatch(renderSection(list), /The spaces/i);
+});
+
+test('only cards with a photo are rendered; a missing price says so', () => {
   const list = spaces.SPACE_NICHES.map((niche) => spaces.toFeaturedSpace(niche, niche.id === 'venue'
     ? null
-    : row({ id: niche.id, category: niche.categories[0], listing_booking_details: [{ price_amount: null }] })));
+    : row({ id: niche.id, category: niche.categories[0], ...(niche.id === 'hotel' ? { listing_photos: [] } : {}), listing_booking_details: [{ price_amount: null }] })));
   const html = renderSection(list);
-  assert.match(html, /Event Venues are coming to VaRoom soon\./);
-  assert.match(html, /href="\/marketplace\?category=venue"/);
+  assert.equal((html.match(/<article/g) || []).length, 3);
+  assert.equal((html.match(/<img/g) || []).length, 3);
+  assert.doesNotMatch(html, /Event Venues|Hotels/);
   assert.match(html, /Price on request/);
 });
 
