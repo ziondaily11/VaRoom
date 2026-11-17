@@ -62,6 +62,7 @@
 
 .card {
   --x: 0px;
+  --lift: 0px;
   --scale: 1;
   position: absolute;
   top: 50%;
@@ -73,7 +74,7 @@
   overflow: hidden;
   background: #2d2724;
   box-shadow: 0 18px 40px -18px rgba(24, 21, 19, 0.45);
-  transform: translateX(var(--x)) scale(var(--scale));
+  transform: translateX(var(--x)) translateY(var(--lift)) scale(var(--scale));
   transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, box-shadow 0.4s ease;
   cursor: pointer;
   user-select: none;
@@ -95,6 +96,7 @@
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shade {
@@ -166,6 +168,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
   height: 40px;
   margin-top: 6px;
@@ -175,10 +178,13 @@
   font-size: 0.8125rem;
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.cardActive .explore:hover { background: #f1ebe2; }
+.exploreArrow {
+  flex: none;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
 .explore:focus-visible { outline: 2px solid #bd2337; outline-offset: 2px; }
 
 .controls {
@@ -222,6 +228,48 @@
   white-space: nowrap;
 }
 
+/*
+ * Hover (mouse and trackpad only, so a tap never leaves a card stuck raised):
+ * the card lifts, its photo eases in, and the centre card's Explore turns red
+ * with its arrow nudging forward.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { --lift: -8px; box-shadow: 0 30px 56px -24px rgba(24, 21, 19, 0.6); }
+  .card:hover .photo { transform: scale(1.05); }
+  .cardActive .explore:hover { background: #bd2337; color: #fff; }
+  .cardActive .explore:hover .exploreArrow,
+  .cardActive:hover .exploreArrow { transform: translateX(4px); }
+}
+
+/*
+ * Entrance, the first time the section scrolls into view: the headline rises,
+ * then the cards deal out from behind the centre card, centre first. Only
+ * opacity and the separate `translate` property move, so the animation runs on
+ * the compositor and does not fight the `transform` the row uses for its
+ * positions. `backwards` holds the start state through each delay and lets
+ * go at the end, so the row's own opacity rules apply again afterwards.
+ */
+@keyframes spacesRise {
+  from { opacity: 0; translate: 0 18px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes spacesDeal {
+  from { opacity: 0; translate: calc(var(--x) * -1) 40px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.entranceWaiting .header,
+.entranceWaiting .card,
+.entranceWaiting .controls { opacity: 0; }
+
+.entrancePlaying .header { animation: spacesRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.entrancePlaying .card {
+  animation: spacesDeal 0.9s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(150ms + var(--enter-order, 0) * 110ms);
+}
+.entrancePlaying .controls { animation: spacesRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards; }
+
 /* Tablets: the outer cards only peek. */
 @media (max-width: 820px) {
   .stage { --card-w: 228px; --card-h: 356px; --step-1: 176px; --step-2: 300px; }
@@ -233,6 +281,9 @@
   .card[data-offset='-2'],
   .card[data-offset='2'] { opacity: 0; pointer-events: none; }
   .card[data-offset='0'] { --scale: 1.04; }
+  /* The hidden outer cards stay hidden through the entrance. */
+  .entrancePlaying .card[data-offset='-2'],
+  .entrancePlaying .card[data-offset='2'] { animation: none; }
 }
 
 /* Short screens (1280×720 laptops, small phones): the whole page fits in one view. */
@@ -248,5 +299,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card { transition: opacity 0.2s ease; }
+  .card { --lift: 0px; transition: opacity 0.2s ease; }
+  .card:hover { --lift: 0px; }
+  .photo,
+  .card:hover .photo { transition: none; transform: none; }
+  .exploreArrow { transition: none; }
+  .entrancePlaying .header,
+  .entrancePlaying .card,
+  .entrancePlaying .controls { animation: none; }
 }

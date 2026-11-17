@@ -208,6 +208,22 @@ export default function LandingPage({ spaces }: LandingPageProps) {
           .hero-cta {
             animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 390ms both;
           }
+          /* The hero's call to action is VaRoom red; the other landing buttons stay black. */
+          .hero-cta .landing-cta.landing-cta-primary {
+            background: #bd2337 !important;
+            border-color: #bd2337 !important;
+            box-shadow: 0 10px 24px -12px rgba(189, 35, 55, 0.7) !important;
+          }
+          .hero-cta .landing-cta.landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
+            background: #a11c2e !important;
+            border-color: #a11c2e !important;
+          }
+          .hero-cta-arrow {
+            transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          .hero-cta .landing-cta:hover .hero-cta-arrow {
+            transform: translateX(3px);
+          }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
