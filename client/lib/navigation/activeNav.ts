@@ -34,6 +34,3 @@ export function clientActiveNav(p: string, as: string): string {
   if (p === '/signup-host' || as.startsWith('/signup-host')) return 'signup-host';
   return '';
 }
-
-/** Client items that live in the More menu. */
-export const CLIENT_MORE_ITEMS = ['profile', 'settings', 'support', 'signup-host'];

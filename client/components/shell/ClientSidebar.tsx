@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
-import { CLIENT_MORE_ITEMS, clientActiveNav } from '../../lib/navigation/activeNav';
+import { clientActiveNav } from '../../lib/navigation/activeNav';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
 import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity } from './useShellChrome';
@@ -30,7 +30,7 @@ function resolveAvatar(url?: string | null): string | null {
   return url;
 }
 
-/** The More items: a popup on laptops and desktops, listed in full in the phone drawer. */
+/** Profile, Settings, Help and Become a Host (formerly behind More), listed in full. */
 const CLIENT_MORE: Array<{ key: string; href: string; label: string; icon: React.ReactNode }> = [
   { key: 'profile', href: '/profile', label: 'Profile', icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" /></> },
   {
@@ -57,16 +57,13 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
   const unreadCount = useCounts().notifications;
   const linkedAccounts = useLinkedAccounts();
   const {
-    moreOpen, setMoreOpen,
     accountOpen, setAccountOpen,
     mobileOpen, setMobileOpen,
-    moreBtnRef, moreMenuRef, identityBtnRef, accountMenuRef,
+    identityBtnRef, accountMenuRef,
   } = useShellChrome(DRAWER_EVENTS);
 
   // Compute active navigation item from router if not explicitly passed
   const activeNav: string = explicitActiveNav || clientActiveNav(router.pathname || '', router.asPath || '');
-
-  const isMoreActive = CLIENT_MORE_ITEMS.includes(activeNav);
 
   // Navigation click handler
   const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string) => {
@@ -75,7 +72,6 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
     if (path) {
       e.preventDefault();
       setMobileOpen(false);
-      setMoreOpen(false);
       setAccountOpen(false);
       router.push(path);
     }
@@ -259,13 +255,14 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
           </a>
         </nav>
 
-        {/* Phones: the More items listed in full (the drawer has room; no popup). */}
-        <nav className="nav-group more-inline" aria-label="More">
+        {/* Profile, Settings, Help and Become a Host: listed in full at every width (no More menu). */}
+        <nav className="nav-group" aria-label="Account and help">
           {CLIENT_MORE.map((item) => (
             <a
               key={item.key}
               href={item.href}
               className={`nav-item ${activeNav === item.key ? 'active' : ''}`}
+              title={tip(item.label)}
               onClick={(e) => handleNav(e, item.href)}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -275,77 +272,6 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
             </a>
           ))}
         </nav>
-
-        {/* More menu popup (fixed-position, opened upward; laptops and desktops) */}
-        <div
-          id="more-menu"
-          ref={moreMenuRef}
-          className="account-menu"
-          role="menu"
-          aria-label="More options"
-          hidden={!moreOpen}
-        >
-          {CLIENT_MORE.map((item) => (
-            <a
-              key={item.key}
-              href={item.href}
-              className={`account-menu-action ${activeNav === item.key ? 'active' : ''}`}
-              role="menuitem"
-              onClick={(e) => handleNav(e, item.href)}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '.45rem', flexShrink: 0 }}
-              >
-                {item.icon}
-              </svg>
-              {item.label}
-            </a>
-          ))}
-        </div>
-
-        {/* More button */}
-        <button
-          type="button"
-          ref={moreBtnRef}
-          className={`nav-item ${isMoreActive || moreOpen ? 'active' : ''}`}
-          id="more-nav-btn"
-          title={tip('More')}
-          aria-haspopup="true"
-          aria-expanded={moreOpen}
-          aria-controls="more-menu"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setAccountOpen(false);
-            setMoreOpen((prev) => !prev);
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none" />
-            <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
-            <circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none" />
-          </svg>
-          More
-        </button>
 
         {/* Account identity popup menu */}
         <div
@@ -444,7 +370,6 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setMoreOpen(false);
             setAccountOpen((prev) => !prev);
           }}
         >

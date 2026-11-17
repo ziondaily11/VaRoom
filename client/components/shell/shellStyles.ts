@@ -665,16 +665,15 @@ export const MOBILE_NAV_STYLES = `
   @media (prefers-reduced-motion:reduce){.varoom-mobile-nav{transition:none;}}
 `;
 
-/** Shared by the host and client sidebars: the More items on phones, and the host's start-page pin. */
+/** Sidebar extras: the host's More items on phones, and the host's start-page pin. */
 export const SIDEBAR_EXTRA_STYLES = `
-  /* ---------- More: a popup on laptops and desktops, listed in full in the phone drawer ---------- */
-  .host-app-layout .nav-group.more-inline,
-  .client-app-layout .nav-group.more-inline { display: none; }
+  /* ---------- Host More: a popup on laptops and desktops, listed in full in the phone drawer.
+     (The client sidebar has no More: its items are always listed in full.) ---------- */
+  .host-app-layout .nav-group.more-inline { display: none; }
   @media (max-width: 860px) {
-    .host-app-layout .nav-group.more-inline,
-    .client-app-layout .nav-group.more-inline { display: flex; }
-    .host-app-layout #more-nav-btn, .client-app-layout #more-nav-btn,
-    .host-app-layout #more-menu, .client-app-layout #more-menu { display: none !important; }
+    .host-app-layout .nav-group.more-inline { display: flex; }
+    .host-app-layout #more-nav-btn,
+    .host-app-layout #more-menu { display: none !important; }
   }
 
   /* ---------- Start page pin (host): at the end of a page's row, on hover or focus ---------- */

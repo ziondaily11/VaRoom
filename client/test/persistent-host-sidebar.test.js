@@ -7,7 +7,7 @@ const { resolveAvatarUrl, resolveStoredPhotoUrl } = loadTs(path.join(__dirname, 
 const clientDir = path.join(__dirname, '..');
 const { getAccountLayout, getSessionBoundCachedRole } = loadTs(path.join(clientDir, 'lib', 'accountRoleLayout.ts'));
 const { shellFrame, shellState, isShellSettled } = loadTs(path.join(clientDir, 'lib', 'shell', 'appShell.ts'));
-const { hostActiveNav, clientActiveNav, HOST_MORE_ITEMS, CLIENT_MORE_ITEMS } = loadTs(path.join(clientDir, 'lib', 'navigation', 'activeNav.ts'));
+const { hostActiveNav, clientActiveNav, HOST_MORE_ITEMS } = loadTs(path.join(clientDir, 'lib', 'navigation', 'activeNav.ts'));
 const identity = loadTs(path.join(clientDir, 'lib', 'shell', 'shellIdentity.ts'));
 const mobileNav = loadTs(path.join(clientDir, 'lib', 'navigation', 'mobileNav.ts'));
 const shellCss = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
@@ -89,7 +89,6 @@ test('client sidebar active item follows the route', () => {
   assert.equal(clientActiveNav('/support', '/support'), 'support');
   assert.equal(clientActiveNav('/signup-host', '/signup-host'), 'signup-host');
   assert.equal(clientActiveNav('/list', '/list'), '', 'no item for other routes');
-  assert.deepEqual(CLIENT_MORE_ITEMS, ['profile', 'settings', 'support', 'signup-host']);
 });
 
 test('_app.tsx wraps designated account routes with the persistent AppShell', () => {
