@@ -1,0 +1,30 @@
+/* The VaRoom loading spinner: the eight-spoke indicator first used on Host
+   Home's media cards, now shared by every media card and side widget (Host
+   Home, Client Home, Marketplace, Property News, VaRoom Updates).
+   --varoom-spinner is the single source of its image; pages draw it either
+   with the .varoom-spinner element or as a pseudo-element background. */
+:root {
+  --varoom-spinner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23bdbdbd' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M16 3v4' opacity='.3'/%3E%3Cpath d='m25.2 6.8-2.8 2.8' opacity='.4'/%3E%3Cpath d='M29 16h-4' opacity='.55'/%3E%3Cpath d='m25.2 25.2-2.8-2.8' opacity='.7'/%3E%3Cpath d='M16 29v-4' opacity='.9'/%3E%3Cpath d='m6.8 25.2 2.8-2.8'/%3E%3Cpath d='M3 16h4' opacity='.8'/%3E%3Cpath d='m6.8 6.8 2.8 2.8' opacity='.55'/%3E%3C/svg%3E");
+}
+
+@keyframes varoom-spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+.varoom-spinner {
+  display: inline-block;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  background: var(--varoom-spinner) center / contain no-repeat;
+  animation: varoom-spinner-turn 0.8s steps(8) infinite;
+}
+
+.varoom-spinner--small {
+  width: 28px;
+  height: 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varoom-spinner { animation-duration: 2.4s; }
+}

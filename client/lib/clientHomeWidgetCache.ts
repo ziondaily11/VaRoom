@@ -1,11 +1,10 @@
 import { createCache } from './cache/createCache';
 import { CACHE_NAMESPACES } from './cache/namespaces';
 
-// Public Client Home widgets (destination counts, VaRoom updates,
-// recommendations). Stale entries still render immediately and are refreshed
+// Public home widgets (destination counts, VaRoom updates). Stale entries still render immediately and are refreshed
 // in the background; invalid or failed responses are never cached.
 
-export type ClientHomeWidgetKey = 'destinations' | 'updates' | 'recommended';
+export type ClientHomeWidgetKey = 'destinations' | 'updates';
 
 const MAX_AGE_MS = 5 * 60 * 1000;
 
@@ -17,9 +16,6 @@ function isValidValue(value: unknown, key: string): boolean {
   if (key === 'updates') {
     return Array.isArray(value) && value.every((item) =>
       item && typeof item.id === 'string' && typeof item.body === 'string');
-  }
-  if (key === 'recommended') {
-    return Array.isArray(value) && value.every((item) => item && typeof item.id === 'string');
   }
   return false;
 }

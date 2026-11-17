@@ -39,7 +39,7 @@ function NewsRefreshButton({ onRefresh, busy }: { onRefresh?: () => void; busy?:
   return <button type="button" className="property-news-refresh" onClick={onRefresh} disabled={busy} aria-busy={busy || undefined}>Refresh</button>;
 }
 
-export function VaroomUpdatesContent({ updates, id }: { updates: Loadable<VaroomUpdate[]>; id: string }) {
+function VaroomUpdatesContent({ updates, id }: { updates: Loadable<VaroomUpdate[]>; id: string }) {
   return (
     <div id={id} className="home-widget-content" data-loading={updates === null ? 'true' : 'false'}>
       {updates === null ? <Loader label="Loading VaRoom Updates" />

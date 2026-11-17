@@ -19,7 +19,7 @@ import {
 import { MOBILE_QUERY } from '../lib/hostHome/mediaStage';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH, type PhotoWidth } from '../components/resolveStoredPhotoUrl';
 import FeedCard, { type CardVideo, type MediaState } from '../components/hostHome/FeedCard';
-import HostRail, { VaroomUpdatesContent, type Loadable } from '../components/hostHome/HostRail';
+import HostRail, { type Loadable } from '../components/hostHome/HostRail';
 import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialogs';
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
@@ -93,7 +93,6 @@ export default function HostHomePage() {
   const [reportTarget, setReportTarget] = useState<{ listingId: string; hostId: string } | null>(null);
   const [nicheOpen, setNicheOpen] = useState(false);
   const [toast, setToast] = useState('');
-  const [mobile, setMobile] = useState(false);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const [newsRefreshing, setNewsRefreshing] = useState(false);
 
@@ -155,7 +154,7 @@ export default function HostHomePage() {
 
   useEffect(() => {
     const query = window.matchMedia(MOBILE_QUERY);
-    const update = () => { setMobile(query.matches); setLayoutVersion((v) => v + 1); };
+    const update = () => setLayoutVersion((v) => v + 1);
     update();
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
@@ -533,17 +532,13 @@ export default function HostHomePage() {
     setCategory(value);
   };
 
-  const showMobileUpdates = mode !== 'mine' && category === 'all' && !searchTerm.trim() && mobile;
-
   let feed: React.ReactNode;
   // Until the account is known only the feed waits; the shell, tabs and rail are already drawn.
   if (!ready) feed = <><SkeletonCard /><SkeletonCard /></>;
   else if (feedState.status === 'loading') {
     feed = (
       <>
-        <SkeletonCard />
-        {showMobileUpdates && <MobileUpdates updates={updates} />}
-        <SkeletonCard /><SkeletonCard />
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
       </>
     );
   } else if (feedState.status === 'error') feed = <p className="state-msg">Couldn&apos;t load listings: {feedState.message}</p>;
@@ -579,7 +574,6 @@ export default function HostHomePage() {
               onDeleted={onDeleted}
               refreshVideo={refreshVideo(listing.id)}
             />
-            {index === 0 && showMobileUpdates && <MobileUpdates updates={updates} />}
             </>}
           </div>
         ))}
@@ -646,16 +640,5 @@ export default function HostHomePage() {
         </div>
       </div>
     </>
-  );
-}
-
-function MobileUpdates({ updates }: { updates: Loadable<VaroomUpdate[]> }) {
-  return (
-    <div className="mobile-widget-slot">
-      <div className="varoom-updates-card mobile-varoom-updates-card">
-        <div className="stats-head"><h2>VaRoom Updates</h2></div>
-        <VaroomUpdatesContent updates={updates} id="varoom-updates-mobile" />
-      </div>
-    </div>
   );
 }

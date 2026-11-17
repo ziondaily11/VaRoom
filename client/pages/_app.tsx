@@ -19,6 +19,7 @@ import { applyTheme } from '../lib/theme';
 import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRail } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/privacy.css';
+import '../styles/spinner.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // Create the shared Supabase client before any page renders so pages and
