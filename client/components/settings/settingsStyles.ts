@@ -206,6 +206,12 @@ export const SETTINGS_STYLES = `
     .settings-page .plan-box .expand-panel{ padding-left:1.1rem; padding-right:1.1rem; }
   }
 
+  /* Dark: fields in a box take the box's heavier grey (not black); a border only while typing.
+     !important: the app-wide varoom-dark-theme.css forces .field inputs to black with it. */
+  html[data-theme="dark"] .settings-page .plan-box :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea){ background:var(--plan-box-head) !important; border-color:transparent !important; }
+  html[data-theme="dark"] .settings-page .plan-box :is(input, select, textarea):focus{ border-color:var(--muted) !important; box-shadow:none !important; }
+  html[data-theme="dark"] .settings-page .settings-chats .cs{ --cs-bg:var(--plan-box-head); }
+
   /* Chats (the shared Chat Settings, in grey boxes here). */
   .settings-page .settings-chats .cs{ padding:0; font-family:inherit; --cs-text:var(--ink); --cs-muted:var(--muted); --cs-divider:var(--plan-box-line); --cs-hover:var(--plan-box-head); --cs-bg:var(--paper); }
   .settings-page .settings-chats .cs-section, .settings-page .settings-chats .cs-section:first-child{ padding:0; margin-bottom:1.1rem; background:var(--plan-box); border-radius:16px; }
