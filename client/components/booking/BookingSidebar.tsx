@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { newTabProps } from '../../lib/navigation/newTab';
 import { SIDEBAR_ICONS } from '../../lib/booking/bookingIcons';
 import Svg from './Svg';
 
@@ -39,7 +40,7 @@ export default function BookingSidebar({ role }: { role: 'host' | 'client' }) {
   return (
     <aside className="client-sidebar" id="booking-sidebar" aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'} aria-hidden="false">
       {items.map(([href, label, icon, active], index) => (
-        <Link key={index} href={href} className={`client-nav-link${active ? ' active' : ''}`} aria-label={label} title={label} aria-current={active ? 'page' : undefined}>
+        <Link key={index} href={href} {...newTabProps(href)} className={`client-nav-link${active ? ' active' : ''}`} aria-label={label} title={label} aria-current={active ? 'page' : undefined}>
           <Svg markup={icon} />
         </Link>
       ))}

@@ -8,6 +8,8 @@ import { AuthPanel } from '../components/landing/AuthPanel';
 import { SpacesSection } from '../components/landing/SpacesSection';
 import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
+import { fetchFeaturedReview } from '../lib/reviews/varoomReviews';
+import type { FeaturedReview } from '../lib/reviews/varoomReviews';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { originOf } from '../lib/landing/useTriggerReveal';
@@ -15,9 +17,11 @@ import type { RevealOrigin } from '../lib/landing/useTriggerReveal';
 
 interface LandingPageProps {
   spaces: FeaturedSpace[];
+  /** The approved review of VaRoom the sign-in panel shows, if any. */
+  review: FeaturedReview | null;
 }
 
-export default function LandingPage({ spaces }: LandingPageProps) {
+export default function LandingPage({ spaces, review }: LandingPageProps) {
   const router = useRouter();
   const [isAuthOpen, setAuthOpen] = useState(false);
   const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
@@ -312,24 +316,29 @@ export default function LandingPage({ spaces }: LandingPageProps) {
           initialView={initialAuthView}
           initialRole={signupRole}
           initialRecoveryStep={initialRecoveryStep}
+          review={review}
         />
       </main>
     </>
   );
 }
 
-// Listings change slowly; the cards are rebuilt at most every five minutes.
+// Listings and approved reviews change slowly; the page is rebuilt at most
+// every five minutes, so an approved review shows within about five minutes.
 const SPACES_REVALIDATE_SECONDS = 300;
 
 export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
-    return { props: { spaces: await fetchFeaturedSpaces(client) }, revalidate: SPACES_REVALIDATE_SECONDS };
-  } catch (error) {
-    console.warn('Landing spaces unavailable at build time', error);
-    // No cards (the section is left out); retry sooner.
-    return { props: { spaces: [] }, revalidate: 60 };
-  }
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  // Each loads on its own: one failing does not take the other with it.
+  const [spaces, review] = await Promise.all([
+    fetchFeaturedSpaces(client).catch((error: unknown) => {
+      console.warn('Landing spaces unavailable at build time', error);
+      return null;
+    }),
+    fetchFeaturedReview(client).catch(() => null),
+  ]);
+  // Without cards the section is left out; retry sooner.
+  return { props: { spaces: spaces || [], review }, revalidate: spaces ? SPACES_REVALIDATE_SECONDS : 60 };
 };

@@ -111,7 +111,7 @@ export interface FlowCopy {
   confirmationMessage: string;
 }
 
-export const FLOW_COPY: Record<Exclude<SupportFlow, 'account'>, FlowCopy> = {
+export const FLOW_COPY: Record<SupportFlow, FlowCopy> = {
   ticket: {
     title: 'Contact support',
     label: 'How can we help?',
@@ -139,7 +139,31 @@ export const FLOW_COPY: Record<Exclude<SupportFlow, 'account'>, FlowCopy> = {
     confirmation: 'Feature request sent',
     confirmationMessage: 'Thanks for the idea. We will take a look.',
   },
+  account: {
+    title: 'Need help with account',
+    label: 'Tell us more',
+    placeholder: 'What happened? Anything that helps us find your account helps...',
+    submit: 'Send request',
+    subject: null,
+    confirmation: 'Request sent',
+    confirmationMessage: 'Thanks. We will reply to your email as soon as we can.',
+  },
 };
+
+/** What account help is about; the choice becomes the ticket's subject. */
+export const ACCOUNT_TOPICS = [
+  "I can't sign in",
+  'My account is suspended',
+  'My account was deactivated',
+  "Password reset isn't working",
+  "I didn't get a verification code",
+  'Change my email or phone number',
+  'Delete my account',
+  'Something else',
+] as const;
+
+/** The ticket subject for an account help topic. */
+export const accountSubject = (topic: string): string => (topic.trim() ? `Account help: ${topic.trim()}` : '');
 
 export const ACCOUNT_HELP_COPY = 'We can help with sign-in issues, profile updates, account access, and other account-related questions.';
 
@@ -148,19 +172,20 @@ export interface SupportTicket { name: string; email: string; subject: string; m
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * The dialog's fields as a ticket request: the reply-to email the user typed
- * (contact support only; other flows use the account's email), and the
- * flow's fixed subject when it has one.
+ * The dialog's fields as a ticket request: the reply-to email (contact
+ * support and account help ask for one; the other flows use the account's
+ * email), the chosen topic as the subject for account help, otherwise the
+ * typed subject or the flow's fixed one.
  */
 export function ticketRequest(
-  flow: Exclude<SupportFlow, 'account'>,
+  flow: SupportFlow,
   user: { name: string; email: string },
-  fields: { replyEmail: string; subject: string; message: string },
+  fields: { replyEmail: string; subject: string; message: string; topic?: string },
 ): { name: string; email: string; subject: string; message: string } {
   return {
     name: user.name,
-    email: flow === 'ticket' ? fields.replyEmail : user.email,
-    subject: FLOW_COPY[flow].subject ?? fields.subject,
+    email: flow === 'ticket' || flow === 'account' ? fields.replyEmail : user.email,
+    subject: flow === 'account' ? accountSubject(fields.topic || '') : FLOW_COPY[flow].subject ?? fields.subject,
     message: fields.message,
   };
 }

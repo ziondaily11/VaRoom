@@ -579,6 +579,32 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ report: data });
   });
 
+  // Reviews of VaRoom itself. Approving one lets it appear on the sign-in
+  // panel (the most recently approved one is shown); hiding takes it down.
+  router.get('/varoom-reviews', adminAuth, async (req, res) => {
+    let query = supabaseAdmin.from('varoom_reviews')
+      .select('id,user_id,rating,comment,author_name,author_role,status,reviewed_at,approved_at,created_at,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(250);
+    if (req.query.status) query = query.eq('status', req.query.status);
+    const { data, error } = await query;
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ data: data || [] });
+  });
+
+  router.patch('/varoom-reviews/:id', ...adminWrite, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['approved', 'hidden', 'pending'].includes(status)) return res.status(400).json({ error: 'Invalid review status' });
+    const now = new Date().toISOString();
+    const update = { status, reviewed_by: req.admin.id, reviewed_at: now, approved_at: status === 'approved' ? now : null };
+    const { data, error } = await supabaseAdmin.from('varoom_reviews').update(update).eq('id', req.params.id)
+      .select('id,user_id,rating,comment,author_name,author_role,status,reviewed_at,approved_at,created_at,updated_at').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Review not found' });
+    await logActivity(req.admin, `varoom_review_${status}`, 'varoom_review', data.id, String(req.body && req.body.reason || '').trim());
+    return res.json({ review: data });
+  });
+
   router.get('/account-deletions', adminAuth, async (_req, res) => {
     const { data, error } = await supabaseAdmin.from('account_deletions')
       .select('id,account_id,account_email,reason,reason_details,deleted_at')

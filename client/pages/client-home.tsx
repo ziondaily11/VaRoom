@@ -1536,7 +1536,7 @@ export default function ClientHome() {
             <section className={styles.suspensionNotice} role="status">
               <h2>Your account has been suspended</h2>
               <p>You can still browse VaRoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p>
-              <a href="/support">Go to Support / Submit Appeal →</a>
+              <a href="/support" target="_blank" rel="noopener noreferrer">Go to Support / Submit Appeal →</a>
             </section>
           )}
 

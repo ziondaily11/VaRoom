@@ -4,7 +4,7 @@
 
 export type SectionKey =
   | 'overview' | 'signins' | 'revenue' | 'support' | 'reports' | 'users'
-  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news';
+  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews';
 
 export interface Overview { signins: number; revenue: number; openTickets: number; newListings: number }
 export interface SigninRow { user: string; method: string; time: string; device: string }
@@ -38,6 +38,19 @@ export interface UserReport {
   reason: string;
   status: string;
   createdAt: string;
+}
+
+/** A review of VaRoom itself (Help & Support → Rate VaRoom). */
+export interface VaroomReviewRow {
+  id: string;
+  user_id: string;
+  rating: number;
+  comment: string;
+  author_name: string;
+  author_role: string;
+  status: 'pending' | 'approved' | 'hidden';
+  approved_at: string | null;
+  updated_at: string;
 }
 
 export interface AccountDeletion { id: string; account_id: string; account_email: string | null; reason: string; reason_details: string | null; deleted_at: string }
@@ -129,6 +142,7 @@ export const loadRevenue = () => adminRequest<{ transactions?: Transaction[]; to
 export const loadTickets = () => rows<Ticket>('/admin/support/tickets');
 export const loadReports = () => rows<ListingReport>('/admin/reports');
 export const loadUserReports = () => rows<UserReport>('/admin/user-reports');
+export const loadVaroomReviews = () => rows<VaroomReviewRow>('/admin/varoom-reviews');
 export const loadAccountDeletions = () => rows<AccountDeletion>('/admin/account-deletions');
 export const loadGrowth = () => adminRequest<{ series?: GrowthPoint[] }>('/admin/growth?range=14').then((result) => result.series || []);
 export const loadAdmins = () => rows<Admin>('/admin/admins');
@@ -153,4 +167,6 @@ export const createUpdate = (payload: { title: string; body: string; status: str
 export const setUpdateStatus = (id: string, status: string, reason: string) =>
   adminRequest<{ update: VaroomUpdate }>(`/admin/updates/${id}/status`, json('POST', { status, reason }));
 export const setReportStatus = (id: string, status: string) => adminRequest<{ report: Partial<ListingReport> }>(`/admin/reports/${id}`, json('PATCH', { status }));
+export const setVaroomReviewStatus = (id: string, status: VaroomReviewRow['status']) =>
+  adminRequest<{ review: VaroomReviewRow }>(`/admin/varoom-reviews/${id}`, json('PATCH', { status }));
 export const setUserReportStatus = (id: string, status: string) => adminRequest<{ report: Partial<UserReport> }>(`/admin/user-reports/${id}`, json('PATCH', { status }));

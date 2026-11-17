@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
+import { opensInNewTab, newTabProps } from '../../lib/navigation/newTab';
 import { clientActiveNav } from '../../lib/navigation/activeNav';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
@@ -67,8 +68,9 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
 
   // Navigation click handler
   const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string) => {
-    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
-    if (isModifiedClick(e)) return;
+    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window),
+    // as do Help & Support and the legal pages, which always open in a new tab.
+    if (isModifiedClick(e) || opensInNewTab(path)) return;
     if (path) {
       e.preventDefault();
       setMobileOpen(false);
@@ -261,6 +263,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
             <a
               key={item.key}
               href={item.href}
+              {...newTabProps(item.href)}
               className={`nav-item ${activeNav === item.key ? 'active' : ''}`}
               title={tip(item.label)}
               onClick={(e) => handleNav(e, item.href)}

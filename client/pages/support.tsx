@@ -1,16 +1,24 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { accountRole } from '../lib/types/profile';
 import { HELP_ARTICLES, findHelpArticle, stepParts, supportHomeHref, type HelpArticle, type SupportFlow } from '../lib/support/support';
 import SupportDialog from '../components/support/SupportDialog';
+import RateVaroom from '../components/support/RateVaroom';
+import { takeSupportHandoff } from '../lib/support/handoff';
 import { SUPPORT_STYLES } from '../components/support/supportStyles';
 
 // Help & Support (migrated from legacy-pages/support.html): help search over
 // the common articles, support actions that open a ticket / bug / feature /
-// account dialog, and the footer. A standalone page on a fixed black canvas.
-// Identity and role come from AuthProvider; no request of its own.
+// account dialog, Rate VaRoom, and the footer. A standalone page on a fixed
+// black canvas that always opens in its own tab (like the legal pages), so
+// it has no app navigation. Identity and role come from AuthProvider.
+//
+// From the sign-in panel ("Trouble signing in?") it opens on account help
+// (?topic=account) with the email typed there, handed over through
+// localStorage and shown masked.
 
 const ACTIONS: Array<{ flow: SupportFlow; icon: string; title: string; text: string }> = [
   { flow: 'ticket', icon: '▤', title: 'Create a support ticket', text: "Need help with a specific issue? Send us a message and we'll get back to you." },
@@ -36,6 +44,8 @@ function Article({ article, matched, articleRef }: { article: HelpArticle; match
 
 export default function SupportPage() {
   const { session, user, profile } = useAuth();
+  const router = useRouter();
+  const [handoffEmail, setHandoffEmail] = useState('');
   const [query, setQuery] = useState('');
   const [noMatch, setNoMatch] = useState(false);
   const [matchedId, setMatchedId] = useState<string | null>(null);
@@ -49,11 +59,19 @@ export default function SupportPage() {
   const name = (profile && user && profile.id === user.id && profile.full_name)
     || metadata.full_name || metadata.name
     || (user?.email ? user.email.split('@')[0] : 'VaRoom member');
-  const initial = user ? (name.trim()[0] || 'A').toUpperCase() : 'A';
 
   useEffect(() => () => {
     if (matchTimer.current) window.clearTimeout(matchTimer.current);
   }, []);
+
+  // Arriving from the sign-in panel: the email typed there, and account help open.
+  useEffect(() => {
+    const email = takeSupportHandoff();
+    if (email) setHandoffEmail(email);
+  }, []);
+  useEffect(() => {
+    if (router.isReady && router.query.topic === 'account') setFlow('account');
+  }, [router.isReady, router.query.topic]);
 
   const search = (event: React.FormEvent) => {
     event.preventDefault();
@@ -91,15 +109,7 @@ export default function SupportPage() {
       <style dangerouslySetInnerHTML={{ __html: SUPPORT_STYLES }} />
       <div className="page support-page">
         <header className="topbar">
-          <a className="logo" href={homeHref} id="support-home-logo"><span className="va">Va</span>Room</a>
-          <nav className="nav" aria-label="Primary navigation">
-            <a href={homeHref} id="support-home-link">Home</a>
-            <a href="/marketplace">Marketplace</a>
-            <a href="/chats">Messages</a>
-            <a href="/bookings">Bookings</a>
-            <a className="active" href="/support" aria-current="page">Support</a>
-          </nav>
-          <a className="account" href="/profile"><span className="avatar">{initial}</span><span>Account</span><span aria-hidden="true">⌄</span></a>
+          <a className="logo" href={user ? homeHref : '/'} id="support-home-logo"><span className="va">Va</span>Room</a>
         </header>
 
         <main>
@@ -136,12 +146,13 @@ export default function SupportPage() {
             <button className="write-button" type="button" data-support-action="contact" onClick={() => setFlow('ticket')}>Contact support</button>
           </section>
 
+          <RateVaroom userId={user?.id || null} />
+
           {flow && (
             <SupportDialog
               flow={flow}
-              user={{ name, email: user?.email || '' }}
+              user={{ name, email: user?.email || handoffEmail }}
               getAccessToken={getAccessToken}
-              onFlowChange={setFlow}
               onClose={closeDialog}
             />
           )}
@@ -180,7 +191,3 @@ export default function SupportPage() {
     </>
   );
 }
-
-// The app's mobile navigation shows here, as it did on the legacy page (the
-// page's own links are hidden on phones).
-(SupportPage as unknown as { appNavigation: boolean }).appNavigation = true;
