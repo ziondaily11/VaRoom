@@ -218,7 +218,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
             <div className="booking-detail-help-title">Need help?</div>
             <div className="booking-detail-help-sub">Reply in this chat or contact our support team.</div>
           </div>
-          <Link className="booking-detail-help-btn" href="/support">Contact Support ›</Link>
+          <Link className="booking-detail-help-btn" href="/support" target="_blank" rel="noopener noreferrer">Contact Support ›</Link>
         </div>
       </section>
       {paying && (

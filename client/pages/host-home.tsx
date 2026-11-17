@@ -44,7 +44,7 @@ const SUSPENSION = (
   <section className="suspension-notice" role="status">
     <p className="suspension-notice-title">Your account has been suspended</p>
     <p className="suspension-notice-copy">You can still browse Varoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p>
-    <Link className="suspension-notice-action" href="/support">Go to Support / Submit Appeal →</Link>
+    <Link className="suspension-notice-action" href="/support" target="_blank" rel="noopener noreferrer">Go to Support / Submit Appeal →</Link>
   </section>
 );
 

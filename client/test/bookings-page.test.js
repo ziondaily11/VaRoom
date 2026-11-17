@@ -155,12 +155,12 @@ test('cache: per account, updated in place, cleared on sign-out', () => {
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearBookingsCache\(\);/);
 });
 
-test('detail: approved layout, Contact Support opens /support, cancel asks first, payment is a preview', () => {
+test('detail: approved layout, Contact Support opens /support in a new tab, cancel asks first, payment is a preview', () => {
   const detail = read('components', 'bookings', 'BookingDetail.tsx');
   for (const text of ['Booking <span>Approved!</span>', 'Great news! Your booking request has been approved by the host.', 'View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking? This can’t be undone.', 'Your stay is complete. Share your verified experience with future guests.']) {
     assert.ok(detail.includes(text), text);
   }
-  assert.match(detail, /href="\/support">Contact Support ›/);
+  assert.match(detail, /href="\/support" target="_blank" rel="noopener noreferrer">Contact Support ›/);
   assert.match(detail, /window\.confirm\(/);
   const pay = read('components', 'bookings', 'PayDialog.tsx');
   assert.ok(pay.includes("Online payment isn&apos;t connected yet"));

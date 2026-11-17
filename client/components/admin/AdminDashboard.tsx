@@ -14,6 +14,7 @@ import {
   Building2,
   Megaphone,
   History,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import * as api from "../../lib/admin/adminApi";
@@ -22,6 +23,7 @@ import { Growth, Overview, Revenue, Signins } from "./ChartSections";
 import { Support } from "./SupportSection";
 import { Activity, ListingReports, ListingsControl, PropertyNews, UpdatesControl, UsersControl } from "./ModerationSections";
 import { Admins } from "./AdminsSection";
+import { VaroomReviews } from "./VaroomReviewsSection";
 import { LoginScreen } from "./LoginScreen";
 
 // The VaRoom admin dashboard (/admin). Overview loads at sign-in; every other
@@ -35,6 +37,7 @@ const NAV_ITEMS: Array<{ key: SectionKey; label: string; icon: LucideIcon }> = [
   { key: "revenue", label: "Revenue", icon: DollarSign },
   { key: "support", label: "Support", icon: LifeBuoy },
   { key: "reports", label: "Listing reports", icon: Flag },
+  { key: "varoom-reviews", label: "VaRoom reviews", icon: Star },
   { key: "users", label: "Users", icon: Users },
   { key: "listings", label: "Listings", icon: Building2 },
   { key: "updates", label: "Varoom Updates", icon: Megaphone },
@@ -52,6 +55,7 @@ const LOADERS = {
   reports: api.loadReports,
   userReports: api.loadUserReports,
   deletions: api.loadAccountDeletions,
+  varoomReviews: api.loadVaroomReviews,
   growth: api.loadGrowth,
   admins: api.loadAdmins,
   users: api.loadUsers,
@@ -76,6 +80,7 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   activity: ["activity"],
   admins: ["admins"],
   "property-news": [],
+  "varoom-reviews": ["varoomReviews"],
 };
 
 const EMPTY_OVERVIEW = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 };
@@ -232,6 +237,12 @@ export default function AdminDashboard() {
     setResource("userReports", (prev) => prev && prev.map((r) => (r.id === id ? { ...r, ...result.report } : r)));
   }); };
 
+  const setVaroomReviewStatus = (id: string, status: api.VaroomReviewRow["status"]) => { void run(async () => {
+    const result = await api.setVaroomReviewStatus(id, status);
+    setResource("varoomReviews", (prev) => prev && prev.map((r) => (r.id === id ? { ...r, ...result.review } : r)));
+    refreshActivity();
+  }); };
+
   async function logout() {
     if (await run(() => api.logout())) {
       setLoggedIn(false);
@@ -274,6 +285,8 @@ export default function AdminDashboard() {
         );
       case "reports":
         return <ListingReports reports={data.reports || []} userReports={data.userReports || []} accountDeletions={data.deletions || []} resolveReport={resolveReport} resolveUserReport={resolveUserReport} />;
+      case "varoom-reviews":
+        return <VaroomReviews reviews={data.varoomReviews || []} setStatus={setVaroomReviewStatus} />;
       case "users":
         return <UsersControl users={data.users || []} loadUser={loadUser} updateStatus={updateUserStatus} />;
       case "listings":

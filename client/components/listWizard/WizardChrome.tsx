@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { newTabProps } from '../../lib/navigation/newTab';
 import ElieIcon from '../ElieIcon';
 
 // The listing wizard's own icon sidebar and top bar (unchanged from
@@ -28,7 +29,7 @@ const NAV: Array<{ href: string; label: string; icon: React.ReactNode }> = [
 function NavLink({ href, className, label, title, onLeave, children }: { href: string; className: string; label?: string; title?: string; onLeave: LeaveHandler; children: React.ReactNode }) {
   const leaves = href === '/host-home';
   return (
-    <Link href={href} className={className} aria-label={label} title={title} onClick={leaves ? (event) => onLeave(event, href) : undefined}>
+    <Link href={href} {...newTabProps(href)} className={className} aria-label={label} title={title} onClick={leaves ? (event) => onLeave(event, href) : undefined}>
       {children}
     </Link>
   );

@@ -358,7 +358,7 @@ export function SupportSection({ onBack }: { onBack: () => void }) {
     <div id="view-support">
       <DetailHead title="Support & About" onBack={onBack} />
       <SettingsBox title="Help" icon={INFO_ICONS.help}>
-          <LinkRow href="/support" icon={INFO_ICONS.help} label="Help Centre" />
+          <LinkRow href="/support" icon={INFO_ICONS.help} label="Help Centre" external />
           <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20Support" icon={INFO_ICONS.chat} label="Contact VaRoom" />
           <LinkRow href="mailto:privacy@varoom.co.ke?subject=VaRoom%20—%20Problem%20report" icon={INFO_ICONS.warning} label="Report a Problem" />
       </SettingsBox>

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useRouter } from 'next/router';
 import { isModifiedClick } from '../../lib/navigation/clicks';
+import { opensInNewTab, newTabProps } from '../../lib/navigation/newTab';
 import { HOST_MORE_ITEMS, hostActiveNav } from '../../lib/navigation/activeNav';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
@@ -70,8 +71,14 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
 
   // Navigation handlers
   const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string, viewName?: string) => {
-    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
+    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window),
+    // as do Help & Support and the legal pages, which always open in a new tab.
     if (isModifiedClick(e)) return;
+    if (opensInNewTab(path)) {
+      closeMobile();
+      setMoreOpen(false);
+      return;
+    }
     e.preventDefault();
     closeMobile();
     setMoreOpen(false);
@@ -284,6 +291,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
             <PinnableRow key={item.key} page={item.href} label={item.label} href={item.href} state={startPage} onMenu={openPinMenu}>
               <a
                 href={item.href}
+                {...newTabProps(item.href)}
                 className={`nav-item ${activeNav === item.key ? 'active' : ''}`}
                 onClick={(e) => handleNav(e, item.href)}
               >
@@ -309,6 +317,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
             <a
               key={item.key}
               href={item.href}
+              {...newTabProps(item.href)}
               className={`account-menu-action ${activeNav === item.key ? 'active' : ''}`}
               role="menuitem"
               onClick={(e) => handleNav(e, item.href)}

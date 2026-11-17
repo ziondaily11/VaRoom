@@ -12,6 +12,8 @@ import { deactivationNotice } from '../../lib/auth/reactivation';
 import { errorMessage } from '../../lib/errors';
 import { useTriggerReveal } from '../../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
+import { ACCOUNT_HELP_HREF, saveSupportHandoff } from '../../lib/support/handoff';
+import { authorRoleLabel, type FeaturedReview } from '../../lib/reviews/varoomReviews';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -21,6 +23,8 @@ interface AuthPanelProps {
   initialView: AuthView;
   initialRole: 'host' | 'client';
   initialRecoveryStep: 'email' | 'password';
+  /** An approved review of VaRoom, shown on the left half; null keeps only the heading. */
+  review?: FeaturedReview | null;
 }
 
 type AuthView = 'login' | 'signup' | 'recovery';
@@ -36,7 +40,28 @@ function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
   return ['Join VaRoom.', 'Every kind of space, one account.'];
 }
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, initialView, initialRole, initialRecoveryStep }) => {
+// The review on the left half: stars, the words, and who wrote them.
+function ReviewQuote({ review }: { review: FeaturedReview }) {
+  return (
+    <figure className="m-0 mt-10 max-w-[30rem] border-t border-white/15 pt-8">
+      <div className="flex gap-1 text-[#e8394f]" role="img" aria-label={`Rated ${review.rating} out of 5`}>
+        {Array.from({ length: 5 }, (_, i) => (
+          <span key={i} aria-hidden="true" className={`text-lg leading-none ${i < review.rating ? '' : 'text-white/25'}`}>★</span>
+        ))}
+      </div>
+      <blockquote className="m-0 mt-4 font-serif text-[clamp(1.15rem,1.6vw,1.45rem)] leading-[1.45] text-white/95">
+        “{review.comment}”
+      </blockquote>
+      <figcaption className="mt-5 text-sm text-white/70">
+        <span className="font-semibold text-white">{review.authorName}</span>
+        <span aria-hidden="true"> · </span>
+        {authorRoleLabel(review.authorRole)}
+      </figcaption>
+    </figure>
+  );
+}
+
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, initialView, initialRole, initialRecoveryStep, review = null }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [recoveryStep, setRecoveryStep] = useState(initialRecoveryStep);
@@ -221,24 +246,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       />
 
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 items-end px-10 pb-[12vh] md:flex lg:px-14"
-        aria-hidden="true"
-        style={{ opacity: isOpen ? 1 : 0, transition: isOpen ? 'opacity 220ms ease' : 'none' }}
-      >
-        <div className="max-w-md">
-          <p className="m-0 font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.3)] lg:text-6xl">
-            {sideCopy(authView, signupRole)[0]}
-          </p>
-          <p className="m-0 mt-3 text-lg text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.35)]">
-            {sideCopy(authView, signupRole)[1]}
-          </p>
-        </div>
-      </div>
-
+      {/*
+        One card laid over the hero (tablet and up), the photo showing around
+        it: the left half is frosted glass with the heading and a review of
+        VaRoom, the right half the sign-in panel. On phones the card fills the
+        screen and only the panel shows. The card grows out of the button that
+        opened it.
+      */}
       <aside
         ref={asideRef}
-        className="absolute inset-y-0 right-0 h-[100dvh] w-full overflow-hidden md:w-1/2"
+        className="auth-card absolute inset-0 flex overflow-hidden md:shadow-[0_40px_120px_-40px_rgba(0,0,0,0.75)]"
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
           visibility: panelShown ? 'visible' : 'hidden',
@@ -247,7 +264,21 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         role="dialog"
         aria-labelledby={authView === 'login' ? 'auth-panel-title' : authView === 'signup' ? 'auth-panel-signup-title' : 'auth-panel-recovery-title'}
       >
-        <div className="relative h-full w-full overflow-hidden border-l border-white/10 bg-[rgba(17,18,18,0.88)] text-[#f5efe7]">
+        <div
+          className="auth-card-glass relative hidden w-1/2 flex-col justify-center overflow-hidden px-10 py-12 text-white md:flex lg:px-16"
+        >
+          <div aria-hidden="true">
+            <p className="m-0 font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.3)] lg:text-6xl">
+              {sideCopy(authView, signupRole)[0]}
+            </p>
+            <p className="m-0 mt-3 text-lg text-white/80">
+              {sideCopy(authView, signupRole)[1]}
+            </p>
+          </div>
+          {review && authView !== 'recovery' && <ReviewQuote review={review} />}
+        </div>
+
+        <div className="relative h-full w-full overflow-hidden bg-[rgba(17,18,18,0.88)] text-[#f5efe7] md:w-1/2 md:border-l md:border-white/10">
           <button
             type="button"
             onClick={closePanel}
@@ -403,6 +434,18 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
                 Create an account
               </button>
             </p>
+            <p className="mt-3 text-center text-sm text-[#e2d9d1]/70">
+              Trouble signing in?{' '}
+              <a
+                href={ACCOUNT_HELP_HREF}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => saveSupportHandoff(email)}
+                className="font-semibold text-white underline-offset-4 hover:underline"
+              >
+                Get help
+              </a>
+            </p>
                 </div>
               </div>
 
@@ -436,6 +479,20 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         </div>
       </aside>
       <style jsx>{`
+        @media (min-width: 768px) {
+          .auth-card {
+            inset: clamp(20px, 5vh, 56px) clamp(20px, 4vw, 64px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+          }
+        }
+
+        .auth-card-glass {
+          background: rgba(10, 11, 11, 0.58);
+          -webkit-backdrop-filter: blur(18px) saturate(115%);
+          backdrop-filter: blur(18px) saturate(115%);
+        }
+
         .auth-content-exit-left {
           animation: auth-content-exit-left 140ms ease-in both;
         }

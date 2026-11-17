@@ -66,11 +66,36 @@ export const SUPPORT_STYLES = `
   .support-page .support-panel h2, .support-page .support-form h2 { font:600 1.8rem/1.1 var(--display); letter-spacing:-.04em; }
   .support-page .support-panel p, .support-page .support-form p { color:#b3b9bf; font-size:.78rem; line-height:1.6; }
   .support-page .field-label { margin-top:.15rem; color:#dfe2e5; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; }
-  .support-page .support-form input, .support-page .support-form textarea {
+  .support-page .support-form input, .support-page .support-form textarea, .support-page .support-form select {
     width:100%; min-height:44px; padding:.8rem .9rem; border:1px solid #2f353b; border-radius:8px; color:var(--text); background:rgba(10,12,14,.9); font:inherit;
   }
   .support-page .support-form textarea { min-height:140px; resize:vertical; }
-  .support-page .support-form input:focus, .support-page .support-form textarea:focus { border-color:var(--red); outline:none; }
+  .support-page .support-form input:focus, .support-page .support-form textarea:focus, .support-page .support-form select:focus { border-color:var(--red); outline:none; }
+  .support-page .support-form select { appearance:none; cursor:pointer; padding-right:2.4rem;
+    background-image:linear-gradient(45deg, transparent 50%, #9aa1a8 50%), linear-gradient(135deg, #9aa1a8 50%, transparent 50%);
+    background-position:calc(100% - 1.2rem) 50%, calc(100% - .85rem) 50%; background-size:.35rem .35rem; background-repeat:no-repeat; }
+  .support-page .support-form select option { color:#f0eee9; background:#0d1012; }
+  .support-page .reply-email-known { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:44px; padding:.55rem .55rem .55rem .9rem; border:1px solid #2f353b; border-radius:8px; background:rgba(10,12,14,.9); color:var(--text); font-size:.85rem; letter-spacing:.02em; }
+  .support-page .reply-email-change { flex:none; padding:.4rem .75rem; border:1px solid rgba(255,255,255,.14); border-radius:999px; background:transparent; color:#cfd3d7; font-size:.7rem; cursor:pointer; }
+  .support-page .reply-email-change:hover { border-color:var(--red); color:#fff; }
+
+  /* Rate VaRoom */
+  .support-page .rate-card { margin-top:1.8rem; padding:1.5rem; border:1px solid var(--line); border-radius:8px; background:rgba(17,20,22,.8); }
+  .support-page .rate-card h2 { font:600 1.35rem var(--display); }
+  .support-page .rate-card > p { margin-top:.35rem; color:#9aa1a8; font-size:.78rem; line-height:1.6; }
+  .support-page .rate-form { display:grid; gap:.9rem; margin-top:1.1rem; }
+  .support-page .rate-stars { display:flex; gap:.35rem; border:0; padding:0; margin:0; }
+  .support-page .rate-star { width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #2f353b; border-radius:10px; background:rgba(10,12,14,.9); color:#5c636a; font-size:1.35rem; line-height:1; cursor:pointer; transition:color .15s ease, border-color .15s ease, transform .15s ease; }
+  .support-page .rate-star.is-on { color:var(--red); border-color:rgba(237,35,71,.55); }
+  .support-page .rate-star:hover { transform:translateY(-1px); border-color:var(--red); }
+  .support-page .rate-star:focus-visible { outline:2px solid var(--red); outline-offset:2px; }
+  .support-page .rate-form textarea { width:100%; min-height:96px; padding:.8rem .9rem; border:1px solid #2f353b; border-radius:8px; color:var(--text); background:rgba(10,12,14,.9); font:inherit; font-size:.85rem; resize:vertical; }
+  .support-page .rate-form textarea:focus { border-color:var(--red); outline:none; }
+  .support-page .rate-footer { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .support-page .rate-note { color:#9aa1a8; font-size:.72rem; }
+  .support-page .rate-note.is-error { color:#ff8fa3; }
+  .support-page .rate-card .write-button:disabled { opacity:.55; cursor:default; }
+  .support-page .rate-signin { display:inline-flex; margin-top:1rem; }
   .support-page .support-form-actions, .support-page .support-panel-actions { display:flex; justify-content:flex-end; gap:.8rem; margin-top:.25rem; }
   .support-page .support-form-secondary {
     padding:.7rem 1rem; border:1px solid rgba(255,255,255,.14); border-radius:999px; background:transparent; color:var(--text); font-size:.75rem;
@@ -174,7 +199,8 @@ export const SUPPORT_STYLES = `
   .support-page .search button { background:#171a1d !important; border:0 !important; }
   .support-page .search button:hover { background:var(--red) !important; }
   .support-page .support-form input,
-  .support-page .support-form textarea { background:rgba(10,12,14,.9) !important; border-color:#2f353b !important; }
+  .support-page .support-form textarea,
+  .support-page .support-form select { background-color:rgba(10,12,14,.9) !important; border-color:#2f353b !important; }
 
   /* Dark theme (formerly public/js/varoom-dark-theme.css "SUPPORT PAGES"). */
   [data-theme="dark"] .support-page,
@@ -184,6 +210,7 @@ export const SUPPORT_STYLES = `
   [data-theme="dark"] .support-page .search { background:rgba(255,255,255,.05) !important; border-color:rgba(255,255,255,.12) !important; }
   [data-theme="dark"] .support-page .action,
   [data-theme="dark"] .support-page .write-card,
+  [data-theme="dark"] .support-page .rate-card,
   [data-theme="dark"] .support-page .article { background:rgba(255,255,255,.03) !important; border-color:rgba(255,255,255,.07) !important; box-shadow:none !important; }
   [data-theme="dark"] .support-page .action-icon,
   [data-theme="dark"] .support-page .article-icon,
