@@ -20,13 +20,13 @@ test('native Client Home keeps widget containers mounted and settles their loadi
   assert.match(styles, /@keyframes skeletonPulse/);
 
   // Host Home's rail blocks stay mounted and start loading (data-loading="true" until settled).
-  assert.match(rail, /id="listings-glance-grid" data-loading=\{listings === null \? 'true' : 'false'\}/);
+  assert.match(rail, /<AttentionCard view=\{attention\} onNotNow=\{onNotNow\} \/>/);
   assert.match(rail, /id="property-news-list" aria-live="polite" data-loading=\{news === null \? 'true' : 'false'\}/);
   assert.match(rail, /className="home-widget-content" data-loading=\{updates === null \? 'true' : 'false'\}/);
   assert.match(rail, /className="home-widget-loader" role="status" aria-label=\{label\}/);
   // Host Home draws its tabs and rail at once; only the feed shows skeleton cards while the account loads.
   assert.doesNotMatch(hostPage, /PageSkeleton|host-home-skeleton|is-loading/);
   assert.match(hostPage, /if \(!ready\) feed = <><SkeletonCard \/><SkeletonCard \/><\/>;/);
-  assert.match(hostPage, /<HostRail listings=\{glance\}/);
+  assert.match(hostPage, /<HostRail attention=\{attention\}/);
   assert.doesNotMatch(hostPage, /showRail/);
 });

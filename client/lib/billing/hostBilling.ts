@@ -111,11 +111,37 @@ export function cachedHostBilling(userId: string | null): HostBilling | null {
 
 export function invalidateHostBilling(userId: string): void {
   cache.delete(userId);
+  planActive.delete(userId);
 }
 
 export function clearHostBillingCache(): void {
   cache.clear();
   inFlight.clear();
+  planActive.clear();
+}
+
+// ---------- Whether the host has an active plan (Host Home's rail card) ----------
+// Answered from the full billing load when Settings → Plans already made it,
+// else by one entitlements request; remembered for ten minutes per account.
+
+export const PLAN_ACTIVE_TTL_MS = 10 * 60 * 1000;
+const planActive = new Map<string, { at: number; value: boolean }>();
+
+export function peekPlanActive(userId: string, now: number = Date.now()): boolean | null {
+  const known = planActive.get(userId);
+  if (known && now - known.at < PLAN_ACTIVE_TTL_MS) return known.value;
+  const billing = cache.get(userId);
+  return billing && billing.value.entitlements ? Boolean(billing.value.entitlements.active) : null;
+}
+
+export async function loadPlanActive(userId: string, token: string, { fetchFn = fetch, now = Date.now() }: { fetchFn?: FetchFn; now?: number } = {}): Promise<boolean> {
+  const known = peekPlanActive(userId, now);
+  if (known !== null) return known;
+  const body = await request(fetchFn, '/api/billing/entitlements', token);
+  const entitlements = body.entitlements as Partial<HostEntitlements> | null | undefined;
+  const value = Boolean(entitlements && entitlements.active);
+  planActive.set(userId, { at: now, value });
+  return value;
 }
 
 export async function cancelSubscription(token: string, fetchFn: FetchFn = fetch): Promise<BillingSubscription> {

@@ -50,14 +50,8 @@ test('feed queries: own listings, or active and available ones; the category fil
   assert.deepEqual(await hh.feedFetcher(client, 'U1', false, 'all', 'x')(12, 12), { data: [], hasMore: false }, 'a search has one page');
 });
 
-test('listings at a glance: up to four tiles, "Add listing" below four; drafts without photos', () => {
-  const listings = (n) => Array.from({ length: n }, (_, i) => ({ id: String(i), listing_photos: [{ storage_path: 'p' }], category: 'hotel' }));
-  assert.deepEqual({ count: hh.glanceTiles(listings(2)).tiles.length, add: hh.glanceTiles(listings(2)).showAdd }, { count: 2, add: true });
-  assert.deepEqual({ count: hh.glanceTiles(listings(3)).tiles.length, add: hh.glanceTiles(listings(3)).showAdd }, { count: 3, add: true });
-  assert.deepEqual({ count: hh.glanceTiles(listings(6)).tiles.length, add: hh.glanceTiles(listings(6)).showAdd }, { count: 4, add: false });
-  assert.equal(hh.glanceSub({ listing_photos: [], category: 'hotel' }), 'Draft · no photos');
-  assert.equal(hh.glanceSub({ listing_photos: [{}], category: 'venue' }), 'Event venue');
-  assert.equal(hh.glanceSub({ listing_photos: [{}], category: 'castle' }), 'castle');
+test('the host rail reads only what "Needs your attention" uses from the host listings', () => {
+  assert.equal(hh.GLANCE_SELECT, 'id,title,availability_status,paid_listing_until');
 });
 
 test('time ago, news labels and update photos are unchanged', () => {

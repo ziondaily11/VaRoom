@@ -1,9 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
-import HostListingMenu from '../listings/HostListingMenu';
-import { GLANCE_META, glanceSub, glanceTiles, newsDate, newsSource, updatePhotos, type GlanceListing, type NewsItem, type VaroomUpdate } from '../../lib/hostHome/hostHome';
+import { newsDate, newsSource, updatePhotos, type NewsItem, type VaroomUpdate } from '../../lib/hostHome/hostHome';
+import type { AttentionView } from '../../lib/hostHome/attention';
 import { ICONS, Svg } from './hostHomeIcons';
-import { PHOTO_WIDTH, type PhotoWidth } from '../resolveStoredPhotoUrl';
+import AttentionCard from './AttentionCard';
 
 // Host home's right rail (and the blocks the phone feed repeats), markup
 // unchanged from legacy-pages/host-home.html. Each block is null while
@@ -59,61 +59,19 @@ function VaroomUpdatesContent({ updates, id }: { updates: Loadable<VaroomUpdate[
 }
 
 interface RailProps {
-  listings: Loadable<GlanceListing[]>;
-  photoUrl: (storagePath: string, width?: PhotoWidth) => string | null;
+  /** "Needs your attention" (replaces "Your listings at a glance"). */
+  attention: AttentionView;
+  onNotNow: () => void;
   news: Loadable<NewsItem[]>;
   onRefreshNews?: () => void;
   newsRefreshing?: boolean;
   updates: Loadable<VaroomUpdate[]>;
-  notify: (message: string) => void;
-  onStatus: (id: string, status: string) => void;
-  onDeleted: (id: string) => void;
-  onViewAll: () => void;
 }
 
-export default function HostRail({ listings, photoUrl, news, onRefreshNews, newsRefreshing, updates, notify, onStatus, onDeleted, onViewAll }: RailProps) {
-  const none = Array.isArray(listings) && listings.length === 0;
-  const { tiles, showAdd } = Array.isArray(listings) ? glanceTiles(listings) : { tiles: [], showAdd: false };
+export default function HostRail({ attention, onNotNow, news, onRefreshNews, newsRefreshing, updates }: RailProps) {
   return (
     <aside className="host-rail">
-      <div className="sidebar-module empty-state-card" id="no-listings-card" style={{ display: none ? 'block' : 'none' }}>
-        <div className="empty-icon"><Svg markup={ICONS.emptyHome} /></div>
-        <h3>You haven&apos;t listed a space yet</h3>
-        <p>List your first Airbnb, hotel, venue, office, shop, or property to start getting inquiries.</p>
-        <Link href="/list" className="list-btn-primary"><Svg markup={ICONS.plus16} />List a space</Link>
-      </div>
-
-      <div className="sidebar-module listings-glance-card" id="listings-glance-card" style={{ display: none ? 'none' : 'block' }}>
-        <div className="stats-head">
-          <h2>Your listings at a glance</h2>
-          <a href="#" id="glance-view-all" onClick={(event) => { event.preventDefault(); if (tiles.length) onViewAll(); }}>View all</a>
-        </div>
-        <div className="listings-glance-grid" id="listings-glance-grid" data-loading={listings === null ? 'true' : 'false'}>
-          {listings === null ? <Loader label="Loading your listings" />
-            : listings === 'error' ? <p className="home-widget-message">Your listings could not be loaded.</p>
-            : (
-              <>
-                {tiles.map((listing) => {
-                  const meta = GLANCE_META[listing.category || ''] || { icon: 'home' as const };
-                  const photo = (listing.listing_photos || [])[0];
-                  const thumb = photo && photo.storage_path ? photoUrl(photo.storage_path, PHOTO_WIDTH.thumb) : null;
-                  const icon = meta.icon === 'building' ? ICONS.glanceBuilding : meta.icon === 'store' ? ICONS.glanceStore : ICONS.glanceHome;
-                  return (
-                    <div className="glance-tile" data-listing-card={listing.id} style={{ position: 'relative' }} key={listing.id}>
-                      <HostListingMenu listing={{ id: listing.id, title: listing.title, availability_status: listing.availability_status }} notify={notify} onStatus={onStatus} onDeleted={onDeleted} />
-                      <div className="glance-thumb">{thumb ? <img src={thumb} alt="" /> : <Svg markup={icon} />}</div>
-                      <div className="glance-body">
-                        <div className="glance-title">{listing.title}</div>
-                        <div className="glance-sub">{glanceSub(listing)}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {showAdd && <Link href="/list" className="glance-tile add-tile"><Svg markup={ICONS.addTile} />Add listing</Link>}
-              </>
-            )}
-        </div>
-      </div>
+      <AttentionCard view={attention} onNotNow={onNotNow} />
 
       <section className="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title">
         <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={onRefreshNews} busy={newsRefreshing} /></div>
