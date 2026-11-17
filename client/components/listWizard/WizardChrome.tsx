@@ -13,7 +13,6 @@ const ICON = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke
 const NAV: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/host-home', label: 'Home', icon: <svg {...ICON}><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9" /></svg> },
   { href: '/marketplace', label: 'Marketplace', icon: <svg {...ICON}><circle cx="12" cy="12" r="9" /><path d="m15 9-2 6-6 2 2-6 6-2Z" /></svg> },
-  { href: '/host-home', label: 'Saved', icon: <svg {...ICON}><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" /></svg> },
   { href: '/bookings', label: 'Bookings', icon: <svg {...ICON}><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg> },
   { href: '/chats', label: 'Chats', icon: <svg {...ICON}><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg> },
   { href: '/notifications', label: 'Notifications', icon: <svg {...ICON}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg> },

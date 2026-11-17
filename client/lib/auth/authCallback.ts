@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
+import { startPageFor } from '../navigation/startPage';
 
 // What /auth-callback does after Google sign-in, an email link, password
 // recovery or adding a Google account (migrated from
@@ -48,9 +49,12 @@ export interface AuthCallbackEnv {
 
 type Role = 'host' | 'client';
 
-export function roleDestination(role: string, onboardingCompleted: boolean, redirect: string): string {
+/** Where a signed-in account goes: onboarding, the requested page, a host's pinned start page, or the role's home. */
+export function roleDestination(role: string, onboardingCompleted: boolean, redirect: string, startPage: string | null = null): string {
   if (!onboardingCompleted) return `/onboarding${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
   if (redirect) return redirect;
+  const pinned = startPageFor({ role, start_page: startPage });
+  if (pinned) return pinned;
   return role === 'host' ? '/host-home' : '/client-home';
 }
 
@@ -182,7 +186,7 @@ export async function runAuthCallback(env: AuthCallbackEnv): Promise<void> {
   const user = session.user;
   const { data: profile, error: profileError } = await env.client
     .from('profiles')
-    .select('role, onboarding_completed')
+    .select('role, onboarding_completed, start_page')
     .eq('id', user.id)
     .maybeSingle();
   if (profileError) {
@@ -190,9 +194,9 @@ export async function runAuthCallback(env: AuthCallbackEnv): Promise<void> {
     fail('VaRoom could not load your account. Please try again.');
     return;
   }
-  const existing = profile as { role?: string | null; onboarding_completed?: boolean | null } | null;
+  const existing = profile as { role?: string | null; onboarding_completed?: boolean | null; start_page?: string | null } | null;
   if (existing && existing.role) {
-    finish(roleDestination(existing.role, Boolean(existing.onboarding_completed), redirect));
+    finish(roleDestination(existing.role, Boolean(existing.onboarding_completed), redirect, existing.start_page || null));
     return;
   }
 

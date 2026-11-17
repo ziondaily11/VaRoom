@@ -47,7 +47,6 @@ declare global {
     };
     __varoomAddAccountModalMounted?: boolean;
     /** Client Home's Saved view, when that page defines it. */
-    showSavedView?: () => void;
     VaRoomChatCache?: ChatCacheApi;
   }
 

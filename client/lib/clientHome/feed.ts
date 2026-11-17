@@ -2,7 +2,7 @@
 // without rendering the page. The page owns the state and the effects; these
 // helpers only decide what the state should be.
 
-export type ClientHomeView = 'home' | 'marketplace' | 'saved';
+export type ClientHomeView = 'home' | 'marketplace';
 
 /** The categories a client is "looking soon" for, normalised for the feed filter and key. */
 export function clientHomeInterests(profile: {
@@ -44,7 +44,7 @@ export function createInitialSessionGate<S>() {
   };
 }
 
-/** Whether loadFeed may use the listing feed cache now. The Saved view never does. */
+/** Whether loadFeed may use the listing feed cache now. */
 export function canLoadClientHomeFeed(state: {
   feedReady: boolean;
   hasUser: boolean;
@@ -53,7 +53,7 @@ export function canLoadClientHomeFeed(state: {
   nextPage: boolean;
   loadingMore: boolean;
 }): boolean {
-  return !(!state.feedReady || !state.hasUser || !state.key || state.view === 'saved' || (state.nextPage && state.loadingMore));
+  return !(!state.feedReady || !state.hasUser || !state.key || (state.nextPage && state.loadingMore));
 }
 
 /** A cached first page renders immediately; stale cached pages are also revalidated. */
@@ -93,7 +93,7 @@ export function deriveClientHomeFeedView<T>(state: {
   error: string;
   items: T[];
 }) {
-  const feedContextReady = state.view === 'saved' ? state.ready : state.feedReady;
+  const feedContextReady = state.feedReady;
   const currentFeedLoading = state.loadedFeedKey === state.key
     ? state.loading
     : state.loading || feedContextReady;

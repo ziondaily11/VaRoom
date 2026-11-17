@@ -911,7 +911,6 @@ export const HOST_HOME_STYLES = `
     body{ height:auto; overflow-y:visible; overflow-x:hidden; }
     .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
 
-    .sidebar .nav-item[data-mobile-hide]{ display:none; }
     .topbar-avatar-btn{ flex-shrink:0; display:flex; }
     .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
     .topbar{

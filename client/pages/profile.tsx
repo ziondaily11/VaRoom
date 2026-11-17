@@ -16,6 +16,7 @@ import { ClientTrips, EditProfileModal, SharePanel } from '../components/profile
 import HostListings, { type Tab } from '../components/profile/HostListings';
 import { CategoryContextMenu, CategoryManager, CategoryNameEditor, type ManagerState } from '../components/profile/CategoryManager';
 import { ProfileSkeleton } from '../components/profile/ProfileSkeleton';
+import SavedListings, { SavedTab } from '../components/profile/SavedListings';
 import { PROFILE_STYLES } from '../components/profile/profileStyles';
 
 // The signed-in account's own profile (migrated from legacy-pages/profile.html),
@@ -23,6 +24,7 @@ import { PROFILE_STYLES } from '../components/profile/profileStyles';
 // clients their upcoming bookings and past trips. /profile?u=<host> opens
 // that host's public page. Everything loads in parallel and is reused when
 // navigating back; listing videos load as their cards near the screen.
+// /profile?tab=saved opens Saved (the bookmark tab), for hosts and clients.
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export default function ProfilePage() {
   const [categories, setCategories] = useState<ProfileCategory[]>([]);
   const [reviews, setReviews] = useState<HostReview[] | null>(null);
   const [bookings, setBookings] = useState<{ upcoming: ProfileBooking[]; past: ProfileBooking[] } | null>(null);
-  const [tab, setTab] = useState<Tab>({ kind: 'all' });
+  const [tab, setTabState] = useState<Tab>({ kind: 'all' });
   const [editing, setEditing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [manager, setManager] = useState<ManagerState>(null);
@@ -56,8 +58,23 @@ export default function ProfilePage() {
   useEffect(() => () => { if (toastTimer.current) window.clearTimeout(toastTimer.current); }, []);
 
   useEffect(() => {
-    if (status === 'signed-out') router.replace(loginUrl('/profile'));
+    if (status === 'signed-out') router.replace(loginUrl(router.asPath.startsWith('/profile') ? router.asPath : '/profile'));
   }, [status, router]);
+
+  // Saved has its own address (the sidebar's old Saved links come here), so
+  // the tab follows ?tab= both ways and Back returns to the previous tab.
+  const queryTab = router.isReady && router.query.tab === 'saved' ? 'saved' : null;
+  useEffect(() => {
+    if (!router.isReady) return;
+    setTabState((current) => (queryTab === 'saved' ? { kind: 'saved' } : current.kind === 'saved' ? { kind: 'all' } : current));
+  }, [router.isReady, queryTab]);
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next);
+    const wantsSaved = next.kind === 'saved';
+    if (wantsSaved === (router.query.tab === 'saved')) return;
+    const rest = Object.fromEntries(Object.entries(router.query).filter(([key]) => key !== 'tab'));
+    void router.push({ pathname: '/profile', query: wantsSaved ? { ...rest, tab: 'saved' } : rest }, undefined, { shallow: true, scroll: false });
+  }, [router]);
 
   // /profile?u=<username or id>: someone else's profile is their public page.
   const visit = typeof router.query.u === 'string' ? router.query.u : null;
@@ -227,10 +244,19 @@ export default function ProfilePage() {
                   onShare={() => { void share(); }}
                   onChange={changeOwn}
                 />
-                {!isHost && <ClientTrips bookings={bookings} />}
+                {!isHost && (
+                  <>
+                    <div className="profile-category-row" role="tablist" aria-label="Profile sections">
+                      <button type="button" role="tab" aria-selected={tab.kind !== 'saved'} onClick={() => setTab({ kind: 'all' })}>Trips</button>
+                      <SavedTab selected={tab.kind === 'saved'} onSelect={() => setTab({ kind: 'saved' })} />
+                    </div>
+                    {tab.kind === 'saved' ? <SavedListings userId={userId} notify={notify} /> : <ClientTrips bookings={bookings} />}
+                  </>
+                )}
                 {sharing && <SharePanel url={shareUrl} />}
                 {isHost && (
                   <HostListings
+                    userId={userId}
                     listings={listings}
                     listingsError={listingsError}
                     drafts={drafts}

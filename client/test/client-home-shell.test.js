@@ -74,7 +74,8 @@ test('native Client Home preserves the legacy saved, likes, report, lazy media, 
   // cards and the next page are observed by the shared feed window (lib/discover/feedWindow.ts).
   const overlays = fs.readFileSync(path.join(__dirname, '..', 'components', 'clientHome', 'ClientHomeOverlays.tsx'), 'utf8');
   const feedWindow = fs.readFileSync(path.join(__dirname, '..', 'lib', 'discover', 'feedWindow.ts'), 'utf8');
-  assert.match(source, /\.in\('id', Array\.from\(saved\)\)/);
+  // Saved listings live in Profile → Saved (components/profile/SavedListings.tsx); the cards still save and unsave.
+  assert.match(source, /from\('bookmarks'\)/);
   assert.match(source, /get_listing_like_summaries/);
   assert.match(source, /set_listing_like/);
   assert.match(source, /\/api\/listing-reports/);
