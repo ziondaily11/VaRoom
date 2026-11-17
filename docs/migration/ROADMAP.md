@@ -123,6 +123,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - `/api/*` has no proxy under local `next dev` (only `vercel.json` rewrites).
 - Chat attachment storage (R2) sends no CORS headers for signed download URLs, so the browser cannot cache attachments as blobs (IndexedDB). Allowing GET from the app's origins in the bucket's CORS policy would enable it; the page works without it.
 - Chats features removed as non-working stubs in CH1, to build properly if wanted: mark a conversation as read from the inbox, delete or archive a conversation, unread counts per conversation (the server sends none).
+- RLS policies must name their roles (`to authenticated`). Policies without a `TO` clause apply to `anon` too; one that calls a function `anon` cannot execute (the team functions) fails every anonymous read of that table. Seen 2026-11-17: signed-out visitors could load no listings until migration 000069 scoped the 16 team policies to `authenticated`.
 
 ## Log
 

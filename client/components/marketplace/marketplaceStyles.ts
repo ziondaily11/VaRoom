@@ -206,10 +206,18 @@ export const MARKETPLACE_STYLES = `
     aspect-ratio:1 / 0.95; border-radius:clamp(18px, calc(var(--mkt-card-w, 280px) * .09), 28px); overflow:hidden; background:var(--mkt-card-placeholder);
     cursor:pointer; transition:transform .2s ease, box-shadow .2s ease;
   }
+  /* The global dark theme (public/js/varoom-dark-theme.css, on every
+     route) turns any .card / .skeleton-card into a flat, square feed row
+     with !important. Listing cards keep their own shape in every theme. */
+  [data-theme="dark"] .marketplace-page .card{
+    background:var(--mkt-card-placeholder) !important; border:0 !important;
+    border-radius:clamp(18px, calc(var(--mkt-card-w, 280px) * .09), 28px) !important; box-shadow:none !important;
+  }
   .marketplace-page .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(20,24,28,.14); }
+  [data-theme="dark"] .marketplace-page .card:hover{ box-shadow:0 10px 24px rgba(20,24,28,.14) !important; }
   .marketplace-page .card:focus-visible{ outline:2px solid var(--mkt-accent); outline-offset:2px; }
   @media (hover: none){
-    .marketplace-page .card:hover{ transform:none; box-shadow:none; }
+    .marketplace-page .card:hover, [data-theme="dark"] .marketplace-page .card:hover{ transform:none; box-shadow:none !important; }
   }
   .marketplace-page .card-media{ position:absolute; inset:0; overflow:hidden; background:var(--mkt-card-placeholder); }
   .marketplace-page .card-media img, .marketplace-page .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -270,7 +278,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .card-save svg{ width:48%; height:48%; }
 
   .marketplace-page .skeleton-card{ cursor:default; }
-  .marketplace-page .skeleton-card:hover{ transform:none; box-shadow:none; }
+  .marketplace-page .skeleton-card:hover, [data-theme="dark"] .marketplace-page .skeleton-card:hover{ transform:none; box-shadow:none !important; }
   .marketplace-page .skeleton-card .card-text{ gap:2.4cqw; }
 
   /* Category strip: its own row at the top of the listings, sticky in the
