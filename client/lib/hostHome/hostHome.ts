@@ -24,20 +24,18 @@ export interface FeedListing {
   [field: string]: unknown;
 }
 
+/** The host's own listings, as the "Needs your attention" card reads them. */
 export interface GlanceListing {
   id: string;
   title: string;
-  description: string | null;
-  category: string | null;
-  location_text: string | null;
   availability_status: string | null;
-  created_at: string;
-  listing_photos: Array<{ storage_path: string }> | null;
+  /** End of a paid Property / Shops & Offices term (NULL for older listings). */
+  paid_listing_until: string | null;
 }
 
 // Typed as plain strings so the client's select-string parser stays shallow.
 export const FEED_SELECT: string = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height),listing_booking_details(price_amount,price_unit)';
-export const GLANCE_SELECT: string = 'id,title,description,category,location_text,availability_status,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+export const GLANCE_SELECT: string = 'id,title,availability_status,paid_listing_until';
 
 export const CATEGORY_TABS: Array<{ value: string; label: string }> = [
   { value: 'all', label: 'All' },
@@ -115,34 +113,13 @@ export function timeAgo(dateStr: string, now: number = Date.now()): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ---------- Your listings at a glance ----------
+// ---------- The host's own listings (for "Needs your attention") ----------
 
-/** The host's listings, newest first (one query; it also answers "how many"). */
+/** The host's listings, newest first (one query; it also answers "how many" and "which expire soon"). */
 export async function fetchHostListings(client: SupabaseClient, userId: string): Promise<GlanceListing[]> {
   const { data, error } = await client.from('listings').select(GLANCE_SELECT).eq('host_id', userId).order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data || []) as unknown as GlanceListing[];
-}
-
-export const GLANCE_META: Record<string, { label: string; icon: 'home' | 'building' | 'store' }> = {
-  airbnb: { label: 'Airbnb', icon: 'home' },
-  hotel: { label: 'Hotel', icon: 'building' },
-  venue: { label: 'Event venue', icon: 'building' },
-  office: { label: 'Office', icon: 'building' },
-  shop: { label: 'Shop', icon: 'store' },
-  property: { label: 'Property', icon: 'home' },
-};
-
-/** Up to four tiles; fewer than four listings leaves room for "Add listing". */
-export function glanceTiles(listings: GlanceListing[]): { tiles: GlanceListing[]; showAdd: boolean } {
-  const showAdd = listings.length < 4;
-  return { tiles: listings.slice(0, showAdd ? 3 : 4), showAdd };
-}
-
-export function glanceSub(listing: GlanceListing): string {
-  const photos = listing.listing_photos || [];
-  const meta = GLANCE_META[listing.category || ''] || { label: listing.category || 'Listing' };
-  return photos.length === 0 ? 'Draft · no photos' : meta.label;
 }
 
 // ---------- VaRoom Updates and Property News ----------

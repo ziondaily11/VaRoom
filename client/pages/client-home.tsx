@@ -32,6 +32,10 @@ import {
 } from '../lib/clientHome/feed';
 import { loadClientHomeNews } from '../lib/clientHome/news';
 import { fetchDestinationCounts } from '../lib/clientHome/destinations';
+import { nextTrip, nextTripView } from '../lib/clientHome/nextTrip';
+import { loadClientBookingsCached, type ProfileBooking } from '../lib/profile/profilePage';
+import { loadSavedListings, type SavedListing } from '../lib/bookmarks/bookmarks';
+import NextTripCard from '../components/clientHome/NextTripCard';
 import {
   discoverVideoMetadata,
   loadCompatibilityVideoMetadata,
@@ -1227,17 +1231,60 @@ export default function ClientHome() {
     });
   }, [feedSettled, secondaryReady, user?.id]);
 
+  // The right rail shows above 1180px (ClientHome.module.css); below it the
+  // feed's destinations row shows instead. Each loads only where it is seen.
+  const [wideRail, setWideRail] = useState<boolean | null>(null);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1181px)');
+    const update = () => setWideRail(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  // Popular destinations: the phone and tablet row only.
   useEffect(() => {
     let active = true;
-    if (!user?.id || !secondaryReady) return () => { active = false; };
-    const isActive = () => active;
+    if (!user?.id || !secondaryReady || wideRail !== false) return () => { active = false; };
     hydrateClientHomeWidget<Record<string, number | null>>('destinations', {
-      isActive,
+      isActive: () => active,
       setValue: setDestCounts,
       setLoading: setDestinationsLoading,
       setFailed: setDestinationsFailed,
     }, () => async () => fetchDestinationCounts(destinations.map(({ city }) => city)), 'Popular destination counts could not be loaded:');
+    return () => { active = false; };
+  }, [secondaryReady, user?.id, wideRail]);
 
+  // Your next trip (desktop rail): the next stay; without one, saved listings.
+  const [tripUpcoming, setTripUpcoming] = useState<ProfileBooking[] | null>(null);
+  const [tripSaved, setTripSaved] = useState<SavedListing[] | null>(null);
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const userId = user?.id;
+    if (!client || !userId || !secondaryReady || !wideRail) return undefined;
+    let active = true;
+    loadClientBookingsCached(client, userId).then(({ upcoming }) => {
+      if (!active) return;
+      setTripUpcoming(upcoming);
+      if (nextTrip(upcoming)) return;
+      loadSavedListings(client, userId).then((rows) => { if (active) setTripSaved(rows); }, (error: unknown) => {
+        console.warn('Saved listings could not be loaded:', error);
+        if (active) setTripSaved([]);
+      });
+    }, (error: unknown) => {
+      console.warn('Your next trip could not be loaded:', error);
+      if (!active) return;
+      setTripUpcoming([]);
+      setTripSaved([]);
+    });
+    return () => { active = false; };
+  }, [secondaryReady, user?.id, wideRail]);
+  const tripView = useMemo(() => nextTripView(tripUpcoming, tripSaved), [tripUpcoming, tripSaved]);
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id || !secondaryReady) return () => { active = false; };
+    const isActive = () => active;
     hydrateClientHomeWidget<Update[]>('updates', {
       isActive,
       setValue: setUpdates,
@@ -1548,16 +1595,9 @@ export default function ClientHome() {
         </main>
 
         <aside className={styles.rightRail}>
-          <section className={styles.railCard}>
-            <div className={styles.railCardHeading}><h2>Popular destinations</h2><button type="button" onClick={() => showToast('Browsing all destinations is coming soon.')}>View all</button></div>
-            {destinationsLoading
-              ? <WidgetLoader label="Loading popular destinations" />
-              : <div className={styles.destinationGrid}>
-                {destinations.map(({ city, image }) => (
-                  <DestinationCard key={city} city={city} image={image} count={destCounts[city] ?? null} onSelect={selectDestination} />
-                ))}
-              </div>}
-            {destinationsFailed && <p className={styles.widgetMessage} role="status">Destination counts could not be refreshed.</p>}
+          <section className={styles.railCard} aria-labelledby="next-trip-title">
+            <div className={styles.railCardHeading}><h2 id="next-trip-title">Your next trip</h2></div>
+            <NextTripCard view={tripView} />
           </section>
           <section className={styles.railCard}>
             <div className={styles.railCardHeading}><h2>VaRoom Updates</h2></div>

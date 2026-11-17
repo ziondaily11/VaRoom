@@ -24,6 +24,11 @@ import { NichePrompt, ReportDialog } from '../components/hostHome/HostHomeDialog
 import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
 import { profileWithNiche } from '../lib/auth/session';
+import { useCounts } from '../lib/counts/countsStore';
+import { loadPlanActive, peekPlanActive } from '../lib/billing/hostBilling';
+import {
+  attentionView, fetchPendingRequests, isUpgradeSnoozed, snoozeUpgrade, type PendingRequest,
+} from '../lib/hostHome/attention';
 import { useFeedScrollRoot, useFeedWindow, useLoadMore } from '../lib/discover/feedWindow';
 import { afterFeedSettles } from '../lib/discover/deferredWork';
 import { preloadVideoPlayer } from '../components/media/lazyVideoPlayer';
@@ -86,6 +91,11 @@ export default function HostHomePage() {
   const [saved, setSaved] = useState<ReadonlySet<string> | null>(null);
   const [suspended, setSuspended] = useState(false);
   const [glance, setGlance] = useState<Loadable<GlanceListing[]>>(null);
+  // "Needs your attention": booking requests, chats (from the shared counts), plan state.
+  const [requests, setRequests] = useState<{ rows: PendingRequest[]; count: number } | null>(null);
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [upgradeSnoozed, setUpgradeSnoozed] = useState(false);
+  const counts = useCounts();
   const [news, setNews] = useState<Loadable<NewsItem[]>>(null);
   const [updates, setUpdates] = useState<Loadable<VaroomUpdate[]>>(null);
   const [videos, setVideos] = useState<Record<string, VideoEntry>>({});
@@ -447,6 +457,8 @@ export default function HostHomePage() {
     if (!ready || !client || !userId || !secondaryReady) return undefined;
     let active = true;
     fetchHostListings(client, userId).then((rows) => { if (active) setGlance(rows); }, () => { if (active) setGlance('error'); });
+    setSubscribed(peekPlanActive(userId));
+    setUpgradeSnoozed(isUpgradeSnoozed(typeof window === 'undefined' ? null : window.localStorage, userId));
     void fetchSuspended(token).then((value) => { if (active) setSuspended(value); });
     profileWithNiche(userId).then((result) => {
       if (!active || result.error || !result.data) return;
@@ -479,6 +491,38 @@ export default function HostHomePage() {
     // Once per account.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, client, userId, secondaryReady]);
+
+  // Booking requests: loaded with the rest of the rail, and again when a
+  // booking notification arrives (the shared counts' realtime channel).
+  const bookingSignal = counts.userId === userId ? counts.bookings : 0;
+  useEffect(() => {
+    if (!ready || !client || !userId || !secondaryReady) return undefined;
+    let active = true;
+    fetchPendingRequests(client, userId).then((value) => { if (active) setRequests(value); }, (error: unknown) => {
+      console.warn('Booking requests could not be loaded:', error);
+      if (active) setRequests((current) => current || { rows: [], count: 0 });
+    });
+    return () => { active = false; };
+  }, [ready, client, userId, secondaryReady, bookingSignal]);
+
+  const chatsWaiting = counts.userId === userId ? counts.chats : 0;
+  const attention = useMemo(() => attentionView({ listings: glance, requests, chats: chatsWaiting, subscribed, upgradeSnoozed }), [glance, requests, chatsWaiting, subscribed, upgradeSnoozed]);
+
+  // Whether the host has a plan: asked only when the card would otherwise
+  // say "all caught up" (and remembered for ten minutes).
+  const wantsPlanState = attention.kind === 'caught-up' && subscribed === null && !upgradeSnoozed;
+  useEffect(() => {
+    if (!wantsPlanState || !token || !userId) return undefined;
+    let active = true;
+    loadPlanActive(userId, token).then((value) => { if (active) setSubscribed(value); }, (error: unknown) => console.warn('Plan state could not be loaded:', error));
+    return () => { active = false; };
+  }, [wantsPlanState, token, userId]);
+
+  const notNow = useCallback(() => {
+    if (!userId) return;
+    snoozeUpgrade(typeof window === 'undefined' ? null : window.localStorage, userId);
+    setUpgradeSnoozed(true);
+  }, [userId]);
 
   // Refresh shows the spinner for at least a moment, then the list again.
   const refreshNews = useCallback(() => {
@@ -515,11 +559,6 @@ export default function HostHomePage() {
       notify(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [client, userId, router, notify]);
-
-  const showMyListings = useCallback(() => {
-    void router.push('/host-home?view=my-listings', undefined, { shallow: true });
-    document.querySelector('.feed-area')?.scrollIntoView({ behavior: 'smooth' });
-  }, [router]);
 
   const onSearch = (value: string) => setSearchDraft(value);
   useEffect(() => {
@@ -635,7 +674,7 @@ export default function HostHomePage() {
                 <div id="feed-list" className="discover-media-feed" ref={feedList}>{feed}</div>
               </div>
             </div>
-            <HostRail listings={glance} photoUrl={photoUrl} news={newsRefreshing ? null : news} onRefreshNews={refreshNews} newsRefreshing={newsRefreshing} updates={updates} notify={notify} onStatus={onStatus} onDeleted={onDeleted} onViewAll={showMyListings} />
+            <HostRail attention={attention} onNotNow={notNow} news={newsRefreshing ? null : news} onRefreshNews={refreshNews} newsRefreshing={newsRefreshing} updates={updates} />
           </div>
         </div>
       </div>

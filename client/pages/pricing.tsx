@@ -10,6 +10,7 @@ import {
   readCachedPlans, writeCachedPlans, yearlyReady, type PlanCard,
 } from '../lib/billing/pricing';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
+import { clearHostBillingCache } from '../lib/billing/hostBilling';
 
 // Host plans (migrated from legacy-pages/pricing.html): the plans for the
 // host's niche, the current plan, Paystack checkout, and the check after
@@ -99,6 +100,8 @@ export default function PricingPage() {
         const result = await checkReturnedPayment(token, reference);
         if (stopped) return;
         if (result.kind === 'active') {
+          // The new plan replaces what Settings and Host Home remembered.
+          clearHostBillingCache();
           setMessage(`Your ${result.planId} plan is active.`);
           setCurrentId(result.planId);
           if (returnToList && reference) {
