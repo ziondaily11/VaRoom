@@ -19,7 +19,7 @@ import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
 import { resolveClientHomeProfile } from '../lib/clientHomeAccount';
 import { persistClientHomeScroll, restoreClientHomeScroll, shouldRestoreFeedScroll, trackScrollIntent } from '../lib/clientHomeScroll';
-import { fetchClientHomeWidget, hydrateClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
+import { hydrateClientHomeWidget, readClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
 import {
   canLoadClientHomeFeed,
   clientHomeInterests,
@@ -95,12 +95,6 @@ type Video = { url: string; thumbnailUrl?: string | null; width?: number; height
 type MediaFrame = { width: number; height: number };
 type Update = { id: string; body: string; image_url?: string | null; image_urls?: string[] | null };
 type News = Pick<PropertyNewsItem, 'id' | 'title' | 'source' | 'published_at'>;
-type RecommendedListing = {
-  id: string;
-  title?: string;
-  location_text?: string;
-  listing_photos?: Photo[];
-};
 
 function getSessionStorageSafe(): Storage | null {
   try {
@@ -698,47 +692,6 @@ function WidgetLoader({ label }: { label: string }) {
   return <div className={styles.widgetLoader} role="status" aria-label={label}><span className={styles.spinner} /></div>;
 }
 
-function MobileFeedWidgets({
-  recommended,
-  recommendedLoading,
-  recommendedFailed,
-  updates,
-  updatesLoading,
-  updatesFailed,
-}: {
-  recommended: RecommendedListing[];
-  recommendedLoading: boolean;
-  recommendedFailed: boolean;
-  updates: Update[];
-  updatesLoading: boolean;
-  updatesFailed: boolean;
-}) {
-  return (
-    <div className={styles.mobileWidgets}>
-      <section className={styles.mobileWidgetCard}>
-        <div className={styles.mobileWidgetHeading}><h2>Recommended for you</h2></div>
-        {recommendedLoading
-          ? <div className={styles.recommendedGrid}><span className={`${styles.skeleton} ${styles.recommendationSkeleton}`} /><span className={`${styles.skeleton} ${styles.recommendationSkeleton}`} /></div>
-          : recommended.length > 0 && (
-            <div className={styles.recommendedGrid}>
-              {recommended.slice(0, 6).map((item) => (
-                <a className={styles.recommendedCard} href={`/booking?listing=${encodeURIComponent(item.id)}`} key={item.id}>
-                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path, 480)} alt="" loading="lazy" />}
-                  <span><strong>{item.title || 'Listing'}</strong><small>{item.location_text || ''}</small></span>
-                </a>
-              ))}
-            </div>
-          )}
-        {recommendedFailed && <p className={styles.widgetMessage} role="status">Recommended listings could not be refreshed.</p>}
-      </section>
-      <section className={`${styles.mobileWidgetCard} ${styles.updatesWidget}`}>
-        <div className={styles.mobileWidgetHeading}><h2>VaRoom Updates</h2></div>
-        <UpdateList items={updates} loading={updatesLoading} failed={updatesFailed} />
-      </section>
-    </div>
-  );
-}
-
 export default function ClientHome() {
   const router = useRouter();
   const feed = useRef<HTMLElement>(null);
@@ -788,9 +741,6 @@ export default function ClientHome() {
   const [news, setNews] = useState<News[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsFailed, setNewsFailed] = useState(false);
-  const [recommended, setRecommended] = useState<RecommendedListing[]>([]);
-  const [recommendedLoading, setRecommendedLoading] = useState(true);
-  const [recommendedFailed, setRecommendedFailed] = useState(false);
   const [report, setReport] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('fraudulent');
   const [reportDetails, setReportDetails] = useState('');
@@ -811,7 +761,6 @@ export default function ClientHome() {
   useIsomorphicLayoutEffect(() => {
     const cachedDestinations = readClientHomeWidgetCache<Record<string, number | null>>('destinations');
     const cachedUpdates = readClientHomeWidgetCache<Update[]>('updates');
-    const cachedRecommended = readClientHomeWidgetCache<RecommendedListing[]>('recommended');
     const cachedNews = getCachedNewsPreview();
     if (cachedDestinations) {
       setDestCounts(cachedDestinations.value);
@@ -820,10 +769,6 @@ export default function ClientHome() {
     if (cachedUpdates) {
       setUpdates(cachedUpdates.value);
       setUpdatesLoading(false);
-    }
-    if (cachedRecommended) {
-      setRecommended(cachedRecommended.value);
-      setRecommendedLoading(false);
     }
     if (cachedNews) {
       setNews(cachedNews.items);
@@ -1313,58 +1258,6 @@ export default function ClientHome() {
     return () => { active = false; };
   }, [secondaryReady, user?.id]);
 
-  useEffect(() => {
-    let active = true;
-    const breakpoint = window.matchMedia('(max-width: 1180px)');
-    let requestStarted = false;
-    const cached = readClientHomeWidgetCache<RecommendedListing[]>('recommended');
-    if (cached) {
-      setRecommended(cached.value);
-      setRecommendedLoading(false);
-      setRecommendedFailed(false);
-    } else {
-      setRecommendedLoading(true);
-      setRecommendedFailed(false);
-    }
-    const loadRecommended = () => {
-      if (!user?.id || !secondaryReady || !breakpoint.matches || requestStarted) return;
-      requestStarted = true;
-      if (cached?.isFresh) return;
-      const client = getSupabaseClient();
-      if (!client) {
-        setRecommendedLoading(false);
-        setRecommendedFailed(true);
-        return;
-      }
-      void fetchClientHomeWidget('recommended', async () => {
-        const result = await client.from('listings')
-          .select('id,title,location_text,listing_photos(storage_path)')
-          .eq('is_promoted', true).eq('moderation_status', 'active')
-          .eq('availability_status', 'available').order('created_at', { ascending: false }).limit(6);
-        if (result.error) throw result.error;
-        if (!Array.isArray(result.data)) throw new Error('Recommended listings returned an invalid response.');
-        return result.data;
-      }).then((result: RecommendedListing[]) => {
-        writeClientHomeWidgetCache('recommended', result);
-        if (active) {
-          setRecommended(result);
-          setRecommendedFailed(false);
-        }
-      }).catch((widgetError: Error) => {
-        console.error('Recommended listings could not be loaded:', widgetError);
-        if (active) setRecommendedFailed(true);
-      }).finally(() => {
-        if (active) setRecommendedLoading(false);
-      });
-    };
-    loadRecommended();
-    breakpoint.addEventListener('change', loadRecommended);
-    return () => {
-      active = false;
-      breakpoint.removeEventListener('change', loadRecommended);
-    };
-  }, [secondaryReady, user?.id]);
-
   const loadNews = useCallback((force = false) => loadClientHomeNews(force, {
     accountId: user?.id || null,
     currentAccountId: () => resolvedSessionUserId.current,
@@ -1604,19 +1497,7 @@ export default function ClientHome() {
           {showSkeleton && (
             <div aria-label="Loading listings">
               {[0, 1, 2].map((item) => (
-                <div key={item}>
-                  <FeedSkeleton />
-                  {showWidgets && item === 0 && (
-                    <MobileFeedWidgets
-                      recommended={recommended}
-                      recommendedLoading={recommendedLoading}
-                      recommendedFailed={recommendedFailed}
-                      updates={updates}
-                      updatesLoading={updatesLoading}
-                      updatesFailed={updatesFailed}
-                    />
-                  )}
-                </div>
+                <FeedSkeleton key={item} />
               ))}
             </div>
           )}
@@ -1648,16 +1529,6 @@ export default function ClientHome() {
                 }}
                 onOpenLightbox={(urls, photoIndex) => setLightbox({ urls, index: photoIndex })}
               />
-              {showWidgets && index === 0 && (
-                <MobileFeedWidgets
-                  recommended={recommended}
-                  recommendedLoading={recommendedLoading}
-                  recommendedFailed={recommendedFailed}
-                  updates={updates}
-                  updatesLoading={updatesLoading}
-                  updatesFailed={updatesFailed}
-                />
-              )}
               </>}
             </div>
           ))}

@@ -73,11 +73,12 @@ export const MARKETPLACE_STYLES = `
   }
   .marketplace-page .card-media-empty{ background:linear-gradient(180deg, rgba(10,12,15,.92), rgba(10,12,15,.84)); }
   .marketplace-page .media-loading, .marketplace-page .card-media.is-loading, .marketplace-page .card-media-loading{ position:relative; background:rgba(10,12,15,.9); }
+  /* The shared VaRoom spinner (styles/spinner.css), as on Host Home's media cards. */
   .marketplace-page .media-loading::before, .marketplace-page .card-media.is-loading::before, .marketplace-page .card-media-loading::before{
-    content:""; width:18px; height:18px; border:2px solid rgba(255,255,255,.2); border-top-color:rgba(255,255,255,.8); border-radius:50%;
-    animation:spin .8s linear infinite; display:block; position:relative;
+    content:""; width:36px; height:36px; flex:none; display:block; position:relative;
+    background:var(--varoom-spinner) center / contain no-repeat;
+    animation:varoom-spinner-turn .8s steps(8) infinite;
   }
-  @keyframes spin{to{ transform:rotate(360deg); } }
   .marketplace-page .skeleton{ background:linear-gradient(90deg,var(--paper) 25%,var(--line-soft) 50%,var(--paper) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.4s infinite; }
   .marketplace-page .skeleton-card{ pointer-events:none; }
   .marketplace-page .skeleton-line{ height:.75rem; border-radius:5px; }
@@ -100,12 +101,6 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .card-media-loading{
     display:grid; place-items:center; aspect-ratio:4/3; background:#050505;
   }
-  .marketplace-page .card-media-loading::before{
-    content:''; width:1.5rem; height:1.5rem; border:2px solid rgba(255,255,255,.2);
-    border-top-color:rgba(255,255,255,.85); border-radius:50%;
-    animation:varoom-video-spin .8s linear infinite;
-  }
-  @keyframes varoom-video-spin{to{ transform:rotate(360deg); } }
   .marketplace-page .mobile-marketplace-tools{ display:none; }
   @media (min-width: 861px){
     .marketplace-page .mkt-header{ display:grid; grid-template-columns:1fr auto; gap:.8rem; padding:.8rem 1.4rem; border-bottom:1px solid var(--line); }
@@ -224,7 +219,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .card-media img{ transition:transform .25s ease; }
   .marketplace-page .card:hover .card-media img{ transform:scale(1.03); }
   .marketplace-page .card-media.is-loading{ position:absolute; }
-  .marketplace-page .card-media.is-loading::before{ position:absolute; z-index:1; top:50%; left:50%; margin:-9px 0 0 -9px; }
+  .marketplace-page .card-media.is-loading::before{ position:absolute; z-index:1; top:50%; left:50%; margin:-18px 0 0 -18px; }
   .marketplace-page .card-media-loading{ position:absolute; inset:0; height:100%; aspect-ratio:auto; }
 
   .marketplace-page .card-category{

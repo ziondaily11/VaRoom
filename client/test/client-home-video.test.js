@@ -195,7 +195,10 @@ test('video loading permits playback interaction and listens for real readiness 
   assert.match(gallery, /onLoadedMetadata=\{[\s\S]*?element\.videoWidth > 0 && element\.videoHeight > 0[\s\S]*?setVideoNaturalSize/);
   assert.match(gallery, /!\s*videoReady && <span className=\{styles\.videoLoadingOverlay\}/);
   assert.match(styles, /\.videoLoadingOverlay \{[\s\S]*?pointer-events: none/);
-  assert.match(styles, /background: rgba\(255, 255, 255, 0\.28\)/);
+  // The placeholder follows the theme, as on Host Home: white in light mode, black in dark mode.
+  assert.match(styles, /\.videoLoadingOverlay \{[\s\S]*?background: #fff;/);
+  assert.match(styles, /:global\(html\[data-theme="dark"\]\) \.videoLoadingOverlay \{\s*background: #000;/);
+  assert.match(styles, /:global\(html\[data-theme="dark"\]\) \.mediaLoading \{\s*background: #000;/);
 });
 
 test('videos that never become ready reach unavailable, and the timer is cleared on listing or source changes', () => {

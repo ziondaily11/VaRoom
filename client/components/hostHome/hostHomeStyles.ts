@@ -535,7 +535,6 @@ export const HOST_HOME_STYLES = `
   .property-news-view-all:hover{ color:var(--red-deep); }
   @keyframes news-shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
 
-  .mobile-widget-slot{ display:none; }
 
   /* ---------- NO LISTINGS EMPTY STATE ---------- */
   .empty-state-card{
@@ -612,12 +611,12 @@ export const HOST_HOME_STYLES = `
     box-sizing:border-box; color:var(--muted); font-size:.82rem; text-align:center;
   }
   .home-widget-message{ width:100%; display:grid; place-items:center; box-sizing:border-box; padding:1rem; color:var(--muted); font-size:.82rem; text-align:center; }
+  /* The shared VaRoom spinner (styles/spinner.css), as on the media cards. */
   .home-widget-spinner{
-    width:22px; height:22px; border:2px solid var(--line); border-top-color:var(--muted);
-    border-radius:50%; animation:home-widget-spin .8s linear infinite;
+    width:28px; height:28px; flex:none; background:var(--varoom-spinner) center / contain no-repeat;
+    animation:varoom-spinner-turn .8s steps(8) infinite;
   }
-  @keyframes home-widget-spin{ to{ transform:rotate(360deg); } }
-  @media (prefers-reduced-motion:reduce){ .home-widget-spinner{ animation:none; border-top-color:var(--line); } }
+  @media (prefers-reduced-motion:reduce){ .home-widget-spinner{ animation-duration:2.4s; } }
   .home-widget-content{ display:flex; flex-direction:column; gap:.9rem; }
   .home-widget-content[data-loading="true"]{ min-height:90px; }
   .home-widget-content[data-loading="true"] .home-widget-loader{ min-height:90px; }
@@ -808,7 +807,7 @@ export const HOST_HOME_STYLES = `
   .media-image-skeleton{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
   .card-media-loading::before,.media-image-skeleton::after,.media-loading-indicator::after{
     content:''; width:36px; height:36px; flex:none; border:0; border-radius:0;
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23bdbdbd' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M16 3v4' opacity='.3'/%3E%3Cpath d='m25.2 6.8-2.8 2.8' opacity='.4'/%3E%3Cpath d='M29 16h-4' opacity='.55'/%3E%3Cpath d='m25.2 25.2-2.8-2.8' opacity='.7'/%3E%3Cpath d='M16 29v-4' opacity='.9'/%3E%3Cpath d='m6.8 25.2 2.8-2.8'/%3E%3Cpath d='M3 16h4' opacity='.8'/%3E%3Cpath d='m6.8 6.8 2.8 2.8' opacity='.55'/%3E%3C/svg%3E") center / contain no-repeat;
+    background:var(--varoom-spinner) center / contain no-repeat;
     animation:discover-media-spin .8s steps(8) infinite;
   }
   .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
@@ -924,7 +923,6 @@ export const HOST_HOME_STYLES = `
 
     #notif-panel-card{ display:none !important; }
 
-    .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
 
     /* Category filters: one scrollable row, never wrap */
     .tabs{
@@ -1134,25 +1132,6 @@ export const HOST_HOME_STYLES = `
   }
   .host-rail > .sidebar-module.empty-state-card{
     padding:1.5rem 1.25rem !important;
-  }
-
-  /* The mobile updates module keeps the same one-per-section transparent
-     perimeter. Feed listing cards are deliberately outside these selectors. */
-  .mobile-widget-slot > .mobile-varoom-updates-card{
-    position:relative;
-    background:transparent !important;
-    border:0 !important;
-    border-radius:16px !important;
-    box-shadow:none !important;
-    padding:1.15rem 1.2rem !important;
-  }
-  .mobile-widget-slot > .mobile-varoom-updates-card::after{
-    content:"";
-    position:absolute;
-    inset:0;
-    border:1px solid var(--host-rail-outline);
-    border-radius:16px;
-    pointer-events:none;
   }
 
   /* Textual, inline actions retain the product accent. */

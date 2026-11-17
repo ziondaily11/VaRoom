@@ -21,7 +21,7 @@ const {
 const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-test('public destination, update, and recommendation snapshots are reusable', () => {
+test('public destination and update snapshots are reusable', () => {
   assert.equal(writeClientHomeWidgetCache('destinations', { Nairobi: 12, Mombasa: null }), true);
   assert.deepEqual(readClientHomeWidgetCache('destinations'), {
     value: { Nairobi: 12, Mombasa: null },
@@ -29,8 +29,8 @@ test('public destination, update, and recommendation snapshots are reusable', ()
   });
   assert.equal(writeClientHomeWidgetCache('updates', []), true);
   assert.deepEqual(readClientHomeWidgetCache('updates').value, []);
-  assert.equal(writeClientHomeWidgetCache('recommended', [{ id: 'listing-1' }]), true);
-  assert.equal(readClientHomeWidgetCache('recommended').value[0].id, 'listing-1');
+  // The Recommended box was removed from Client Home; its key is no longer cached.
+  assert.equal(writeClientHomeWidgetCache('recommended', [{ id: 'listing-1' }]), false);
 });
 
 test('invalid widget responses and failed requests are never cached as successful empty data', async () => {
