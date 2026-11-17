@@ -4,7 +4,8 @@ import { formatPrice, normalizeListingTitle } from '../marketplace/marketplace';
 import type { BookingDetails } from '../marketplace/marketplace';
 
 // The landing page's "spaces" section: one card per niche, filled with the
-// newest published listing of that niche. Fetched at build time and
+// newest published listing of that niche, then a few more of that niche's
+// newest for the card to rotate through. Fetched at build time and
 // revalidated (ISR), so the landing page itself never talks to Supabase.
 
 export type SpaceNicheId = 'property' | 'office' | 'airbnb' | 'venue' | 'hotel';
@@ -28,6 +29,23 @@ export const SPACE_NICHES: SpaceNiche[] = [
   { id: 'hotel', label: 'Hotels', categories: ['hotel'], marketplaceCategory: 'hotel' },
 ];
 
+export interface SpaceListing {
+  id: string;
+  title: string;
+  summary: string;
+  photoUrl: string | null;
+  /** e.g. "KSh 4,500" */
+  price: string | null;
+  /** e.g. "/ night"; empty for a sale price. */
+  priceUnit: string;
+}
+
+/** A listing a card shows: its first, or one it rotates to. Always has a photo. */
+export interface SpaceSlide {
+  listing: SpaceListing & { photoUrl: string };
+  href: string;
+}
+
 export interface FeaturedSpace {
   /** The card's place in the row: the niche it stands for. */
   slot: SpaceNicheId;
@@ -35,18 +53,11 @@ export interface FeaturedSpace {
   niche: SpaceNicheId;
   label: string;
   /** Null when the niche has no published listing yet. */
-  listing: {
-    id: string;
-    title: string;
-    summary: string;
-    photoUrl: string | null;
-    /** e.g. "KSh 4,500" */
-    price: string | null;
-    /** e.g. "/ night"; empty for a sale price. */
-    priceUnit: string;
-  } | null;
+  listing: SpaceListing | null;
   /** Where the card's button goes. */
   href: string;
+  /** More listings of the same niche the card rotates through after `listing`. */
+  alternates?: SpaceSlide[];
 }
 
 interface ListingRow {
@@ -61,6 +72,8 @@ interface ListingRow {
 const SELECT = 'id,title,description,category,created_at,listing_photos(storage_path),listing_booking_details(*)';
 /** Newest few per niche, so one with a photo and a real title can be chosen. */
 const CANDIDATES = 8;
+/** Listings a card rotates through, its first included. */
+export const SLIDES_PER_CARD = 4;
 
 const UNIT_LABELS: Record<string, string> = { sq_ft: 'sq ft', m2: 'm²' };
 
@@ -94,6 +107,24 @@ export async function pickListing(
     if (photoUrl && await photoLoads(photoUrl)) return { row, photoUrl };
   }
   return null;
+}
+
+/**
+ * Remembers each photo check, and starts them all at once, so a build waits
+ * for the slowest check instead of every check in turn.
+ */
+function sharedPhotoChecks(photoLoads: PhotoLoads, urls: Array<string | null>): PhotoLoads {
+  const checks = new Map<string, Promise<boolean>>();
+  const check: PhotoLoads = (url) => {
+    let result = checks.get(url);
+    if (!result) {
+      result = photoLoads(url).catch(() => true);
+      checks.set(url, result);
+    }
+    return result;
+  };
+  urls.forEach((url) => { if (url) void check(url); });
+  return check;
 }
 
 /** Where the site's /api requests go (the /api rewrite in vercel.json). */
@@ -135,18 +166,18 @@ export function toFeaturedSpace(
 ): FeaturedSpace {
   const fallbackHref = `/marketplace?category=${niche.marketplaceCategory}`;
   if (!row) return { slot, niche: niche.id, label: niche.label, listing: null, href: fallbackHref };
+  return { slot, niche: niche.id, label: niche.label, listing: toSpaceListing(row, photoUrl), href: listingHref(row) };
+}
+
+const listingHref = (row: ListingRow): string => `/booking?listing=${encodeURIComponent(row.id)}`;
+
+function toSpaceListing<P extends string | null>(row: ListingRow, photoUrl: P): SpaceListing & { photoUrl: P } {
   return {
-    slot,
-    niche: niche.id,
-    label: niche.label,
-    listing: {
-      id: row.id,
-      title: normalizeListingTitle(row.title),
-      summary: cleanSummary(row.description),
-      photoUrl,
-      ...priceParts(row.listing_booking_details, row.category),
-    },
-    href: `/booking?listing=${encodeURIComponent(row.id)}`,
+    id: row.id,
+    title: normalizeListingTitle(row.title),
+    summary: cleanSummary(row.description),
+    photoUrl,
+    ...priceParts(row.listing_booking_details, row.category),
   };
 }
 
@@ -179,13 +210,18 @@ type PhotoLoads = (url: string) => Promise<boolean>;
  * working photo (or whose query failed) shows another listing from the niche
  * with the most listings, then the next largest, never the same listing
  * twice. A slot nothing can fill is left out.
+ *
+ * Then each card gets up to SLIDES_PER_CARD - 1 more unused listings of its
+ * listing's niche to rotate through, dealt one per card per round, so a
+ * borrowed card does not take everything its donor niche has left.
  */
 export async function buildFeaturedSpaces(
   found: NicheListings[],
   client?: Pick<SupabaseClient, 'storage'> | null,
-  photoLoads: PhotoLoads = photoLoadsAtBuild,
+  checkPhoto: PhotoLoads = photoLoadsAtBuild,
 ): Promise<FeaturedSpace[]> {
   const photoUrlOf = (row: ListingRow) => cardPhotoUrl(row, client);
+  const photoLoads = sharedPhotoChecks(checkPhoto, found.flatMap(({ rows }) => rows.map(photoUrlOf)));
   const used = new Set<string>();
   const unused = (rows: ListingRow[]) => rows.filter((row) => !used.has(row.id));
 
@@ -210,7 +246,20 @@ export async function buildFeaturedSpaces(
     }
     cards[i] = borrowed;
   }
-  return cards.filter((card): card is FeaturedSpace => card !== null);
+
+  const filled = cards.filter((card): card is FeaturedSpace => card !== null);
+  const rowsOf = new Map(found.map((entry) => [entry.niche.id, entry.rows]));
+  for (let round = 1; round < SLIDES_PER_CARD; round += 1) {
+    for (const card of filled) {
+      // A card that found nothing in an earlier round will find nothing now.
+      if ((card.alternates?.length ?? 0) < round - 1) continue;
+      const picked = await pickListing(unused(rowsOf.get(card.niche) || []), photoUrlOf, photoLoads);
+      if (!picked) continue;
+      used.add(picked.row.id);
+      card.alternates = [...(card.alternates || []), { listing: toSpaceListing(picked.row, picked.photoUrl), href: listingHref(picked.row) }];
+    }
+  }
+  return filled;
 }
 
 export async function fetchFeaturedSpaces(client: SupabaseClient, photoLoads: PhotoLoads = photoLoadsAtBuild): Promise<FeaturedSpace[]> {
