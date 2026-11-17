@@ -204,6 +204,10 @@ test('the section: centred heading, middle card first in focus, cards fanned aro
   // Title, category, summary and price on the card; Explore opens the listing.
   assert.match(html, /Garden Cottage[\s\S]*Airbnbs[\s\S]*Quiet cottage near the park[\s\S]*KSh 4,500/);
   assert.match(html, /href="\/booking\?listing=airbnb"/);
+  // Explore is followed by an arrow, hidden from screen readers.
+  assert.match(html, /href="\/booking\?listing=airbnb"[^>]*><span>Explore<\/span><svg[^>]*aria-hidden="true"/);
+  // Rendered visible on the server: the entrance only hides cards once script runs.
+  assert.doesNotMatch(html, /entranceWaiting|entrancePlaying/);
   assert.match(html, /href="\/marketplace"[^>]*>View more spaces/);
 });
 

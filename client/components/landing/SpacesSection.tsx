@@ -42,6 +42,27 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
   });
   const swipeStart = useRef<number | null>(null);
 
+  // The cards deal out from the centre the first time the row scrolls into view.
+  // Rendered visible on the server, hidden only once script knows the row is
+  // still off screen, so the cards never stay hidden without JavaScript.
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [entrance, setEntrance] = useState<'none' | 'waiting' | 'playing'>('none');
+  const hasCards = count > 0;
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof IntersectionObserver === 'undefined') return undefined;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    if (stage.getBoundingClientRect().top < window.innerHeight * 0.85) return undefined;
+    setEntrance('waiting');
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      setEntrance('playing');
+    }, { threshold: 0.25 });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [hasCards]);
+
   const step = useCallback((delta: number) => {
     if (!count) return;
     setActiveSlot(shown[(active + delta + count) % count].slot);
@@ -69,7 +90,11 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
   if (!count) return null;
 
   return (
-    <section id="spaces" className={`snap-page ${styles.section}`} aria-labelledby="spaces-heading">
+    <section
+      id="spaces"
+      className={`snap-page ${styles.section}${entrance === 'waiting' ? ` ${styles.entranceWaiting}` : ''}${entrance === 'playing' ? ` ${styles.entrancePlaying}` : ''}`}
+      aria-labelledby="spaces-heading"
+    >
       <div className={styles.header}>
         <h2 id="spaces-heading" className={styles.headline}>
           Discover <em>Spaces for</em>
@@ -79,6 +104,7 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
       </div>
 
       <div
+        ref={stageRef}
         className={styles.stage}
         role="region"
         aria-roledescription="carousel"
@@ -98,6 +124,7 @@ export const SpacesSection: React.FC<SpacesSectionProps> = ({ spaces }) => {
               key={space.slot}
               className={`${styles.card}${isActive ? ` ${styles.cardActive}` : ''}${wrapped ? ` ${styles.cardJump}` : ''}`}
               data-offset={offset}
+              style={{ '--enter-order': Math.abs(offset) } as React.CSSProperties}
               aria-roledescription="slide"
               aria-label={`${space.label}, ${i + 1} of ${count}`}
               aria-hidden={Math.abs(offset) > 1 ? true : undefined}
@@ -160,7 +187,8 @@ const SpaceCard: React.FC<SpaceCardProps> = ({ space, focusable, onPhotoError })
             : <span>Price on request</span>}
         </p>
         <Link href={space.href} className={styles.explore} tabIndex={focusable ? undefined : -1}>
-          Explore
+          <span>Explore</span>
+          <ArrowRight size={16} className={styles.exploreArrow} aria-hidden="true" />
         </Link>
       </div>
     </>
