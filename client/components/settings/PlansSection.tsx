@@ -17,12 +17,6 @@ const ChevronDown = () => (
 type Notify = (message: string) => void;
 
 export const PLANS_STYLES = `
-  .settings-page{ --plan-box:#EEECE7; --plan-box-head:#E3E0DA; --plan-box-line:rgba(26,18,16,.08); }
-  html[data-theme="dark"] .settings-page{ --plan-box:#141414; --plan-box-head:#232323; --plan-box-line:rgba(255,255,255,.07); }
-  .settings-page .plan-box{ background:var(--plan-box); border-radius:16px; overflow:hidden; margin-bottom:1.1rem; }
-  .settings-page .plan-box-head{ display:flex; align-items:center; gap:.55rem; padding:.85rem 1.4rem; border-bottom:1px solid var(--plan-box-line); font-size:.9rem; font-weight:700; }
-  .settings-page .plan-box-head svg{ color:var(--muted); flex-shrink:0; }
-  .settings-page .plan-box-body{ padding:1.3rem 1.4rem 1.4rem; }
   .settings-page .plan-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
   .settings-page .plan-row.top{ align-items:flex-start; }
   .settings-page .plan-row-main{ min-width:0; flex:1; }
@@ -69,7 +63,6 @@ export const PLANS_STYLES = `
   .settings-page .plans-skeleton{ height:7.5rem; border-radius:16px; margin-bottom:1.1rem; background:linear-gradient(90deg, var(--plan-box), var(--plan-box-head), var(--plan-box)); background-size:200% 100%; animation:plans-shimmer 1.4s ease infinite; }
   @keyframes plans-shimmer{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
   @media (max-width:600px){
-    .settings-page .plan-box-head, .settings-page .plan-box-body{ padding-left:1.1rem; padding-right:1.1rem; }
     .settings-page .plan-upgrade{ width:100%; justify-content:center; }
   }
   .settings-page .receipt-dialog{ width:min(480px, calc(100vw - 2rem)); border:1px solid var(--line); border-radius:14px; padding:1.6rem; background:var(--paper); color:var(--ink); box-shadow:0 20px 70px rgba(0,0,0,.6); }
@@ -204,7 +197,6 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
   return (
     <div id="view-plans">
       <DetailHead title="Plans & Billing" onBack={onBack} />
-      <p className="detail-sub">Your plan, listings, payment method and billing history.</p>
 
       {!billing && !error && <><div className="plans-skeleton" /><div className="plans-skeleton" /><div className="plans-skeleton" /></>}
       {!billing && error && (
@@ -271,8 +263,8 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
               <div className="method">
                 <span className="method-icon">{INFO_ICONS.card}</span>
                 <span>
-                  <span className="method-title" style={{ display: 'block' }}>{method ? method.title : 'No payment method yet'}</span>
-                  <span className={`method-detail${method ? '' : ' muted'}`}>{method ? method.detail || method.title : 'You choose how to pay at checkout.'}</span>
+                  {method && <span className="method-title" style={{ display: 'block' }}>{method.title}</span>}
+                  <span className={`method-detail${method ? '' : ' muted'}`}>{method ? method.detail || method.title : 'No payment method yet'}</span>
                 </span>
               </div>
               {summary.canUpdateCard && billing.paymentMethod?.channel === 'card' && (
@@ -285,9 +277,6 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
             <header className="plan-box-head">{INFO_ICONS.receipt}<span>Billing Information</span></header>
             <div className="plan-box-body">
               <div className="plan-row">
-                <div className="plan-row-main">
-                  <p className="box-sub" style={{ marginTop: 0 }}>View your billing history and download receipts.</p>
-                </div>
                 <button type="button" className="box-btn" aria-expanded={historyOpen} aria-controls="billing-history" onClick={() => setHistoryOpen((open) => !open)}>{INFO_ICONS.receipt} {historyOpen ? 'Hide' : 'Invoices'}</button>
               </div>
               {historyOpen && (

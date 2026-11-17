@@ -129,7 +129,7 @@ html[data-theme="dark"] .cs-theme {
 .cs { color: var(--cs-text); padding: 8px 20px 40px; }
 .cs-section { padding-top: 24px; }
 .cs-section:first-child { padding-top: 16px; }
-.cs-section__title { margin: 0 0 4px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; line-height: 1.3; color: var(--cs-muted); }
+.cs-section__title { margin: 0 0 4px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; line-height: 1.3; color: var(--cs-muted); text-transform: uppercase; }
 .cs-section__list { border-top: 1px solid var(--cs-divider); }
 .cs-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;

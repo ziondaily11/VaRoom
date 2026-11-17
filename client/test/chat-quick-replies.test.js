@@ -99,7 +99,7 @@ test('wiring: "/" or the ⚡ button opens the picker; ↑ ↓ Enter Escape work;
   assert.equal((page.match(/if \(quickReplyKey\(e\)\) return;/g) || []).length, 2, 'desktop editor and phone textarea');
   assert.match(page, /className="fmt-qr" aria-label="Quick replies"/);
   const settings = read('components', 'chat', 'ChatSettings.tsx');
-  assert.match(settings, /<Section title="QUICK REPLIES">\s*<QuickRepliesEditor userId=\{userId\} \/>/);
+  assert.match(settings, /<Section title="Quick Replies" anchor="cs-quick-replies">\s*<QuickRepliesEditor userId=\{userId\} \/>/);
   assert.match(settings, /<AnimatedMenu open=\{open\} placement="below-end" className="cs-choice-menu" role="listbox"/);
   assert.doesNotMatch(settings, /<select/, 'the timing menu is animated, not the browser\'s');
   const migration = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261112_000058_quick_replies.sql'), 'utf8');

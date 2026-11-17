@@ -150,9 +150,9 @@ test('deactivate / delete: 30 days then deletion as the Privacy Policy says; sig
   const account = read('components', 'settings', 'AccountSection.tsx');
   assert.doesNotMatch(account, /isn&apos;t available yet/, 'Deactivate is no longer a placeholder');
   assert.match(account, /Deactivate my account/);
-  assert.match(account, /permanently deleted after 30 days/);
+  assert.match(account, /Permanently deleted after 30 days/);
   const sections = read('components', 'settings', 'SettingsSections.tsx');
-  assert.match(sections, /If you don&apos;t sign in within 30 days/);
+  assert.match(sections, /After 30 days the account and its data are deleted for good/);
   assert.doesNotMatch(sections, /This action cannot be undone/, 'deletion is not immediate any more');
   const page = read('pages', 'settings.tsx');
   assert.match(page, /await leave\('\/\?auth=login&deleted=1'\)/);
@@ -190,7 +190,7 @@ test('page: in the shell, legacy wording, phone menu opens the app drawer, legac
   assert.match(page, /window\.dispatchEvent\(new Event\(role === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)\)/);
   assert.match(page, /wanted === 'notifications'/);
   const sections = read('components', 'settings', 'SettingsSections.tsx');
-  for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts are stored on this dashboard.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete my account','Save privacy settings', 'Choose what VaRoom is allowed to send you.']) {
+  for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete my account']) {
     assert.ok(sections.includes(text), text);
   }
   assert.doesNotMatch(read('components', 'settings', 'settingsStyles.ts'), /#sidebar|\.nav-item|verify-box|account-menu/);

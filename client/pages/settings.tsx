@@ -16,8 +16,10 @@ import BookingsSection from '../components/settings/BookingsSection';
 import TeamSection from '../components/settings/TeamSection';
 import { useWorkspace } from '../lib/team/team';
 import {
-  CategoryList, DeleteAccountDialog, DisplaySection, LoginAccountsSection, NotificationsSection, PrivacySection, SettingsSkeleton, SupportSection,
+  CategoryList, ChatsSection, DeleteAccountDialog, DisplaySection, LoginAccountsSection, NotificationsSection, PrivacySection, SettingsSkeleton, SupportSection,
 } from '../components/settings/SettingsSections';
+import { ChatSettingsStyles } from '../components/chat/ChatSettings';
+import type { SearchEntry } from '../lib/settings/settingsSearch';
 import { MenuIcon } from '../components/settings/SettingsIcons';
 import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 
@@ -26,7 +28,10 @@ import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 // on phones the list, then the section. Identity comes from AuthProvider;
 // the profile's preferences are read once.
 
-type View = 'list' | 'account' | 'plans' | 'bookings' | 'team' | 'notifications' | 'display' | 'privacy' | 'support' | 'login-accounts';
+type View = 'list' | 'account' | 'plans' | 'bookings' | 'team' | 'notifications' | 'chats' | 'display' | 'privacy' | 'support' | 'login-accounts';
+
+// The element a search result points at, highlighted in its row (or box).
+const HIT_CONTAINER = '.field, .toggle-row, .info-row, .cs-row, .cs-section, .plan-box';
 
 const TOAST_STYLES = `
   .settings-toast{ position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%) translateY(20px); z-index:300; max-width:min(92vw, 30rem);
@@ -73,11 +78,11 @@ export default function SettingsPage() {
     if (status === 'signed-out') router.replace(loginUrl('/settings'));
   }, [status, router]);
 
-  // ?section=notifications (or plans, for hosts) opens that section.
+  // ?section=notifications, team or chats (plans and bookings for those who have them) opens that section.
   useEffect(() => {
     if (!router.isReady) return;
     const wanted = router.query.section;
-    if (wanted === 'notifications' || wanted === 'team' || (wanted === 'plans' && showPlans) || (wanted === 'bookings' && role === 'host')) { setView(wanted); setMobileDetail(true); }
+    if (wanted === 'notifications' || wanted === 'team' || wanted === 'chats' || (wanted === 'plans' && showPlans) || (wanted === 'bookings' && role === 'host')) { setView(wanted); setMobileDetail(true); }
   }, [router.isReady, router.query.section, role, showPlans]);
 
   // Plans & Billing and Bookings are for hosts; another account type falls back to Your Account.
@@ -174,6 +179,41 @@ export default function SettingsPage() {
     window.scrollTo({ top: 0 });
   }, []);
   const back = useCallback(() => show('list'), [show]);
+
+  // A search result: leave for its page, or open its section and point at the setting.
+  const [target, setTarget] = useState<{ id: string; at: number } | null>(null);
+  const pick = useCallback((entry: SearchEntry) => {
+    if (entry.href) {
+      if (entry.href.startsWith('mailto:')) window.location.href = entry.href;
+      else void router.push(entry.href);
+      return;
+    }
+    show(entry.section as View);
+    setTarget(entry.target ? { id: entry.target, at: Date.now() } : null);
+  }, [router, show]);
+
+  // The section may still be loading its data: look for the setting for up to 2 s.
+  useEffect(() => {
+    if (!target) return undefined;
+    let tries = 0;
+    let timer = 0;
+    const find = () => {
+      const element = document.getElementById(target.id);
+      if (!element) {
+        tries += 1;
+        if (tries < 20) timer = window.setTimeout(find, 100);
+        return;
+      }
+      const row = element.closest<HTMLElement>(HIT_CONTAINER) || element;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.remove('search-hit');
+      void row.offsetWidth; // Restart the animation when the same result is picked again.
+      row.classList.add('search-hit');
+      timer = window.setTimeout(() => row.classList.remove('search-hit'), 1900);
+    };
+    timer = window.setTimeout(find, 0);
+    return () => window.clearTimeout(timer);
+  }, [target]);
   const passwordOpened = useCallback(() => setOpenPassword(false), []);
 
   const openMenu = () => {
@@ -257,6 +297,7 @@ export default function SettingsPage() {
     } else if (view === 'team') {
       section = <TeamSection userId={userId} isHost={role === 'host'} onBack={back} />;
     } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} isHost={role === 'host'} onBack={back} notify={notify} />;
+    else if (view === 'chats') section = <ChatsSection role={role === 'host' ? 'host' : 'client'} onBack={back} />;
     else if (view === 'display') section = <DisplaySection userId={userId} onBack={back} />;
     else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} onPassword={() => { setOpenPassword(true); show('account'); }} />;
     else if (view === 'support') section = <SupportSection onBack={back} />;
@@ -271,6 +312,7 @@ export default function SettingsPage() {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
+      <ChatSettingsStyles />
       <style dangerouslySetInnerHTML={{ __html: SETTINGS_STYLES + PLANS_STYLES + TOAST_STYLES }} />
       <div className="settings-page">
         <div className="app-shell">
@@ -282,7 +324,7 @@ export default function SettingsPage() {
             <main className="settings-main">
               <div id="settings-page" className={pageClass} style={{ display: 'grid' }}>
                 {!ready && <SettingsSkeleton />}
-                {ready && <CategoryList active={view} isHost={role === 'host'} showPlans={showPlans} onOpen={(key) => show(key as View)} />}
+                {ready && <CategoryList active={view} isHost={role === 'host'} showPlans={showPlans} onOpen={(key) => show(key as View)} onPick={pick} />}
                 {section}
               </div>
             </main>

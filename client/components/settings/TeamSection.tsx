@@ -6,7 +6,8 @@ import {
   acceptTeam, inviteToTeam, leaveTeam, loadCompanyListings, loadMemberships, loadTeam, personName, setTeamRoles, setWorkspace, TEAM_ROLES, useWorkspace,
   type CompanyListing, type Membership, type TeamMember, type TeamRole,
 } from '../../lib/team/team';
-import { DetailHead } from './SettingsIcons';
+import { DetailHead, INFO_ICONS } from './SettingsIcons';
+import SettingsBox from './SettingsBox';
 
 // Settings → Team: a host's team (invite by username, roles, remove), and the
 // teams this account belongs to (accept, work as the company, leave).
@@ -109,12 +110,10 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
   return (
     <div id="view-team">
       <DetailHead title="Team" onBack={onBack} />
-      <p className="detail-sub">People with their own VaRoom accounts can help run a host account, each with the roles they need.</p>
-
       {isHost && (
-        <div className="settings-section">
-          <p className="section-title">Your team</p>
-          <div className="card" style={{ padding: '1.2rem' }}>
+        <>
+          <SettingsBox title="Your team" icon={INFO_ICONS.users}>
+            <div className="plan-box-body">
             <div className="field">
               <label htmlFor="team-invite-username">Invite by username</label>
               <input id="team-invite-username" placeholder="@username" autoComplete="off" value={username} onChange={(event) => { setUsername(event.target.value); setMsg({ text: '', kind: '' }); }} />
@@ -122,10 +121,9 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
             <RolePicker value={roles} onChange={setRoles} idPrefix="team-invite" />
             <button type="button" className="btn" disabled={busy} onClick={() => { void invite(); }}>Send invitation</button>
             <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`} role="status" aria-live="polite">{msg.text}</p>
-          </div>
-          {team === null ? <p className="team-empty">Loading your team…</p> : !team.length ? <p className="team-empty">No one on your team yet.</p> : (
-            <div className="card team-list">
-              {team.map((row) => (
+            </div>
+            {team === null ? <p className="team-empty">Loading your team…</p> : !team.length ? <p className="team-empty">No one on your team yet.</p> : (
+              team.map((row) => (
                 <div className="team-row" key={row.member.id}>
                   <div className="team-person">
                     <strong>{personName(row.member)}</strong>
@@ -142,17 +140,16 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
                     Remove
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-          <div className="note-box">Only you manage the team, Your Account and deleting the account. Managers handle bookings and listings, Messaging answers chats, and Finance handles Plans & Billing and analytics. Each person also gets the company's notifications for their roles.</div>
-        </div>
+              ))
+            )}
+          </SettingsBox>
+          <p className="note-box">Only you can manage the team and your account.</p>
+        </>
       )}
 
-      <div className="settings-section">
-        <p className="section-title">Teams you&apos;re on</p>
+      <SettingsBox title="Teams you’re on" icon={INFO_ICONS.users} id="team-memberships">
         {memberships === null ? <p className="team-empty">Loading…</p> : !memberships.length ? <p className="team-empty">You haven&apos;t been invited to a team.</p> : (
-          <div className="card team-list">
+          <>
             {memberships.map((row) => {
               const roleNames = row.roles.map((key) => TEAM_ROLES.find((role) => role.key === key)?.label || key).join(', ');
               const current = workspace && workspace.hostId === row.host.id;
@@ -182,10 +179,10 @@ export default function TeamSection({ userId, isHost, onBack }: { userId: string
                 </div>
               );
             })}
-          </div>
+          </>
         )}
-        {!isHost && msg.text && <p className={`inline-msg ${msg.kind}`} role="status">{msg.text}</p>}
-      </div>
+      </SettingsBox>
+      {!isHost && msg.text && <p className={`inline-msg ${msg.kind}`} role="status">{msg.text}</p>}
     </div>
   );
 }

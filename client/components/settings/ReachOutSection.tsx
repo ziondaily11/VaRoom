@@ -5,6 +5,8 @@ import {
   contactFieldValues, contactPatch, DEFAULT_REACH_OUT, loadReachOut, saveReachOut, type ReachOutSettings, type ReachToggleKey,
 } from '../../lib/reachOut/reachOut';
 import Svg from '../booking/Svg';
+import SettingsBox from './SettingsBox';
+import { INFO_ICONS } from './SettingsIcons';
 
 // Reach Out (Your Account, hosts): the phone, WhatsApp number and email
 // clients see on this host's booking pages, and which of those channels are
@@ -59,7 +61,7 @@ export default function ReachOutSection({ userId, accountPhone, accountEmail }: 
     const next = { ...saved, ...result.patch };
     setSaved(next);
     setFields(contactFieldValues(next, account));
-    setFieldsMsg({ text: 'Contact details saved. Your booking pages now show them.', kind: 'success' });
+    setFieldsMsg({ text: 'Saved.', kind: 'success' });
   };
 
   const toggle = async (key: ReachToggleKey, value: boolean) => {
@@ -78,11 +80,9 @@ export default function ReachOutSection({ userId, accountPhone, accountEmail }: 
   const values = saved || DEFAULT_REACH_OUT;
 
   return (
-    <div className="settings-section" id="reach-out">
-      <p className="section-title">Reach Out</p>
-      <div className="card">
-        <div className="reach-fields">
-          <p className="inline-msg neutral reach-intro">How clients contact you from your listings. Empty fields use your account&apos;s phone and email.</p>
+    <div id="reach-out">
+      <SettingsBox title="Reach Out" icon={INFO_ICONS.chat} padded>
+          <p className="inline-msg neutral reach-intro">Shown on your listings. Empty fields use your account&apos;s details.</p>
           <div className="field">
             <label htmlFor="reach-phone-input">Phone number</label>
             <input type="tel" id="reach-phone-input" autoComplete="tel" value={fields.phone} disabled={!ready} onChange={set('phone')} />
@@ -97,10 +97,8 @@ export default function ReachOutSection({ userId, accountPhone, accountEmail }: 
           </div>
           <button type="button" className="btn" disabled={!ready || saving} onClick={() => { void saveFields(); }}>{saving ? 'Saving…' : 'Save contact details'}</button>
           <p className={`inline-msg${fieldsMsg.kind ? ` ${fieldsMsg.kind}` : ''}`} role="status">{fieldsMsg.text}</p>
-        </div>
-      </div>
-      <p className="section-title reach-subtitle">Ways you can be reached</p>
-      <div className="card">
+      </SettingsBox>
+      <SettingsBox title="Ways you can be reached" icon={INFO_ICONS.phone}>
         {CHANNELS.map((channel) => (
           <div className="toggle-row" key={channel.key}>
             <div className="reach-channel">
@@ -113,7 +111,7 @@ export default function ReachOutSection({ userId, accountPhone, accountEmail }: 
             </label>
           </div>
         ))}
-      </div>
+      </SettingsBox>
       {togglesMsg.text && <p className={`inline-msg ${togglesMsg.kind}`} role="status">{togglesMsg.text}</p>}
     </div>
   );

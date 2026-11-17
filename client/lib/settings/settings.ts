@@ -25,10 +25,10 @@ export type NotificationKey = 'message_notifications' | 'notify_bookings' | 'not
 
 /** hostOnly rows are shown to hosts only. */
 export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string; desc?: string; hostOnly?: boolean }> = [
-  { key: 'message_notifications', label: 'Messages', desc: 'New messages in your chats (the same switch as in Chat settings).' },
-  { key: 'notify_bookings', label: 'Bookings', desc: 'Requests, confirmations, declines, cancellations and expiries.' },
-  { key: 'notify_booking_reminders', label: 'Requests about to expire', desc: 'A reminder 6 hours before an unanswered request expires.', hostOnly: true },
-  { key: 'notify_reviews', label: 'Reviews', desc: 'New reviews of your listings, and when your own reviews are published.' },
+  { key: 'message_notifications', label: 'Messages' },
+  { key: 'notify_bookings', label: 'Bookings' },
+  { key: 'notify_booking_reminders', label: 'Requests about to expire', desc: '6 hours before an unanswered request expires.', hostOnly: true },
+  { key: 'notify_reviews', label: 'Reviews' },
   { key: 'notify_account_updates', label: 'Important account updates' },
   { key: 'notify_marketing', label: 'Promotional & marketing' },
 ];
@@ -211,21 +211,4 @@ export async function deleteAccount(token: string, reason: string, details: stri
   });
   const result = await json(response);
   if (!response.ok) throw new Error((result.error as string) || 'Unable to delete account');
-}
-
-/** The categories on the main list, for search (titles only, as before). */
-export const CATEGORY_TITLES: Record<string, string> = {
-  account: 'Your Account',
-  plans: 'Plans & Billing',
-  notifications: 'Notifications',
-  display: 'Display',
-  privacy: 'Privacy & Security',
-  support: 'Support & About',
-  'login-accounts': 'Login & Accounts',
-  payments: 'Payments & Payouts',
-};
-
-export function matchesSearch(title: string, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  return !q || title.toLowerCase().includes(q);
 }
