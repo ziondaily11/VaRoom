@@ -1,13 +1,23 @@
 import Head from 'next/head';
+import type { GetStaticProps } from 'next';
+import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
+import { SpacesSection } from '../components/landing/SpacesSection';
+import { emptyFeaturedSpaces, fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
+import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { originOf } from '../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../lib/landing/useTriggerReveal';
 
-export default function LandingPage() {
+interface LandingPageProps {
+  spaces: FeaturedSpace[];
+}
+
+export default function LandingPage({ spaces }: LandingPageProps) {
   const router = useRouter();
   const [isAuthOpen, setAuthOpen] = useState(false);
   const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
@@ -241,7 +251,7 @@ export default function LandingPage() {
       </Head>
 
       <main className="landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
-        {/* Hero stage: the rest of the landing page is being redesigned. */}
+        {/* Hero stage */}
         <div className="relative w-full">
           {/* Nairobi illustration background pinned behind the hero */}
           <div
@@ -276,6 +286,9 @@ export default function LandingPage() {
           />
         </div>
 
+        {/* Page 2: one card per niche */}
+        <SpacesSection spaces={spaces} />
+
         <AuthPanel
           isOpen={isAuthOpen}
           onClose={closeAuth}
@@ -288,3 +301,19 @@ export default function LandingPage() {
     </>
   );
 }
+
+// Listings change slowly; the cards are rebuilt at most every five minutes.
+const SPACES_REVALIDATE_SECONDS = 300;
+
+export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
+  try {
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    return { props: { spaces: await fetchFeaturedSpaces(client) }, revalidate: SPACES_REVALIDATE_SECONDS };
+  } catch (error) {
+    console.warn('Landing spaces unavailable at build time', error);
+    // Retry sooner when the database could not be reached.
+    return { props: { spaces: emptyFeaturedSpaces() }, revalidate: 60 };
+  }
+};
