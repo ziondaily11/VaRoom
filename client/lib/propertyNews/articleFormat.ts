@@ -196,3 +196,15 @@ export function classifyParagraph(paragraph: string): ArticleParagraph {
   if (isQuote) return { kind: 'quote', text: paragraph.replace(/^>\s*/, '') };
   return { kind: 'text', text: paragraph };
 }
+
+/** The masthead date on phones: "Wed 18 Nov". */
+export function formatMastheadShort(value?: string): string {
+  const dateObj = value ? new Date(value) : new Date();
+  const valid = !Number.isNaN(dateObj.getTime()) ? dateObj : new Date();
+  return valid.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+}
+
+/** Up to `count` other stories for the end of an article, newest first. */
+export function moreStories<T extends { id: string | number }>(items: T[] | null | undefined, currentId: string, count = 3): T[] {
+  return (items || []).filter((item) => String(item.id) !== currentId).slice(0, count);
+}

@@ -22,7 +22,9 @@ import {
   detailedLocation,
   formatDate,
   formatMastheadDate,
+  formatMastheadShort,
   getRegulatoryStatus,
+  moreStories,
   safeSourceUrl,
   splitArticleParagraphs,
 } from '../lib/propertyNews/articleFormat';
@@ -30,6 +32,8 @@ import { fetchNewsArticle, fetchNewsList } from '../lib/propertyNews/newsRequest
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
 import { errorMessage } from '../lib/errors';
+import { loginUrl } from '../lib/safeRedirect';
+import { PROPERTY_NEWS_STYLES } from '../components/propertyNews/propertyNewsStyles';
 
 function NewsCardImage({ src }: { src?: string }) {
   const [loaded, setLoaded] = useState(false);
@@ -112,35 +116,70 @@ function DetailImage({
   );
 }
 
+const NewsIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
+    <path d="M18 14h-8" />
+    <path d="M15 18h-5" />
+    <path d="M10 6h8v4h-8V6Z" />
+  </svg>
+);
+
+/** Only when the news loaded and there is really nothing to show. */
 function EmptyState() {
   return (
     <div className="state">
-      <div className="state-icon-wrap">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-          <path d="M18 14h-8" />
-          <path d="M15 18h-5" />
-          <path d="M10 6h8v4h-8V6Z" />
-        </svg>
-      </div>
-      <div className="state-title">All Caught Up</div>
-      <p className="state-desc">
-        There are no new property updates right now. We continuously monitor official land registries,
-        gazettes, and verified news in Kenya.
-      </p>
-      <div className="state-badge">
-        <span className="state-dot"></span> 24/7 Source Monitoring Active
+      <div className="state-icon-wrap"><NewsIcon /></div>
+      <div className="state-title">All caught up</div>
+      <p className="state-desc">There are no property updates right now. New stories appear here as soon as they are published.</p>
+    </div>
+  );
+}
+
+/** The news or an article could not load: say so, and offer a way forward. */
+function ErrorState({ title, onRetry, retrying, backToFront = false }: { title: string; onRetry: () => void; retrying: boolean; backToFront?: boolean }) {
+  return (
+    <div className="state" role="alert">
+      <div className="state-icon-wrap"><NewsIcon /></div>
+      <div className="state-title">{title}</div>
+      <p className="state-desc">Please check your connection and try again.</p>
+      <div className="state-actions">
+        <button type="button" className="news-btn primary" onClick={onRetry} disabled={retrying}>{retrying ? 'Trying again…' : 'Try again'}</button>
+        {backToFront && <Link href="/property-news" className="news-btn">Front page</Link>}
       </div>
     </div>
+  );
+}
+
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3v12M7 8l5-5 5 5" /><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+  </svg>
+);
+
+/** Phones open the share sheet; elsewhere the article link is copied. */
+function ShareButton({ title }: { title: string }) {
+  const [status, setStatus] = useState('');
+  const share = async () => {
+    const url = window.location.href;
+    const nav = navigator as Navigator & { share?: (data: { title?: string; url?: string }) => Promise<void> };
+    if (typeof nav.share === 'function' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+      try { await nav.share({ title, url }); } catch { /* closed */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setStatus('Link copied');
+    } catch {
+      setStatus('Copy the link from the address bar');
+    }
+    window.setTimeout(() => setStatus(''), 2200);
+  };
+  return (
+    <span className="article-share">
+      <button type="button" className="news-btn" onClick={() => { void share(); }}><ShareIcon />Share</button>
+      <span className="share-status" role="status" aria-live="polite">{status}</span>
+    </span>
   );
 }
 
@@ -227,7 +266,8 @@ export default function PropertyNewsPage() {
   const router = useRouter();
   const articleId = router.isReady && router.query.id ? String(router.query.id) : null;
 
-  const [dashboardHref, setDashboardHref] = useState('/host-home');
+  const [revealing, setRevealing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [newsItems, setNewsItems] = useState<PropertyNewsItem[] | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState(false);
@@ -240,28 +280,13 @@ export default function PropertyNewsPage() {
 
   const scrollRestoredRef = useRef(false);
 
-  // Stage 1: Enforce light theme while Property News is the active page.
-  // Route transitions to other pages are handled authoritatively by _app.js on routeChangeComplete.
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.documentElement.style.colorScheme = 'light';
-  }, []);
 
-  // Determine user dashboard link without altering layout. The verified
-  // account's role wins; the non-private last-role hint covers signed-out views.
-  const verifiedRole = accountRole(useAuth().profile);
-  useEffect(() => {
-    if (verifiedRole) {
-      setDashboardHref(verifiedRole === 'client' ? '/client-home' : '/host-home');
-      return;
-    }
-    try {
-      const lastRole = localStorage.getItem('varoom_last_role') || localStorage.getItem('varoom_user_role');
-      setDashboardHref(lastRole === 'client' ? '/client-home' : '/host-home');
-    } catch {
-      setDashboardHref('/host-home');
-    }
-  }, [verifiedRole]);
+  // The way back: signed in, the account's own home (from the verified
+  // profile); visitors go to the VaRoom site and can log in.
+  const auth = useAuth();
+  const verifiedRole = accountRole(auth.profile);
+  const signedIn = auth.status === 'signed-in';
+  const homeHref = signedIn ? (verifiedRole === 'client' ? '/client-home' : '/host-home') : '/';
 
   // Fetch or restore news index
   const loadIndexNews = useCallback(async (signal?: AbortSignal, force = false) => {
@@ -274,13 +299,16 @@ export default function PropertyNewsPage() {
       }
     }
 
-    if (force || !cached || cached.items.length === 0) {
+    const firstShow = !cached || cached.items.length === 0;
+    if (force || firstShow) {
       setListLoading(true);
     }
     setListError(false);
     try {
       const validItems = await fetchNewsList(signal, force);
       if (!signal?.aborted) {
+        // Stories fade in only the first time they arrive (not from the saved copy).
+        if (firstShow) setRevealing(true);
         setNewsItems(validItems);
         setCachedNewsList(validItems);
         setListLoading(false);
@@ -375,6 +403,35 @@ export default function PropertyNewsPage() {
     }
   };
 
+  // The reveal plays once.
+  useEffect(() => {
+    if (!revealing) return undefined;
+    const timer = window.setTimeout(() => setRevealing(false), 700);
+    return () => window.clearTimeout(timer);
+  }, [revealing]);
+
+  // An article ends with other stories: the saved front page, else fetched quietly.
+  useEffect(() => {
+    if (!articleId || newsItems) return undefined;
+    const controller = new AbortController();
+    const cached = getCachedNewsList();
+    if (cached && cached.items.length) setNewsItems(cached.items);
+    else fetchNewsList(controller.signal).then((items) => { setNewsItems(items); setCachedNewsList(items); }, () => { /* the article stands alone */ });
+    return () => controller.abort();
+  }, [articleId, newsItems]);
+
+  const retryList = async () => {
+    setRetrying(true);
+    await loadIndexNews(undefined, true);
+    setRetrying(false);
+  };
+  const retryArticle = async () => {
+    if (!articleId) return;
+    setRetrying(true);
+    await loadDetail(articleId);
+    setRetrying(false);
+  };
+
   const handleImageFail = (url: string) => {
     setFailedImageUrls((prev) => ({ ...prev, [url]: true }));
   };
@@ -400,13 +457,17 @@ export default function PropertyNewsPage() {
         />
       </Head>
 
+      <style dangerouslySetInnerHTML={{ __html: PROPERTY_NEWS_STYLES }} />
       <div className="property-news-root">
         {/* NEWSPAPER MASTHEAD */}
         <header className="newspaper-masthead-container">
           <div className="masthead-topbar">
-            <span className="masthead-brand"><span className="masthead-badge-va">Va</span>Room</span>
+            <Link href={homeHref} className="masthead-brand" aria-label={signedIn ? 'VaRoom home' : 'VaRoom'}><span className="masthead-badge-va">Va</span>Room</Link>
             <div className="masthead-date-nav">
-              <span className="masthead-date-text">{formatMastheadDate(mastheadDate)}</span>
+              <span className="masthead-date-text">
+                <span className="masthead-date-long">{formatMastheadDate(mastheadDate)}</span>
+                <span className="masthead-date-short">{formatMastheadShort(mastheadDate)}</span>
+              </span>
               {articleId ? (
                 <Link href="/property-news" className="newspaper-nav-link" aria-label="Return to all property news">
                   ← Front Page
@@ -421,9 +482,15 @@ export default function PropertyNewsPage() {
                   >
                     Refresh
                   </button>
-                  <Link href={dashboardHref} className="newspaper-nav-link" aria-label="Return to VaRoom dashboard">
-                    ← Dashboard
-                  </Link>
+                  {signedIn ? (
+                    <Link href={homeHref} className="newspaper-nav-link" aria-label="Back to your VaRoom home">
+                      ← Home
+                    </Link>
+                  ) : (
+                    <Link href={loginUrl('/property-news')} className="newspaper-nav-link">
+                      Log in
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -447,7 +514,7 @@ export default function PropertyNewsPage() {
             /* =================== ARTICLE DETAIL VIEW =================== */
             <article className="detail" id="news-detail" aria-live="polite">
               {detailError && !detailItem ? (
-                <EmptyState />
+                <ErrorState title="This story could not load" onRetry={() => { void retryArticle(); }} retrying={retrying} backToFront />
               ) : !detailItem ? (
                 <div className="newspaper-skeleton-box">
                   <div className="newspaper-skeleton-line" style={{ height: '36px', width: '80%', marginBottom: '1.2rem' }}></div>
@@ -464,7 +531,10 @@ export default function PropertyNewsPage() {
 
                     <h1 className="article-headline">{detailItem.title}</h1>
 
-                    <Dateline news={detailItem} detailed />
+                    <div className="article-tools">
+                      <Dateline news={detailItem} detailed />
+                      <ShareButton title={detailItem.title} />
+                    </div>
                   </header>
 
                   <div className="editorial-divider" />
@@ -550,6 +620,24 @@ export default function PropertyNewsPage() {
                       the published record and is not legal advice.
                     </div>
                   )}
+
+                  {/* More stories: the next headlines, so readers don't have to go back first. */}
+                  {moreStories(newsItems, articleId).length > 0 && (
+                    <section className="more-stories" aria-labelledby="more-stories-title">
+                      <h2 className="more-stories-title" id="more-stories-title">More stories</h2>
+                      <ul className="more-stories-list">
+                        {moreStories(newsItems, articleId).map((story) => (
+                          <li key={story.id}>
+                            <Link className="more-story-link" href={`/property-news?id=${encodeURIComponent(String(story.id))}`}>
+                              <h3>{story.title}</h3>
+                              <Dateline news={story} />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  <div className="back-front"><Link href="/property-news" className="news-btn">← Front page</Link></div>
                 </div>
               )}
             </article>
@@ -562,10 +650,12 @@ export default function PropertyNewsPage() {
                   <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
                   <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
                 </div>
+              ) : listError && (!newsItems || newsItems.length === 0) ? (
+                <ErrorState title="News could not load" onRetry={() => { void retryList(); }} retrying={retrying} />
               ) : !newsItems || newsItems.length === 0 ? (
                 <EmptyState />
               ) : (
-                <div className="newspaper-front-page">
+                <div className={`newspaper-front-page${revealing ? ' is-revealing' : ''}`}>
                   {listError && (
                     <p className="news-refresh-error" role="status">
                       Property News could not be refreshed. Showing previously loaded articles.
@@ -680,832 +770,7 @@ export default function PropertyNewsPage() {
         </main>
       </div>
 
-      <style jsx global>{`
-        :root {
-          --newspaper-white: #ffffff;
-          --newspaper-ink: #111111;
-          --newspaper-body: #1c1c1c;
-          --newspaper-muted: #555555;
-          --newspaper-border: #111111;
-          --newspaper-rule-light: #dedede;
-          --newspaper-accent: #c41e3a;
-          --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
-          --font-serif-body: 'Newsreader', Georgia, 'Times New Roman', serif;
-          --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
 
-        .property-news-root {
-          margin: 0;
-          min-height: 100vh;
-          background: var(--newspaper-white);
-          color: var(--newspaper-ink);
-          font-family: var(--font-sans);
-          -webkit-font-smoothing: antialiased;
-        }
-
-        .property-news-root a {
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .property-news-root :focus-visible {
-          outline: 2px solid var(--newspaper-ink);
-          outline-offset: 3px;
-        }
-
-        /* =================== DARK-MODE ISOLATION (Stage 1) =================== */
-        /* Prevent varoom-dark-theme.css rules from inverting Property News.
-           Scoped strictly to .property-news-root and descendants. */
-        html[data-theme="dark"] .property-news-root,
-        html[data-theme="dark"] .property-news-root .newspaper-main {
-          background: #ffffff !important;
-          color: #111111 !important;
-          color-scheme: light !important;
-        }
-
-        html[data-theme="dark"] .newspaper-masthead-container,
-        html[data-theme="dark"] .newspaper-article-container,
-        html[data-theme="dark"] .frontpage-lead-article,
-        html[data-theme="dark"] .news-card,
-        html[data-theme="dark"] .article-header,
-        html[data-theme="dark"] .article-columns,
-        html[data-theme="dark"] .article-col,
-        html[data-theme="dark"] .article-media,
-        html[data-theme="dark"] .fact-grid,
-        html[data-theme="dark"] .fact-item,
-        html[data-theme="dark"] .source-box {
-          background: transparent !important;
-          color: inherit !important;
-        }
-
-        html[data-theme="dark"] .masthead-rule-thick,
-        html[data-theme="dark"] .masthead-rule-thin,
-        html[data-theme="dark"] .editorial-divider {
-          background: #111111 !important;
-          border-color: #111111 !important;
-        }
-
-        html[data-theme="dark"] .masthead-topbar,
-        html[data-theme="dark"] .masthead-date-nav,
-        html[data-theme="dark"] .detail-image-caption,
-        html[data-theme="dark"] .caption-text,
-        html[data-theme="dark"] .caption-credit,
-        html[data-theme="dark"] .dateline-date,
-        html[data-theme="dark"] .eyebrow {
-          color: #555555 !important;
-        }
-
-        /* =================== NEWSPAPER MASTHEAD =================== */
-        .newspaper-masthead-container {
-          max-width: 1140px;
-          margin: 0 auto;
-          padding: 1.25rem 1.5rem 0;
-          background: var(--newspaper-white);
-        }
-
-        .masthead-topbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.8rem;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--newspaper-muted);
-          padding-bottom: 0.5rem;
-        }
-
-        .masthead-brand {
-          font-weight: 900;
-          letter-spacing: 0.04em;
-          color: var(--newspaper-ink);
-        }
-
-        .masthead-date-nav {
-          display: flex;
-          align-items: center;
-          gap: 1.2rem;
-        }
-
-        .newspaper-nav-link {
-          color: var(--newspaper-ink);
-          font-weight: 700;
-          font-size: 0.8rem;
-          letter-spacing: 0.05em;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-          transition: color 0.15s ease;
-        }
-
-        button.newspaper-nav-link {
-          padding: 0;
-          border: 0;
-          background: none;
-          font: inherit;
-          text-transform: inherit;
-          cursor: pointer;
-        }
-
-        button.newspaper-nav-link:disabled {
-          cursor: wait;
-          opacity: 0.6;
-        }
-
-        .newspaper-nav-link:hover {
-          color: var(--newspaper-accent);
-        }
-
-        .news-refresh-error {
-          grid-column: 1 / -1;
-          color: #8b1e2d;
-          font-size: 0.9rem;
-        }
-
-        .masthead-rule-thick {
-          height: 3px;
-          background: var(--newspaper-border);
-          width: 100%;
-        }
-
-        .masthead-rule-thin {
-          height: 1px;
-          background: var(--newspaper-border);
-          width: 100%;
-          margin: 2px 0;
-        }
-
-        .masthead-center {
-          text-align: center;
-          padding: 1rem 0 0.85rem;
-        }
-
-        .masthead-title-link {
-          display: inline-block;
-        }
-
-        .masthead-title {
-          margin: 0;
-          font-family: var(--font-display);
-          font-size: clamp(2.8rem, 7.8vw, 5.2rem);
-          font-weight: 900;
-          line-height: 0.95;
-          letter-spacing: -0.01em;
-          text-transform: uppercase;
-          color: var(--newspaper-ink);
-        }
-
-        .masthead-badge-va {
-          color: var(--newspaper-accent);
-        }
-
-        /* =================== MAIN EDITORIAL WRAPPER =================== */
-        .newspaper-main {
-          max-width: 1140px;
-          margin: 0 auto;
-          padding: 2rem 1.5rem 5rem;
-        }
-
-        .editorial-divider {
-          height: 1px;
-          background: var(--newspaper-border);
-          margin: 1.5rem 0 2rem;
-          border: none;
-        }
-
-        .eyebrow {
-          font-size: 0.78rem;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          font-weight: 800;
-          color: var(--newspaper-ink);
-          margin: 0;
-        }
-
-        /* =================== ARTICLE DETAIL VIEW =================== */
-        .article-header {
-          padding-bottom: 0.5rem;
-        }
-
-        .article-category-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.8rem;
-        }
-
-        .article-headline {
-          margin: 0 0 1rem;
-          font-family: var(--font-display);
-          font-size: clamp(2.1rem, 5vw, 3.5rem);
-          font-weight: 800;
-          line-height: 1.12;
-          letter-spacing: -0.02em;
-          color: var(--newspaper-ink);
-        }
-
-        /* Dateline: the place in small tracked capitals, the date beneath it
-           in the body face, so neither runs into the other. */
-        .dateline {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .dateline-place {
-          font-family: var(--font-sans);
-          font-size: 0.7rem;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          line-height: 1.45;
-          text-transform: uppercase;
-          color: var(--newspaper-ink);
-        }
-
-        .dateline-date {
-          font-family: var(--font-serif-body);
-          font-size: 0.92rem;
-          font-style: italic;
-          line-height: 1.4;
-          color: var(--newspaper-muted);
-        }
-
-        .article-header .dateline-place {
-          font-size: 0.78rem;
-        }
-
-        .article-header .dateline-date {
-          font-size: 1.02rem;
-        }
-
-        /* Newspaper columns: text in the first, media then text in the second. */
-        .article-columns {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          margin-bottom: 2.5rem;
-        }
-
-        .article-columns.single {
-          grid-template-columns: minmax(0, 720px);
-          justify-content: center;
-        }
-
-        .article-col {
-          min-width: 0;
-        }
-
-        .article-col:first-child {
-          padding-right: 2.25rem;
-        }
-
-        .article-col + .article-col {
-          padding-left: 2.25rem;
-          border-left: 1px solid var(--newspaper-rule-light);
-        }
-
-        .article-columns.single .article-col:first-child {
-          padding-right: 0;
-        }
-
-        .detail-summary {
-          font-family: var(--font-serif-body);
-          font-size: 1.25rem;
-          line-height: 1.55;
-          font-weight: 600;
-          font-style: italic;
-          color: var(--newspaper-ink);
-          margin: 0 0 1.35rem;
-          padding-bottom: 1.1rem;
-          border-bottom: 1px solid var(--newspaper-rule-light);
-        }
-
-        .detail-body {
-          font-family: var(--font-serif-body);
-          font-size: 1.1rem;
-          line-height: 1.65;
-          color: var(--newspaper-body);
-        }
-
-        .detail-lead {
-          font-size: 1.2rem;
-          line-height: 1.6;
-          font-weight: 600;
-          color: var(--newspaper-ink);
-          margin: 0 0 1rem;
-        }
-
-        .detail-lead::first-letter {
-          font-size: 3.4em;
-          float: left;
-          line-height: 0.8;
-          margin: 0.1em 0.12em 0 0;
-          font-family: var(--font-display);
-          font-weight: 900;
-          color: var(--newspaper-ink);
-        }
-
-        .detail-p {
-          margin: 0 0 0.95rem;
-        }
-
-        .detail-p:last-child {
-          margin-bottom: 0;
-        }
-
-        .editorial-subhead {
-          font-family: var(--font-display);
-          font-size: 1.45rem;
-          font-weight: 700;
-          line-height: 1.28;
-          color: var(--newspaper-ink);
-          margin: 1.8rem 0 0.7rem;
-        }
-
-        .editorial-pullquote {
-          margin: 1.5rem 0;
-          padding: 1.2rem 1.6rem;
-          border-left: 3px solid var(--newspaper-border);
-          border-top: 1px solid var(--newspaper-rule-light);
-          border-bottom: 1px solid var(--newspaper-rule-light);
-          background: #fbfbfb;
-          font-family: var(--font-display);
-          font-size: 1.25rem;
-          font-style: italic;
-          line-height: 1.55;
-          color: var(--newspaper-ink);
-        }
-
-        .editorial-pullquote p {
-          margin: 0;
-        }
-
-        .detail-notice {
-          margin: 1.2rem 0;
-          padding: 1rem 1.25rem;
-          border-left: 3px solid var(--newspaper-border);
-          background: #f8f8f8;
-          font-size: 0.9rem;
-          font-family: var(--font-sans);
-          color: var(--newspaper-muted);
-        }
-
-        .article-media {
-          display: flex;
-          flex-direction: column;
-          gap: 2rem;
-          margin-bottom: 1.6rem;
-        }
-
-        .detail-image-wrap {
-          margin: 0;
-          opacity: 0;
-          transition: opacity 0.25s ease;
-        }
-
-        .detail-image-wrap.is-loaded {
-          opacity: 1;
-        }
-
-        .detail-image {
-          display: block;
-          width: 100%;
-          height: auto;
-          max-height: 680px;
-          object-fit: cover;
-          border: 1px solid var(--newspaper-border);
-        }
-
-        .detail-image-caption {
-          margin-top: 0.6rem;
-          font-family: var(--font-serif-body);
-          font-size: 0.88rem;
-          line-height: 1.45;
-          color: var(--newspaper-muted);
-          border-bottom: 1px solid var(--newspaper-rule-light);
-          padding-bottom: 0.5rem;
-        }
-
-        .caption-text {
-          font-weight: 700;
-          color: var(--newspaper-ink);
-        }
-
-        .caption-credit {
-          font-style: italic;
-          color: #777;
-        }
-
-        .newspaper-video-box {
-          border: 1px solid var(--newspaper-border);
-          padding: 4px;
-          background: #fff;
-        }
-
-        .newspaper-video {
-          display: block;
-          width: 100%;
-          max-height: 420px;
-          background: #000;
-        }
-
-        /* Fact Grid */
-        .fact-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1.5rem;
-          margin: 2rem 0;
-          padding: 1.25rem 0;
-          border-top: 2px solid var(--newspaper-border);
-          border-bottom: 1px solid var(--newspaper-border);
-        }
-
-        .fact-label {
-          display: block;
-          margin-bottom: 0.25rem;
-          color: var(--newspaper-muted);
-          font-size: 0.72rem;
-          font-weight: 800;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .fact-value {
-          font-family: var(--font-serif-body);
-          font-size: 1.02rem;
-          font-weight: 600;
-          line-height: 1.35;
-          color: var(--newspaper-ink);
-        }
-
-        .source-box {
-          margin-top: 1.8rem;
-          padding: 1.2rem 1.4rem;
-          border: 1px solid var(--newspaper-border);
-          background: var(--newspaper-white);
-          font-size: 0.88rem;
-          line-height: 1.6;
-          color: #333;
-        }
-
-        .source-link {
-          display: inline-block;
-          font-weight: 700;
-          color: var(--newspaper-ink);
-          text-decoration: underline;
-          text-underline-offset: 3px;
-          margin-bottom: 0.3rem;
-        }
-
-        .source-link:hover {
-          color: var(--newspaper-accent);
-        }
-
-        /* =================== NEWSPAPER INDEX VIEW =================== */
-        .frontpage-lead-article {
-          display: grid;
-          grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-          gap: 2.8rem;
-          align-items: stretch;
-          padding-bottom: 1.5rem;
-        }
-
-        .frontpage-lead-article.no-image {
-          grid-template-columns: minmax(0, 1fr);
-        }
-
-        .lead-text-trail {
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-        }
-
-        .lead-kicker {
-          font-size: 0.74rem;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--newspaper-ink);
-        }
-
-        .lead-headline {
-          margin: 0;
-          font-family: var(--font-display);
-          font-size: clamp(1.8rem, 3.6vw, 2.65rem);
-          font-weight: 800;
-          line-height: 1.15;
-          letter-spacing: -0.02em;
-          color: var(--newspaper-ink);
-          transition: color 0.15s ease;
-        }
-
-        .lead-headline:hover {
-          color: var(--newspaper-accent);
-        }
-
-        .lead-excerpt {
-          font-family: var(--font-serif-body);
-          font-size: 1.12rem;
-          line-height: 1.65;
-          color: var(--newspaper-body);
-          margin: 0;
-        }
-
-        .lead-image-trail {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
-
-        .lead-image-link {
-          display: flex;
-          flex: 1 1 auto;
-        }
-
-        /* The frame takes the full height of the lead row, so the image
-           runs down to the divider; the img is absolute so its intrinsic
-           size never stretches the row. */
-        .lead-image-frame {
-          position: relative;
-          flex: 1 1 auto;
-          width: 100%;
-          min-height: 280px;
-          overflow: hidden;
-          border: 1px solid var(--newspaper-border);
-          opacity: 0;
-          transition: opacity 0.25s ease;
-        }
-
-        .lead-image-frame.is-loaded {
-          opacity: 1;
-        }
-
-        .lead-image {
-          position: absolute;
-          inset: 0;
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .frontpage-image-caption {
-          margin-top: 0.45rem;
-          margin-bottom: 0;
-          font-family: var(--font-serif-body);
-          font-size: 0.82rem;
-          font-style: italic;
-          color: var(--newspaper-muted);
-          border-bottom: 1px solid var(--newspaper-rule-light);
-          padding-bottom: 0.4rem;
-        }
-
-        /* Front Page Columns Grid */
-        .news-list {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 2.2rem;
-        }
-
-        .news-card {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding-right: 1.25rem;
-          border-right: 1px solid var(--newspaper-rule-light);
-          background: #fff;
-          border-radius: 0;
-        }
-
-        .news-card:nth-child(3n) {
-          border-right: none;
-          padding-right: 0;
-        }
-
-        .news-card-main {
-          display: block;
-        }
-
-        .news-card h2 {
-          margin: 0 0 0.55rem;
-          font-family: var(--font-display);
-          font-size: 1.3rem;
-          font-weight: 700;
-          line-height: 1.25;
-          color: var(--newspaper-ink);
-          transition: color 0.15s ease;
-        }
-
-        .news-card h2:hover {
-          color: var(--newspaper-accent);
-        }
-
-        .news-card p {
-          margin: 0 0 0.8rem;
-          font-family: var(--font-serif-body);
-          font-size: 0.96rem;
-          line-height: 1.55;
-          color: var(--newspaper-body);
-        }
-
-        .news-card .dateline {
-          margin-bottom: 0.6rem;
-        }
-
-        .news-card-image-wrap {
-          height: 0;
-          overflow: hidden;
-          margin: 0;
-          opacity: 0;
-          transition: opacity 0.25s ease;
-        }
-
-        .news-card-image-wrap.is-loaded {
-          height: 180px;
-          margin: 0.75rem 0 0.65rem;
-          opacity: 1;
-        }
-
-        .news-card-image {
-          display: block;
-          width: 100%;
-          height: 180px;
-          object-fit: cover;
-          border: 1px solid var(--newspaper-border);
-        }
-
-        .news-card-source {
-          margin-top: 0.6rem;
-          color: var(--newspaper-muted);
-          font-size: 0.75rem;
-          line-height: 1.35;
-        }
-
-        .news-card-source-link {
-          color: inherit;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-
-        .news-card-source-link:hover {
-          color: var(--newspaper-accent);
-        }
-
-        /* =================== STATES & SKELETONS =================== */
-        .state {
-          padding: 3.5rem 1.5rem;
-          text-align: center;
-          border: 2px solid var(--newspaper-border);
-          background: var(--newspaper-white);
-          color: var(--newspaper-muted);
-          line-height: 1.5;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.65rem;
-          margin: 2rem 0;
-        }
-
-        .state-icon-wrap {
-          width: 48px;
-          height: 48px;
-          border: 1px solid var(--newspaper-border);
-          color: var(--newspaper-ink);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 0.3rem;
-        }
-
-        .state-title {
-          font-family: var(--font-display);
-          font-size: 1.35rem;
-          font-weight: 700;
-          color: var(--newspaper-ink);
-        }
-
-        .state-desc {
-          font-family: var(--font-serif-body);
-          font-size: 0.98rem;
-          color: var(--newspaper-muted);
-          max-width: 460px;
-          margin: 0;
-          line-height: 1.6;
-        }
-
-        .state-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          font-size: 0.75rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--newspaper-ink);
-          border: 1px solid var(--newspaper-border);
-          padding: 0.3rem 0.8rem;
-          margin-top: 0.65rem;
-        }
-
-        .state-dot {
-          width: 6px;
-          height: 6px;
-          background: #111;
-        }
-
-        .newspaper-skeleton-box {
-          border: 1px solid var(--newspaper-rule-light);
-          padding: 1.5rem;
-          background: #fafafa;
-        }
-
-        .newspaper-skeleton-line {
-          height: 14px;
-          background: linear-gradient(
-            90deg,
-            #eaeaea 0%,
-            #dfdfdf 50%,
-            #eaeaea 100%
-          );
-          background-size: 200% 100%;
-          animation: newspaperShimmer 1.5s ease-in-out infinite;
-        }
-
-        @keyframes newspaperShimmer {
-          0% {
-            background-position: 200% 0;
-          }
-          100% {
-            background-position: -200% 0;
-          }
-        }
-
-        /* =================== RESPONSIVE DESIGN =================== */
-        @media (max-width: 900px) {
-          .news-list {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.8rem;
-          }
-          .news-card:nth-child(3n) {
-            border-right: 1px solid var(--newspaper-rule-light);
-            padding-right: 1.25rem;
-          }
-          .news-card:nth-child(2n) {
-            border-right: none;
-            padding-right: 0;
-          }
-          .frontpage-lead-article {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-          }
-          .article-columns {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .article-col:first-child,
-          .article-col + .article-col {
-            padding: 0;
-            border-left: 0;
-          }
-          .article-col + .article-col {
-            margin-top: 1.6rem;
-          }
-          .lead-image-frame {
-            flex: none;
-            min-height: 0;
-            aspect-ratio: 16 / 10;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .newspaper-masthead-container {
-            padding: 1rem 1rem 0;
-          }
-          .masthead-topbar {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.4rem;
-          }
-          .masthead-date-nav {
-            width: 100%;
-            justify-content: space-between;
-          }
-          .newspaper-main {
-            padding: 1.5rem 1rem 3.5rem;
-          }
-          .news-list {
-            grid-template-columns: 1fr;
-            gap: 1.6rem;
-          }
-          .news-card {
-            border-right: none;
-            border-bottom: 1px solid var(--newspaper-rule-light);
-            padding-right: 0;
-            padding-bottom: 1.5rem;
-          }
-          .fact-grid {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-        }
-      `}</style>
     </>
   );
 }

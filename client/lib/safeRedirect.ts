@@ -4,8 +4,10 @@
 // javascript:/data: URLs (their origin is "null").
 export function getSafeRedirect(value: unknown, origin?: string): string {
   if (typeof value !== 'string' || !value) return '';
-  const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
-  if (!base) return '';
+  // On the server (no window), a placeholder origin still tells an on-site
+  // path ("/marketplace") from another site ("https://…", "//…"), so links
+  // built while the page renders keep their way back.
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : 'https://varoom.invalid');
   try {
     const url = new URL(value, base);
     if (url.origin !== base) return '';

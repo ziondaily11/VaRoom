@@ -11,7 +11,8 @@ const slugPath = path.join(root, 'pages', '[...slug].js');
 const format = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'propertyNews', 'articleFormat.ts'));
 
 test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () => {
-  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+  // The page and its stylesheet (moved out of the page and scoped to .property-news-root).
+  const source = fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
   // The masthead names the paper once: no edition line or strapline explaining it.
   assert.match(source, /className="newspaper-masthead-container"/);
@@ -43,7 +44,8 @@ test('Section 1 & 2: Newspaper Masthead and Article Header are implemented', () 
 });
 
 test('Section 3: Newspaper columns: media heads the second column and the story continues beneath it', () => {
-  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+  // The page and its stylesheet (moved out of the page and scoped to .property-news-root).
+  const source = fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
   assert.match(source, /className=\{`article-columns\$\{twoColumns \? '' : ' single'\}`\}/);
   assert.match(source, /className="detail-body"/);
@@ -64,7 +66,8 @@ test('Section 3: Newspaper columns: media heads the second column and the story 
 });
 
 test('Section 4: Conditional Image and Media Rendering', () => {
-  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+  // The page and its stylesheet (moved out of the page and scoped to .property-news-root).
+  const source = fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
   // Images come from images[] (strings or objects), image_urls[] and image_url,
   // trimmed and de-duplicated; captions/credits fall back to the article's and
@@ -109,7 +112,8 @@ test('Section 4: Conditional Image and Media Rendering', () => {
 });
 
 test('Section 5: Responsive Design across Desktop, Tablet, and Mobile', () => {
-  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+  // The page and its stylesheet (moved out of the page and scoped to .property-news-root).
+  const source = fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
   // Desktop: two equal columns with a rule between them.
   assert.match(source, /\.article-columns\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
@@ -140,7 +144,8 @@ test('Section 6: Routing and Property News Links to Native TSX Page', () => {
 });
 
 test('Section 7: Fact grid, Source Box, and Clean Editorial Verification', () => {
-  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+  // The page and its stylesheet (moved out of the page and scoped to .property-news-root).
+  const source = fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
   assert.match(source, /className="fact-grid"/);
   assert.match(source, /className="source-box"/);

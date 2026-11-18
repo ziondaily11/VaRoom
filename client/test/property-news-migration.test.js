@@ -12,7 +12,7 @@ const slugPath = path.join(root, 'pages', '[...slug].js');
 const { getAccountLayout } = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts'));
 const format = loadTs(path.join(root, 'lib', 'propertyNews', 'articleFormat.ts'));
 
-const readPage = () => fs.readFileSync(propertyNewsPath, 'utf8');
+const readPage = () => fs.readFileSync(propertyNewsPath, 'utf8') + fs.readFileSync(path.join(root, 'components', 'propertyNews', 'propertyNewsStyles.ts'), 'utf8');
 
 // Loads the request helpers with a fetch stub that records each call.
 function loadRequests(respond) {
@@ -37,8 +37,11 @@ test('Phase 1 & 2: Property News is a native React page with its own editorial l
   assert.doesNotMatch(source, /Property News on VaRoom<\/h1>|Original Country News Edition|Property Gazette/);
   assert.match(source, /className="fact-grid"/);
   assert.match(source, /className="source-box"/);
-  assert.match(source, /24\/7 Source Monitoring Active/);
-  assert.match(source, /All Caught Up/);
+  // "All caught up" only when the news really is empty; a failed load says so and offers Try again.
+  assert.doesNotMatch(source, /24\/7 Source Monitoring Active/);
+  assert.match(source, /All caught up/);
+  assert.match(source, /<ErrorState title="News could not load"/);
+  assert.match(source, /<ErrorState title="This story could not load" onRetry=\{\(\) => \{ void retryArticle\(\); \}\} retrying=\{retrying\} backToFront \/>/);
 });
 
 test('Phase 2: Property News route resolves to none layout, preserving clean editorial shell', () => {
@@ -116,7 +119,14 @@ test('native Property News wires cache-first article navigation, loading/error s
   assert.match(source, /setCachedNewsList\(validItems\)/);
   // Articles open client-side; the dashboard link follows the account role.
   assert.match(source, /<Link[\s\S]*?href=\{`\/property-news\?id=\$\{encodeURIComponent\(/);
-  assert.match(source, /href=\{dashboardHref\}/);
+  // Signed in: back to the account's home; visitors: Log in (no dashboard link that bounces to sign-in).
+  assert.match(source, /const homeHref = signedIn \? \(verifiedRole === 'client' \? '\/client-home' : '\/host-home'\) : '\/';/);
+  assert.match(source, /<Link href=\{loginUrl\('\/property-news'\)\} className="newspaper-nav-link">/);
+  assert.doesNotMatch(source, /setAttribute\('data-theme', 'light'\)/, 'the page no longer forces light mode');
+  assert.match(source, /html\[data-theme="dark"\] \.property-news-root \{/);
+  assert.doesNotMatch(source, /:root|<style jsx global>/);
+  assert.match(source, /<ShareButton title=\{detailItem\.title\} \/>/);
+  assert.match(source, /moreStories\(newsItems, articleId\)/);
   assert.match(source, /className="index-loading-grid"/);
   assert.match(source, /onClick=\{\(\) => \{ void loadIndexNews\(undefined, true\); \}\}/);
 });
@@ -278,4 +288,22 @@ test('locations, dates and regulatory labels', () => {
   assert.deepEqual(format.getRegulatoryStatus({ regulatory_status: 'reported' }), { label: 'UPDATE', className: 'reported' });
   assert.deepEqual(format.getRegulatoryStatus({ category: 'market' }), { label: 'MARKET UPDATE', className: 'market' });
   assert.equal(format.getRegulatoryStatus({ regulatory_status: 'unknown', category: 'taxation' }), null);
+});
+
+test('Property News helpers: short masthead date and more stories', () => {
+  const fmt = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'propertyNews', 'articleFormat.ts'));
+  assert.equal(fmt.formatMastheadShort('2026-11-18T09:00:00Z'), 'Wed 18 Nov');
+  const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }];
+  assert.deepEqual(fmt.moreStories(items, 'b').map((item) => item.id), ['a', 'c', 'd']);
+  assert.deepEqual(fmt.moreStories(null, 'b'), []);
+});
+
+test('safe redirects also work while the page renders on the server', () => {
+  const { getSafeRedirect, loginUrl } = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'safeRedirect.ts'));
+  assert.equal(typeof window, 'undefined');
+  assert.equal(getSafeRedirect('/property-news?id=n1'), '/property-news?id=n1');
+  assert.equal(getSafeRedirect('https://evil.example/x'), '');
+  assert.equal(getSafeRedirect('//evil.example/x'), '');
+  assert.equal(getSafeRedirect('javascript:alert(1)'), '');
+  assert.equal(loginUrl('/marketplace'), '/?auth=login&redirect=%2Fmarketplace');
 });

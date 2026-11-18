@@ -27,7 +27,7 @@ test('the pre-paint theme script generated from lib/theme.ts is valid and applie
   const { themeBootScript } = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'theme.ts'));
   const script = themeBootScript();
   assert.doesNotThrow(() => new Function(script), SyntaxError);
-  for (const [pathname, saved, expected] of [['/', 'dark', 'light'], ['/property-news/', 'dark', 'light'], ['/bookings', 'dark', 'dark'], ['/bookings', null, 'light']]) {
+  for (const [pathname, saved, expected] of [['/', 'dark', 'light'], ['/property-news/', 'dark', 'dark'], ['/bookings', 'dark', 'dark'], ['/bookings', null, 'light']]) {
     const attrs = {};
     const documentElement = { style: {}, setAttribute: (key, value) => { attrs[key] = value; } };
     new Function('window', 'document', 'localStorage', script)(
