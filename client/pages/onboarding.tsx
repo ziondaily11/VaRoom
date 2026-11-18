@@ -54,6 +54,8 @@ export default function OnboardingPage() {
   const [recheck, setRecheck] = useState<'idle' | 'running' | 'done'>('idle');
   // Step 1's photo uploads behind the scenes while the host fills in step 2.
   const [chosenPhoto, setChosenPhoto] = useState<PhotoState | null>(null);
+  // Step 1 cleared the saved photo (the auth profile refreshes only at the end).
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [upload, setUpload] = useState<PhotoUpload>('idle');
   const uploadBlob = useRef<Blob | null>(null);
   const uploadRun = useRef<{ seq: number; done: Promise<PhotoUpload> } | null>(null);
@@ -195,7 +197,7 @@ export default function OnboardingPage() {
   }
 
   const hostExtras = extras as HostExtras;
-  const existingAvatar = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
+  const existingAvatar = profile.avatar_url && !avatarRemoved ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
   // The bar: the account, the profile and the listing step; a step counts once it is filled in.
   const profileFilled = (profileDraft.username || '').length >= 3 && phoneValid(profileDraft.phone) && locationValid(profileDraft.city);
   const listingFilled = Boolean(listingDraft && listingDraft.niche && discoverNameValid(listingDraft.name));
@@ -219,7 +221,8 @@ export default function OnboardingPage() {
             existingAvatar={existingAvatar}
             initialPhoto={chosenPhoto}
             onDraft={onProfileDraft}
-            onDone={(newPhoto) => {
+            onDone={(newPhoto, removedAvatar) => {
+              if (removedAvatar) setAvatarRemoved(true);
               setExtras((current) => (current ? { ...current, city: profileDraft.city, phone: profileDraft.phone } : current));
               setSavedUsername(profileDraft.username);
               if (newPhoto) { setChosenPhoto(newPhoto.photo); startUpload(newPhoto.blob); }

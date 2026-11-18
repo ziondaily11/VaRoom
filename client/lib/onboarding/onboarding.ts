@@ -174,8 +174,12 @@ async function update(client: SupabaseClient, userId: string, patch: Record<stri
 export const saveClientPreferences = (client: SupabaseClient, userId: string, interests: Interest[]) =>
   update(client, userId, { interested_categories: interests, looking_timeline: 'soon', onboarding_completed: true });
 
-export const saveHostProfile = (client: SupabaseClient, userId: string, values: { username: string; phone: string; city: string }) =>
-  update(client, userId, { username: values.username, phone: normalisePhone(values.phone), city: values.city.trim() });
+/** Step 1. `removeAvatar` clears the saved photo the host removed (a new photo uploads separately). */
+export const saveHostProfile = (client: SupabaseClient, userId: string, values: { username: string; phone: string; city: string; removeAvatar?: boolean }) =>
+  update(client, userId, {
+    username: values.username, phone: normalisePhone(values.phone), city: values.city.trim(),
+    ...(values.removeAvatar ? { avatar_url: null } : {}),
+  });
 
 export const saveHostListing = (client: SupabaseClient, userId: string, niche: Category, discoverName: string) =>
   update(client, userId, { listing_categories: [niche], full_name: discoverName.trim(), onboarding_completed: true });

@@ -48,21 +48,35 @@ export const ONBOARDING_STYLES = `
   .onb-spinner{ width:16px; height:16px; border:2px solid #d8d3cb; border-top-color:var(--ink); border-radius:50%; animation:onb-spin .7s linear infinite; flex-shrink:0; }
   @keyframes onb-spin{ to{ transform:rotate(360deg); } }
 
+  /* The photo: a large circle; the camera sits on its edge at the lower right (45°). */
   .onb-photo{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
-  .onb-photo-ring{ position:relative; }
-  .onb-photo-frame{ position:relative; width:104px; height:104px; flex-shrink:0; border-radius:50%; overflow:hidden; background:#F3F1ED; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:pointer; box-shadow:0 0 0 1px var(--line); }
-  .onb-photo.has-photo .onb-photo-frame{ box-shadow:0 0 0 3px var(--card), 0 0 0 4px var(--line); }
-  .onb-photo-badge{ position:absolute; right:-2px; bottom:-2px; width:34px; height:34px; border-radius:50%; border:3px solid var(--card); background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:transform var(--motion-press,120ms) var(--ease-out,ease); }
-  .onb-photo-badge svg{ width:15px; height:15px; }
-  .onb-photo-badge:active{ transform:scale(var(--press-scale,.97)); }
-  .onb-photo-badge:focus-visible{ outline:3px solid rgba(196,30,58,.35); outline-offset:2px; }
-  .onb-optional{ font-weight:500; color:var(--soft); }
+  .onb-photo-ring{ --photo-size:144px; --cam-size:44px; position:relative; width:var(--photo-size); height:var(--photo-size); }
+  .onb-photo-frame{ position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden; background:#F3F1ED; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:pointer; box-shadow:0 0 0 1px var(--line); }
+  .onb-photo.has-photo .onb-photo-frame{ box-shadow:0 0 0 4px var(--card), 0 0 0 5px var(--line); }
+  .onb-photo-camera{ position:absolute; right:calc(var(--photo-size) * .1464 - var(--cam-size) / 2); bottom:calc(var(--photo-size) * .1464 - var(--cam-size) / 2); width:var(--cam-size); height:var(--cam-size); border-radius:50%; border:3px solid var(--card); background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; box-shadow:0 4px 12px rgba(36,33,30,.22);
+    transition:background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }
+  .onb-photo-camera svg{ width:45%; height:45%; }
+  .onb-photo-camera:active{ transform:scale(var(--press-scale,.97)); }
+  .onb-photo-camera:focus-visible{ outline:3px solid rgba(196,30,58,.45); outline-offset:2px; }
+  @media (hover:hover){ .onb-photo-camera:hover{ background:#000; } }
+  .onb-photo-menu{ position:absolute; z-index:5; top:calc(100% + 10px); left:50%; width:200px; margin-left:-100px; padding:6px; border-radius:14px; background:var(--card); border:1px solid var(--line); box-shadow:0 18px 40px -12px rgba(36,33,30,.35); display:flex; flex-direction:column; transform-origin:top center;
+    animation:onb-menu-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+  .onb-photo-menu.is-closing{ animation:onb-menu-out 160ms var(--ease-in,ease) both; pointer-events:none; }
+  .onb-photo-menu button{ height:42px; padding:0 12px; border:0; border-radius:10px; background:none; font:500 0.9375rem Inter, system-ui, sans-serif; color:var(--ink); text-align:left; cursor:pointer; transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
+  .onb-photo-menu button:focus-visible{ outline:none; background:#F3F1ED; }
+  @media (hover:hover){ .onb-photo-menu button:hover{ background:#F3F1ED; } }
+  .onb-photo-menu button.is-danger{ color:var(--bad); }
+  .onb-photo-menu .onb-photo-menu-cancel, .onb-photo-scrim{ display:none; }
+  @keyframes onb-menu-in{ from{ opacity:0; transform:scale(.95); } to{ opacity:1; transform:none; } }
+  @keyframes onb-menu-out{ from{ opacity:1; transform:none; } to{ opacity:0; transform:scale(.95); } }
+  @keyframes onb-sheet-in{ from{ transform:translateY(100%); } to{ transform:none; } }
+  @keyframes onb-sheet-out{ from{ transform:none; } to{ transform:translateY(100%); } }
+  @keyframes onb-fade-in{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes onb-fade-out{ from{ opacity:1; } to{ opacity:0; } }
   .onb-photo-frame.is-adjustable{ cursor:grab; }
   .onb-photo-frame.is-adjusting{ cursor:grabbing; }
   .onb-photo-frame img{ position:absolute; max-width:none; user-select:none; -webkit-user-drag:none; transform:translate(-50%,-50%); pointer-events:none; }
   .onb-photo-frame img.is-whole{ inset:0; width:100%; height:100%; object-fit:cover; transform:none; }
-  .onb-photo-copy{ display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
-  .onb-photo-title{ font-weight:600; font-size:0.9375rem; }
   .onb-photo-actions{ display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-top:2px; }
   .onb-link-btn{ padding:0; border:0; background:none; font:600 0.8125rem Inter, system-ui, sans-serif; color:var(--red-deep); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   .onb-link-btn:hover{ color:#5e0c1b; }
@@ -123,7 +137,7 @@ export const ONBOARDING_STYLES = `
     .onb-flow{ gap:16px; }
     .onb-sheet{ padding:18px 22px; gap:14px; }
     .onb-photo{ gap:8px; }
-    .onb-photo-frame{ width:72px; height:72px; }
+    .onb-photo-ring{ --photo-size:120px; --cam-size:40px; }
     .onb-tile-media{ aspect-ratio:5 / 4; }
     .onb-tiles{ gap:12px; }
     .onb-primary{ height:48px; }
@@ -136,8 +150,7 @@ export const ONBOARDING_STYLES = `
     .onb-input{ height:44px; }
     .onb-flow{ gap:12px; }
     .onb-sheet{ padding:14px 20px; gap:12px; }
-    .onb-photo-frame{ width:60px; height:60px; }
-    .onb-photo-badge{ width:28px; height:28px; }
+    .onb-photo-ring{ --photo-size:96px; --cam-size:36px; }
     .onb-tile-media{ aspect-ratio:3 / 2; border-radius:14px; }
     .onb-tiles.is-5 .onb-tile-media{ aspect-ratio:1 / 1; }
     .onb-tiles{ gap:10px; }
@@ -154,13 +167,23 @@ export const ONBOARDING_STYLES = `
     .onb-tile-media, .onb-tiles.is-5 .onb-tile-media{ aspect-ratio:4 / 5; border-radius:16px; }
     .onb-tiles.is-5 .onb-tile-label{ font-size:0.9375rem; }
     .onb-sheet{ padding:20px 16px; border-radius:20px; }
-    .onb-photo-frame{ width:88px; height:88px; }
+    .onb-photo-ring{ --photo-size:128px; --cam-size:42px; }
+  }
+  /* Phones: Change / Remove rises as a bottom sheet over a dimmed page. */
+  @media (max-width: 640px){
+    .onb-photo-scrim{ display:block; position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.4); animation:onb-fade-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+    .onb-photo-scrim.is-closing{ animation:onb-fade-out 160ms var(--ease-in,ease) both; }
+    .onb-photo-menu{ position:fixed; z-index:41; top:auto; left:0; right:0; bottom:0; width:auto; margin:0; padding:10px 12px calc(12px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; border:0; gap:2px; animation-name:onb-sheet-in; animation-duration:var(--motion-standard,250ms); }
+    .onb-photo-menu.is-closing{ animation-name:onb-sheet-out; animation-duration:200ms; }
+    .onb-photo-menu button{ height:52px; font-size:1rem; text-align:center; }
+    .onb-photo-menu .onb-photo-menu-cancel{ display:block; margin-top:6px; background:#F3F1ED; font-weight:600; }
   }
   @media (prefers-reduced-motion: reduce){
     .onb-spinner{ animation:none; }
     .onb-stage.is-forward, .onb-stage.is-back, .onb-tile{ animation:none; }
-    .onb-progress-fill, .onb-tile, .onb-tile-media, .onb-tile-media img, .onb-tile-check, .onb-tile-check svg, .onb-primary, .onb-back-arrow, .onb-photo-badge{ transition:none; }
-    .onb-tile:active, .onb-primary:not(:disabled):active, .onb-back-arrow:active, .onb-photo-badge:active{ transform:none; }
+    .onb-progress-fill, .onb-tile, .onb-tile-media, .onb-tile-media img, .onb-tile-check, .onb-tile-check svg, .onb-primary, .onb-back-arrow, .onb-photo-camera, .onb-photo-menu button{ transition:none; }
+    .onb-photo-menu, .onb-photo-menu.is-closing, .onb-photo-scrim, .onb-photo-scrim.is-closing{ animation-duration:1ms; }
+    .onb-tile:active, .onb-primary:not(:disabled):active, .onb-back-arrow:active, .onb-photo-camera:active{ transform:none; }
     .onb-tile:hover .onb-tile-media img{ transform:none; }
   }
 `;
