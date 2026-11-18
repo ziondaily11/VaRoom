@@ -39,7 +39,7 @@ test('header labels keep the legacy wording', () => {
   assert.equal(pp.specialisation('host', ['airbnb', 'hotel']), null);
   assert.equal(pp.specialisation('client', ['airbnb']), null);
   assert.equal(pp.bannerUrl('photos/production/profile-banners/a b.jpg'), '/api/photos/profile-banners/photos/production/profile-banners/a%20b.jpg');
-  assert.equal(pp.profileShareUrl('https://varoom.co.ke', 'amazingstays'), 'https://varoom.co.ke/u/amazingstays');
+  assert.equal(pp.profileShareUrl('https://varoom.co.ke', 'amazingstays'), 'https://varoom.co.ke/amazingstays');
   assert.equal(pp.profileShareUrl('https://varoom.co.ke', null), 'https://varoom.co.ke/profile');
   assert.equal(pp.listingPrice(4000, 'night'), 'KSh 4,000 / night');
   assert.equal(pp.listingPrice(70000, 'month'), 'KSh 70,000 / month');

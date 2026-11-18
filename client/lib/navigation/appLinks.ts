@@ -2,6 +2,8 @@
 // sidebars and legacy page markup). Installed once from _app instead of one
 // document listener per layout.
 
+import { profileUsernameFromPath } from '../profile/usernames';
+
 export const HOST_INTERNAL_ROUTES = [
   '/host-home',
   '/bookings',
@@ -30,8 +32,12 @@ export const CLIENT_INTERNAL_ROUTES = [
   '/property-news',
 ];
 
-/** Exact route, a sub-path or a query; routes ending in "/" match as prefixes. */
+/**
+ * Exact route, a sub-path or a query; routes ending in "/" match as prefixes.
+ * A host's public profile (/<username>) is internal in both shells.
+ */
 export function isInternalHref(href: string, routes: string[]): boolean {
+  if (profileUsernameFromPath(href) !== null) return true;
   return routes.some((route) => (route.endsWith('/')
     ? href.startsWith(route)
     : href === route || href.startsWith(`${route}/`) || href.startsWith(`${route}?`)));

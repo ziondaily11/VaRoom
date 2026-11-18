@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCache } from '../cache/createCache';
+import { isAllowedUsername, normalizeUsername, profileAddress } from './usernames';
 
 // /profile (the signed-in account's own profile): client bookings, the
 // header's labels, editing the profile, the avatar and banner uploads and
@@ -38,7 +39,8 @@ export function bannerUrl(key: string | null | undefined): string | null {
 
 /** The share link: the public profile when there is a username. */
 export function profileShareUrl(origin: string, username: string | null | undefined): string {
-  return username ? `${origin}/u/${encodeURIComponent(username)}` : `${origin}/profile`;
+  // Public profiles live at varoom.co.ke/<username>.
+  return username && isAllowedUsername(normalizeUsername(username)) ? `${origin}${profileAddress(username)}` : `${origin}/profile`;
 }
 
 export function shareLinks(url: string) {

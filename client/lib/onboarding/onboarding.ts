@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
+import { isReservedUsername, normalizeUsername, RESERVED_USERNAME_MESSAGE } from '../profile/usernames';
 
 // Onboarding (migrated from legacy-pages/onboarding.html): the choices, the
 // field rules and wording, the saves, and where each role goes when done.
@@ -30,13 +31,15 @@ const isCategory = (value: unknown): value is Category => CATEGORIES.some((optio
 
 export const USERNAME_HELP = 'Your unique name. You can always change it later.';
 
-export const normalizeUsername = (value: string) => value.trim().replace(/^@+/, '').toLowerCase();
+export { normalizeUsername };
 
 /** The format problem with a username, or null when it is well-formed. */
 export function usernameFormatError(username: string): string | null {
   if (username.length < 3) return 'Username must be at least 3 characters.';
-  if (!/^[a-z0-9._]+$/.test(username)) return 'Only lowercase letters, numbers, dot, and underscore allowed.';
+  if (!/^[a-z0-9_]+$/.test(username)) return 'Only lowercase letters, numbers and underscore allowed.';
   if (username.length > 20) return 'Username must be 20 characters or fewer.';
+  // Public profiles live at varoom.co.ke/<username>, beside the site's pages.
+  if (isReservedUsername(username)) return RESERVED_USERNAME_MESSAGE;
   return null;
 }
 

@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCache } from '../cache/createCache';
+import type { MarketplaceListing } from '../marketplace/marketplace';
+import { hostProfilePath } from './usernames';
 
 // A host's profile data, shared by /profile (the host's own) and the public
-// host pages (/host/[hostId], /u/[username]): the profile row, listings,
+// host page (/<username>, or /host/<id> for a host without one): the profile row, listings,
 // profile categories, reviews and (owner only) saved drafts. Each part loads
 // once per host and viewer, is reused for two minutes when navigating back,
 // and loads in parallel. Listing videos are not fetched here: cards load
@@ -10,6 +12,8 @@ import { createCache } from '../cache/createCache';
 
 export const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories';
 export const LISTING_COLUMNS = 'id,title,category,location_text,availability_status,publication_state,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+/** What a public profile's listing cards show: the Marketplace card's fields (every photo, the full booking details). */
+export const CARD_LISTING_COLUMNS = 'id,title,location_text,category,verified,created_at,host_id,availability_status,publication_state,listing_photos(storage_path),listing_booking_details(*)';
 export const PROFILE_TTL_MS = 2 * 60 * 1000;
 /** Plans allow up to 20 active listings; this keeps the read bounded. */
 export const LISTING_LIMIT = 200;
@@ -100,11 +104,8 @@ export function toProfileListing(row: Row): ProfileListing {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: string) => UUID.test(value);
 
-/** A host's in-app profile page: by username when there is one (usernames are unique, ignoring case). */
-export function hostProfilePath(hostId: string, username?: string | null): string {
-  const name = (username || '').replace(/^@/, '').trim();
-  return `/host/${encodeURIComponent(name || hostId)}`;
-}
+/** A host's public profile address (lib/profile/usernames.ts). */
+export { hostProfilePath };
 
 
 /** A host's profile the host has made private (Settings → Privacy) and this viewer may not see. */
@@ -149,6 +150,15 @@ export async function fetchHostListings(client: SupabaseClient, hostId: string, 
   const { data, error } = await query.order('created_at', { ascending: false }).limit(LISTING_LIMIT);
   if (error) throw new Error(error.message);
   return ((data as Row[] | null) || []).map(toProfileListing);
+}
+
+/** The same listings as fetchHostListings, with what the Marketplace card shows. */
+export async function fetchHostCardListings(client: SupabaseClient, hostId: string, owner: boolean): Promise<MarketplaceListing[]> {
+  let query = client.from('listings').select(CARD_LISTING_COLUMNS).eq('host_id', hostId);
+  if (!owner) query = query.eq('moderation_status', 'active').eq('availability_status', 'available');
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(LISTING_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data as unknown as MarketplaceListing[] | null) || [];
 }
 
 export async function fetchProfileCategories(client: SupabaseClient, hostId: string): Promise<ProfileCategory[]> {
@@ -222,6 +232,10 @@ export function peek<T>(viewerId: string | null, hostId: string, part: string): 
 
 export const loadHostListings = (client: SupabaseClient, viewerId: string | null, hostId: string, owner: boolean, force = false) =>
   cached(key(viewerId, hostId, owner ? 'listings:owner' : 'listings'), () => fetchHostListings(client, hostId, owner), force);
+
+/** A public profile's listing cards (owner: every listing, as on /profile). */
+export const loadHostCardListings = (client: SupabaseClient, viewerId: string | null, hostId: string, owner: boolean, force = false) =>
+  cached(key(viewerId, hostId, owner ? 'cards:owner' : 'cards'), () => fetchHostCardListings(client, hostId, owner), force);
 
 export const loadProfileCategories = (client: SupabaseClient, viewerId: string | null, hostId: string, force = false) =>
   cached(key(viewerId, hostId, 'categories'), () => fetchProfileCategories(client, hostId), force);

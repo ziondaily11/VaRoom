@@ -11,7 +11,7 @@ export function hostActiveNav(pathname: string, rawAsPath: string, view: string 
   if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) return 'bookings';
   if (asPath.startsWith('/chats') || currentPath.startsWith('/chats')) return 'chats';
   if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) return 'notifications';
-  if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/')) return 'profile';
+  if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/') || currentPath === '/[username]') return 'profile';
   if (asPath.startsWith('/analytics') || currentPath.startsWith('/analytics')) return 'analytics';
   if (asPath.startsWith('/settings') || currentPath.startsWith('/settings')) return 'settings';
   if (asPath.startsWith('/support') || currentPath.startsWith('/support')) return 'support';

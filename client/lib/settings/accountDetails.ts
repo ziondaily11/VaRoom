@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalisePhone, normalizeUsername, phoneValid, usernameTaken } from '../onboarding/onboarding';
+import { isReservedUsername, RESERVED_USERNAME_MESSAGE, USERNAME_PATTERN } from '../profile/usernames';
 
 // Settings → Your Account → Account Information: full name, username and
 // phone are changed here only (the /profile editor keeps city, bio and the
@@ -10,13 +11,11 @@ import { normalisePhone, normalizeUsername, phoneValid, usernameTaken } from '..
 
 export type AccountDetailKey = 'full_name' | 'username' | 'phone';
 
-/** As the database allows them (profiles.username_format). */
-const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
-
 export const DETAIL_MESSAGES = {
   nameRequired: 'Enter your full name (2–80 characters).',
   usernameFormat: 'Use 3–20 lowercase letters, numbers or underscores.',
   usernameTaken: 'That username is already taken. Try another.',
+  usernameReserved: RESERVED_USERNAME_MESSAGE,
   phone: 'Please enter a valid phone number.',
   stepUp: 'For your security, verify your identity again to change your account details: reopen Your Account in Settings.',
   failed: 'That change could not be saved. Please try again.',
@@ -30,7 +29,8 @@ export function accountDetailUpdate(key: AccountDetailKey, raw: string): { value
   }
   if (key === 'username') {
     const value = normalizeUsername(raw);
-    return USERNAME_PATTERN.test(value) ? { value, error: null } : { value: null, error: DETAIL_MESSAGES.usernameFormat };
+    if (!USERNAME_PATTERN.test(value)) return { value: null, error: DETAIL_MESSAGES.usernameFormat };
+    return isReservedUsername(value) ? { value: null, error: DETAIL_MESSAGES.usernameReserved } : { value, error: null };
   }
   return phoneValid(raw) ? { value: normalisePhone(raw), error: null } : { value: null, error: DETAIL_MESSAGES.phone };
 }
@@ -40,6 +40,8 @@ export function accountDetailError(error: { code?: string; message?: string } | 
   if (!error) return null;
   const message = error.message || '';
   if (/step_up_required/.test(message)) return DETAIL_MESSAGES.stepUp;
+  // Checked first: the constraint's name (profiles_username_allowed) also contains "profiles_username".
+  if (/username_allowed/i.test(message)) return DETAIL_MESSAGES.usernameReserved;
   if (error.code === '23505' || /duplicate key|profiles_username/i.test(message)) return DETAIL_MESSAGES.usernameTaken;
   if (error.code === '23514' || /username_format/i.test(message)) return DETAIL_MESSAGES.usernameFormat;
   return DETAIL_MESSAGES.failed;
@@ -47,7 +49,7 @@ export function accountDetailError(error: { code?: string; message?: string } | 
 
 // ---- Username availability (checked as the person types) ----
 
-export type UsernameAvailability = 'idle' | 'current' | 'invalid' | 'checking' | 'available' | 'taken' | 'error';
+export type UsernameAvailability = 'idle' | 'current' | 'invalid' | 'reserved' | 'checking' | 'available' | 'taken' | 'error';
 
 /** Wait this long after the last keystroke before asking. */
 export const USERNAME_CHECK_DELAY_MS = 400;
@@ -58,6 +60,7 @@ export function usernameLocalState(draft: string, current: string | null): { sta
   if (!value) return { state: 'idle', value };
   if (current && value === current.toLowerCase()) return { state: 'current', value };
   if (!USERNAME_PATTERN.test(value)) return { state: 'invalid', value };
+  if (isReservedUsername(value)) return { state: 'reserved', value };
   return null;
 }
 

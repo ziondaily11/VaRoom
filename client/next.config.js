@@ -16,6 +16,12 @@ module.exports = {
         destination: '/chats',
         permanent: false,
       },
+      // Public host profiles moved from /u/<username> to /<username>.
+      {
+        source: '/u/:username',
+        destination: '/:username',
+        permanent: true,
+      },
       {
         source: '/marketplace.html',
         destination: '/marketplace',

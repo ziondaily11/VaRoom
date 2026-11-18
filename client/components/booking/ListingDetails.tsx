@@ -4,6 +4,7 @@ import type { BookingKind, BookingListing, ReviewsResult } from '../../lib/booki
 import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
 import { recordListingEvent, type ListingEventType } from '../../lib/analytics/listingEvents';
 import { getSupabaseClient } from '../../lib/supabase/client';
+import { hostProfilePath } from '../../lib/profile/usernames';
 import { commercialDetails, commercialLabel, SUBTYPE_LABELS } from '../../lib/booking/commercial';
 import { descriptionPreviewChars, getCleanTruncatedDescription, visibleParagraphs } from '../../lib/booking/description';
 import {
@@ -152,7 +153,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
         <div className="host-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '.8rem' }}>
             <div className="host-avatar">{hostAvatarUrl ? <img src={hostAvatarUrl} alt="" /> : initialsOf(hostName)}</div>
-            <Link className="host-name" href={`/host/${encodeURIComponent((listing.host && listing.host.username) || listing.host_id)}`}>
+            <Link className="host-name" href={hostProfilePath(listing.host_id, listing.host && listing.host.username)}>
               {isHotel ? 'Managed by ' : 'Hosted by '}{hostName}{listing.host.verified && <Svg markup={ICON_VERIFIED} />}
             </Link>
           </div>

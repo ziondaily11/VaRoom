@@ -580,13 +580,13 @@ app.get('/forgot-password', (req, res) => {
   return res.redirect(302, destination.toString());
 });
 
-// Public host profiles are a native frontend page (the file this served is gone).
+// Public host profiles are a native frontend page at /<username>; old /u/<username> links go there.
 app.get('/u/:username', (req, res) => {
   const redirect = resolveFrontendRouteRedirect({
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
-    destinationPath: `/u/${encodeURIComponent(req.params.username)}`,
+    destinationPath: `/${encodeURIComponent(req.params.username)}`,
     unavailableMessage: 'Profiles are not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
