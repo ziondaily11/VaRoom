@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import type { BookingKind, BookingListing, ReviewsResult } from '../../lib/booking/bookingListing';
+import { MESSAGES, type BookingKind, type BookingListing, type ReviewsResult } from '../../lib/booking/bookingListing';
 import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
 import { recordListingEvent, type ListingEventType } from '../../lib/analytics/listingEvents';
 import { getSupabaseClient } from '../../lib/supabase/client';
@@ -87,11 +87,13 @@ interface Props {
   hostAvatarUrl: string | null;
   resolveAvatar: (value: string | null | undefined) => string | null;
   contact: ListingContact;
+  /** The signed-in account owns this listing: its contact controls show as the owner's own, not as actions. */
+  isOwner: boolean;
   messaging: boolean;
   onMessageHost: () => void;
 }
 
-export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, resolveAvatar, contact, messaging, onMessageHost }: Props) {
+export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, resolveAvatar, contact, isOwner, messaging, onMessageHost }: Props) {
   const { details, isHotel, isOfficeShop, officeShop, propertyPurpose } = kind;
   const [copied, setCopied] = useState(false);
   const rating = ratingInfo(reviews);
@@ -145,7 +147,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
         {!rating ? <span>Loading reviews…</span> : rating.count ? <><Svg markup={ICON_STAR} /><span>{rating.text}</span><span>{rating.countText}</span></> : <span>{rating.text}</span>}
       </div>
       <p className="listing-loc"><Svg markup={ICON_LOCATION} /><span>{locationText}</span><a className="map-link-inline" href={mapUrl} target="_blank" rel="noopener">View on map</a></p>
-      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} /><a href={telHref(hostPhone)} onClick={() => track('contact_phone')}>{hostPhone}</a></p>}
+      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} />{isOwner ? <span>{hostPhone}</span> : <a href={telHref(hostPhone)} onClick={() => track('contact_phone')}>{hostPhone}</a>}</p>}
       {badges.length > 0 && <div className="badge-row">{badges.map((badge) => <span className="mini-badge" key={badge}><Svg markup={ICON_VERIFIED} />{badge}</span>)}</div>}
       {chips.length > 0 && <div className="info-chip-row">{chips.map((chip, index) => <span className="info-chip" key={index}>{chip}</span>)}</div>}
       <hr className="divider" />
@@ -157,12 +159,24 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
               {isHotel ? 'Managed by ' : 'Hosted by '}{hostName}{listing.host.verified && <Svg markup={ICON_VERIFIED} />}
             </Link>
           </div>
+          {isOwner ? (
+            <>
+              <div className="contact-controls is-owner" role="group" aria-label="Your contact options, as guests see them">
+                {contact.whatsapp && <span className="contact-control" aria-disabled="true" title={MESSAGES.ownContact}><img src="/assets/whatsapp.svg" alt="WhatsApp" /></span>}
+                {contact.email && <span className="contact-control" aria-disabled="true" title={MESSAGES.ownContact}><img src="/assets/gmail.svg" alt="Email" /></span>}
+                {hostPhone && <span className="contact-control" aria-disabled="true" title={MESSAGES.ownContact}><Svg markup={ICON_PHONE} /><span className="sr-only">Call</span></span>}
+                <span className="contact-control" aria-disabled="true" title={MESSAGES.ownContact}><Svg markup={ICON_MESSAGE} /><span className="sr-only">Message</span></span>
+              </div>
+              <p className="owner-note owner-note--contact" role="note">{MESSAGES.ownContact}</p>
+            </>
+          ) : (
           <div className="contact-controls" role="group" aria-label="Contact host options">
             {contact.whatsapp && <a className="contact-control" href={whatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp the host" title="WhatsApp" onClick={() => track('contact_whatsapp')}><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
             {contact.email && <a className="contact-control" href={mailtoHref(contact.email, enquiry)} aria-label="Email the host" title="Email" onClick={() => track('contact_email')}><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
             {hostPhone && <a className="contact-control" href={telHref(hostPhone)} aria-label="Call the host" title="Call" onClick={() => track('contact_phone')}><Svg markup={ICON_PHONE} /></a>}
             <button type="button" className="contact-control" id="contact-host-btn" aria-label="Message host" title={isHotel ? 'Message hotel' : 'Message host'} disabled={messaging} onClick={onMessageHost}><Svg markup={ICON_MESSAGE} /></button>
           </div>
+          )}
         </div>
         <div className="about-block">
           <h2 className="about-title">{isHotel ? 'About this room' : (isOfficeShop ? 'About this commercial space' : 'About this place')}</h2>

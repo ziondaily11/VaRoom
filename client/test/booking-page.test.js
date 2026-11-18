@@ -41,12 +41,25 @@ test('availability: unavailable or an expired paid term blocks booking, with the
   assert.equal(bl.bookingKind(listing()).listingUnavailable, false);
 });
 
-test('page errors, in the order the page always checked', () => {
-  assert.equal(bl.bookingPageError({ listing: null, diningConfig: null }, 'U1', 'client'), "Couldn't load that listing.");
-  assert.equal(bl.bookingPageError({ listing: listing(), diningConfig: null }, 'H1', 'host'), "This is your own listing — you can't book it.");
-  assert.equal(bl.bookingPageError({ listing: listing(), diningConfig: null }, 'H1', 'client'), null, 'only a host is stopped');
-  assert.equal(bl.bookingPageError({ listing: listing({ listing_booking_details: [] }), diningConfig: null }, 'U1', 'client'), 'This listing has no booking details set up yet.');
-  assert.equal(bl.bookingPageError({ listing: listing({ category: 'hotel', supports_stay: false, supports_table_reservation: true }), diningConfig: null }, 'U1', 'client'), 'This hotel has not finished setting up table reservations yet.');
+test('page errors, in the order the page always checked; the owner sees their own listing', () => {
+  assert.equal(bl.bookingPageError({ listing: null, diningConfig: null }), "Couldn't load that listing.");
+  assert.equal(bl.bookingPageError({ listing: listing(), diningConfig: null }), null, 'no longer blocked for its owner');
+  assert.equal(bl.isOwnListing(listing(), 'H1'), true);
+  assert.equal(bl.isOwnListing(listing(), 'U1'), false);
+  assert.equal(bl.isOwnListing(listing(), null), false);
+  assert.equal(bl.bookingPageError({ listing: listing({ listing_booking_details: [] }), diningConfig: null }), 'This listing has no booking details set up yet.');
+  assert.equal(bl.bookingPageError({ listing: listing({ category: 'hotel', supports_stay: false, supports_table_reservation: true }), diningConfig: null }), 'This hotel has not finished setting up table reservations yet.');
+});
+
+test('property options: the purpose, limited to the options with a price', () => {
+  const kindOf = (purpose, details) => ({ isProperty: true, propertyPurpose: purpose, details });
+  assert.deepEqual([...bl.propertyOptions(kindOf('both', { sale_price_amount: 9000000, price_amount: 60000 }))], ['sale', 'rent']);
+  assert.deepEqual([...bl.propertyOptions(kindOf('both', { sale_price_amount: 9000000, price_amount: null }))], ['sale'], 'no rent price: rent is not shown');
+  assert.deepEqual([...bl.propertyOptions(kindOf('both', { sale_price_amount: null, price_amount: 60000 }))], ['rent']);
+  assert.deepEqual([...bl.propertyOptions(kindOf('sale', { sale_price_amount: 9000000, price_amount: 60000 }))], ['sale'], 'only what the host offers');
+  assert.deepEqual([...bl.propertyOptions(kindOf('rent', { price_amount: 0 }))], ['rent']);
+  assert.deepEqual([...bl.propertyOptions(kindOf('both', {}))], ['sale', 'rent'], 'no price at all: the purpose decides');
+  assert.deepEqual([...bl.propertyOptions({ isProperty: false, propertyPurpose: null, details: {} })], []);
 });
 
 test('calendar: booked days are blocked; a range must be open from check-in to check-out', () => {
@@ -124,4 +137,31 @@ test('a listing whose host profile comes back empty still shows ("Host"), instea
   const withProfile = await bl.fetchBookingListing(fake(listing()), 'L1');
   assert.equal(withProfile.host.full_name, 'Ann');
   assert.equal(await bl.fetchBookingListing(fake(null), 'L1'), null);
+});
+
+test('booking sits in the account shell with the icon rail, like Marketplace; its own sidebar is gone', () => {
+  const layout = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts'));
+  assert.equal(layout.getAccountLayout('/booking', '/booking?listing=L1', 'host'), 'host');
+  assert.equal(layout.getAccountLayout('/booking', '/booking?listing=L1', 'client'), 'client');
+  assert.equal(layout.usesIconRail('/booking', '/booking?listing=L1'), true);
+  assert.equal(layout.usesIconRail('/bookings', '/bookings'), false, 'Bookings keeps the full sidebar');
+  const nav = loadTs(path.join(root, 'lib', 'navigation', 'activeNav.ts'));
+  assert.equal(nav.hostActiveNav('/booking', '/booking?listing=L1', ''), 'marketplace');
+  assert.equal(nav.clientActiveNav('/booking', '/booking?listing=L1'), 'marketplace');
+  assert.equal(nav.hostActiveNav('/bookings', '/bookings', ''), 'bookings');
+  assert.equal(fs.existsSync(path.join(root, 'components', 'booking', 'BookingSidebar.tsx')), false);
+  const styles = fs.readFileSync(path.join(root, 'components', 'booking', 'bookingStyles.ts'), 'utf8');
+  assert.doesNotMatch(styles, /\n\s*header\s*[{,]|\n\s*\*\{|\n\s*\.logo\{/, 'no page-wide rules that reach the shared sidebar');
+});
+
+test('the owner sees the page with notes instead of the actions', () => {
+  const page = fs.readFileSync(path.join(root, 'pages', 'booking.tsx'), 'utf8');
+  assert.match(page, /const isOwner = Boolean\(listing && isOwnListing\(listing, userId\)\);/);
+  assert.match(page, /if \(isOwner\) return MESSAGES\.ownListing;/, 'a booking is never sent for the owner');
+  const widget = fs.readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
+  assert.match(widget, /isOwner \? <OwnerNote listingId=\{listing\.id\} \/>/);
+  assert.match(widget, /if \(submitting\.current \|\| isOwner\) return;/);
+  const details = fs.readFileSync(path.join(root, 'components', 'booking', 'ListingDetails.tsx'), 'utf8');
+  assert.match(details, /\{MESSAGES\.ownContact\}/);
+  assert.equal(bl.MESSAGES.ownContact, 'This is your own contact. Guests use these buttons to reach you.');
 });

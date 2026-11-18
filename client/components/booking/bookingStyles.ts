@@ -1,7 +1,7 @@
-// Styles for /booking, ported unchanged from legacy-pages/booking.html (this
-// style exists only while the page is mounted). The legacy header and
-// breadcrumb rules stay harmless: that markup was hidden at every width and
-// is not rendered.
+// Styles for /booking, ported from legacy-pages/booking.html (this style
+// exists only while the page is mounted). The page sits inside the app shell
+// beside the shared sidebar (icon rail), so element rules are scoped to the
+// page (.page-shell) and its dialogs (.booking-layer).
 
 export const BOOKING_STYLES = `
   :root{
@@ -17,74 +17,18 @@ export const BOOKING_STYLES = `
     --green-tint:rgba(46,155,84,.18); --green-tint-strong:rgba(46,155,84,.3);
     --skel-base:rgba(255,255,255,.06); --skel-shine:rgba(255,255,255,.13);
   }
-  *{ margin:0; padding:0; box-sizing:border-box; }
+  /* Resets for the booking page only (the shared sidebar beside it keeps its own styles);
+     :where() keeps them as weak as the old page-wide element rules. */
+  :where(.page-shell, .booking-layer), :where(.page-shell, .booking-layer) *{ margin:0; padding:0; box-sizing:border-box; }
   html{ height:100%; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); height:100%; overflow:hidden; transition:background .2s ease, color .2s ease; }
-  a{ color:inherit; text-decoration:none; }
-  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
-  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
-  svg{ flex-shrink:0; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); height:100%; overflow:hidden; }
+  :where(.page-shell){ font-family:var(--font-body); color:var(--ink); }
+  :where(.page-shell, .booking-layer) a{ color:inherit; text-decoration:none; }
+  :where(.page-shell, .booking-layer) button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :where(.page-shell, .booking-layer) :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+  :where(.page-shell, .booking-layer) svg{ flex-shrink:0; }
 
   .page-shell{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
-
-  /* ---------- Top nav ---------- */
-  header{
-    display:flex; align-items:center; gap:1.5rem; padding:.7rem 2rem;
-    border-bottom:1px solid var(--line); flex-wrap:wrap; flex-shrink:0;
-  }
-  .logo{ font-family:var(--font-brand); font-weight:700; font-size:1.4rem; letter-spacing:-.01em; flex-shrink:0; }
-  .logo .va{ color:var(--red); }
-  .logo .room{ color:var(--ink); }
-
-  .search-wrap{ position:relative; flex:1; min-width:200px; max-width:420px; }
-  .search-input{
-    width:100%; font-family:inherit; font-size:.85rem; padding:.5rem 1rem .5rem 2.3rem;
-    border:1px solid var(--line-strong); border-radius:100px; background:var(--paper); color:var(--ink);
-  }
-  .search-input:focus{ outline:none; border-color:var(--red); }
-  .search-icon{ position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
-  .search-results{
-    display:none; position:absolute; top:calc(100% + .5rem); left:0; right:0; z-index:40;
-    background:var(--white); border:1px solid var(--line-strong); border-radius:14px; overflow:hidden;
-    box-shadow:0 12px 30px rgba(0,0,0,.28);
-  }
-  .search-results.show{ display:block; }
-  .search-result-item{ display:block; padding:.7rem 1rem; font-size:.85rem; border-bottom:1px solid var(--line); }
-  .search-result-item:last-child{ border-bottom:none; }
-  .search-result-item:hover{ background:var(--paper); }
-  .search-result-item .r-title{ font-weight:700; }
-  .search-result-item .r-loc{ color:var(--muted); font-size:.78rem; }
-  .search-empty{ padding:.9rem 1rem; font-size:.83rem; color:var(--muted); }
-
-  .nav-links{ display:none; gap:1.5rem; font-size:.86rem; font-weight:600; color:var(--muted); }
-  .nav-links a:hover{ color:var(--red); }
-
-  .nav-icons{ display:flex; align-items:center; gap:1.1rem; margin-left:auto; }
-  .icon-btn{ display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; color:var(--muted); }
-  .icon-btn:hover{ color:var(--red); background:var(--green-tint); }
-
-  .avatar-wrap{ position:relative; }
-  .avatar-btn{ display:flex; align-items:center; gap:.5rem; padding:.25rem .6rem .25rem .25rem; border-radius:100px; border:1px solid var(--line-strong); }
-  .avatar-btn:hover{ border-color:var(--red); }
-  .avatar-circle{ width:26px; height:26px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; overflow:hidden; }
-  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
-  .avatar-name{ font-size:.82rem; font-weight:600; }
-  .avatar-menu{
-    display:none; position:absolute; right:0; top:calc(100% + .5rem); min-width:190px; z-index:40;
-    background:var(--white); border:1px solid var(--line-strong); border-radius:14px; overflow:hidden;
-    box-shadow:0 12px 30px rgba(0,0,0,.28); padding:.4rem;
-  }
-  .avatar-menu.show{ display:block; }
-  .avatar-menu a, .avatar-menu button{ display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; padding:.6rem .7rem; border-radius:8px; font-size:.85rem; font-weight:600; }
-  .avatar-menu a:hover, .avatar-menu button:hover{ background:var(--paper); color:var(--red); }
-
-  @media (min-width:960px){ .nav-links{ display:flex; } }
-
-  /* ---------- Breadcrumb ---------- */
-  .breadcrumb{ font-size:.78rem; color:var(--muted); padding:.5rem 2rem; width:100%; flex-shrink:0; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
-  @media (min-width:960px){ .breadcrumb{ padding:.5rem 3rem; } }
-  .breadcrumb a:hover{ color:var(--red); }
-  .breadcrumb .current{ color:var(--ink); font-weight:600; }
 
   .main-shell{ flex:1; min-height:0; }
   .page-error{ text-align:center; padding:3rem 1rem; color:var(--muted); font-size:.95rem; }
@@ -264,7 +208,31 @@ export const BOOKING_STYLES = `
   /* ---------- Sidebar booking widget ---------- */
   .booking-widget{ background:var(--white); border:1px solid var(--line-strong); border-radius:16px; padding:1rem 1.2rem; }
   .property-booking-widget{ padding:1rem; }
-  .property-purpose-selector{ display:flex; gap:.25rem; padding:.2rem; margin-bottom:.85rem; border:1px solid var(--line); border-radius:12px; }
+  /* Buy / Rent (animation.md §8.1): two buttons; the chosen one's background slides
+     between them (200 ms ease-in-out) and the details fade in (150 ms). Prices never animate. */
+  .property-purpose-selector{ position:relative; display:flex; gap:.25rem; padding:.2rem; margin-bottom:.85rem; border:1px solid var(--line); border-radius:12px; }
+  .property-purpose-pill{ position:absolute; top:.2rem; bottom:.2rem; left:.2rem; width:calc(50% - .325rem); border-radius:9px; background:var(--nav-active-bg);
+    opacity:0; pointer-events:none; transition:transform var(--motion-quick, 200ms) var(--ease-in-out, ease), opacity var(--motion-micro, 150ms) var(--ease-out, ease); }
+  .property-purpose-selector[data-view="sale"] .property-purpose-pill{ opacity:1; transform:translateX(0); }
+  .property-purpose-selector[data-view="rent"] .property-purpose-pill{ opacity:1; transform:translateX(calc(100% + .25rem)); }
+  button.property-purpose-option{ position:relative; z-index:1; border:0; background:transparent; cursor:pointer;
+    transition:color var(--motion-micro, 150ms) var(--ease-out, ease), transform var(--motion-press, 120ms) var(--ease-out, ease); }
+  button.property-purpose-option.active{ background:transparent; }
+  button.property-purpose-option:active{ transform:scale(var(--press-scale, .97)); }
+  @media (hover:hover){ button.property-purpose-option:not(.active):hover{ color:var(--ink); } }
+  .property-purpose-selector.is-single .property-purpose-option{ cursor:default; }
+  .property-view{ animation:property-view-in var(--motion-micro, 150ms) var(--ease-out, ease) both; }
+  @keyframes property-view-in{ from{ opacity:0; } to{ opacity:1; } }
+
+  /* The owner's own listing: a note in place of the actions; contact buttons shown as guests see them. */
+  .owner-note{ margin-top:.8rem; padding:.85rem 1rem; border-radius:14px; background:var(--nav-active-bg); color:var(--ink); font-size:.82rem; line-height:1.45; }
+  .owner-note p{ margin:0; font-weight:600; }
+  .owner-note-link{ display:inline-flex; margin-top:.55rem; padding:.45rem .9rem; border-radius:999px; background:var(--ink); color:var(--white) !important; font-size:.78rem; font-weight:600;
+    transition:transform var(--motion-press, 120ms) var(--ease-out, ease); }
+  .owner-note-link:active{ transform:scale(var(--press-scale, .97)); }
+  .owner-note--contact{ margin:.55rem 0 0; padding:.55rem .75rem; font-size:.74rem; font-weight:500; text-align:right; background:transparent; color:var(--muted); }
+  .contact-controls.is-owner .contact-control{ opacity:.5; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .property-purpose-option{ display:flex; flex:1; align-items:center; justify-content:center; gap:.4rem; min-width:0; padding:.55rem .35rem; border-radius:9px; font-size:.76rem; font-weight:600; color:var(--muted); text-align:center; }
   .property-purpose-option.active{ background:var(--nav-active-bg); color:var(--ink); }
   .property-purpose-option svg{ width:16px; height:16px; }
@@ -307,13 +275,13 @@ export const BOOKING_STYLES = `
   .picker-sub{ font-size:.73rem; color:var(--muted); margin-bottom:.55rem; line-height:1.35; }
 
   .field{ display:flex; flex-direction:column; gap:.3rem; margin-bottom:.55rem; }
-  label{ font-size:.78rem; font-weight:600; }
-  input, select{
+  :where(.page-shell, .booking-layer) label{ font-size:.78rem; font-weight:600; }
+  :where(.page-shell, .booking-layer) :is(input, select){
     font-family:inherit; font-size:.85rem; padding:.5rem .7rem;
     border:1px solid var(--line-strong); border-radius:9px;
     background:var(--paper); color:var(--ink); width:100%;
   }
-  input:focus, select:focus{ outline:none; border-color:var(--red); }
+  :where(.page-shell, .booking-layer) :is(input, select):focus{ outline:none; border-color:var(--red); }
 
   .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.15rem 0 .4rem; }
   .cal-title{ font-weight:700; font-size:.82rem; }
@@ -404,8 +372,6 @@ export const BOOKING_STYLES = `
   }
 
   /* ---------- Dedicated desktop booking workspace ---------- */
-  .client-sidebar{ display:none; }
-  .client-sidebar[aria-hidden="true"]{ visibility:hidden; }
   .content-grid{ max-width:1240px; padding:1.5rem 5vw 4rem; gap:3.5rem; }
   .col-main{ min-width:0; }
   .col-side{ min-width:0; }
@@ -478,21 +444,8 @@ export const BOOKING_STYLES = `
   .form-note{ line-height:1.45; }
   @media (min-width:960px){
     .page-shell{ display:block; height:100vh; overflow:hidden; }
-    .legacy-header,.breadcrumb{ display:none !important; }
-    .client-sidebar{
-      position:fixed; inset:0 auto 0 0; z-index:20; display:flex; width:54px;
-      flex-direction:column; align-items:center; gap:1rem; overflow-y:auto;
-      padding:.9rem 0; border-right:1px solid var(--line); background:var(--white);
-      scrollbar-width:thin;
-    }
-    .client-nav-link{
-      width:34px; height:34px; display:flex; align-items:center; justify-content:center;
-      border-radius:10px; color:var(--muted); transition:background .15s ease,color .15s ease;
-    }
-    .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--ink); background:var(--nav-active-bg); }
-    .client-nav-link.active{ color:var(--ink); background:var(--nav-active-bg); }
-    .client-nav-link svg{ width:18px; height:18px; }
-    .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow:hidden; }
+    /* The shared sidebar (icon rail) sits beside this page inside the app shell. */
+    .main-shell{ height:100vh; min-height:100vh; overflow:hidden; }
     #booking-page{ height:100%; overflow:hidden; }
     .content-grid{
       display:grid; grid-template-columns:minmax(0,1fr) minmax(374px,418px);
@@ -655,8 +608,8 @@ export const BOOKING_STYLES = `
 
     /* Guests field — bold label, Design 2 style */
     .field{ gap:.25rem; margin-bottom:.4rem; }
-    label{ font-size:.78rem; font-weight:700; color:var(--ink); }
-    input,select{ min-height:36px; padding:.45rem .65rem; font-size:.78rem; border-radius:9px; }
+    :where(.page-shell) label{ font-size:.78rem; font-weight:700; color:var(--ink); }
+    :where(.page-shell) :is(input, select){ min-height:36px; padding:.45rem .65rem; font-size:.78rem; border-radius:9px; }
     .details-box{ padding-top:.45rem; font-size:.74rem; }
 
     /* Book Now — always red, prominent, full-width pill — Design 2 signature element */
@@ -674,7 +627,6 @@ export const BOOKING_STYLES = `
   }
   @media (max-width:959px){
     body{ padding-bottom:0; }
-    header, .breadcrumb{ display:none !important; }
     .content-grid{ padding:0 0 2rem; max-width:none; gap:0; }
     .skel-shell{ padding:0; }
     .skel-gallery{ height:clamp(300px, 56svh, 430px); border-radius:0 0 28px 28px; }
@@ -730,5 +682,8 @@ export const BOOKING_STYLES = `
   [data-theme="dark"] .confirm-btn.cta-sent:disabled { background:var(--red); color:#fff; }
   @media (prefers-reduced-motion:reduce) {
     .cta-progress, .cta-airplane { transition:none !important; }
+    .property-purpose-pill, button.property-purpose-option, .owner-note-link { transition:none; }
+    button.property-purpose-option:active, .owner-note-link:active { transform:none; }
+    .property-view { animation:none; }
   }
 `;

@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
-  bookingWindow, isInstantBooking, ksh, nightsBetween, pickStayDay, plural, priceLine, stayProblem, windowedCalendar,
-  type BookingKind, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
+  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, stayProblem, windowedCalendar,
+  type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
 import {
@@ -19,6 +20,9 @@ import type { RatingInfo } from './ListingDetails';
 // date and hours; rentals a move-in date and months; properties show sale
 // and rent prices (and "Contact host about purchase"); hotels taking only
 // tables show Reserve a Table, and hotels taking both ask which to reserve.
+// The listing's owner sees the same widget with a note in place of the
+// actions. A property offered for sale and for rent shows both until the
+// guest picks Buy or Rent; then only that option's details.
 
 interface Props {
   listing: BookingListing;
@@ -29,6 +33,8 @@ interface Props {
   /** null while the listing's documents load. */
   documents: DocumentsResult | null;
   dining: DiningConfig | null;
+  /** The signed-in account owns this listing: no booking, a note instead. */
+  isOwner: boolean;
   onBook: (choice: StayChoice, total: number) => Promise<string | null>;
   onOpenTable: () => void;
   onMessageHost: () => void;
@@ -48,6 +54,16 @@ function DetailsBox({ line, isHotel }: { line: PriceLine | null; isHotel: boolea
   );
 }
 
+/** In place of the actions on the owner's own listing. */
+function OwnerNote({ listingId }: { listingId: string }) {
+  return (
+    <div className="owner-note" role="note">
+      <p>{MESSAGES.ownListing}</p>
+      <Link className="owner-note-link" href={`/list?edit=${encodeURIComponent(listingId)}`}>Edit listing</Link>
+    </div>
+  );
+}
+
 const LEGEND = (
   <div className="cal-legend">
     <span><span className="dot dot-open" />Open</span>
@@ -55,7 +71,7 @@ const LEGEND = (
   </div>
 );
 
-export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, onBook, onOpenTable, onMessageHost }: Props) {
+export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, isOwner, onBook, onOpenTable, onMessageHost }: Props) {
   const { details, isShortStay, isHourly, isHotel, isProperty, usesRentalBooking, supportsBoth, propertyPurpose, listingUnavailable, availabilityMessage } = kind;
   const bookable = useMemo(() => bookingWindow(details), [details]);
   const instant = isInstantBooking(kind);
@@ -73,6 +89,11 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   const [result, setResult] = useState<{ text: string; error: boolean } | null>(null);
   const submitting = useRef(false);
   const confirm = useRef<SendingHandle>(null);
+  // Property: which option the guest is looking at (null: every option the host offers).
+  const options = useMemo(() => propertyOptions(kind), [kind]);
+  const [propertyView, setPropertyView] = useState<PropertyOption | null>(null);
+  const showsSale = options.includes('sale') && (propertyView === null || propertyView === 'sale');
+  const showsRent = options.includes('rent') && (propertyView === null || propertyView === 'rent');
 
   const policy = useMemo(() => listingPolicy(listing.category, details, documents ? documents.documents : [], Boolean(documents && documents.loaded)), [listing.category, details, documents]);
   const extraDocuments = useMemo(() => commercialDocuments(listing.category, documents ? documents.documents : []), [listing.category, documents]);
@@ -87,13 +108,13 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       const nights = nightsBetween(start, end);
       line = priceLine(details.price_amount, nights, plural(nights, 'night'), details.cleaning_fee || null);
     }
-  } else if (!kind.isPropertySaleOnly) {
+  } else if (!kind.isPropertySaleOnly && (!isProperty || showsRent)) {
     const months = parseInt(leaseMonths, 10) || 0;
     if (leasePicked && months >= 1) line = priceLine(details.price_amount, months, plural(months, 'month'), null);
   }
 
   const book = async () => {
-    if (submitting.current) return;
+    if (submitting.current || isOwner) return;
     if (supportsBoth && !intent.current) { setChoosing(true); return; }
     if (supportsBoth && intent.current === 'stay' && (!start || (!isHourly && !end))) {
       intent.current = null;
@@ -196,8 +217,10 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       <div className="booking-widget">
         <p className="picker-title">Reserve a table</p>
         <p className="picker-sub">{dining.restaurant_name} · {dining.opening_hours}</p>
-        <button type="button" className="confirm-btn" id="table-reserve-btn" onClick={onOpenTable}>Reserve a Table</button>
-        <p className="form-note">Send a reservation request directly to the hotel.</p>
+        {isOwner
+          ? <OwnerNote listingId={listing.id} />
+          : <><button type="button" className="confirm-btn" id="table-reserve-btn" onClick={onOpenTable}>Reserve a Table</button>
+            <p className="form-note">Send a reservation request directly to the hotel.</p></>}
       </div>
     );
   }
@@ -207,39 +230,62 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     const rentPrice = Number(details.price_amount);
     const hasSalePrice = details.sale_price_amount != null && Number.isFinite(salePrice) && salePrice >= 0;
     const hasRentPrice = details.price_amount != null && Number.isFinite(rentPrice) && rentPrice >= 0;
-    const offersSale = propertyPurpose === 'sale' || propertyPurpose === 'both';
-    const offersRent = propertyPurpose === 'rent' || propertyPurpose === 'both';
     const showUnits = details.units_available != null || Boolean(details.size_or_type);
+    const rentAction = showsRent && kind.propertyHasRentalPurpose;
+    const label = (option: PropertyOption) => (option === 'sale' ? 'For sale' : 'For rent');
+    const icon = (option: PropertyOption) => (option === 'sale' ? ICON_FOR_SALE : ICON_FOR_RENT);
+    const note = rentAction && showsSale
+      ? (availabilityMessage || 'Request to rent sends a rental request for the host to approve. To buy, contact the host about the purchase.')
+      : rentAction
+        ? (availabilityMessage || 'This creates a rental request — the host needs to approve it before it\'s confirmed.')
+        : 'Contact the host to discuss purchasing this property.';
     return (
       <div className="booking-widget property-booking-widget">
-        <div className="property-purpose-selector" aria-label={propertyPurpose === 'both' ? 'Listed for sale and rent' : propertyPurpose === 'sale' ? 'Listed for sale' : 'Listed for rent'}>
-          <span className={`property-purpose-option${offersSale ? ' active' : ''}`} aria-label={`For sale${offersSale ? '' : ', not offered'}`}><Svg markup={ICON_FOR_SALE} />For sale</span>
-          <span className={`property-purpose-option${offersRent ? ' active' : ''}`} aria-label={`For rent${offersRent ? '' : ', not offered'}`}><Svg markup={ICON_FOR_RENT} />For rent</span>
+        {options.length > 1 ? (
+          <div className="property-purpose-selector" role="group" aria-label="Show the details for buying or renting" data-view={propertyView || 'all'}>
+            <span className="property-purpose-pill" aria-hidden="true" />
+            {options.map((option) => (
+              <button key={option} type="button" className={`property-purpose-option${propertyView === option ? ' active' : ''}`} aria-pressed={propertyView === option}
+                onClick={() => setPropertyView((current) => (current === option ? null : option))}>
+                <Svg markup={icon(option)} />{label(option)}
+              </button>
+            ))}
+          </div>
+        ) : options.length === 1 && (
+          <div className="property-purpose-selector is-single" aria-label={options[0] === 'sale' ? 'Listed for sale' : 'Listed for rent'}>
+            <span className="property-purpose-option active"><Svg markup={icon(options[0])} />{label(options[0])}</span>
+          </div>
+        )}
+        <div className="property-view" key={propertyView || 'all'}>
+          {showsSale && (
+            <div className="property-price-section">
+              <div className="property-price-label"><Svg markup={ICON_SALE_PRICE} />Sale price{details.sale_price_mode === 'starting' && <> <span className="property-price-missing">Starting from</span></>}</div>
+              <div className="property-price-value">{hasSalePrice ? `${details.sale_price_mode === 'starting' ? 'From ' : ''}KES ${salePrice.toLocaleString()}` : <span className="property-price-missing">Sale price not provided.</span>}</div>
+            </div>
+          )}
+          {showsRent && (
+            <div className="property-price-section">
+              <div className="property-price-label"><Svg markup={ICON_RENT_PRICE} />Monthly rent</div>
+              <div className="property-price-value">{hasRentPrice ? <>KES {rentPrice.toLocaleString()} <span>/ month</span></> : <span className="property-price-missing">Monthly rent not provided.</span>}</div>
+            </div>
+          )}
+          {showUnits && (
+            <div className="property-units">
+              {details.units_available != null && <div className="property-unit-item"><Svg markup={ICON_UNITS} /><div><strong>{String(details.units_available)} {Number(details.units_available) === 1 ? 'unit' : 'units'} available</strong><span>Total units</span></div></div>}
+              {details.size_or_type && <div className="property-unit-item"><Svg markup={ICON_UNIT_TYPES} /><div><strong>{details.size_or_type}</strong><span>Unit types</span></div></div>}
+            </div>
+          )}
+          {showsRent && picker}
+          {showsRent && <DetailsBox line={line} isHotel={isHotel} />}
+          {policy && <PropertyPolicy policy={policy} loading={!documents} />}
+          {isOwner ? <OwnerNote listingId={listing.id} /> : (
+            <>
+              {rentAction && confirmButton(propertyPurpose === 'both' ? 'Request to rent' : 'Send inquiry')}
+              {showsSale && <button type="button" className={`property-purchase-btn${rentAction ? '' : ' property-purchase-primary'}`} id="property-purchase-btn" onClick={onMessageHost}>Contact host about purchase</button>}
+              <p className="form-note">{note}</p>
+            </>
+          )}
         </div>
-        {offersSale && (
-          <div className="property-price-section">
-            <div className="property-price-label"><Svg markup={ICON_SALE_PRICE} />Sale price{details.sale_price_mode === 'starting' && <> <span className="property-price-missing">Starting from</span></>}</div>
-            <div className="property-price-value">{hasSalePrice ? `${details.sale_price_mode === 'starting' ? 'From ' : ''}KES ${salePrice.toLocaleString()}` : <span className="property-price-missing">Sale price not provided.</span>}</div>
-          </div>
-        )}
-        {offersRent && (
-          <div className="property-price-section">
-            <div className="property-price-label"><Svg markup={ICON_RENT_PRICE} />Monthly rent</div>
-            <div className="property-price-value">{hasRentPrice ? <>KES {rentPrice.toLocaleString()} <span>/ month</span></> : <span className="property-price-missing">Monthly rent not provided.</span>}</div>
-          </div>
-        )}
-        {showUnits && (
-          <div className="property-units">
-            {details.units_available != null && <div className="property-unit-item"><Svg markup={ICON_UNITS} /><div><strong>{String(details.units_available)} {Number(details.units_available) === 1 ? 'unit' : 'units'} available</strong><span>Total units</span></div></div>}
-            {details.size_or_type && <div className="property-unit-item"><Svg markup={ICON_UNIT_TYPES} /><div><strong>{details.size_or_type}</strong><span>Unit types</span></div></div>}
-          </div>
-        )}
-        {picker}
-        <DetailsBox line={line} isHotel={isHotel} />
-        {policy && <PropertyPolicy policy={policy} loading={!documents} />}
-        {kind.propertyHasRentalPurpose && confirmButton(propertyPurpose === 'both' ? 'Request to rent' : 'Send inquiry')}
-        {offersSale && <button type="button" className={`property-purchase-btn${propertyPurpose === 'sale' ? ' property-purchase-primary' : ''}`} id="property-purchase-btn" onClick={onMessageHost}>Contact host about purchase</button>}
-        <p className="form-note">{kind.propertyHasRentalPurpose ? (availabilityMessage || 'This creates a rental request — the host needs to approve it before it\'s confirmed.') : 'Contact the host to discuss purchasing this property.'}</p>
         {successMessage}
       </div>
     );
@@ -272,9 +318,13 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       <DetailsBox line={line} isHotel={isHotel} />
       {policy && <PropertyPolicy policy={policy} loading={!documents} />}
       <CommercialDocuments documents={extraDocuments} />
+      {isOwner ? <OwnerNote listingId={listing.id} /> : (
+        <>
       {confirmButton(supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now'))}
       {supportsBoth && <button type="button" id="choose-reservation-btn" style={{ width: '100%', marginTop: '.65rem', padding: '.78rem', border: '1px solid var(--red)', borderRadius: 8, background: 'transparent', color: 'var(--red)', fontWeight: 700, cursor: 'pointer' }} onClick={() => setChoosing(true)}>Choose reservation type</button>}
       <p className="form-note">{availabilityMessage || (instant ? 'Instant book: your stay is confirmed as soon as you book.' : isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')}</p>
+        </>
+      )}
       {successMessage}
       {choice}
     </div>

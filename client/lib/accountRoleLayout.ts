@@ -33,7 +33,7 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
   // else there is the not-found page) or /host/<id>.
   const isHostProfile = paths.some((path) => path.startsWith('/host/'))
     || (pathname === '/[username]' && profileUsernameFromPath(asPath) !== null);
-  const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings', '/marketplace'].some(matches);
+  const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings', '/marketplace', '/booking'].some(matches);
 
   if (isClientHome || isHostHome || isHostProfile || isSharedRoute) {
     if (role === 'client') return 'client';
@@ -61,5 +61,5 @@ export function homeShellHint(pathname: string | null | undefined): ShellRole | 
  * icon-only rail, so wide pages get the room. The sidebar stays mounted.
  */
 export function usesIconRail(pathname: string | null | undefined, asPath: string | null | undefined): boolean {
-  return [pathname || '', asPath || ''].some((path) => matchesPath(path, '/analytics') || matchesPath(path, '/marketplace'));
+  return [pathname || '', asPath || ''].some((path) => matchesPath(path, '/analytics') || matchesPath(path, '/marketplace') || matchesPath(path, '/booking'));
 }
