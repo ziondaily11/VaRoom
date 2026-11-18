@@ -69,8 +69,8 @@ test('Desktop navigation links and actions remain intact and hidden on mobile', 
   const navbarPath = path.join(clientRoot, 'components', 'landing', 'Navbar.tsx');
   const content = fs.readFileSync(navbarPath, 'utf8');
 
-  // No page links until the new sections exist; only the actions.
-  assert.doesNotMatch(content, /<nav\b/, 'Navbar must not render page links yet');
+  // The page links (the sections below the hero now exist) show from tablet width; phones get them in the menu.
+  assert.match(content, /<nav className="hero-header-nav hidden md:flex" aria-label="On this page">/, 'Desktop page links must be hidden on mobile');
   assert.match(
     content,
     /className="hero-header-actions hidden md:flex items-center gap-3 shrink-0"/,

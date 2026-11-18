@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X } from 'lucide-react';
 import { originOf, useTriggerReveal } from '../../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
+import { jumpToSection, type LandingSection } from '../../lib/landing/sections';
 
 interface NavbarProps {
   /** Each receives the control that was pressed, so the panel can open from it. */
   onOpenAuth: (trigger: HTMLElement) => void;
   onOpenSignup: (trigger: HTMLElement) => void;
+  /** The pages below the hero that the links jump to. */
+  sections: LandingSection[];
 }
 
 // The menu shares the auth panel's dark surface; its buttons are light on dark.
 const menuButton = 'flex h-12 w-full items-center justify-center rounded-[18px] px-4 text-sm font-semibold';
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sections }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuOrigin, setMenuOrigin] = useState<RevealOrigin>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -32,6 +35,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
     closeMenu();
     onOpenSignup(e.currentTarget);
   }, [closeMenu, onOpenSignup]);
+
+  // A link jumps to its page in place (no reload). From the menu, the menu
+  // closes first; the jump starts a frame later, once the page can scroll again.
+  const handleSectionClick = useCallback((event: React.MouseEvent<HTMLAnchorElement>, id: string, fromMenu: boolean) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (!document.getElementById(id)) return;
+    event.preventDefault();
+    if (!fromMenu) { jumpToSection(id); return; }
+    closeMenu();
+    window.requestAnimationFrame(() => { jumpToSection(id); });
+  }, [closeMenu]);
 
   // Lock body scroll and listen for Escape key when mobile menu is open
   useEffect(() => {
@@ -89,6 +103,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
           Room
         </span>
       </Link>
+
+      {/* Links to the pages below (desktop and tablets); phones have them in the menu. */}
+      {sections.length > 0 && (
+        <nav className="hero-header-nav hidden md:flex" aria-label="On this page">
+          {sections.map((section) => (
+            <a key={section.id} href={`#${section.id}`} className="hero-nav-link" onClick={(event) => handleSectionClick(event, section.id, false)}>
+              {section.label}
+            </a>
+          ))}
+        </nav>
+      )}
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
       <div className="hero-header-actions hidden md:flex items-center gap-3 shrink-0">
@@ -155,6 +180,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
               <X size={18} />
             </button>
           </div>
+
+          {sections.length > 0 && (
+            <nav data-reveal-content className="mt-10 flex flex-col" aria-label="On this page">
+              {sections.map((section) => (
+                <a
+                  key={section.id}
+                  href={`#${section.id}`}
+                  onClick={(event) => handleSectionClick(event, section.id, true)}
+                  className="menu-nav-link flex items-center justify-between border-b border-white/10 py-4 font-serif text-[1.75rem] font-semibold leading-tight tracking-[-0.02em] text-[#f5efe7] no-underline"
+                >
+                  {section.label}
+                  <ArrowRight size={20} aria-hidden="true" className="text-white/50" />
+                </a>
+              ))}
+            </nav>
+          )}
 
           <div data-reveal-content className="mt-auto flex flex-col gap-3 pb-4">
             <button type="button" onClick={handleSignInClick} className={`${menuButton} border border-white/20 bg-transparent text-[#f5efe7] hover:bg-white/5`}>
