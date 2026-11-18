@@ -101,6 +101,8 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 ## Backlog (outside the migration; each needs its own decision)
 
+- Chats (`pages/chats.tsx`): hydration mismatch on the shell's `style`. `stylesReady` is read from the browser in the `useState` initializer, while the server always renders "ready", so when the Chats stylesheet has not applied at hydration the browser's first render adds `visibility: hidden` and React reports a mismatch (React 18 and 19 alike; seen 2026-11-18 under `next dev`). Fix: give the server snapshot during hydration (for example `useSyncExternalStore` with a server snapshot), then check the stylesheet.
+- Every page logs Next.js warnings under `next dev`: stylesheets (`/chats-assets/theme/…`, Google Fonts) and an inline `<script>` are added through `next/head`. Next.js asks for `_document` / `next/script` instead (React 18 and 19 alike).
 - `public/js/account-switcher.js`: the vanilla add-account dialog's Google button calls `canAddAccount()`, which is only defined on the exported object, so it throws. Not reached in practice (`_app` always mounts the React `AddAccountModal`); a test pins the current behaviour.
 - With the `_app` DOM patch gone (E1), a browser extension that rewrites the page (Google Translate) can make React throw on `removeChild`. Watch production errors; a narrow logged guard is the fallback.
 - `/profile` makes a `bookings` query that returns 400 for client accounts, in production too.

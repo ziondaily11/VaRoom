@@ -151,7 +151,7 @@ test('feed photos offer the 480/800/1200 copies; other hosts get none', () => {
 
 test('a carousel loads the shown photo and its neighbours; the first card is fetched first', () => {
   assert.deepEqual([0, 1, 2, 3].map((index) => media.isSlideNear(index, 1)), [true, true, true, false]);
-  assert.deepEqual(media.feedImageHints(true), { loading: 'eager', decoding: 'async', fetchpriority: 'high' });
+  assert.deepEqual(media.feedImageHints(true), { loading: 'eager', decoding: 'async', fetchPriority: 'high' });
   assert.deepEqual(media.feedImageHints(false), { loading: 'lazy', decoding: 'async' });
 });
 
