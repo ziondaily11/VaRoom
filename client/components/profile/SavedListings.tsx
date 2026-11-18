@@ -1,70 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { RefreshCw } from 'lucide-react';
 import { getSupabaseClient } from '../../lib/supabase/client';
+import type { MarketplaceListing } from '../../lib/marketplace/marketplace';
 import {
   loadBookmarks, loadSavedListings, peekBookmarks, peekSavedListings, subscribeBookmarks, toggleBookmark, type SavedListing,
 } from '../../lib/bookmarks/bookmarks';
-import { CATEGORY_LABELS, listingPrice } from '../../lib/profile/profilePage';
-import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
+import MarketplaceCard from '../marketplace/MarketplaceCard';
+import { CardGrid, CardSkeletons, EmptyState } from './ProfileCards';
 import { BookmarkIcon } from './ProfileIcons';
 
 // Profile → Saved: the listings this account saved (moved here from the
 // sidebar's Saved item). Shown at once when returning within a couple of
 // minutes; unsaving removes the card straight away and puts it back if the
-// change fails.
+// change fails. Cards are the shared listing card (as on the public profile).
 
-const first = <T,>(value: T | T[] | null | undefined): T | null => (Array.isArray(value) ? value[0] || null : value || null);
-
-function price(listing: SavedListing): string {
-  const details = first(listing.listing_booking_details);
-  if (!details) return '';
-  if (listing.category === 'property' && details.listing_purpose === 'sale' && details.sale_price_amount != null) {
-    return `KSh ${Number(details.sale_price_amount).toLocaleString()}`;
-  }
-  return details.price_amount == null ? '' : listingPrice(Number(details.price_amount), details.price_unit);
+/** A saved listing as the shared listing card reads it. */
+function asCard(listing: SavedListing): MarketplaceListing {
+  return {
+    id: listing.id,
+    title: listing.title,
+    location_text: listing.location_text,
+    category: listing.category,
+    verified: null,
+    created_at: '',
+    host_id: '',
+    listing_photos: listing.listing_photos,
+    listing_booking_details: listing.listing_booking_details as MarketplaceListing['listing_booking_details'],
+    availability_status: listing.availability_status,
+  };
 }
-
-function SavedCard({ listing, onUnsave }: { listing: SavedListing; onUnsave: (listing: SavedListing) => void }) {
-  const path = (listing.listing_photos || []).map((photo) => photo.storage_path).find(Boolean) || null;
-  const photo = path ? resolveStoredPhotoUrl(path, 'listing-photos', getSupabaseClient(), PHOTO_WIDTH.card) : null;
-  const title = listing.title || 'Property';
-  const amount = price(listing);
-  return (
-    <Link className="listing-card saved-card" href={`/booking?listing=${encodeURIComponent(listing.id)}`} data-saved-listing={listing.id}>
-      <div className="listing-thumb">
-        {photo && <img src={photo} alt={title} loading="lazy" />}
-        <span className="listing-cat-pill">{(listing.category && CATEGORY_LABELS[listing.category]) || listing.category || 'Listing'}</span>
-        <button
-          type="button"
-          className="saved-card-unsave"
-          aria-label={`Remove ${title} from saved`}
-          title="Remove from saved"
-          onClick={(event) => { event.preventDefault(); event.stopPropagation(); onUnsave(listing); }}
-        >
-          <BookmarkIcon filled />
-        </button>
-      </div>
-      <div className="listing-card-body">
-        <div className="listing-card-title">{title}</div>
-        <div className="listing-card-loc">{listing.location_text || ''}</div>
-        {amount && <div className="listing-card-footer"><span className="listing-card-price">{amount}</span></div>}
-      </div>
-    </Link>
-  );
-}
-
-export const SavedSkeleton = () => (
-  <div className="skeleton-listings-grid" aria-hidden="true">
-    {[0, 1, 2, 3].map((index) => (
-      <div className="skeleton-listing-card" key={index}>
-        <div className="skel skeleton-listing-image" />
-        <div className="skeleton-listing-body"><div className="skel" /><div className="skel" /><div className="skeleton-listing-footer"><div className="skel" /><div className="skel" /></div></div>
-      </div>
-    ))}
-  </div>
-);
 
 export default function SavedListings({ userId, notify }: { userId: string; notify: (message: string) => void }) {
+  const router = useRouter();
   const [rows, setRows] = useState<SavedListing[] | null>(() => peekSavedListings(userId));
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
@@ -111,26 +79,25 @@ export default function SavedListings({ userId, notify }: { userId: string; noti
 
   if (failed && !rows) {
     return (
-      <div className="listings-grid" id="saved-grid">
-        <div className="listings-empty">
-          Couldn&apos;t load your saved listings.{' '}
-          <button type="button" className="saved-retry" onClick={() => setReload((value) => value + 1)}>Try again</button>
-        </div>
-      </div>
+      <CardGrid id="saved-grid">
+        <EmptyState icon={<RefreshCw />} title="Couldn’t load your saved listings" text="Check your connection, then try again."
+          action={{ label: 'Try again', onClick: () => setReload((value) => value + 1), secondary: true }} />
+      </CardGrid>
     );
   }
-  if (!rows) return <SavedSkeleton />;
+  if (!rows) return <CardSkeletons />;
   return (
-    <div className="listings-grid" id="saved-grid" aria-label="Saved listings">
-      {rows.map((listing) => <SavedCard key={listing.id} listing={listing} onUnsave={unsave} />)}
+    <CardGrid id="saved-grid" label="Saved listings">
+      {rows.map((listing) => (
+        <MarketplaceCard key={listing.id} listing={asCard(listing)} saved token={null}
+          onOpen={(href) => { void router.push(href); }} onSave={() => unsave(listing)} />
+      ))}
       {!rows.length && (
-        <div className="listings-empty">
-          <div className="listings-empty-icon"><BookmarkIcon /></div>
-          Nothing saved yet. Tap the bookmark on any listing to keep it here.{' '}
-          <Link href="/marketplace" style={{ color: 'var(--red)', fontWeight: 600 }}>Browse the Marketplace →</Link>
-        </div>
+        <EmptyState icon={<BookmarkIcon />} title="Nothing saved yet"
+          text="Tap the bookmark on any listing to keep it here, so you can find it again quickly."
+          action={{ label: 'Explore spaces', href: '/marketplace' }} />
       )}
-    </div>
+    </CardGrid>
   );
 }
 

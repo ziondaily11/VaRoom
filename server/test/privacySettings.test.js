@@ -69,6 +69,17 @@ test('host profile endpoint applies visibility and never returns the setting its
   assert.match(routes, /router\.get\('\/host-profiles\/:key'/);
   assert.match(routes, /canViewProfile\(supabaseAdmin, viewer \? viewer\.id : null, profile\)/);
   assert.match(routes, /code: 'profile_private'/);
-  assert.match(routes, /const \{ profile_visibility: _visibility, deactivated_at: _deactivated, \.\.\.shown \} = profile;/);
+  assert.match(routes, /const \{ profile_visibility: _visibility, deactivated_at: _deactivated, \.\.\.shown \} = found\.profile;/);
   assert.match(routes, /'Cache-Control', 'private, no-store'/);
+});
+
+test('host contact endpoint reuses the profile visibility check and needs a signed-in viewer', () => {
+  const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'profileRoutes.js'), 'utf8').replace(/\r\n/g, '\n');
+  const contact = routes.slice(routes.indexOf("router.get('/host-profiles/:key/contact'"), routes.indexOf('module.exports'));
+  assert.match(contact, /const found = await viewableHost\(req, 'id,phone'\);/);
+  assert.match(contact, /if \(found\.status\) return res\.status\(found\.status\)\.json\(found\.body\);/);
+  assert.match(contact, /if \(!found\.viewer\) return res\.status\(401\)/);
+  assert.ok(contact.indexOf('found.status') < contact.indexOf('!found.viewer'), 'a private profile answers 403 before anything else');
+  assert.match(contact, /contactChannels\(settings, found\.profile\.phone, loginEmail\)/);
+  assert.match(contact, /'Cache-Control', 'private, no-store'/);
 });

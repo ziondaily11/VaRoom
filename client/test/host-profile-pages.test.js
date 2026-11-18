@@ -49,13 +49,14 @@ test('one public profile page: viewer from AuthProvider, shared cached data, own
   assert.match(view, /router\.replace\(target, undefined, \{ shallow: router\.pathname === '\/\[username\]', scroll: false \}\)/);
 });
 
-test('signed out: no app sidebar, a sign-in rail and sheet that return to this profile; signed in: the account shell', () => {
+test('signed out: no app sidebar, the profile full screen, a sign-in sheet that returns to this profile; signed in: the account shell', () => {
   const view = read('components', 'hostProfile', 'HostProfile.tsx');
   assert.match(view, /const signedOut = status === 'signed-out';/);
-  assert.match(view, /\{signedOut && !isPrivate && !loadError && <SignInRail firstName=\{firstName\} onSignIn=\{signIn\} \/>\}/);
+  assert.doesNotMatch(view, /SignInRail|host-profile-sign-in-rail|is-public/, 'no sign-in rail: the profile uses the whole screen');
   assert.match(view, /const signIn = \(\) => \{ void router\.push\(loginUrl\(here\(\)\)\); \};/);
-  assert.match(view, /if \(!viewerId\) \{ setSignInOpen\(true\); return; \}/, 'Message asks a signed-out visitor to sign in');
-  for (const text of ['Sign in to message', 'Continue with Google', 'Continue with Email']) assert.ok(view.includes(text), text);
+  assert.match(view, /if \(!viewerId\) \{ setSignInReason\('message'\); return; \}/, 'Message asks a signed-out visitor to sign in');
+  assert.match(view, /\{signedOut && <SignInDialog open=\{signInReason !== null\}/, 'the sheet stays mounted for its exit');
+  for (const text of ['Sign in to message', 'Sign in to contact', 'Continue with Google', 'Continue with Email']) assert.ok(view.includes(text), text);
   // Hosts don't message other hosts from here (as before).
   assert.match(view, /const canMessageHost = Boolean\(host\) && !isOwner && \(signedOut \|\| viewerRole !== 'host'\);/);
 
@@ -141,4 +142,35 @@ test('host page addresses use the username (unique, any case); id addresses keep
   assert.match(read('pages', 'client-home.tsx'), /href=\{hostProfilePath\(listing\.host_id, host\.username\)\}/);
   assert.match(read('components', 'booking', 'ListingDetails.tsx'), /href=\{hostProfilePath\(listing\.host_id, listing\.host && listing\.host\.username\)\}/);
   assert.match(read('components', 'hostHome', 'FeedCard.tsx'), /hostProfilePath\(listing\.host_id, host\.username\)/);
+});
+
+test('WhatsApp and email next to Message follow Reach Out, as on the booking page', async () => {
+  const view = read('components', 'hostProfile', 'HostProfile.tsx');
+  assert.match(view, /<ContactButtons[\s\S]*?contact=\{contact\}/);
+  assert.match(view, /contact\.whatsapp && <a className="host-profile-contact" href=\{profileWhatsappHref\(contact\.whatsapp, enquiry\)\}/);
+  assert.match(view, /contact\.email && <a className="host-profile-contact" href=\{profileMailtoHref\(contact\.email, enquiry\)\}/);
+  assert.match(view, /loadHostContact\(viewerId, hostId, token\)/, 'signed-in visitors only, cached with the profile');
+  const reach = loadTs(path.join(root, 'lib', 'reachOut', 'reachOut.ts'));
+  const wa = reach.profileWhatsappHref('0712 345 678', { name: 'Amina', url: 'https://varoom.co.ke/amina' });
+  assert.ok(wa.startsWith('https://wa.me/254712345678?text='));
+  assert.match(decodeURIComponent(wa.split('text=')[1]), /Hello Amina[\s\S]*https:\/\/varoom\.co\.ke\/amina/);
+  const mail = reach.profileMailtoHref('host@example.com', { name: 'Amina', url: 'https://varoom.co.ke/amina' });
+  assert.ok(mail.startsWith('mailto:host@example.com?subject='));
+  assert.deepEqual({ ...(await reach.fetchProfileContact('H1', null)) }, { whatsapp: null, email: null, phone: null }, 'no session, no request');
+  let asked = null;
+  const contact = await reach.fetchProfileContact('H1', 'tok', async (url, init) => {
+    asked = [url, init.headers.Authorization];
+    return { ok: true, json: async () => ({ contact: { whatsapp: '+254712345678', email: null } }) };
+  });
+  assert.deepEqual(asked, ['/api/host-profiles/H1/contact', 'Bearer tok']);
+  assert.deepEqual({ ...contact }, { whatsapp: '+254712345678', email: null, phone: null });
+});
+
+test('one category manager for /profile and the public profile', () => {
+  const nav = read('components', 'hostProfile', 'ProfileCategoryNav.tsx');
+  assert.match(nav, /import \{ CategoryManager, CategoryManagerStyles, CategoryNameEditor, type ManagerState \} from '\.\.\/profile\/CategoryManager';/);
+  assert.doesNotMatch(nav, /Organise your listings|saveCategory|renameCategory/, 'no second manager');
+  const manager = read('components', 'profile', 'CategoryManager.tsx');
+  assert.match(manager, /usePresence\(open, DIALOG_EXIT_MS\)/, 'the dialog plays its exit');
+  assert.match(manager, /@media \(prefers-reduced-motion:reduce\)/);
 });

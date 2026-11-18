@@ -41,9 +41,6 @@ test('header labels keep the legacy wording', () => {
   assert.equal(pp.bannerUrl('photos/production/profile-banners/a b.jpg'), '/api/photos/profile-banners/photos/production/profile-banners/a%20b.jpg');
   assert.equal(pp.profileShareUrl('https://varoom.co.ke', 'amazingstays'), 'https://varoom.co.ke/amazingstays');
   assert.equal(pp.profileShareUrl('https://varoom.co.ke', null), 'https://varoom.co.ke/profile');
-  assert.equal(pp.listingPrice(4000, 'night'), 'KSh 4,000 / night');
-  assert.equal(pp.listingPrice(70000, 'month'), 'KSh 70,000 / month');
-  assert.equal(pp.listingPrice(null, 'night'), '');
   assert.deepEqual(pp.listingStatus('draft'), { label: 'Draft', className: 'paused' });
   assert.equal(pp.listingStatus(null).label, 'Available');
   assert.equal(pp.draftTitle(null, 'airbnb'), 'Airbnb draft');
@@ -126,11 +123,12 @@ test('page: own profile only (?u= opens the host page), one profile read, retire
   assert.doesNotMatch(page, /notifications'\)\.select|channel\(/, 'no notification count or live subscription');
   const listings = read('components', 'profile', 'HostListings.tsx');
   assert.match(listings, /tab\.kind === 'all' && looseDrafts\.map/, 'drafts only under All listings');
-  assert.match(listings, /rootMargin: '400px 0px'/, 'videos load as cards near the screen');
+  assert.match(listings, /<MarketplaceCard[\s\S]*?owner=\{\{[\s\S]*?<HostListingMenu/, 'the public profile card, with the owner\'s menu');
+  assert.match(read('components', 'marketplace', 'MarketplaceCard.tsx'), /rootMargin: '240px'/, 'videos load as cards near the screen');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'profile.html')), false);
   assert.match(read('next.config.js'), /source: '\/profile\.html',\s*destination: '\/profile'/);
   assert.match(fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8'), /app\.get\(\['\/profile', '\/profile\.html', '\/legacy-pages\/profile\.html'\]/);
-  for (const text of ['Upcoming Bookings', 'Past Trips', 'You have no upcoming trips.', 'View Details', 'Share this profile', 'Edit profile', 'Save changes']) {
+  for (const text of ['Upcoming Bookings', 'Past Trips', 'No upcoming trips', 'View Details', 'Share this profile', 'Edit profile', 'Save changes']) {
     assert.ok(read('components', 'profile', 'ProfileSections.tsx').includes(text) || read('components', 'profile', 'ProfileHeader.tsx').includes(text), text);
   }
 });

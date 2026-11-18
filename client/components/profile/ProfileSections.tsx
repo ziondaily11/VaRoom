@@ -7,6 +7,8 @@ import {
 } from '../../lib/profile/profilePage';
 import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import { ChatIcon, LinkIcon, MailIcon, XIcon } from './ProfileIcons';
+import { CalendarDays, History } from 'lucide-react';
+import { EmptyState } from './ProfileCards';
 
 // /profile sections: the edit dialog, the share panel, and a client's
 // upcoming bookings and past trips (wording from legacy-pages/profile.html).
@@ -113,7 +115,11 @@ export function ClientTrips({ bookings }: { bookings: { upcoming: ProfileBooking
           <Link href="/bookings">View all bookings <span>→</span></Link>
         </div>
         <div id="upcoming-bookings" className="booking-list">
-          {bookings && !bookings.upcoming.length && <div className="state-msg" style={{ padding: '1rem 0', color: 'var(--muted)' }}>You have no upcoming trips.</div>}
+          {bookings && !bookings.upcoming.length && (
+            <EmptyState icon={<CalendarDays />} title="No upcoming trips"
+              text="When you book a space, your stay appears here with its dates and details."
+              action={{ label: 'Explore spaces', href: '/marketplace' }} />
+          )}
           {bookings && bookings.upcoming.map((booking) => (
             <div className="booking-item" key={booking.id}>
               <div className="booking-thumb" style={{ backgroundImage: thumb(booking, UPCOMING_FALLBACK) }} />
@@ -138,7 +144,9 @@ export function ClientTrips({ bookings }: { bookings: { upcoming: ProfileBooking
           <Link href="/bookings">View all trips <span>→</span></Link>
         </div>
         <div id="past-trips" className="trip-grid">
-          {bookings && !bookings.past.length && <div className="state-msg" style={{ padding: '1rem 0', color: 'var(--muted)' }}>You have no previous trips.</div>}
+          {bookings && !bookings.past.length && (
+            <EmptyState icon={<History />} title="No past trips yet" text="Stays you have completed will appear here." />
+          )}
           {bookings && bookings.past.map((booking) => (
             <div className="trip-card" key={booking.id}>
               <div className="trip-image" style={{ backgroundImage: thumb(booking, PAST_FALLBACK) }} />

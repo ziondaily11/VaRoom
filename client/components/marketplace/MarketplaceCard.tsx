@@ -43,12 +43,22 @@ function observeNearView(element: Element, callback: () => void): () => void {
 
 const svg = (markup: string) => ({ __html: markup });
 
+/** The owner's controls on their own card (/profile): the ⋮ menu, the status and where the card leads. */
+export interface CardOwnerControls {
+  menu: React.ReactNode;
+  status: { label: string; className: string; style?: Record<string, string> };
+  /** Where opening the card goes (a listing with a saved draft opens the draft). */
+  href?: string;
+}
+
 interface Props {
   listing: MarketplaceListing;
   saved: boolean;
   token: string | null;
   onOpen: (href: string) => void;
   onSave: (listingId: string) => void;
+  /** Present on the owner's own profile: replaces the save button. */
+  owner?: CardOwnerControls;
 }
 
 /** One photo slide, with its own loading and failure states. */
@@ -71,7 +81,7 @@ function CardPhoto({ url, alt, fallback, eager }: { url: string; alt: string; fa
   );
 }
 
-export default function MarketplaceCard({ listing, saved, token, onOpen, onSave }: Props) {
+export default function MarketplaceCard({ listing, saved, token, onOpen, onSave, owner }: Props) {
   const mediaRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
   const [slide, setSlide] = useState(0);
@@ -99,7 +109,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
 
   const title = normalizeListingTitle(listing.title || '');
   const label = categoryLabel(listing.category);
-  const href = `/booking?listing=${listing.id}`;
+  const href = (owner && owner.href) || `/booking?listing=${listing.id}`;
   const client = getSupabaseClient();
   const photoUrls = (listing.listing_photos || [])
     .filter((item) => item && item.storage_path)
@@ -154,19 +164,19 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
 
   return (
     <div
-      className="card"
+      className={owner ? 'card has-owner' : 'card'}
       data-listing-id={listing.id}
       tabIndex={0}
       role="link"
       aria-label={`Open listing: ${title}`}
       onClick={(event) => {
-        if ((event.target as Element).closest('.card-save, .card-nav')) return;
+        if ((event.target as Element).closest('.card-save, .card-nav, .card-owner')) return;
         event.preventDefault();
         onOpen(href);
       }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
-        if ((event.target as Element).closest('.card-save, .card-nav')) return;
+        if ((event.target as Element).closest('.card-save, .card-nav, .card-owner')) return;
         event.preventDefault();
         onOpen(href);
       }}
@@ -182,6 +192,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
         </>
       )}
       <span className={`card-category card-category--${categoryTone(listing.category)}`}>{label}</span>
+      {owner && <div className="card-owner">{owner.menu}</div>}
       <div className="card-body">
         <div className="card-text">
           <div className="card-title">{title}</div>
@@ -211,6 +222,9 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
               : <div className="card-price">{`KSh ${price.amount.toLocaleString()}`}<span>{`/${price.unit}`}</span></div>)
             : <div className="card-price"><span>Price on request</span></div>}
         </div>
+        {owner ? (
+          <span className={`card-status ${owner.status.className}`.trim()} data-listing-status style={owner.status.style}>{owner.status.label}</span>
+        ) : (
         <button
           type="button"
           className={`card-save${saved ? ' saved' : ''}`}
@@ -220,6 +234,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave 
           onClick={(event) => { event.stopPropagation(); onSave(listing.id); }}
           dangerouslySetInnerHTML={svg(saved ? ICON_BOOKMARK_FILLED : ICON_BOOKMARK_OUTLINE)}
         />
+        )}
       </div>
     </div>
   );

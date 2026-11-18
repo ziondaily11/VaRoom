@@ -11,7 +11,7 @@ const root = path.join(__dirname, '..', '..');
 // checks pin the server contracts those flows depend on.
 const clientFile = (file) => fs.readFileSync(path.join(root, 'client', file), 'utf8');
 // The native profile (legacy profile.html is retired).
-const profilePage = ['lib/profile/hostProfile.ts', 'pages/profile.tsx', 'components/profile/HostListings.tsx'].map(clientFile).join('\n');
+const profilePage = ['lib/profile/hostProfile.ts', 'pages/profile.tsx', 'components/profile/HostListings.tsx', 'components/profile/ProfileCards.tsx'].map(clientFile).join('\n');
 const listingRoutes = fs.readFileSync(path.join(root, 'server', 'routes', 'listingRoutes.js'), 'utf8');
 const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261021_000044_private_listing_drafts_and_publication_rls.sql'), 'utf8');
 
@@ -22,7 +22,7 @@ test('the pricing page returns a Go Pro checkout to the listing wizard with its 
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {
   assert.match(profilePage, /fetchFn\('\/api\/listing-drafts'/);
-  assert.match(profilePage, /publication_state,created_at/);
+  assert.match(profilePage, /availability_status,publication_state/, 'the shared card query reads the publication state');
   assert.match(profilePage, /rows\.filter\(\(listing\) => listing\.publication_state === 'published'\)/);
   assert.match(profilePage, /drafts\.filter\(\(draft\) => !draft\.listing_id \|\| !listed\.has\(draft\.listing_id\)\)/);
   assert.match(profilePage, /\/list\?draft=/);

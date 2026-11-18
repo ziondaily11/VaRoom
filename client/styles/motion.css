@@ -1,0 +1,13 @@
+/* VaRoom motion tokens (animation.md §4), loaded once by pages/_app.tsx.
+   The same values are exported for TypeScript by lib/motion/tokens.ts. */
+:root {
+  --motion-press: 120ms;
+  --motion-micro: 150ms;
+  --motion-quick: 200ms;
+  --motion-standard: 250ms;
+  --motion-emphasis: 300ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --press-scale: 0.97;
+}

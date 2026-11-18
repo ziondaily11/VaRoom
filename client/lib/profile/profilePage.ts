@@ -51,12 +51,6 @@ export function shareLinks(url: string) {
   };
 }
 
-export function listingPrice(amount: number | null, unit: string | null): string {
-  if (!amount) return '';
-  const per = unit === 'month' ? 'month' : unit === 'hour' ? 'hour' : 'night';
-  return `KSh ${Number(amount).toLocaleString()} / ${per}`;
-}
-
 export function listingStatus(status: string | null | undefined): { label: string; className: string; style?: Record<string, string> } {
   const value = (status || '').toLowerCase();
   if (value === 'booked') return { label: 'Booked', className: 'booked' };

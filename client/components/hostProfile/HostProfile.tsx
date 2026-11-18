@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { BadgeCheck, CalendarDays, ChevronDown, Mail, MapPin, MessageCircle, Pencil, ShieldCheck, Star } from 'lucide-react';
@@ -6,13 +6,16 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { loginUrl } from '../../lib/safeRedirect';
 import {
-  hostProfilePath, isPrivateProfileError, loadHostCardListings, loadHostProfile, loadHostReviews, peek, peekHostProfile, toProfileListing,
+  hostProfilePath, isPrivateProfileError, loadHostCardListings, loadHostContact, loadHostProfile, loadHostReviews, peek, peekHostProfile, toProfileListing,
   type HostProfileRow, type HostReview, type ReviewSummary,
 } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
 import { toggleBookmark } from '../../lib/bookmarks/bookmarks';
 import { useSavedListingIds } from '../../lib/bookmarks/useSavedListingIds';
+import { NO_CONTACT, profileMailtoHref, profileWhatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
+import { usePresence } from '../../lib/motion/usePresence';
+import { DURATION, exitMs } from '../../lib/motion/tokens';
 import type { MarketplaceListing } from '../../lib/marketplace/marketplace';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 import MarketplaceCard from '../marketplace/MarketplaceCard';
@@ -37,6 +40,9 @@ import ProfileCategoryNav, { type ProfileTab } from './ProfileCategoryNav';
 
 /** Phones: one card per row and the compact header (same width as the header's own rules). */
 const MOBILE_QUERY = '(max-width: 760px)';
+
+/** The sign-in sheet opens in 250 ms and closes about 20% faster. */
+const SHEET_EXIT_MS = exitMs(DURATION.standard);
 
 /**
  * The Marketplace card's styles for this page, with the page tokens they use.
@@ -134,30 +140,60 @@ function ListingGrid({ listings, empty, saved, token, onOpen, onSave }: {
   );
 }
 
-/** Signed-out visitors, wide screens: who to sign in as, then back to this profile. */
-function SignInRail({ firstName, onSignIn }: { firstName: string; onSignIn: () => void }) {
+/**
+ * WhatsApp and email next to Message, as on the booking page: only the
+ * channels the host left on in Reach Out. Signed-out visitors see both and
+ * are asked to sign in (the channels are only read for signed-in people).
+ */
+function ContactButtons({ contact, signedOut, enquiry, onSignIn }: {
+  contact: ListingContact;
+  signedOut: boolean;
+  enquiry: { name: string; url: string };
+  onSignIn: () => void;
+}) {
+  if (signedOut) {
+    return (
+      <>
+        <button type="button" className="host-profile-contact" aria-label={`WhatsApp ${enquiry.name}`} title="WhatsApp" onClick={onSignIn}><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></button>
+        <button type="button" className="host-profile-contact" aria-label={`Email ${enquiry.name}`} title="Email" onClick={onSignIn}><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></button>
+      </>
+    );
+  }
   return (
-    <aside className="host-profile-sign-in-rail" aria-label="Sign in">
-      <div className="host-profile-sign-in-logo"><span>Va</span>Room</div>
-      <h2>Sign in to message {firstName}</h2>
-      <p>You&apos;ll be redirected to this host&apos;s profile once you&apos;re signed in.</p>
-      <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><GoogleIcon />Continue with Google</button>
-      <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><Mail size={16} aria-hidden="true" />Continue with Email</button>
-    </aside>
+    <>
+      {contact.whatsapp && <a className="host-profile-contact" href={profileWhatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${enquiry.name}`} title="WhatsApp"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
+      {contact.email && <a className="host-profile-contact" href={profileMailtoHref(contact.email, enquiry)} aria-label={`Email ${enquiry.name}`} title="Email"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
+    </>
   );
 }
 
-function SignInDialog({ firstName, onSignIn, onClose }: { firstName: string; onSignIn: () => void; onClose: () => void }) {
+/** Why a signed-out visitor is asked to sign in (the sheet's title). */
+type SignInReason = 'message' | 'contact';
+
+/**
+ * Signed-out visitors: who to sign in as, then back to this profile. A
+ * centred dialog on wide screens and a bottom sheet on phones; both play
+ * their exit (animation.md §8.3) and give focus back to the button that
+ * opened them.
+ */
+function SignInDialog({ open, reason, firstName, onSignIn, onClose }: { open: boolean; reason: SignInReason; firstName: string; onSignIn: () => void; onClose: () => void }) {
+  const { mounted, closing } = usePresence(open, SHEET_EXIT_MS);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
+    if (!open) return undefined;
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.querySelector<HTMLElement>('.host-profile-sign-in-option')?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    return () => { document.removeEventListener('keydown', onKey); returnFocus.current?.focus(); };
+  }, [open, onClose]);
+  if (!mounted) return null;
   return (
-    <div className="host-profile-sign-in-overlay" role="dialog" aria-modal="true" aria-labelledby="host-profile-sign-in-title" onClick={onClose}>
-      <div className="host-profile-sign-in-modal" onClick={(event) => event.stopPropagation()}>
+    <div className={`host-profile-sign-in-overlay${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="host-profile-sign-in-title" onClick={onClose}>
+      <div className="host-profile-sign-in-modal" ref={panelRef} onClick={(event) => event.stopPropagation()}>
         <button type="button" className="host-profile-sign-in-close" aria-label="Close sign-in prompt" onClick={onClose}>×</button>
-        <h2 id="host-profile-sign-in-title">Sign in to message {firstName}</h2>
+        <h2 id="host-profile-sign-in-title">{reason === 'contact' ? `Sign in to contact ${firstName}` : `Sign in to message ${firstName}`}</h2>
         <p>You&apos;ll be redirected to this host&apos;s profile once you&apos;re signed in.</p>
         <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><GoogleIcon /> Continue with Google</button>
         <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><Mail size={16} aria-hidden="true" /> Continue with Email</button>
@@ -190,7 +226,8 @@ export default function HostProfile({ hostKey }: {
   const [reviewsError, setReviewsError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
+  const [signInReason, setSignInReason] = useState<SignInReason | null>(null);
+  const [contact, setContact] = useState<ListingContact>(NO_CONTACT);
   const saved = useSavedListingIds(viewerId);
 
   // The profile, by username or id; a cached copy shows at once.
@@ -255,6 +292,15 @@ export default function HostProfile({ hostKey }: {
     return () => { cancelled = true; void client.removeChannel(channel); };
   }, [hostId, authReady, viewerId, isOwner]);
 
+  // Reach Out (WhatsApp, email) next to Message: signed-in visitors only, as on the booking page.
+  useEffect(() => {
+    setContact(NO_CONTACT);
+    if (!hostId || !viewerId || isOwner || !authReady) return undefined;
+    let cancelled = false;
+    void loadHostContact(viewerId, hostId, token).then((value) => { if (!cancelled) setContact(value); });
+    return () => { cancelled = true; };
+  }, [hostId, viewerId, isOwner, authReady, token]);
+
   // The category tabs work on ids; the cards need the full rows.
   const navListings = useMemo(() => (listings || []).map((listing) => toProfileListing(listing as unknown as Record<string, unknown>)), [listings]);
 
@@ -281,10 +327,12 @@ export default function HostProfile({ hostKey }: {
 
   const here = () => (host ? hostProfilePath(host.id, host.username) : (router.asPath || '/'));
   const signIn = () => { void router.push(loginUrl(here())); };
+  const askToSignIn = useCallback(() => setSignInReason('contact'), []);
+  const closeSignIn = useCallback(() => setSignInReason(null), []);
 
   const startChat = async () => {
     if (!hostId) return;
-    if (!viewerId) { setSignInOpen(true); return; }
+    if (!viewerId) { setSignInReason('message'); return; }
     const listing = (listings || [])[0];
     try {
       void router.push(await hostChatPath(hostId, listing ? listing.id : null));
@@ -349,11 +397,21 @@ export default function HostProfile({ hostKey }: {
                 <Pencil size={15} aria-hidden="true" />
                 Edit profile
               </Link>
-            ) : canMessageHost && (
-              <button type="button" className="host-profile-message" onClick={() => { void startChat(); }} aria-label={`Message ${host.full_name || host.username || 'host'}`}>
-                <MessageCircle size={16} aria-hidden="true" />
-                Message
-              </button>
+            ) : (
+              <div className="host-profile-actions" role="group" aria-label={`Contact ${host.full_name || 'host'}`}>
+                {canMessageHost && (
+                  <button type="button" className="host-profile-message" onClick={() => { void startChat(); }} aria-label={`Message ${host.full_name || host.username || 'host'}`}>
+                    <MessageCircle size={16} aria-hidden="true" />
+                    Message
+                  </button>
+                )}
+                <ContactButtons
+                  contact={contact}
+                  signedOut={signedOut}
+                  enquiry={{ name: firstName, url: typeof window !== 'undefined' ? `${window.location.origin}${hostProfilePath(host.id, host.username)}` : '' }}
+                  onSignIn={askToSignIn}
+                />
+              </div>
             )}
           </section>
         </div>
@@ -463,7 +521,6 @@ export default function HostProfile({ hostKey }: {
           --host-profile-fill: rgba(118,118,128,.12);
           --host-profile-selected: #fff;
           --host-profile-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
-          --host-profile-ease: cubic-bezier(.25,.1,.25,1);
         }
         html[data-theme="dark"] {
           --host-profile-page: #000;
@@ -485,20 +542,23 @@ export default function HostProfile({ hostKey }: {
         html, body, #__next { margin: 0; min-height: 100%; background: var(--host-profile-page); }
         body { overflow-x: hidden; }
         .host-profile-shell { min-height: 100vh; width: 100%; background: var(--host-profile-page); color: var(--host-profile-text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-        .host-profile-shell.is-public { display: flex; align-items: flex-start; }
         .host-profile-main { flex: 1; min-width: 0; }
         .host-profile-content { width: 100%; margin: 0; padding-bottom: 64px; }
 
-        .host-profile-sign-in-rail { position: sticky; top: 0; width: 240px; height: 100vh; flex-shrink: 0; box-sizing: border-box; padding: 24px 22px; border-right: 1px solid var(--host-profile-border); display: flex; flex-direction: column; overflow: hidden; }
-        .host-profile-sign-in-logo { font-size: 1.25rem; font-weight: 700; margin-bottom: 24px; color: var(--host-profile-text); }
-        .host-profile-sign-in-logo span { color: #E5384F; }
-        .host-profile-sign-in-rail h2 { font-size: 1.1875rem; line-height: 1.3; margin: 0 0 8px; }
-        .host-profile-sign-in-rail p { font-size: 0.8438rem; color: var(--host-profile-subtle); line-height: 1.5; margin: 0 0 20px; }
-        .host-profile-sign-in-option { display: flex; width: 100%; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; padding: 11px 12px; border: 0; border-radius: 999px; background: var(--host-profile-fill); color: var(--host-profile-text); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
-        .host-profile-sign-in-option:active { transform: scale(.98); }
-        .host-profile-sign-in-option:hover { background: var(--host-profile-surface-raised); }
-        .host-profile-sign-in-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.4); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
-        .host-profile-sign-in-modal { position: relative; width: 100%; max-width: 420px; box-sizing: border-box; padding: 24px 20px 20px; border: 0; border-radius: 22px; background: var(--host-profile-page); color: var(--host-profile-text); box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+        .host-profile-sign-in-option { display: flex; width: 100%; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; padding: 11px 12px; border: 0; border-radius: 999px; background: var(--host-profile-fill); color: var(--host-profile-text); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
+        .host-profile-sign-in-option:active { transform: scale(var(--press-scale)); }
+        @media (hover: hover) { .host-profile-sign-in-option:hover { background: var(--host-profile-surface-raised); } }
+        /* Sign-in sheet (animation.md §8.3): the scrim fades; the panel grows from .95 on wide screens and rises from the bottom on phones; exits are shorter. */
+        .host-profile-sign-in-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.4); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); animation: hp-scrim-in var(--motion-quick) var(--ease-out) both; }
+        .host-profile-sign-in-overlay.is-closing { animation: hp-scrim-out var(--motion-micro) var(--ease-in) both; pointer-events: none; }
+        .host-profile-sign-in-modal { position: relative; width: 100%; max-width: 420px; box-sizing: border-box; padding: 24px 20px 20px; border: 0; border-radius: 22px; background: var(--host-profile-page); color: var(--host-profile-text); box-shadow: 0 24px 60px rgba(0,0,0,.25); animation: hp-panel-in var(--motion-standard) var(--ease-out) both; }
+        .host-profile-sign-in-overlay.is-closing .host-profile-sign-in-modal { animation: hp-panel-out var(--motion-quick) var(--ease-in) both; }
+        @keyframes hp-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes hp-scrim-out { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes hp-panel-in { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: none; } }
+        @keyframes hp-panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.95); } }
+        @keyframes hp-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+        @keyframes hp-sheet-out { from { transform: none; } to { transform: translateY(100%); } }
         html[data-theme="dark"] .host-profile-sign-in-modal { background: var(--host-profile-surface); }
         .host-profile-sign-in-modal h2 { margin: 0 28px 8px 0; font-size: 1.125rem; line-height: 1.3; }
         .host-profile-sign-in-modal p { margin: 0 0 8px; color: var(--host-profile-subtle); font-size: 0.8125rem; line-height: 1.5; }
@@ -538,9 +598,15 @@ export default function HostProfile({ hostKey }: {
         .host-profile-meta-item { display:flex; align-items:center; gap:6px; }
         .host-profile-rating { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:0.8125rem; color:var(--host-profile-banner-ink); }
         .host-profile-rating-count { color:var(--host-profile-banner-muted); }
-        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 20px; border:0; border-radius:999px; background:#e5384f; color:#fff; font-size:0.875rem; font-weight:600; cursor:pointer; white-space:nowrap; text-decoration:none; transition:background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
-        .host-profile-message:active { transform:scale(.97); }
-        .host-profile-message:hover { background:#c9233c; }
+        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 20px; border:0; border-radius:999px; background:#e5384f; color:#fff; font-size:0.875rem; font-weight:600; cursor:pointer; white-space:nowrap; text-decoration:none; transition:background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
+        .host-profile-message:active { transform:scale(var(--press-scale)); }
+        @media (hover: hover) { .host-profile-message:hover { background:#c9233c; } }
+        .host-profile-actions { display:flex; align-items:center; gap:8px; }
+        .host-profile-contact { display:grid; place-items:center; width:40px; height:40px; flex:0 0 auto; padding:0; border:0; border-radius:50%; background:var(--host-profile-fill); cursor:pointer; transition:background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
+        .host-profile-contact img { width:20px; height:20px; display:block; }
+        .host-profile-contact:active { transform:scale(var(--press-scale)); }
+        .host-profile-contact:focus-visible, .host-profile-message:focus-visible { outline:2px solid #e5384f; outline-offset:2px; }
+        @media (hover: hover) { .host-profile-contact:hover { background:var(--host-profile-surface-raised); } }
         .host-profile-owner-note { margin:14px 24px 0; color:var(--host-profile-subtle); font-size:0.8125rem; }
         .host-profile-body { padding:20px 24px 0; }
         .host-profile-bio { margin:0 0 14px; color:var(--host-profile-muted); font-size:0.875rem; line-height:1.6; }
@@ -551,20 +617,20 @@ export default function HostProfile({ hostKey }: {
         .host-profile-review-score { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:100px; border-right:1px solid var(--host-profile-border); padding-right:24px; }
         .host-profile-review { background:var(--host-profile-surface); border:0; border-radius:20px; box-shadow:var(--host-profile-shadow); padding:18px; }
         .host-profile-reviewer { width:38px; height:38px; border-radius:50%; background:var(--host-profile-avatar-fallback); display:flex; align-items:center; justify-content:center; font-size:0.8125rem; font-weight:600; color:var(--host-profile-text); flex-shrink:0; overflow:hidden; }
-        .host-profile-more-reviews { display:flex; align-items:center; gap:6px; margin:18px auto 0; background:var(--host-profile-fill); border:0; color:var(--host-profile-text); font-size:0.8125rem; font-weight:600; padding:10px 20px; border-radius:999px; cursor:pointer; transition:background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
-        .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); }
-        .host-profile-more-reviews:active { transform:scale(.97); }
+        .host-profile-more-reviews { display:flex; align-items:center; gap:6px; margin:18px auto 0; background:var(--host-profile-fill); border:0; color:var(--host-profile-text); font-size:0.8125rem; font-weight:600; padding:10px 20px; border-radius:999px; cursor:pointer; transition:background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
+        @media (hover: hover) { .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); } }
+        .host-profile-more-reviews:active { transform:scale(var(--press-scale)); }
         @media (prefers-reduced-motion: reduce) {
-          .host-profile-message, .host-profile-more-reviews, .host-profile-sign-in-option { transition:none; }
-          .host-profile-message:active, .host-profile-more-reviews:active, .host-profile-sign-in-option:active { transform:none; }
+          .host-profile-message, .host-profile-more-reviews, .host-profile-sign-in-option, .host-profile-contact { transition:none; }
+          .host-profile-message:active, .host-profile-more-reviews:active, .host-profile-sign-in-option:active, .host-profile-contact:active { transform:none; }
+          .host-profile-sign-in-overlay, .host-profile-sign-in-overlay.is-closing, .host-profile-sign-in-modal, .host-profile-sign-in-overlay.is-closing .host-profile-sign-in-modal { animation-duration:1ms; }
         }
 
 
         @media (max-width: 760px) {
-          .host-profile-shell.is-public { display:block; }
-          .host-profile-sign-in-rail { display:none; }
-          .host-profile-sign-in-overlay { align-items:flex-end; }
-          .host-profile-sign-in-modal { max-width:480px; }
+          .host-profile-sign-in-overlay { align-items:flex-end; padding:0; }
+          .host-profile-sign-in-modal { max-width:none; border-radius:22px 22px 0 0; padding-bottom:calc(20px + env(safe-area-inset-bottom)); animation-name:hp-sheet-in; }
+          .host-profile-sign-in-overlay.is-closing .host-profile-sign-in-modal { animation-name:hp-sheet-out; }
           .host-profile-content { padding-bottom:24px; }
           .host-profile-skeleton-identity { inset:auto 16px 18px; grid-template-columns:68px minmax(0,1fr); gap:12px; }
           .host-profile-skeleton-avatar { width:68px; height:68px; }
@@ -576,7 +642,9 @@ export default function HostProfile({ hostKey }: {
           .host-profile-skeleton-grid { grid-template-columns:minmax(0,1fr); }
           .host-profile-identity { left:16px; right:16px; bottom:18px; grid-template-columns:68px minmax(0,1fr); gap:12px; }
           .host-profile-avatar { width:68px; height:68px; }
-          .host-profile-message { grid-column:2; justify-self:start; padding:8px 14px; }
+          .host-profile-actions { grid-column:2; justify-self:start; }
+          .host-profile-message { padding:8px 14px; }
+          .host-profile-contact { width:36px; height:36px; }
           .host-profile-meta { gap:8px 12px; font-size:0.75rem; }
           .host-profile-owner-note { margin:12px 16px 0; }
           .host-profile-body { padding:16px 16px 0; }
@@ -592,13 +660,12 @@ export default function HostProfile({ hostKey }: {
           .host-profile-meta { font-size:0.6875rem; gap:7px 10px; }
         }
       `}</style>
-      <div className={`host-profile-shell${signedOut && !isPrivate && !loadError ? ' is-public' : ''}`}>
-        {signedOut && !isPrivate && !loadError && <SignInRail firstName={firstName} onSignIn={signIn} />}
+      <div className="host-profile-shell">
         <main className="host-profile-main">
           <div className="host-profile-content">{content}</div>
         </main>
       </div>
-      {signInOpen && signedOut && <SignInDialog firstName={firstName} onSignIn={signIn} onClose={() => setSignInOpen(false)} />}
+      {signedOut && <SignInDialog open={signInReason !== null} reason={signInReason || 'message'} firstName={firstName} onSignIn={signIn} onClose={closeSignIn} />}
     </>
   );
 }

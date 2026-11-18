@@ -75,14 +75,9 @@ export const PROFILE_STYLES = `
   .profile-page .skeleton-section-heading .skel:last-child{ width:118px; height:14px; }
   .profile-page .skeleton-tabs{ display:flex; gap:10px; overflow:hidden; padding:0 0 20px; }
   .profile-page .skeleton-tabs .skel{ flex:0 0 108px; height:36px; border-radius:999px; }
-  .profile-page .skeleton-listings-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
-  .profile-page .skeleton-listing-card{ min-width:0; overflow:hidden; border:1px solid var(--card-border); border-radius:14px; background:var(--card-bg); }
-  .profile-page .skeleton-listing-image{ width:100%; aspect-ratio:4/3; border-radius:0; }
-  .profile-page .skeleton-listing-body{ display:flex; flex-direction:column; gap:10px; padding:14px; }
-  .profile-page .skeleton-listing-body .skel:nth-child(1){ width:80%; height:16px; }
-  .profile-page .skeleton-listing-body .skel:nth-child(2){ width:55%; height:12px; }
-  .profile-page .skeleton-listing-footer{ display:flex; justify-content:space-between; gap:10px; margin-top:4px; }
-  .profile-page .skeleton-listing-footer .skel{ width:42%; height:14px; }
+  .profile-page .skeleton-listings-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr)); gap:16px; }
+  .profile-page .skeleton-listing-card{ min-width:0; aspect-ratio:1 / .95; border-radius:24px; }
+  @media (max-width:760px){ .profile-page .skeleton-listings-grid{ grid-template-columns:1fr; gap:10px; } }
   .profile-page .skeleton-booking-list{ display:grid; gap:12px; }
   .profile-page .skeleton-booking{ min-height:126px; display:grid; grid-template-columns:160px minmax(0,1fr) 110px; gap:16px; align-items:center; padding:12px; border:1px solid var(--card-border); border-radius:14px; background:var(--card-bg); }
   .profile-page .skeleton-booking-image{ width:100%; height:100px; }
@@ -101,13 +96,10 @@ export const PROFILE_STYLES = `
   .profile-page .skeleton-client-content{ display:none; }
   html[data-account-role="client"] .profile-page .skeleton-host-content{ display:none; }
   html[data-account-role="client"] .profile-page .skeleton-client-content{ display:block; }
-  @media (max-width:1200px){.profile-page .skeleton-listings-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
   @media (max-width:1100px){
     .profile-page .skeleton-shell{ grid-template-columns:220px minmax(0,1fr); }
     html[data-account-role="host"] .profile-page .skeleton-shell{ grid-template-columns:280px minmax(0,1fr); }
-    .profile-page .skeleton-listings-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
   }
-  @media (max-width:1050px){.profile-page .skeleton-listings-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:930px){
     .profile-page .skeleton-shell{ grid-template-columns:minmax(0,1fr); }
     .profile-page .skeleton-main{ padding:0 16px 90px; }
@@ -128,14 +120,11 @@ export const PROFILE_STYLES = `
     .profile-page .skeleton-identity .skel:nth-child(3){ width:90%; }
     .profile-page .skeleton-header-actions{ width:100%; margin:0; padding:0 0 0 76px; }
     .profile-page .skeleton-header-actions .skel{ flex:1; max-width:116px; height:36px; }
-    .profile-page .skeleton-listings-grid{ grid-template-columns:1fr 1fr; gap:10px; }
-    .profile-page .skeleton-listing-body{ gap:8px; padding:10px; }
     .profile-page .skeleton-booking{ grid-template-columns:88px minmax(0,1fr); gap:10px; padding:10px; }
     .profile-page .skeleton-booking-image{ height:84px; }
     .profile-page .skeleton-booking-price{ display:none; }
     .profile-page .skeleton-trips-grid{ gap:10px; }
   }
-  @media (max-width:380px){.profile-page .skeleton-listings-grid{grid-template-columns:1fr;} }
   @media (prefers-reduced-motion:reduce){.profile-page .skel, .profile-page .skeleton-banner{animation:none;} }
   .profile-page .profile-desktop-shell{
     display:grid; grid-template-columns: 280px minmax(0, 1fr); gap:0;
@@ -309,110 +298,16 @@ export const PROFILE_STYLES = `
      LISTINGS (host listings shown when viewing another user's profile)
   ============================================================ */
   
-  .profile-page .listings-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin:0 0 3rem; }
-  .profile-page .listing-card{
-    background:var(--card-bg); border:1px solid var(--card-border);
-    border-radius:16px; overflow:hidden;min-width:0;
-    position:relative;
-    transition:transform .18s ease,border-color .18s ease;
-    cursor:pointer;
-  }
-  .profile-page .listing-card:hover{ transform:translateY(-2px);border-color:rgba(196,30,58,.55); }
-  .profile-page .listing-card:focus-visible{outline:3px solid var(--red);outline-offset:3px}
-  .profile-page .listing-thumb{ position:relative; aspect-ratio:4/3; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); overflow:hidden; }
-  .profile-page .listing-thumb img, .profile-page .listing-thumb video{ width:100%; height:100%; object-fit:cover;display:block; }
-  .profile-page .listing-cat-pill{
-    position:absolute; top:.7rem; left:.7rem;
-    font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-    background:rgba(255,255,255,.95); color:#24211E;
-    padding:.3rem .7rem; border-radius:100px;
-    box-shadow:0 2px 8px rgba(26,18,16,.25);
-  }
-  .profile-page .listing-card-body{ padding:.9rem 1rem 1rem; }
-  .profile-page .listing-card-title{ font-family:var(--font-display); font-weight:650; font-size:.96rem; margin-bottom:.28rem; line-height:1.3; }
-  .profile-page .listing-card-loc{ font-size:.8rem; color:var(--muted); margin-bottom:.65rem; }
-  .profile-page .listing-card-footer{ display:flex; align-items:center; justify-content:space-between;gap:8px; }
-  .profile-page .listing-card-price{ font-size:.86rem; font-weight:700; }
-  .profile-page .listing-card-status{ font-size:.68rem; font-weight:700; letter-spacing:.045em; text-transform:uppercase; color:var(--red);white-space:nowrap; }
-  .profile-page .listing-card-status.available{ color:#238653; }
-  .profile-page .listing-card-status.booked{ color:var(--muted); }
-  .profile-page .listing-card-status.unavailable, .profile-page .listing-card-status.paused{ color:#b45309; }
-  .profile-page .listing-card-menu{ position:absolute; top:.65rem; right:.65rem; z-index:20; }
-  .profile-page .listing-card-menu .card-menu-btn{ background:var(--card-bg);color:var(--ink);border:1px solid var(--card-border);box-shadow:0 2px 8px rgba(0,0,0,.16); }
-  .profile-page .listing-card-menu .card-menu-btn svg{ width:16px; height:16px; }
-  .profile-page .card-menu-wrap{ position:relative; }
-  .profile-page .card-menu-btn{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--card-bg); color:var(--ink); font-size:1.2rem; }
-  .profile-page .listings-empty{ grid-column:1/-1; text-align:center; padding:3rem 1.5rem; color:var(--muted); font-size:.92rem; line-height:1.6; }
-  .profile-page .listings-empty-icon{
-    width:48px; height:48px; border-radius:50%;
-    background:rgba(196,30,58,.08); color:var(--red-deep);
-    display:flex; align-items:center; justify-content:center;
-    margin:0 auto 1rem;
-  }
-  .profile-page .profile-category-row{display:flex;align-items:center;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap;border-bottom:1px solid var(--card-border);margin:0 0 18px}
-  .profile-page .profile-category-row::-webkit-scrollbar{display:none}
-  .profile-page .profile-category-row button{flex:0 0 auto;padding:12px 10px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 0.8125rem inherit;cursor:pointer}
-  .profile-page .profile-category-row button[aria-selected="true"]{border-bottom-color:var(--red);color:var(--ink)}
-  .profile-page .profile-category-row .category-manage{margin-left:auto;color:var(--red)}
-  .profile-page .profile-category-manager{display:none;position:fixed;inset:0;z-index:1200;overflow:hidden;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.68);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#f7f7f7}
-  .profile-page .profile-category-manager.open{display:flex}
-  .profile-page .profile-category-manager-card{width:min(570px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow:hidden;margin:0;background:#050505;color:#f7f7f7;border:0;border-radius:0;padding:0 24px 24px;box-shadow:none}
-  .profile-page .profile-category-manager-card.selection-mode{width:min(650px,calc(100vw - 48px));height:min(880px,calc(100dvh - 48px));max-height:calc(100dvh - 48px);display:flex;flex-direction:column;overflow:hidden;padding:14px 22px 12px}
-  .profile-page .category-create-view{max-width:442px;margin:0 auto;text-align:center}
-  .profile-page .category-stack{height:230px;position:relative;width:300px;max-width:100%;margin:0 auto 3px}
-  .profile-page .category-stack img{position:absolute;top:0;left:50%;width:130px;height:180px;object-fit:cover;border-radius:11px;box-shadow:0 12px 28px #0009}
-  .profile-page .category-stack img:nth-child(1){transform:translateX(-110%) rotate(-10deg);top:-5px}
-  .profile-page .category-stack img:nth-child(2){transform:translateX(-50%) rotate(0deg);top:2px}
-  .profile-page .category-stack img:nth-child(3){transform:translateX(10%) rotate(10deg);top:28px}
-  .profile-page .category-create-view h2{margin:0;font-size:1.75rem;line-height:1.2;font-weight:700}
-  .profile-page .category-create-view>p{margin:7px 0 24px;color:#aaa;font-size:0.875rem}
-  .profile-page .category-create-form{text-align:left}
-  .profile-page .category-create-form label{display:block;margin-bottom:5px;font-size:1rem;font-weight:600}
-  .profile-page .category-create-form .category-field-label{display:block;margin-bottom:8px;color:#888;font-size:0.6875rem}
-  .profile-page .category-create-form input[type=text], .profile-page .category-search{width:100%;min-width:0;padding:11px 13px;border:1px solid #303030;border-radius:11px;background:#101010;color:#fff;font:inherit;outline:none}
-  .profile-page .category-create-form input:focus, .profile-page .category-search:focus{border-color:#888}
-  .profile-page .category-primary{width:100%;height:42px;margin-top:8px;padding:10px 18px;border:0;border-radius:999px;background:#fff;color:#080808;font:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer}
-  .profile-page .category-primary:disabled, .profile-page .category-add:disabled{opacity:.55;cursor:wait}
-  .profile-page .profile-category-entry{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #242424}
-  .profile-page .profile-category-entry strong{flex:1;min-width:0}
-  .profile-page .category-selection-view{display:none;max-width:none;width:100%;min-height:0;margin:0 auto}
-  .profile-page .category-selection-view.active{display:flex;flex:1;flex-direction:column;min-height:0}
-  .profile-page .category-selection-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:2px 0 12px}
-  .profile-page .category-selection-brand{color:#aaa;font-size:0.75rem}
-  .profile-page .category-selection-head h2{margin:5px 0;font-size:1.5rem}
-  .profile-page .category-selection-head p{margin:0;color:#aaa;font-size:0.8125rem}
-  .profile-page .category-selected-count{flex:0 0 auto;padding:9px 12px;border:1px solid #292929;border-radius:999px;background:#111;font-size:0.75rem}
-  .profile-page .category-search{height:34px;border-radius:999px;margin-bottom:10px;padding:7px 12px;font-size:0.75rem}
-  .profile-page .category-listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:max-content;align-content:start;gap:14px;min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:0 4px 12px 0;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#444 #111}
-  .profile-page .category-listing-grid::-webkit-scrollbar{width:6px}
-  .profile-page .category-listing-grid::-webkit-scrollbar-track{background:#111;border-radius:8px}
-  .profile-page .category-listing-grid::-webkit-scrollbar-thumb{background:#444;border-radius:8px}
-  .profile-page .category-listing-card{display:block;min-width:0;overflow:hidden;border:1px solid #292929;border-radius:12px;background:#080808}
-  .profile-page .category-listing-card img{display:block;width:100%;height:clamp(150px,26vh,250px);object-fit:cover;background:#171717}
-  .profile-page .category-listing-card:last-child:nth-child(odd){grid-column:1/-1;justify-self:center;width:calc((100% - 14px)/2)}
-  .profile-page .category-listing-copy{padding:8px 9px 10px}
-  .profile-page .category-listing-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .profile-page .category-listing-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8125rem;font-weight:600}
-  .profile-page .category-listing-location{margin-top:4px;color:#929292;font-size:0.625rem}
-  .profile-page .category-listing-price-row{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:5px}
-  .profile-page .category-listing-price{font-weight:700;font-size:0.875rem}
-  .profile-page .category-listing-period{color:#999;font-size:0.5625rem}
-  .profile-page .category-toggle{flex:0 0 auto;padding:4px 7px;border:1px solid #292929;border-radius:999px;background:#111;color:#f7f7f7;font:inherit;font-size:0.5625rem;font-weight:600;cursor:pointer}
-  .profile-page .category-toggle.selected{border-color:#fff;background:#fff;color:#090909}
-  .profile-page .category-selection-footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;padding:12px 0 2px;background:#080808;border-top:1px solid #222}
-  .profile-page .category-available-count{color:#999;font-size:0.6875rem}
-  .profile-page .category-add{padding:10px 17px;border:0;border-radius:999px;background:#fff;color:#080808;font:inherit;font-size:0.75rem;font-weight:700;cursor:pointer}
-  .profile-page .category-manager-error{color:#ff9eaa;font-size:0.8125rem}
-  .profile-page .category-context-menu{position:fixed;z-index:1300;display:none;min-width:142px;padding:5px;background:#121212;border:1px solid #303030;border-radius:10px;box-shadow:0 14px 38px #0009}
-  .profile-page .category-context-menu.open{display:block}
-  .profile-page .category-context-menu button{display:block;width:100%;padding:9px 11px;border:0;border-radius:7px;background:transparent;color:#f7f7f7;text-align:left;font:600 0.8125rem inherit;cursor:pointer}
-  .profile-page .category-context-menu button:hover, .profile-page .category-context-menu button:focus-visible{background:#262626;outline:0}
-  .profile-page .category-context-menu .category-context-delete{color:#ff9eaa}
-  .profile-page .category-name-editor{display:none;position:fixed;inset:0;z-index:1400;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.65)}
-  .profile-page .category-name-editor.open{display:flex}
-  .profile-page .category-name-editor-card{width:min(380px,100%);padding:20px;border:1px solid #303030;border-radius:14px;background:#101010;color:#f7f7f7;box-shadow:0 18px 50px #000a}
-  .profile-page .category-name-editor-card h2{margin:0 0 14px;font-size:1.125rem}.profile-page .category-name-editor-card input{width:100%;padding:10px 12px;border:1px solid #444;border-radius:9px;background:#080808;color:#fff;font:inherit}.profile-page .category-name-editor-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.profile-page .category-name-editor-actions button{padding:8px 12px;border:1px solid #444;border-radius:999px;background:transparent;color:#fff;font:600 0.75rem inherit;cursor:pointer}.profile-page .category-name-editor-actions .category-name-save{border-color:#fff;background:#fff;color:#080808}
-  @media(max-width:600px){.profile-page .profile-category-manager{padding:12px}.profile-page .profile-category-manager-card, .profile-page .profile-category-manager-card.selection-mode{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);height:auto;padding:12px 14px 18px;border-radius:0}.profile-page .profile-category-manager-card.selection-mode{height:calc(100dvh - 24px);padding:12px 10px 10px}.profile-page .category-create-view{margin-top:0}.profile-page .category-stack{height:190px;width:280px}.profile-page .category-stack img{width:112px;height:148px}.profile-page .category-create-view h2{font-size:1.4375rem}.profile-page .category-create-view>p{font-size:0.8125rem;margin-bottom:19px}.profile-page .category-selection-head{align-items:flex-start;gap:8px;margin:2px 0 9px}.profile-page .category-selection-head h2{font-size:1.125rem}.profile-page .category-selection-head p{max-width:290px;line-height:1.35;font-size:0.6875rem}.profile-page .category-selected-count{padding:6px 8px;font-size:0.625rem}.profile-page .category-search{height:34px;margin-bottom:8px;font-size:0.75rem}.profile-page .category-listing-grid{gap:9px}.profile-page .category-listing-card img{height:clamp(112px,38vw,155px)}.profile-page .category-listing-copy{padding:6px}.profile-page .category-listing-title{font-size:0.6875rem}.profile-page .category-toggle{padding:4px 6px;font-size:0.5625rem}.profile-page .category-listing-price{font-size:0.75rem}.profile-page .category-listing-location{font-size:0.5625rem}.profile-page .category-listing-card:last-child:nth-child(odd){width:calc((100% - 9px)/2)}}
+  /* Tabs (SegmentedTabs) with the Manage categories button beside them. */
+  .profile-page .profile-tabs-bar{ display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:10px 0 12px; border-bottom:1px solid var(--card-border); }
+  .profile-page .profile-manage-categories{ flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; margin-left:auto; padding:7px 12px; border:0; border-radius:999px; background:transparent; color:var(--red); font:inherit; font-size:.8125rem; font-weight:600; cursor:pointer; transition:background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
+  .profile-page .profile-manage-categories:active{ transform:scale(var(--press-scale)); }
+  .profile-page .profile-manage-categories:focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
+  @media (hover:hover){ .profile-page .profile-manage-categories:hover{ background:rgba(118,118,128,.12); } }
+  @media (max-width:760px){ .profile-page .profile-tabs-bar{ flex-wrap:wrap; gap:6px; } .profile-page .profile-manage-categories{ margin-left:0; padding-left:4px; } }
+  @media (prefers-reduced-motion: reduce){ .profile-page .profile-manage-categories{ transition:none; } .profile-page .profile-manage-categories:active{ transform:none; } }
+  .profile-page .vr-seg .saved-tab{ min-width:40px; justify-content:center; }
+  .profile-page .vr-seg .saved-tab svg{ width:17px; height:17px; }
   .profile-page .profile-review-section{display:none;padding:18px 0}
   .profile-page .profile-review-card{padding:14px 0;border-bottom:1px solid var(--card-border)}
   html[data-theme="dark"] .profile-page .profile-banner::before{
@@ -513,13 +408,6 @@ export const PROFILE_STYLES = `
   
   @media (max-width: 1100px){
     .profile-page .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr); }
-    .profile-page .listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  }
-  @media (max-width: 1200px){
-    .profile-page .listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  }
-  @media (max-width: 1050px){
-    .profile-page .listings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   @media (max-width: 930px){
     .profile-page{ height:auto; overflow:auto; }
@@ -535,12 +423,10 @@ export const PROFILE_STYLES = `
     .profile-page .profile-header-actions{grid-column:1/-1;justify-self:end;margin:0}
     .profile-page .profile-avatar{width:78px;height:78px;font-size:1.6875rem}
     .profile-page .profile-meta-row{gap:8px 12px;margin-top:8px}
-    .profile-page .profile-category-row{margin-top:0}
     .profile-page .trip-grid{ grid-template-columns:1fr; }
     .profile-page .booking-item{ grid-template-columns:1fr; }
     .profile-page .booking-thumb{ width:100%; }
     .profile-page .booking-price-box{ text-align:left; }
-    .profile-page .listings-grid{ grid-template-columns:1fr 1fr; gap:.8rem; }
 
   }
   @media (max-width:500px){
@@ -556,7 +442,6 @@ export const PROFILE_STYLES = `
     .profile-page .profile-header-actions .btn-outline, .profile-page .profile-header-actions .btn-solid{padding:.55rem .9rem;font-size:.8rem}
     .profile-page .profile-banner-actions{left:12px;top:12px}
     .profile-page .profile-banner-actions button{padding:8px 10px}
-    .profile-page .listings-grid{ grid-template-columns:1fr; }
   }
   
   /* The host shell owns its sidebar and scroll area; keep profile loading/content inside it. */
@@ -590,19 +475,4 @@ export const PROFILE_STYLES = `
   .client-layout-active .client-page-content #profile-content .profile-main{
     width:100%; height:auto; min-height:100vh; overflow:visible;
   }
-  /* Saved (bookmark tab): the account's saved listings. */
-  .profile-page .profile-category-row .saved-tab{display:inline-flex;align-items:center;justify-content:center;min-width:40px}
-  .profile-page .profile-category-row .saved-tab svg{width:19px;height:19px}
-  .profile-page .profile-category-row .saved-tab[aria-selected="true"]{color:var(--ink)}
-  .profile-page .profile-category-row button:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:6px}
-  .profile-page .saved-card-unsave{
-    position:absolute;top:10px;right:10px;z-index:2;display:grid;place-items:center;width:34px;height:34px;padding:0;
-    border:0;border-radius:999px;background:rgba(255,255,255,.94);color:#111;cursor:pointer;
-    box-shadow:0 2px 10px rgba(0,0,0,.18);transition:transform .15s ease, background-color .15s ease
-  }
-  .profile-page .saved-card-unsave svg{width:17px;height:17px}
-  .profile-page .saved-card-unsave:hover{transform:scale(1.06);background:#fff}
-  .profile-page .saved-card-unsave:focus-visible{outline:3px solid var(--red);outline-offset:2px}
-  .profile-page .saved-retry{border:0;background:none;padding:0;color:var(--red);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
-  @media (prefers-reduced-motion: reduce){.profile-page .saved-card-unsave{transition:none}}
 `;

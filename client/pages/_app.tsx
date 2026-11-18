@@ -20,6 +20,7 @@ import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRai
 import '../styles/admin.css';
 import '../styles/privacy.css';
 import '../styles/spinner.css';
+import '../styles/motion.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // Create the shared Supabase client before any page renders so pages and

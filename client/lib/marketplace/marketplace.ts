@@ -38,6 +38,9 @@ export interface MarketplaceListing {
   host_id: string;
   listing_photos: Array<{ storage_path: string | null }> | null;
   listing_booking_details: BookingDetails | BookingDetails[] | null;
+  /** Read for an owner's own cards (/profile, the owner's public profile). */
+  availability_status?: string | null;
+  publication_state?: string | null;
 }
 
 export interface MarketplaceSearch {

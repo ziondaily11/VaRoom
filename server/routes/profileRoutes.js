@@ -4,6 +4,7 @@ const mediaStorageService = require('../lib/mediaStorageService');
 const { isNewR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { canViewProfile } = require('../lib/privacySettings');
+const { contactChannels } = require('../lib/reachOutContact');
 
 const router = express.Router();
 const BANNER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -69,29 +70,64 @@ const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_i
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USERNAME = /^[a-z0-9_]{3,20}$/;
 
-router.get('/host-profiles/:key', async (req, res) => {
-  res.set('Cache-Control', 'private, no-store');
+/**
+ * The host behind /host-profiles/:key as the viewer may see them, or the
+ * response to send instead ({ status, body }).
+ */
+async function viewableHost(req, columns) {
   const raw = String(req.params.key || '').trim();
   const username = raw.replace(/^@/, '').toLowerCase();
   const byId = UUID.test(raw);
-  if (!byId && !USERNAME.test(username)) return res.status(404).json({ error: 'Host not found' });
+  if (!byId && !USERNAME.test(username)) return { status: 404, body: { error: 'Host not found' } };
+  // Signed-out visitors are welcome; a stale token reads as signed out.
+  const viewer = await authenticatedUser(req).catch(() => null);
+  let query = supabaseAdmin.from('profiles').select(`${columns},profile_visibility,deactivated_at`).eq('role', 'host');
+  query = byId ? query.eq('id', raw) : query.eq('username', username);
+  const { data: profile, error } = await query.maybeSingle();
+  if (error) throw error;
+  // A deactivated host is not available to anyone else (Privacy Policy, Account Deletion).
+  if (!profile || (profile.deactivated_at && !(viewer && viewer.id === profile.id))) return { status: 404, body: { error: 'Host not found' } };
+  if (!(await canViewProfile(supabaseAdmin, viewer ? viewer.id : null, profile))) {
+    return { status: 403, body: { error: 'This profile is private.', code: 'profile_private' } };
+  }
+  return { viewer, profile };
+}
+
+router.get('/host-profiles/:key', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   try {
-    // Signed-out visitors are welcome; a stale token reads as signed out.
-    const viewer = await authenticatedUser(req).catch(() => null);
-    let query = supabaseAdmin.from('profiles').select(`${HOST_PROFILE_COLUMNS},profile_visibility,deactivated_at`).eq('role', 'host');
-    query = byId ? query.eq('id', raw) : query.eq('username', username);
-    const { data: profile, error } = await query.maybeSingle();
-    if (error) throw error;
-    // A deactivated host is not available to anyone else (Privacy Policy, Account Deletion).
-    if (!profile || (profile.deactivated_at && !(viewer && viewer.id === profile.id))) return res.status(404).json({ error: 'Host not found' });
-    if (!(await canViewProfile(supabaseAdmin, viewer ? viewer.id : null, profile))) {
-      return res.status(403).json({ error: 'This profile is private.', code: 'profile_private' });
-    }
-    const { profile_visibility: _visibility, deactivated_at: _deactivated, ...shown } = profile;
+    const found = await viewableHost(req, HOST_PROFILE_COLUMNS);
+    if (found.status) return res.status(found.status).json(found.body);
+    const { profile_visibility: _visibility, deactivated_at: _deactivated, ...shown } = found.profile;
     return res.json({ profile: shown });
   } catch (error) {
     console.error('Host profile lookup failed:', error.message);
     return res.status(502).json({ error: 'Could not load this host profile.' });
+  }
+});
+
+// The host's Reach Out channels for the WhatsApp and email buttons next to
+// Message: signed-in viewers only (as on the booking page), and only when
+// they may see the profile itself.
+router.get('/host-profiles/:key/contact', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  try {
+    const found = await viewableHost(req, 'id,phone');
+    if (found.status) return res.status(found.status).json(found.body);
+    if (!found.viewer) return res.status(401).json({ error: 'Sign in to contact this host.' });
+    const hostId = found.profile.id;
+    const [{ data: settings, error: settingsError }, { data: account, error: accountError }] = await Promise.all([
+      supabaseAdmin.from('profile_contact_settings')
+        .select('phone,whatsapp,email,whatsapp_enabled,email_enabled,phone_enabled').eq('profile_id', hostId).maybeSingle(),
+      supabaseAdmin.auth.admin.getUserById(hostId),
+    ]);
+    if (settingsError) throw settingsError;
+    if (accountError) throw accountError;
+    const loginEmail = account && account.user ? account.user.email : null;
+    return res.json({ contact: contactChannels(settings, found.profile.phone, loginEmail) });
+  } catch (error) {
+    console.error('Host contact lookup failed:', error.message);
+    return res.status(502).json({ error: 'Could not load this host\'s contact options.' });
   }
 });
 

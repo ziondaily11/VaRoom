@@ -5,16 +5,19 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  hostProfilePath, invalidateHostProfile, isPrivateProfileError, isUuid, loadHostListings, loadHostProfile, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile,
-  type HostProfileRow, type HostReview, type ListingDraft, type ProfileCategory, type ProfileListing,
+  hostProfilePath, invalidateHostProfile, isPrivateProfileError, isUuid, loadHostCardListings, loadHostProfile, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile, toProfileListing,
+  type HostProfileRow, type HostReview, type ListingDraft, type ProfileCategory,
 } from '../lib/profile/hostProfile';
 import { deleteCategory, displayName, loadClientBookingsCached, profileShareUrl, type ProfileBooking } from '../lib/profile/profilePage';
+import type { MarketplaceListing } from '../lib/marketplace/marketplace';
 import { resolveAvatarUrl, PHOTO_WIDTH } from '../components/resolveStoredPhotoUrl';
 import ProfileTopbar from '../components/profile/ProfileTopbar';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import { ClientTrips, EditProfileModal, SharePanel } from '../components/profile/ProfileSections';
 import HostListings, { type Tab } from '../components/profile/HostListings';
-import { CategoryContextMenu, CategoryManager, CategoryNameEditor, type ManagerState } from '../components/profile/CategoryManager';
+import { CategoryContextMenu, CategoryManager, CategoryManagerStyles, CategoryNameEditor, type ManagerState } from '../components/profile/CategoryManager';
+import { ProfileCardStyles } from '../components/profile/ProfileCards';
+import SegmentedTabs from '../components/ui/SegmentedTabs';
 import { ProfileSkeleton } from '../components/profile/ProfileSkeleton';
 import SavedListings, { SavedTab } from '../components/profile/SavedListings';
 import { PROFILE_STYLES } from '../components/profile/profileStyles';
@@ -34,7 +37,8 @@ export default function ProfilePage() {
 
   const [own, setOwn] = useState<HostProfileRow | null>(null);
   const [ownError, setOwnError] = useState(false);
-  const [listings, setListings] = useState<ProfileListing[] | null>(null);
+  const [listings, setListings] = useState<MarketplaceListing[] | null>(null);
+  const [listingsReload, setListingsReload] = useState(0);
   const [listingsError, setListingsError] = useState(false);
   const [drafts, setDrafts] = useState<ListingDraft[]>([]);
   const [categories, setCategories] = useState<ProfileCategory[]>([]);
@@ -126,10 +130,12 @@ export default function ProfilePage() {
     const client = getSupabaseClient();
     if (!client || !userId || !isHost) return undefined;
     let cancelled = false;
-    const published = (rows: ProfileListing[]) => rows.filter((listing) => listing.publication_state === 'published');
-    const cachedListings = peek<ProfileListing[]>(userId, userId, 'listings:owner');
+    // The same cards (and cache) as the owner's public profile; /profile shows the published ones.
+    const published = (rows: MarketplaceListing[]) => rows.filter((listing) => listing.publication_state === 'published');
+    const cachedListings = peek<MarketplaceListing[]>(userId, userId, 'cards:owner');
     if (cachedListings) setListings(published(cachedListings));
-    loadHostListings(client, userId, userId, true).then((rows) => { if (!cancelled) { setListings(published(rows)); setListingsError(false); } }).catch((error) => {
+    setListingsError(false);
+    loadHostCardListings(client, userId, userId, true, listingsReload > 0).then((rows) => { if (!cancelled) { setListings(published(rows)); setListingsError(false); } }).catch((error) => {
       console.error('Could not load host listings:', error);
       if (!cancelled && !cachedListings) setListingsError(true);
     });
@@ -137,7 +143,7 @@ export default function ProfilePage() {
     loadProfileCategories(client, userId, userId).then((rows) => { if (!cancelled) setCategories(rows); }).catch((error) => console.warn('Profile categories are unavailable:', error));
     loadHostReviews(userId, userId).then((result) => { if (!cancelled) setReviews(result.reviews); }).catch((error) => console.warn('Host reviews could not be loaded.', error));
     return () => { cancelled = true; };
-  }, [userId, isHost, token]);
+  }, [userId, isHost, token, listingsReload]);
 
   // Clients: the two upcoming and three most recent past bookings.
   useEffect(() => {
@@ -169,13 +175,13 @@ export default function ProfilePage() {
 
   const onStatus = useCallback((id: string, nextStatus: string) => {
     setListings((current) => current && current.map((listing) => (listing.id === id ? { ...listing, availability_status: nextStatus } : listing)));
-    if (userId) invalidateHostProfile(userId, userId, 'listings:owner');
+    if (userId) invalidateHostProfile(userId, userId, 'cards:owner');
   }, [userId]);
 
   const onDeleted = useCallback((id: string) => {
     setListings((current) => current && current.filter((listing) => listing.id !== id));
     setCategories((current) => current.map((category) => ({ ...category, listingIds: category.listingIds.filter((listingId) => listingId !== id) })));
-    if (userId) { invalidateHostProfile(userId, userId, 'listings:owner'); invalidateHostProfile(userId, userId, 'categories'); }
+    if (userId) { invalidateHostProfile(userId, userId, 'cards:owner'); invalidateHostProfile(userId, userId, 'categories'); }
   }, [userId]);
 
   const removeCategory = async (category: ProfileCategory) => {
@@ -208,7 +214,8 @@ export default function ProfilePage() {
 
   const avatarUrl = own && own.avatar_url ? resolveAvatarUrl(own.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
   const name = own ? displayName(own.full_name) : 'User';
-  const videoDetails = useMemo(() => ({ avatarUrl, hostName: own ? (own.full_name || 'Host') : 'Host', username: own && own.username ? `@${own.username}` : '' }), [avatarUrl, own]);
+  // The category manager and tabs work on the plain listing rows.
+  const categoryListings = useMemo(() => (listings || []).map((listing) => toProfileListing(listing as unknown as Record<string, unknown>)), [listings]);
   const shareUrl = own && typeof window !== 'undefined' ? profileShareUrl(window.location.origin, own.username) : '';
   const loading = !own && !ownError;
 
@@ -221,6 +228,8 @@ export default function ProfilePage() {
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
       <style dangerouslySetInnerHTML={{ __html: PROFILE_STYLES }} />
+      <ProfileCardStyles />
+      {isHost && <CategoryManagerStyles />}
       <div className="profile-page">
         <div className={`toast${toast.shown ? ' show' : ''}`} id="toast" role="status" aria-live="polite">{toast.text}</div>
         {(loading || resolvingVisit) && <ProfileSkeleton />}
@@ -246,9 +255,11 @@ export default function ProfilePage() {
                 />
                 {!isHost && (
                   <>
-                    <div className="profile-category-row" role="tablist" aria-label="Profile sections">
-                      <button type="button" role="tab" aria-selected={tab.kind !== 'saved'} onClick={() => setTab({ kind: 'all' })}>Trips</button>
-                      <SavedTab selected={tab.kind === 'saved'} onSelect={() => setTab({ kind: 'saved' })} />
+                    <div className="profile-tabs-bar">
+                      <SegmentedTabs label="Profile sections" activeKey={tab.kind === 'saved' ? 'saved' : 'trips'}>
+                        <button type="button" role="tab" aria-selected={tab.kind !== 'saved'} onClick={() => setTab({ kind: 'all' })}>Trips</button>
+                        <SavedTab selected={tab.kind === 'saved'} onSelect={() => setTab({ kind: 'saved' })} />
+                      </SegmentedTabs>
                     </div>
                     {tab.kind === 'saved' ? <SavedListings userId={userId} notify={notify} /> : <ClientTrips bookings={bookings} />}
                   </>
@@ -265,11 +276,11 @@ export default function ProfilePage() {
                     tab={tab}
                     onTab={setTab}
                     token={token}
-                    details={videoDetails}
                     notify={notify}
                     onStatus={onStatus}
                     onDeleted={onDeleted}
-                    onManage={() => setManager({ view: 'create' })}
+                    onRetry={() => setListingsReload((value) => value + 1)}
+                    onManage={() => setManager({ view: 'home' })}
                     onSelectListings={(categoryId) => setManager({ view: 'select', categoryId, newName: null })}
                     onCategoryMenu={(category, x, y) => setContextMenu({ category, x, y })}
                   />
@@ -294,9 +305,11 @@ export default function ProfilePage() {
               state={manager}
               setState={setManager}
               categories={categories}
-              listings={listings || []}
+              listings={categoryListings}
               notify={notify}
               onSaved={async (categoryId) => { await reloadCategories(); setTab({ kind: 'category', id: categoryId }); }}
+              onRename={setRenaming}
+              onDelete={(category) => { void removeCategory(category); }}
             />
             <CategoryContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} onEdit={setRenaming} onDelete={(category) => { void removeCategory(category); }} />
             <CategoryNameEditor category={renaming} onClose={() => setRenaming(null)} onSaved={async () => { await reloadCategories(); notify('Category renamed.'); }} />

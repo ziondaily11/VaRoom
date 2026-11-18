@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { usePresence } from '../../lib/motion/usePresence';
 
 // A small menu that grows out of its trigger and shrinks back into it:
 // opens in 200 ms, closes in 150 ms, its rows arriving 30 ms apart. Rows
@@ -11,16 +12,7 @@ export const MENU_STAGGER_MS = 30;
 
 /** Mounted while open and through the closing animation. */
 export function useMenuPresence(open: boolean): { mounted: boolean; closing: boolean } {
-  const [mounted, setMounted] = useState(open);
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      return undefined;
-    }
-    const timer = window.setTimeout(() => setMounted(false), MENU_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [open]);
-  return { mounted: open || mounted, closing: !open && mounted };
+  return usePresence(open, MENU_CLOSE_MS);
 }
 
 export const MENU_STYLES = `
