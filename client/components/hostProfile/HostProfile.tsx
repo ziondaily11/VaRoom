@@ -43,7 +43,7 @@ const MOBILE_QUERY = '(max-width: 760px)';
  * A plain style element (as on Marketplace): styled-jsx drops interpolated CSS.
  */
 const CARD_STYLES = `
-  .host-profile-cards{ --ink:var(--host-profile-text); --paper:var(--host-profile-page); --font-display:"Helvetica Neue", Arial, sans-serif; }
+  .host-profile-cards{ --ink:var(--host-profile-text); --paper:var(--host-profile-page); --font-display:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   .host-profile-cards .card, .host-profile-cards .card *{ margin:0; padding:0; box-sizing:border-box; }
   .host-profile-cards .card button{ font-family:inherit; }
   ${listingCardStyles('.host-profile-cards')}
@@ -446,37 +446,45 @@ export default function HostProfile({ hostKey }: {
     <>
       <style dangerouslySetInnerHTML={{ __html: CARD_STYLES }} />
       <style jsx global>{`
+        /* Apple-style neutrals, matching client home and host home. */
         :root {
-          --host-profile-page: #f7f6f3;
-          --host-profile-surface: #fff;
-          --host-profile-surface-raised: #f1efeb;
-          --host-profile-border: #e2dfd9;
-          --host-profile-text: #24211e;
-          --host-profile-muted: #68635d;
-          --host-profile-subtle: #8a847d;
-          --host-profile-avatar-fallback: #e8e4de;
-          --host-profile-rating-track: #e7e3dc;
+          --host-profile-page: #fff;
+          --host-profile-surface: #f5f5f7;
+          --host-profile-surface-raised: #e8e8ed;
+          --host-profile-border: #d2d2d7;
+          --host-profile-text: #1d1d1f;
+          --host-profile-muted: #6e6e73;
+          --host-profile-subtle: #86868b;
+          --host-profile-avatar-fallback: #e8e8ed;
+          --host-profile-rating-track: #e8e8ed;
           --host-profile-error: #a82038;
-          --host-profile-banner-ink: #241e1b;
-          --host-profile-banner-muted: rgba(36,30,27,.82);
+          --host-profile-banner-ink: #1d1d1f;
+          --host-profile-banner-muted: rgba(29,29,31,.78);
+          --host-profile-fill: rgba(118,118,128,.12);
+          --host-profile-selected: #fff;
+          --host-profile-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+          --host-profile-ease: cubic-bezier(.25,.1,.25,1);
         }
         html[data-theme="dark"] {
-          --host-profile-page: #0c0b0b;
-          --host-profile-surface: #141212;
-          --host-profile-surface-raised: #232020;
-          --host-profile-border: rgba(255,255,255,.11);
-          --host-profile-text: #f5efec;
-          --host-profile-muted: #c2b9b5;
-          --host-profile-subtle: #958b87;
-          --host-profile-avatar-fallback: #302b29;
-          --host-profile-rating-track: #302b29;
+          --host-profile-page: #000;
+          --host-profile-surface: #1c1c1e;
+          --host-profile-surface-raised: #2c2c2e;
+          --host-profile-border: rgba(255,255,255,.12);
+          --host-profile-text: #f5f5f7;
+          --host-profile-muted: #a1a1a6;
+          --host-profile-subtle: #86868b;
+          --host-profile-avatar-fallback: #2c2c2e;
+          --host-profile-rating-track: #2c2c2e;
           --host-profile-error: #f2a3ae;
           --host-profile-banner-ink: #fff;
           --host-profile-banner-muted: rgba(255,255,255,.82);
+          --host-profile-fill: rgba(118,118,128,.24);
+          --host-profile-selected: #2c2c2e;
+          --host-profile-shadow: none;
         }
         html, body, #__next { margin: 0; min-height: 100%; background: var(--host-profile-page); }
         body { overflow-x: hidden; }
-        .host-profile-shell { min-height: 100vh; width: 100%; background: var(--host-profile-page); color: var(--host-profile-text); font-family: "Helvetica Neue", Arial, sans-serif; }
+        .host-profile-shell { min-height: 100vh; width: 100%; background: var(--host-profile-page); color: var(--host-profile-text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
         .host-profile-shell.is-public { display: flex; align-items: flex-start; }
         .host-profile-main { flex: 1; min-width: 0; }
         .host-profile-content { width: 100%; margin: 0; padding-bottom: 64px; }
@@ -486,10 +494,12 @@ export default function HostProfile({ hostKey }: {
         .host-profile-sign-in-logo span { color: #E5384F; }
         .host-profile-sign-in-rail h2 { font-size: 1.1875rem; line-height: 1.3; margin: 0 0 8px; }
         .host-profile-sign-in-rail p { font-size: 0.8438rem; color: var(--host-profile-subtle); line-height: 1.5; margin: 0 0 20px; }
-        .host-profile-sign-in-option { display: flex; width: 100%; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; padding: 11px 12px; border: 1px solid var(--host-profile-border); border-radius: 999px; background: var(--host-profile-surface); color: var(--host-profile-text); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+        .host-profile-sign-in-option { display: flex; width: 100%; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; padding: 11px 12px; border: 0; border-radius: 999px; background: var(--host-profile-fill); color: var(--host-profile-text); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
+        .host-profile-sign-in-option:active { transform: scale(.98); }
         .host-profile-sign-in-option:hover { background: var(--host-profile-surface-raised); }
-        .host-profile-sign-in-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.68); }
-        .host-profile-sign-in-modal { position: relative; width: 100%; max-width: 420px; box-sizing: border-box; padding: 24px 20px 20px; border: 1px solid var(--host-profile-border); border-radius: 18px; background: var(--host-profile-surface); color: var(--host-profile-text); box-shadow: 0 20px 50px rgba(0,0,0,.45); }
+        .host-profile-sign-in-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.4); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+        .host-profile-sign-in-modal { position: relative; width: 100%; max-width: 420px; box-sizing: border-box; padding: 24px 20px 20px; border: 0; border-radius: 22px; background: var(--host-profile-page); color: var(--host-profile-text); box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+        html[data-theme="dark"] .host-profile-sign-in-modal { background: var(--host-profile-surface); }
         .host-profile-sign-in-modal h2 { margin: 0 28px 8px 0; font-size: 1.125rem; line-height: 1.3; }
         .host-profile-sign-in-modal p { margin: 0 0 8px; color: var(--host-profile-subtle); font-size: 0.8125rem; line-height: 1.5; }
         .host-profile-sign-in-close { position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--host-profile-text); font-size: 1.625rem; line-height: 1; cursor: pointer; }
@@ -507,7 +517,7 @@ export default function HostProfile({ hostKey }: {
         .host-profile-skeleton-meta .host-profile-skeleton-line { width:120px; }
         .host-profile-skeleton-meta .host-profile-skeleton-line:last-child { width:160px; }
         .host-profile-skeleton-rating { width:170px; margin-top:2px; }
-        .host-profile-skeleton-message { width:130px; height:40px; border-radius:10px; }
+        .host-profile-skeleton-message { width:130px; height:40px; border-radius:999px; }
         .host-profile-skeleton-body { padding:20px 24px 0; }
         .host-profile-skeleton-bio { width:min(780px,90%); }
         .host-profile-skeleton-bio-short { width:min(520px,62%); margin-top:8px; }
@@ -528,7 +538,8 @@ export default function HostProfile({ hostKey }: {
         .host-profile-meta-item { display:flex; align-items:center; gap:6px; }
         .host-profile-rating { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:0.8125rem; color:var(--host-profile-banner-ink); }
         .host-profile-rating-count { color:var(--host-profile-banner-muted); }
-        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border:0; border-radius:10px; background:#e5384f; color:#fff; font-size:0.875rem; font-weight:600; cursor:pointer; white-space:nowrap; text-decoration:none; }
+        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 20px; border:0; border-radius:999px; background:#e5384f; color:#fff; font-size:0.875rem; font-weight:600; cursor:pointer; white-space:nowrap; text-decoration:none; transition:background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
+        .host-profile-message:active { transform:scale(.97); }
         .host-profile-message:hover { background:#c9233c; }
         .host-profile-owner-note { margin:14px 24px 0; color:var(--host-profile-subtle); font-size:0.8125rem; }
         .host-profile-body { padding:20px 24px 0; }
@@ -536,12 +547,17 @@ export default function HostProfile({ hostKey }: {
         .host-profile-listings-panel { padding:20px 24px 0; }
         .host-profile-load-error { color:var(--host-profile-error); }
         .host-profile-load-muted { color:var(--host-profile-subtle); }
-        .host-profile-review-summary { display:flex; gap:28px; flex-wrap:wrap; background:var(--host-profile-surface); border:1px solid var(--host-profile-border); border-radius:14px; padding:20px; margin-bottom:20px; }
+        .host-profile-review-summary { display:flex; gap:28px; flex-wrap:wrap; background:var(--host-profile-surface); border:0; border-radius:20px; box-shadow:var(--host-profile-shadow); padding:20px; margin-bottom:20px; }
         .host-profile-review-score { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:100px; border-right:1px solid var(--host-profile-border); padding-right:24px; }
-        .host-profile-review { background:var(--host-profile-surface); border:1px solid var(--host-profile-border); border-radius:14px; padding:18px; }
+        .host-profile-review { background:var(--host-profile-surface); border:0; border-radius:20px; box-shadow:var(--host-profile-shadow); padding:18px; }
         .host-profile-reviewer { width:38px; height:38px; border-radius:50%; background:var(--host-profile-avatar-fallback); display:flex; align-items:center; justify-content:center; font-size:0.8125rem; font-weight:600; color:var(--host-profile-text); flex-shrink:0; overflow:hidden; }
-        .host-profile-more-reviews { display:flex; align-items:center; gap:6px; margin:18px auto 0; background:none; border:1px solid var(--host-profile-border); color:var(--host-profile-text); font-size:0.8125rem; font-weight:600; padding:10px 20px; border-radius:10px; cursor:pointer; }
+        .host-profile-more-reviews { display:flex; align-items:center; gap:6px; margin:18px auto 0; background:var(--host-profile-fill); border:0; color:var(--host-profile-text); font-size:0.8125rem; font-weight:600; padding:10px 20px; border-radius:999px; cursor:pointer; transition:background-color .2s var(--host-profile-ease), transform .15s var(--host-profile-ease); }
         .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); }
+        .host-profile-more-reviews:active { transform:scale(.97); }
+        @media (prefers-reduced-motion: reduce) {
+          .host-profile-message, .host-profile-more-reviews, .host-profile-sign-in-option { transition:none; }
+          .host-profile-message:active, .host-profile-more-reviews:active, .host-profile-sign-in-option:active { transform:none; }
+        }
 
 
         @media (max-width: 760px) {
