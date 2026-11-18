@@ -66,7 +66,7 @@ test('message previews: only "New message" notifications with a message id, fetc
   assert.equal(notificationMessageId({ type: 'booking_request', metadata: { message_id: 'm1' } }), null);
   const page = read('pages', 'notifications.tsx');
   assert.match(page, /useMessagePreviews\(authUserId, notifications, chatPrefs \? chatPrefs\.messagePreviews : false\)/);
-  assert.match(page, /preview \? <p className="notif-desc notif-preview">“\{preview\}”<\/p> : null/);
+  assert.match(page, /\{preview && <span className="notif-preview">“\{preview\}”<\/span>\}/);
   const hook = read('lib', 'notifications', 'messagePreviews.ts');
   assert.match(hook, /`\/api\/chat\/message-previews\?ids=\$\{batch\.map\(encodeURIComponent\)\.join\(','\)\}`/);
   assert.doesNotMatch(hook, /localStorage|indexedDB|setInbox/, 'previews are never stored');

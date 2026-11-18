@@ -16,7 +16,10 @@ const { HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES, isInternalHref } = loadTs(
   path.join(root, 'lib', 'navigation', 'appLinks.ts'),
 );
 
+const notificationsStylesPath = path.join(root, 'components', 'notifications', 'notificationsStyles.ts');
 const readPage = () => fs.readFileSync(notificationsPagePath, 'utf8');
+// The stylesheet's CSS text, without comments.
+const readStyles = () => fs.readFileSync(notificationsStylesPath, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -125,10 +128,10 @@ test('2. Correct client/host layout selection with no duplicate shell', () => {
   const pageSource = readPage();
   assert.doesNotMatch(pageSource, /<aside\b[^>]*\bid="sidebar"/, 'Must not render legacy sidebar');
   assert.doesNotMatch(pageSource, /<div\b[^>]*className="app-shell"/, 'Must not render duplicate app-shell');
-  assert.match(pageSource, /className="notifications-page-main"/);
+  assert.match(pageSource, /className="notifications-page"/);
 });
 
-test('3a. Tab filter, search and booking count', () => {
+test('3a. Tab filters, search and tab counts', () => {
   const { view, cache } = loadModules();
   const items = [
     notification({
@@ -140,11 +143,16 @@ test('3a. Tab filter, search and booking count', () => {
     }),
     notification({ id: 'b-2', type: 'booking_request', title: null, message: 'New request' }),
     notification({ id: 'm-1', type: 'new_message', title: 'Hello', message: 'Are you there?' }),
+    notification({ id: 'r-1', type: 'new_review', title: 'New review', message: 'Five stars' }),
   ];
 
-  assert.deepEqual(view.filterNotifications(items, 'all', '').map((n) => n.id), ['b-1', 'b-2', 'm-1']);
+  assert.deepEqual(view.filterNotifications(items, 'all', '').map((n) => n.id), ['b-1', 'b-2', 'm-1', 'r-1']);
   assert.deepEqual(view.filterNotifications(items, 'booking', '').map((n) => n.id), ['b-1', 'b-2']);
-  assert.equal(view.countBookingNotifications(items), 2);
+  assert.deepEqual(view.filterNotifications(items, 'message', '').map((n) => n.id), ['m-1']);
+  assert.deepEqual(view.filterNotifications(items, 'other', '').map((n) => n.id), ['r-1']);
+  assert.deepEqual(view.countByTab(items), { all: 4, booking: 2, message: 1, other: 1 });
+  assert.deepEqual(view.countByTab([]), { all: 0, booking: 0, message: 0, other: 0 });
+  assert.deepEqual(view.NOTIFICATION_TABS.map((t) => t.key), ['all', 'booking', 'message', 'other']);
 
   // Search is trimmed, case-insensitive and covers metadata and the type's default title.
   assert.deepEqual(view.filterNotifications(items, 'all', '  KILIMANI ').map((n) => n.id), ['b-1']);
@@ -165,15 +173,25 @@ test('3b. Header subtitle, empty and error states', () => {
   assert.equal(view.notificationsSubtitle(1), 'You have 1 new notification');
   assert.equal(view.notificationsSubtitle(4), 'You have 4 new notifications');
 
-  assert.equal(view.emptyNotificationsMessage(''), 'Nothing here yet.');
-  assert.equal(view.emptyNotificationsMessage('   '), 'Nothing here yet.');
-  assert.equal(view.emptyNotificationsMessage('rent'), 'No notifications found');
+  assert.equal(view.emptyNotificationsMessage('').title, "You're all set");
+  assert.equal(view.emptyNotificationsMessage('   ').title, "You're all set");
+  assert.equal(view.emptyNotificationsMessage('rent').title, 'No matches');
+  assert.match(view.emptyNotificationsMessage(' rent ', 'booking').text, /“rent”/, 'a search wins over the tab');
+  assert.equal(view.emptyNotificationsMessage('', 'booking').title, 'No booking updates');
+  assert.equal(view.emptyNotificationsMessage('', 'message').title, 'No message alerts');
+  assert.equal(view.emptyNotificationsMessage('', 'other').title, 'Nothing else yet');
 
-  // The skeleton and error copy are page markup.
+  // The skeleton, error copy, retry and settings link are page markup.
   const pageSource = readPage();
   assert.match(pageSource, /className="notifications-skeleton" role="status" aria-label="Loading notifications"/);
-  assert.match(pageSource, /Unable to load notifications\. Please refresh and try again\./);
+  assert.match(pageSource, /We could not load your notifications\. Check your connection and try again\./);
   assert.match(pageSource, /Unable to update notifications\. Please try again\./);
+  assert.match(pageSource, /onClick=\{retryLoad\}/, 'a failed load offers Try again');
+  assert.match(pageSource, /loadFailed \? 'Notifications could not load'/, 'a failed load never says "all caught up"');
+  assert.match(pageSource, /await fetchNotifications\(userId, client, false\)/);
+  assert.match(pageSource, /<Link href="\/settings\?section=notifications" className="pill-btn">Notification settings<\/Link>/);
+  // A failed "mark all" keeps the list and shows a banner instead.
+  assert.equal(pageSource.match(/setActionError\('Unable to update notifications\. Please try again\.'\)/g).length, 2);
 });
 
 test('3c. Time-ago labels, date groups and notification styling by type', () => {
@@ -208,8 +226,16 @@ test('3c. Time-ago labels, date groups and notification styling by type', () => 
   assert.equal(cache.detailsFor('new_review').title, 'New review');
   assert.equal(cache.detailsFor('review_published').title, 'Review published');
   assert.deepEqual(cache.detailsFor('something_else'), {
-    category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'request',
+    category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'update',
   });
+  // Each kind has its own icon and tab.
+  assert.deepEqual(cache.detailsFor('new_message'), {
+    category: 'message', title: 'New message', tint: 'tint-amber', tag: 'Message', iconKind: 'message',
+  });
+  assert.equal(cache.detailsFor('new_review').iconKind, 'review');
+  assert.equal(cache.detailsFor('review_published').iconKind, 'review');
+  assert.equal(cache.detailsFor('team_invite').iconKind, 'team');
+  assert.equal(cache.detailsFor('booking_request').iconKind, 'request');
 });
 
 test('4. Cached repeat visits and background refresh policy (30s TTL)', () => {
@@ -477,9 +503,9 @@ test('12. Complete legacy unwiring verification', () => {
 
   // 5. Layout-specific CSS overrides for sidebar coexistence.
   assert.match(
-    notifPageSource,
-    /client-layout-active.*notifications-page-main|host-layout-active.*notifications-page-main/s,
-    'notifications.tsx must include .client-layout-active or .host-layout-active CSS overrides',
+    readStyles(),
+    /client-layout-active \.notifications-page,\s*\.host-layout-active \.notifications-page\{/,
+    'the notifications styles must include .client-layout-active and .host-layout-active overrides',
   );
 
   // 6. _app resolves the layout role from the verified session, never from
@@ -491,7 +517,7 @@ test('12. Complete legacy unwiring verification', () => {
 
 test('13. Shared sidebar username and name contrast and visibility in Client and Host layouts', () => {
   const shellStylesSource = fs.readFileSync(shellStylesPath, 'utf8');
-  const notifPageSource = readPage();
+  const notifStyles = readStyles();
 
   assert.match(shellStylesSource, /\.host-app-layout \.account-identity-name\s*\{[^}]*color:\s*var\(--layout-ink\)/);
   assert.match(shellStylesSource, /\.host-app-layout \.account-identity-username\s*\{[^}]*color:\s*var\(--layout-muted\)/);
@@ -500,11 +526,12 @@ test('13. Shared sidebar username and name contrast and visibility in Client and
   assert.match(shellStylesSource, /\.client-app-layout \.account-identity-name\s*\{[^}]*color:\s*var\(--layout-ink\)/);
   assert.match(shellStylesSource, /\.client-app-layout \.account-identity-username\s*\{[^}]*color:\s*var\(--layout-muted\)/);
 
-  // notifications.tsx defines --ink and --muted tokens in :root and dark mode
-  assert.match(notifPageSource, /--ink:\s*#0F1419/);
-  assert.match(notifPageSource, /--muted:\s*#536471/);
-  assert.match(notifPageSource, /--ink:\s*#FFFFFF/);
-  assert.match(notifPageSource, /--muted:\s*#71767b/);
+  // The notifications page defines --ink and --muted on its own root (light and dark), never on :root.
+  assert.match(notifStyles, /--ink:#0F1419/);
+  assert.match(notifStyles, /--muted:#536471/);
+  assert.match(notifStyles, /--ink:#FFFFFF/);
+  assert.match(notifStyles, /--muted:#71767b/);
+  assert.doesNotMatch(notifStyles, /:root/);
 });
 
 test('14. Unbroken notifications navigation from Bookings and client-side sidebar routing', () => {
@@ -545,4 +572,38 @@ test('16. The legacy notification widget is retired with bookings.html', () => {
   const bookingsPage = fs.readFileSync(path.join(root, 'pages', 'bookings.tsx'), 'utf8');
   assert.doesNotMatch(bookingsPage, /notifications-widget/);
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-widget.js')), false);
+});
+
+test('17. Page look, accessible rows, scoped styles and motion', () => {
+  const pageSource = readPage();
+  const styles = readStyles();
+
+  // Every row is one keyboard-reachable button; the old "Open" buttons are gone.
+  assert.match(pageSource, /<button\s+type="button"\s+className=\{`notif-row/);
+  assert.doesNotMatch(pageSource, />\s*Open\s*</);
+  assert.doesNotMatch(pageSource, /action-btn/);
+  // The four tabs use the shared segmented control.
+  assert.match(pageSource, /<SegmentedTabs label="Notification types" activeKey=\{currentFilter\}>/);
+  assert.match(pageSource, /role="tab"/);
+  // Search shows on every screen size (no rule hides it).
+  assert.match(pageSource, /type="search"/);
+  assert.doesNotMatch(styles, /\.notif-search\{\s*display:none/);
+  // No global style block and no Google Fonts request.
+  assert.doesNotMatch(pageSource, /<style jsx global>/);
+  assert.doesNotMatch(pageSource, /fonts\.googleapis/);
+  for (const rule of styles.match(/^\s*[^@\s}][^{]*\{/gm) || []) {
+    if (/^\s*(from|to|\d+%)/.test(rule)) continue;
+    assert.match(rule, /notifications-page/, `unscoped rule: ${rule.trim()}`);
+  }
+
+  // The menu button opens only the role's sidebar and avoids the shell's #menu-toggle click handler.
+  assert.match(pageSource, /new Event\(userRole === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)/);
+  assert.doesNotMatch(pageSource, /varoom-toggle-sidebar/);
+  assert.doesNotMatch(pageSource, /id="menu-toggle"|className="menu-toggle"/);
+
+  // Motion: reveal only on a network load, unread dot fades, tick draws after the click, reduced motion.
+  assert.match(pageSource, /if \(!isBackground\) setRevealing\(true\);/);
+  assert.match(styles, /\.notif-dot\.is-read\{ opacity:0;/);
+  assert.match(pageSource, /setJustMarkedAll\(true\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion:reduce\)/);
 });
