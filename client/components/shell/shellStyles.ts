@@ -651,16 +651,20 @@ export const PENDING_SHELL_STYLES = `
 // When it is shown, legacy pages' own bottom bars are hidden, as the script did.
 export const MOBILE_NAV_STYLES = `
   .varoom-mobile-nav{display:none;}
+  /* The bar's own colours: it sits over every page, so it never borrows a page's variables
+     (a page that keeps its tokens to itself would otherwise leave the bar grey or white in dark mode). */
+  .varoom-mobile-nav{--mn-bg:#FFFFFF;--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;}
+  html[data-theme="dark"] .varoom-mobile-nav{--mn-bg:#000000;--mn-line:rgba(255,255,255,.12);--mn-ink:#E7E9EA;--mn-active:rgba(255,255,255,.14);}
   body.has-varoom-mobile-nav .bottom-bar,
   body.has-varoom-mobile-nav .mobile-bottom-nav{display:none !important;}
   @media (max-width:860px){
     body.has-varoom-mobile-nav{padding-bottom:5.1rem;}
     body.chat-page-context .varoom-mobile-nav{display:none;}
     body.has-varoom-mobile-nav.chat-page-context{padding-bottom:0;}
-    .varoom-mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;position:fixed;bottom:0;left:50%;width:min(100% - 1rem,32rem);transform:translateX(-50%);z-index:150;min-height:3.7rem;padding:.3rem .35rem calc(.3rem + env(safe-area-inset-bottom));margin-bottom:max(.45rem,env(safe-area-inset-bottom));background:var(--white,var(--card-bg,#fff));border:1px solid var(--line-soft,var(--card-border,#ddd));border-radius:999px;box-shadow:0 10px 28px rgba(26,18,16,.14);transition:transform 220ms ease;}
+    .varoom-mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;position:fixed;bottom:0;left:50%;width:min(100% - 1rem,32rem);transform:translateX(-50%);z-index:150;min-height:3.7rem;padding:.3rem .35rem calc(.3rem + env(safe-area-inset-bottom));margin-bottom:max(.45rem,env(safe-area-inset-bottom));background:var(--mn-bg);border:1px solid var(--mn-line);border-radius:999px;box-shadow:0 10px 28px rgba(26,18,16,.14);transition:transform 220ms ease;}
     .varoom-mobile-nav.is-scroll-hidden{transform:translateX(-50%) translateY(110%);}
-    .varoom-mobile-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.18rem;min-width:0;min-height:2.85rem;padding:.35rem .2rem;border-radius:999px;color:var(--ink,var(--muted,#666));font-size:.62rem;font-weight:600;line-height:1;white-space:nowrap;text-decoration:none;}
-    .varoom-mobile-nav a.active{background:var(--nav-active-bg,var(--paper,#E9E7E2));color:var(--ink,#24211E);font-weight:700;}
+    .varoom-mobile-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.18rem;min-width:0;min-height:2.85rem;padding:.35rem .2rem;border-radius:999px;color:var(--mn-ink);font-size:.62rem;font-weight:600;line-height:1;white-space:nowrap;text-decoration:none;}
+    .varoom-mobile-nav a.active{background:var(--mn-active);color:var(--mn-ink);font-weight:700;}
     .varoom-mobile-nav svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
     .varoom-mobile-nav a:focus-visible{outline:2px solid var(--red,#c41e3a);outline-offset:-2px;}
   }

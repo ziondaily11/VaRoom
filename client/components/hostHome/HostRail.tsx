@@ -75,7 +75,7 @@ export default function HostRail({ attention, onNotNow, news, onRefreshNews, new
       <AttentionCard view={attention} onNotNow={onNotNow} />
 
       <section className="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title">
-        <div className="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2><NewsRefreshButton onRefresh={onRefreshNews} busy={newsRefreshing} /></div>
+        <div className="stats-head"><h2 id="property-news-title">Property News</h2><NewsRefreshButton onRefresh={onRefreshNews} busy={newsRefreshing} /></div>
         <PropertyNewsList news={news} />
         <Link className="property-news-view-all" href="/property-news">View all news →</Link>
       </section>
@@ -89,8 +89,6 @@ export default function HostRail({ attention, onNotNow, news, onRefreshNews, new
         <div className="rail-social-row" aria-label="Social media">
           <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="Instagram"><Svg markup={ICONS.instagram} /></a>
           <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="TikTok"><Svg markup={ICONS.tiktok} /></a>
-          <a href="#" onClick={(event) => event.preventDefault()} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="X (formerly Twitter)"><Svg markup={ICONS.x} /></a>
-          <a href="#" onClick={(event) => event.preventDefault()} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="Facebook"><Svg markup={ICONS.facebook} /></a>
         </div>
         <div className="rail-legal-links">
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="rail-legal-link">Privacy Policy</a>
