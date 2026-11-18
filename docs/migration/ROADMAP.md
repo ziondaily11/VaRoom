@@ -5,9 +5,9 @@ This is the **single progress tracker** for the migration defined in `CLAUDE.md`
 ## How we work
 
 - **One task at a time, in the order below.** A task starts only when the previous one is **Done** or explicitly parked.
-- **Each task follows the same steps:** Investigation → Plan → Approval → Implementation → Verification → Report. It meets the Definition of Done in `CLAUDE.md` §14.
+- **Each task follows the same steps** (`CLAUDE.md` §12.1): Investigation → Plan → Fix → Apply the lethal fix → Test → Commit → Push the branch and open a PR. It meets the Definition of Done in `CLAUDE.md` §14.
 - **Each task gets its own branch.** Stage A increments share `agents/stage-a-foundation`. Pages get `agents/<stage><n>-<page>`, and hotfixes get `fix/<name>` from `main`.
-- **Nothing is committed, pushed or deployed without explicit instruction.**
+- **Each task ends with a commit, a pushed branch and an open PR.** Merging and deploying still need explicit instruction.
 - **Problems found along the way go into the Backlog**, not into the current task. The exception is a production-breaking bug: that becomes a Hotfix task, which waits its turn like any other.
 
 Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progress` · `Verifying` · `Done — awaiting commit` · `Done`
