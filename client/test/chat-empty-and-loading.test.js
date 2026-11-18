@@ -84,7 +84,9 @@ test('arriving from another page, Chats stays hidden until its stylesheet applie
   assert.doesNotMatch(renderChatsPage().html.match(/<div class="app-shell[^>]*>/)[0], /visibility/);
   const source = read('pages', 'chats.tsx');
   assert.doesNotMatch(source, /<link rel="stylesheet" href=\{chatsCssHref\} \/>/, 'no late next/head stylesheet');
-  assert.match(source, /useState\(\(\) => typeof document === 'undefined' \|\| chatsStylesheetApplied\(\)\)/);
+  // While hydrating it renders as the server did (no mismatch); the check runs from the next render.
+  assert.match(source, /return useSyncExternalStore\(noSubscription, \(\) => true, \(\) => false\);/);
+  assert.match(source, /const stylesReady = !hydrated \|\| stylesLoaded \|\| chatsStylesheetApplied\(\);/);
   assert.match(source, /useEffect\(\(\) => \(\) => \{ addedStylesheetRef\.current\?\.remove\(\); \}, \[\]\);/, 'chat styles do not leak onto other pages');
   const app = read('pages', '_app.tsx');
   assert.match(app, /<link rel="stylesheet" href=\{chatsThemeCssHref\} \/>/, 'one dark-theme file on every route: nothing reloads entering Chats');
@@ -103,4 +105,15 @@ test('chat backgrounds: small WebP tiles (PNG fallback), cached for a year', () 
   const vercel = JSON.parse(read('vercel.json'));
   const rule = vercel.headers.find((h) => h.source === '/assets/chat-bg/:path*');
   assert.ok(rule && rule.headers.some((h) => h.key === 'Cache-Control' && h.value === 'public, max-age=31536000, immutable'));
+});
+
+test('only messages that arrive while a conversation is open enter with motion', () => {
+  const { createEntranceTracker } = loadTs(path.join(root, 'lib', 'chat', 'messageEntrance.ts'));
+  const tracker = createEntranceTracker();
+  assert.equal(tracker.entering('c1', []).size, 0, 'nothing loaded yet');
+  assert.equal(tracker.entering('c1', ['a', 'b']).size, 0, 'the first messages shown appear at once');
+  assert.deepEqual([...tracker.entering('c1', ['a', 'b', 'c'])], ['c'], 'a new one enters');
+  assert.deepEqual([...tracker.entering('c1', ['a', 'b', 'c'])], ['c'], 'and keeps its class while it plays');
+  assert.equal(tracker.entering('c2', ['x']).size, 0, 'another conversation starts afresh');
+  assert.equal(tracker.entering('c1', ['a', 'b', 'c']).size, 0, 'coming back: nothing replays');
 });

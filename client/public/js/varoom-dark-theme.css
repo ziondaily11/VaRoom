@@ -759,7 +759,9 @@
   border-color: var(--line-soft) !important;
   box-shadow: none !important;
 }
-[data-theme="dark"] .contact-item { background: transparent !important; border-bottom-color: var(--line-soft) !important; }
+/* Hovered, open and selected conversations keep their tint (public/js/chats.css). */
+[data-theme="dark"] .contact-item:not(:hover):not(.active):not(.selected) { background: transparent !important; }
+[data-theme="dark"] .contact-item { border-bottom-color: var(--line-soft) !important; }
 [data-theme="dark"] .msg-row.in .bubble { background: var(--bubble-in, var(--surface-elevated)) !important; }
 
 /* ================================================================

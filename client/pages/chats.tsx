@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import type { RealtimeChannel, Session } from '@supabase/supabase-js';
@@ -26,7 +26,10 @@ import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
 import ConversationAvatar from '../components/chat/ConversationAvatar';
 import { renderMessageBody } from '../components/chat/MessageBody';
-import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
+import MessageActionMenu, { MESSAGE_MENU_EXIT_MS, messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
+import { usePresentValue } from '../lib/motion/usePresence';
+import { createEntranceTracker } from '../lib/chat/messageEntrance';
+import { prefersReducedMotion } from '../lib/motion/reducedMotion';
 import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
 import { localUrls, mergeServerMessages, messageKey, reconcileThread, type OptimisticChatMessage } from '../lib/chat/optimisticMessages';
 import { AttachmentThumb, ImagePreview, ListingCard, ListingEnquiryCard, PhotoAlbum, PhotoBubble, ReplyThumb, VoiceCard, type ViewerImage } from '../components/chat/MessageMedia';
@@ -79,6 +82,17 @@ function chatsStylesheetApplied(): boolean {
 
 const ELIE_ID = 'elie';
 
+const noSubscription = () => () => undefined;
+/**
+ * False only while React hydrates the server's HTML, true in every other
+ * render (including the first render after an in-app navigation). The
+ * browser-only check below waits for it, so the first render in the browser
+ * matches the server's (which always reads "styles ready").
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(noSubscription, () => true, () => false);
+}
+
 
 /** Remounts when the account starts or stops working as a company (Settings → Team), so nothing of the other inbox stays. */
 export default function ChatsPage(props: { initialConversationId?: string } = {}) {
@@ -115,6 +129,13 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   // The conversation whose other person is typing (shown in the header).
   const [typingInConversation, setTypingInConversation] = useState<string | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
+  // Both menus stay on screen through their exit (animation.md §8.2).
+  const { shown: shownMessageMenu, closing: messageMenuClosing } = usePresentValue(messageMenu, MESSAGE_MENU_EXIT_MS);
+  const { shown: shownInboxMenu, closing: inboxMenuClosing } = usePresentValue(inboxMenu, MESSAGE_MENU_EXIT_MS);
+  // Messages that arrive while a conversation is open enter with a short rise;
+  // the ones there when it opens appear at once (lib/chat/messageEntrance).
+  const entranceTracker = useRef(createEntranceTracker());
+  const enteringMessages = entranceTracker.current.entering(activeId, messages.map((m) => messageKey(m as OptimisticChatMessage)));
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string>('');
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
@@ -839,16 +860,22 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   // Chats' stylesheet: part of the page when /chats is opened directly.
   // Arriving from another page it loads now, and the page stays hidden until
   // it applies, so the unstyled page never shows. Released on leaving.
-  const [stylesReady, setStylesReady] = useState(() => typeof document === 'undefined' || chatsStylesheetApplied());
+  // While hydrating, the page renders as the server did (styles ready), so
+  // React finds no mismatch; the check runs from the next render on.
+  const hydrated = useHydrated();
+  const [stylesLoaded, setStylesLoaded] = useState(false);
+  const stylesReady = !hydrated || stylesLoaded || chatsStylesheetApplied();
   const addedStylesheetRef = useRef<HTMLLinkElement | null>(null);
   useEffect(() => () => { addedStylesheetRef.current?.remove(); }, []);
   useEffect(() => {
-    if (stylesReady) return undefined;
+    if (!hydrated || stylesLoaded) return undefined;
+    // Already applied (opened directly): remember it, and stop checking.
+    if (chatsStylesheetApplied()) { setStylesLoaded(true); return undefined; }
     // Never stays hidden: shown after 4 s whatever happens (lib/chat/chatsStylesheet).
-    const { added, stop } = awaitStylesheet(document, chatsCssHref, () => setStylesReady(true), window);
+    const { added, stop } = awaitStylesheet(document, chatsCssHref, () => setStylesLoaded(true), window);
     if (added) addedStylesheetRef.current = added;
     return stop;
-  }, [stylesReady]);
+  }, [hydrated, stylesLoaded]);
   useEffect(() => {
     try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
   }, []);
@@ -1157,7 +1184,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     const target = Array.from(document.querySelectorAll<HTMLElement>('.messages [data-message-id]'))
       .find((row) => row.dataset.messageId === String(messageId));
     if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
     if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
     setHighlightedMessageId(null);
     window.requestAnimationFrame(() => setHighlightedMessageId(messageId));
@@ -1270,6 +1297,17 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   };
 
   const layoutClasses = chatLayoutClasses({ mobileView, activeId, isElie, infoCollapsed, chatSettingsEmbedded });
+  // Phones: the screen the person moves to slides in from the side it comes
+  // from (animation.md §8.9, C4). Set before paint, and only after a move, so
+  // the first screen of a visit never slides.
+  const [mobileNav, setMobileNav] = useState<'forward' | 'back' | null>(null);
+  const previousMobileView = useRef(mobileView);
+  useLayoutEffect(() => {
+    if (previousMobileView.current === mobileView) return;
+    const depth = { inbox: 0, conversation: 1, info: 2 } as const;
+    setMobileNav(depth[mobileView] > depth[previousMobileView.current] ? 'forward' : 'back');
+    previousMobileView.current = mobileView;
+  }, [mobileView]);
 
   return (
     <>
@@ -1322,7 +1360,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         </defs>
       </svg>
 
-      <div ref={appShellRef} className={layoutClasses.shell} style={bubbleThemeStyle}>
+      <div ref={appShellRef} className={`${layoutClasses.shell}${mobileNav ? ` nav-${mobileNav}` : ''}`} style={bubbleThemeStyle}>
         
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>
@@ -1708,7 +1746,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                   sameSender: Boolean(sameSender),
                   isDeleted,
                   highlighted: highlightedMessageId === m.id,
-                });
+                }) + (enteringMessages.has(messageKey(m as OptimisticChatMessage)) ? ' msg-enter' : '');
 
                 const hasMedia = m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo');
                 const attachmentId = m.attachment_id || m.attachment?.id || null;
@@ -2250,25 +2288,27 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
 
 
 
-      {/* Message actions menu (one at a time) */}
-      {messageMenu && (
+      {/* Message actions menu (one at a time); stays through its exit */}
+      {shownMessageMenu && (
         <MessageActionMenu
-          x={messageMenu.x}
-          y={messageMenu.y}
-          items={messageActionItems({ pinned: Boolean(messageMenu.message.pinned_at), ownMessage: messageMenu.message.sender_id === userId, canCopy: Boolean(messageCopyText(messageMenu.message)) })}
-          onSelect={(action) => { void performMessageAction(messageMenu.message, action); }}
+          x={shownMessageMenu.x}
+          y={shownMessageMenu.y}
+          closing={messageMenuClosing}
+          items={messageActionItems({ pinned: Boolean(shownMessageMenu.message.pinned_at), ownMessage: shownMessageMenu.message.sender_id === userId, canCopy: Boolean(messageCopyText(shownMessageMenu.message)) })}
+          onSelect={(action) => { void performMessageAction(shownMessageMenu.message, action); }}
           onClose={closeMessageMenu}
         />
       )}
 
-      {inboxMenu && (
+      {shownInboxMenu && (
         <MessageActionMenu
-          x={inboxMenu.x}
-          y={inboxMenu.y}
+          x={shownInboxMenu.x}
+          y={shownInboxMenu.y}
+          closing={inboxMenuClosing}
           label="Chat actions"
-          items={inboxMenuItems(inboxMenu.conversation.archived)}
+          items={inboxMenuItems(shownInboxMenu.conversation.archived)}
           onSelect={(action) => {
-            const conversation = inboxMenu.conversation;
+            const conversation = shownInboxMenu.conversation;
             setInboxMenu(null);
             if (action === 'select') setSelectedChats(new Set([conversation.id]));
             else if (action === 'delete') void deleteChats([conversation]);

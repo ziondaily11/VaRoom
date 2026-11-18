@@ -75,7 +75,7 @@ test('actions apply to every kind of message in person-to-person chats', () => {
   assert.equal(thread.canActOnMessage({ id: 'm', message_type: 'system' }, false), false);
   assert.equal(thread.canActOnMessage({ id: 'm', deleted_at: 't' }, false), false);
   assert.equal(thread.canActOnMessage({ id: 'optimistic-1', _optimistic: true }, false), false, 'not while uploading');
-  assert.match(source, /canCopy: Boolean\(messageCopyText\(messageMenu\.message\)\)/);
+  assert.match(source, /canCopy: Boolean\(messageCopyText\(shownMessageMenu\.message\)\)/);
   assert.match(source, /\{actionable && \(\s*<div className="msg-action-wrap"/);
 });
 
