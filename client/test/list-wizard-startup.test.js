@@ -86,7 +86,7 @@ test('Continue Listing restores its profile draft and the listing shell it owns'
   const v = visit({ routes: { 'GET /api/listing-drafts/draft-7': { draft: remote } } });
   const outcome = await v.run(params({ draft: 'draft-7' }));
   assert.equal(outcome.form.fields.title, 'Server copy');
-  assert.equal(outcome.form.currentStep, 3, 'Continue Listing reopens the step the host left');
+  assert.equal(outcome.form.currentStep, 4, 'a five-step draft left on Photos reopens on Photos (now step 4)');
   assert.equal(v.session.draftId, 'draft-7');
   assert.equal(v.session.listingId, 'listing-7');
   assert.equal(v.session.revision, 3);
@@ -197,7 +197,7 @@ test('a verified payment whose listing cannot be restored keeps review open but 
   const outcome = await v.run(params({ payment: 'verified', reference: 'ref-1' }));
   assert.equal(outcome.flags.paymentVerified, true);
   assert.equal(outcome.flags.publishBlocked, true);
-  assert.equal(outcome.form.currentStep, 5);
+  assert.equal(outcome.form.currentStep, 6, 'the review');
   assert.match(outcome.messages[0].text, /publishing is paused/);
 });
 

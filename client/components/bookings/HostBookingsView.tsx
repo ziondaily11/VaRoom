@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
-import { formatAmount, formatDate } from '../../lib/bookings/format';
+import { bookingAmountText, formatDate } from '../../lib/bookings/format';
 import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
 import { usePresentValue } from '../../lib/motion/usePresence';
 import { DURATION } from '../../lib/motion/tokens';
@@ -181,7 +181,7 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
         </div>
       </div>
       <div className="bk-card-side">
-        <div className="bk-price">{`KES ${formatAmount(booking.total_price)}`}</div>
+        <div className="bk-price">{bookingAmountText(booking.total_price)}</div>
         <div className="bk-requested">{requestedTime(booking.created_at, now)}</div>
         {tab === 'pending' && (
           <div className="bk-actions">
@@ -219,7 +219,7 @@ function HostDetail({ booking, video, busy, answer, onClose, onRespond }: {
       <p>{listing.location_text || 'Location unavailable'}</p>
       <div className="host-detail-grid">
         <div className="host-detail-item"><div className="host-detail-label">Guest</div><div className="host-detail-value">{(booking.client && booking.client.full_name) || 'Guest'}</div></div>
-        <div className="host-detail-item"><div className="host-detail-label">Amount</div><div className="host-detail-value">{`KES ${formatAmount(booking.total_price)}`}</div></div>
+        <div className="host-detail-item"><div className="host-detail-label">Amount</div><div className="host-detail-value">{bookingAmountText(booking.total_price)}</div></div>
       </div>
       <div className="host-detail-stay">
         <div className="host-detail-item"><div className="host-detail-label-row"><MetaIcon name="calendar" />Check-in</div><div className="host-detail-value">{checkIn || 'Date to be confirmed'}</div></div>

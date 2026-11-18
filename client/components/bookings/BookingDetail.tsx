@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
-  detailRows, firstName, formatAmount, initial, isCancellable, stayHasEnded, statusMessage, type Booking,
+  detailRows, firstName, formatAmount, initial, priceToConfirm, isCancellable, stayHasEnded, statusMessage, type Booking,
 } from '../../lib/bookings/format';
 import { fetchBookingReview, REVIEW_FALLBACK_ERROR, submitBookingReview, type BookingReview } from '../../lib/bookings/clientBookings';
 import { getCachedReview, setCachedReview } from '../../lib/bookings/bookingsCache';
@@ -216,7 +216,8 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
               {cancelling ? 'Cancelling…' : 'Cancel Booking'}
             </button>
           )}
-          <button type="button" className="bk-btn booking-detail-pay" onClick={() => setPaying(true)}>{`Pay  KSh ${total}`}</button>
+          {/* No total yet (the host confirms the price): nothing to pay here. */}
+          {!priceToConfirm(booking.total_price) && <button type="button" className="bk-btn booking-detail-pay" onClick={() => setPaying(true)}>{`Pay  KSh ${total}`}</button>}
         </div>
         <div className="booking-detail-help">
           <div className="booking-detail-help-icon">?</div>

@@ -98,7 +98,59 @@ export function IntroFields({ binding, copy, tableOnly }: { binding: FieldBindin
   );
 }
 
-// ---------- Step 4 ----------
+// ---------- Step 3: the space ----------
+
+/**
+ * What the place is like, asked before the price: room or size, how many
+ * guests (stays and venues); bedrooms, bathrooms and units (property).
+ */
+export function SpaceFields({ binding, copy, category, hotelMode }: { binding: FieldBinding; copy: WizardCopy; category: Category; hotelMode: HotelMode | null }) {
+  const property = category === 'property';
+  const tableOnly = category === 'hotel' && hotelMode === 'table';
+  const stays = SHORT_STAY.includes(category) && !tableOnly;
+  const bedroom = text(binding.fields, 'property-bedroom-type');
+  if (property) {
+    return (
+      <div className="space-fields" id="space-fields">
+      <div className="field-row property-bed-bath-fields" id="property-bed-bath-fields" >
+        <div className="field">
+          <label htmlFor="property-bedroom-type">Type</label>
+          <select {...bind(binding, 'property-bedroom-type')} name="property-bedroom-type">
+            <option value="">Choose type</option>
+            {BEDROOM_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+            {/* Older listings may hold a type that is no longer offered. */}
+            {bedroom && !BEDROOM_TYPES.includes(bedroom) && <option value={bedroom} data-legacy-value="true">{bedroom}</option>}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="property-bathrooms">Bathrooms</label>
+          <input type="number" {...bind(binding, 'property-bathrooms')} name="property-bathrooms" min="1" step="1" inputMode="numeric" placeholder="e.g. 1" />
+        </div>
+      </div>
+
+      <div className="field" id="property-units-field">
+        <label htmlFor="property-units-available">Units available</label>
+        <input type="number" {...bind(binding, 'property-units-available')} min="1" placeholder="e.g. 8" />
+      </div>
+      </div>
+    );
+  }
+  if (!stays) return null;
+  return (
+    <div className="space-fields" id="space-fields">
+      <div className="field" id="stay-room-type-field">
+        <label htmlFor="size-or-type" id="size-label">{copy.sizeLabel}</label>
+        <input type="text" {...bind(binding, 'size-or-type')} name="size-or-type" placeholder={copy.sizePlaceholder} />
+      </div>
+      <div className="field">
+        <label htmlFor="max-guests" id="max-guests-label">{copy.maxGuestsLabel}</label>
+        <input type="number" {...bind(binding, 'max-guests')} min="1" placeholder={copy.maxGuestsPlaceholder} />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Step 5: price and terms ----------
 
 const BEDROOM_TYPES = ['Bedsitter', 'Studio', '1 bedroom', '2 bedrooms', '3 bedrooms', '4 bedrooms', '5 bedrooms'];
 
@@ -125,7 +177,6 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
   const longTermActive = property;
   const hide = (hidden: boolean): React.CSSProperties | undefined => (hidden ? { display: 'none' } : undefined);
   const units = officeShop ? [{ value: priceUnit, label: '' }] : priceUnitOptions(category);
-  const bedroom = text(binding.fields, 'property-bedroom-type');
 
   return (
     <>
@@ -142,36 +193,24 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
         </div>
       </div>
 
-      <div className="field" id="stay-room-type-field" style={hide(officeShop || property || tableOnly)}>
-        <label htmlFor="size-or-type" id="size-label">{copy.sizeLabel}</label>
-        <input type="text" {...bind(binding, 'size-or-type')} name="size-or-type" placeholder={copy.sizePlaceholder} />
-      </div>
-      <div className="field-row property-bed-bath-fields" id="property-bed-bath-fields" style={{ display: property ? 'grid' : 'none' }}>
-        <div className="field">
-          <label htmlFor="property-bedroom-type">Type</label>
-          <select {...bind(binding, 'property-bedroom-type')} name="property-bedroom-type">
-            <option value="">Choose type</option>
-            {BEDROOM_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-            {/* Older listings may hold a type that is no longer offered. */}
-            {bedroom && !BEDROOM_TYPES.includes(bedroom) && <option value={bedroom} data-legacy-value="true">{bedroom}</option>}
-          </select>
+      <div className="property-sale-section" id="property-sale-section" hidden={!(property && purpose !== 'rent')}>
+        <span className="property-section-label">Sale price</span>
+        <div className="sale-price-mode-row">
+          {(['exact', 'starting'] as SaleMode[]).map((mode) => (
+            <button type="button" key={mode} className={`sale-mode-option${saleMode === mode ? ' selected' : ''}`} data-sale-mode={mode} aria-pressed={saleMode === mode ? 'true' : 'false'} onClick={() => onSaleMode(mode)}>
+              {mode === 'exact' ? 'Exact price' : 'Starting from'}
+            </button>
+          ))}
         </div>
         <div className="field">
-          <label htmlFor="property-bathrooms">Bathrooms</label>
-          <input type="number" {...bind(binding, 'property-bathrooms')} name="property-bathrooms" min="1" step="1" inputMode="numeric" placeholder="e.g. 1" />
+          <label htmlFor="property-sale-price">Sale price (KES)</label>
+          <input type="number" {...bind(binding, 'property-sale-price', onPriceEdit)} min="0" step="1" placeholder="e.g. 12500000" required={property && purpose !== 'rent'} />
         </div>
       </div>
-
       <div className={`booking-group${shortStayActive ? ' active' : ''}`} id="short-stay-fields">
-        <div className="field-row">
-          <div className="field">
-            <label htmlFor="max-guests" id="max-guests-label">{copy.maxGuestsLabel}</label>
-            <input type="number" {...bind(binding, 'max-guests')} min="1" placeholder={copy.maxGuestsPlaceholder} />
-          </div>
-          <div className="field">
-            <label htmlFor="min-stay" id="min-stay-label">{copy.minStayLabel}</label>
-            <input type="number" {...bind(binding, 'min-stay')} min="1" placeholder={copy.minStayPlaceholder} />
-          </div>
+        <div className="field">
+          <label htmlFor="min-stay" id="min-stay-label">{copy.minStayLabel}</label>
+          <input type="number" {...bind(binding, 'min-stay')} min="1" placeholder={copy.minStayPlaceholder} />
         </div>
         <div className="field-row">
           <div className="field">
@@ -257,25 +296,7 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
         </div>
       </div>
 
-      <div className="field" id="property-units-field" hidden={!property}>
-        <label htmlFor="property-units-available">Units available</label>
-        <input type="number" {...bind(binding, 'property-units-available')} min="1" placeholder="e.g. 8" />
-      </div>
 
-      <div className="property-sale-section" id="property-sale-section" hidden={!(property && purpose !== 'rent')}>
-        <span className="property-section-label">Sale price</span>
-        <div className="sale-price-mode-row">
-          {(['exact', 'starting'] as SaleMode[]).map((mode) => (
-            <button type="button" key={mode} className={`sale-mode-option${saleMode === mode ? ' selected' : ''}`} data-sale-mode={mode} aria-pressed={saleMode === mode ? 'true' : 'false'} onClick={() => onSaleMode(mode)}>
-              {mode === 'exact' ? 'Exact price' : 'Starting from'}
-            </button>
-          ))}
-        </div>
-        <div className="field">
-          <label htmlFor="property-sale-price">Sale price (KES)</label>
-          <input type="number" {...bind(binding, 'property-sale-price', onPriceEdit)} min="0" step="1" placeholder="e.g. 12500000" required={property && purpose !== 'rent'} />
-        </div>
-      </div>
     </>
   );
 }

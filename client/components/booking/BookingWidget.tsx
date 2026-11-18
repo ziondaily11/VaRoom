@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, reviewsOptional, stayProblem, windowedCalendar,
+  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -45,9 +45,18 @@ function DetailsBox({ line, isHotel }: { line: PriceLine | null; isHotel: boolea
     <div className="details-box" id="details-box" hidden={!line}>
       {line && (
         <>
-          <div className="details-row"><span className="details-label">{line.label}</span><span>{ksh(line.base)}</span></div>
-          {line.fee ? <div className="details-row"><span className="details-label">{isHotel ? 'Service fee' : 'Cleaning fee'}</span><span>{ksh(line.fee)}</span></div> : null}
-          <div className="details-row total"><span>Total</span><span>{ksh(line.total)}</span></div>
+          {line.onRequest ? (
+            <>
+              <div className="details-row"><span className="details-label">{line.label}</span><span /></div>
+              <div className="details-row total"><span>Total</span><span>The host confirms the price</span></div>
+            </>
+          ) : (
+            <>
+              <div className="details-row"><span className="details-label">{line.label}</span><span>{ksh(line.base)}</span></div>
+              {line.fee ? <div className="details-row"><span className="details-label">{isHotel ? 'Service fee' : 'Cleaning fee'}</span><span>{ksh(line.fee)}</span></div> : null}
+              <div className="details-row total"><span>Total</span><span>{ksh(line.total)}</span></div>
+            </>
+          )}
         </>
       )}
     </div>
@@ -110,7 +119,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     }
   } else if (!kind.isPropertySaleOnly && (!isProperty || showsRent)) {
     const months = parseInt(leaseMonths, 10) || 0;
-    if (leasePicked && months >= 1) line = priceLine(details.price_amount, months, plural(months, 'month'), null);
+    if (leasePicked && months >= 1) line = rentalLine(details, months);
   }
 
   const book = async () => {
@@ -267,6 +276,12 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
             <div className="property-price-section">
               <div className="property-price-label"><Svg markup={ICON_RENT_PRICE} />Monthly rent</div>
               <div className="property-price-value">{hasRentPrice ? <>KES {rentPrice.toLocaleString()} <span>/ month</span></> : <span className="property-price-missing">Monthly rent not provided.</span>}</div>
+              {(Number(details.deposit_amount) > 0 || details.utilities_included === true) && (
+                <p className="property-rent-terms">
+                  {[Number(details.deposit_amount) > 0 ? `Deposit KES ${Number(details.deposit_amount).toLocaleString()}` : null,
+                    details.utilities_included === true ? 'Utilities included' : null].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
           )}
           {showUnits && (

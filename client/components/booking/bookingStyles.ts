@@ -257,6 +257,7 @@ export const BOOKING_STYLES = `
   .property-price-label{ display:flex; align-items:center; gap:.5rem; margin-bottom:.25rem; font-size:.8rem; color:var(--muted); }
   .property-price-label svg,.property-policy-title svg{ width:18px; height:18px; }
   .property-price-value{ font-size:1.18rem; font-weight:700; line-height:1.35; }
+  .property-rent-terms{ margin:.3rem 0 0; font-size:.85rem; color:var(--muted, #6b665e); }
   .property-price-missing,.property-policy-empty{ color:var(--muted); font-size:.78rem; }
   .property-units{ display:grid; grid-template-columns:1fr 1fr; margin:.15rem 0 .75rem; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
   .property-unit-item{ display:flex; align-items:flex-start; gap:.55rem; padding:.65rem .25rem; min-width:0; }

@@ -96,7 +96,7 @@ test('a snapshot keeps the legacy form_data keys and round-trips through restore
   const policy = new File(['pdf'], 'rules.pdf', { type: 'application/pdf', lastModified: 5 });
   const snapshot = drafts.captureSnapshot(identity, 'hotel', form, { ...noMedia(), policyFile: policy }, 'night');
   assert.deepEqual(Object.keys(drafts.draftFormData(snapshot)), ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'availableDates',
-    'currentStep', 'furthestStep', 'amenities', 'officeShopAmenitySelections', 'officeShopPermittedUses', 'officeShopCharges', 'uploadedDocumentRefs', 'documentSelections']);
+    'currentStep', 'furthestStep', 'stepVersion', 'amenities', 'officeShopAmenitySelections', 'officeShopPermittedUses', 'officeShopCharges', 'uploadedDocumentRefs', 'documentSelections']);
   assert.equal(snapshot.fields['price-unit'], 'night');
   assert.equal(snapshot.policyFile, null);
   assert.deepEqual(plain(snapshot.documentSelections.propertyPolicy), { filename: 'rules.pdf', mimeType: 'application/pdf', fileSize: 3, lastModified: 5 });

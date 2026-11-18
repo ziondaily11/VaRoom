@@ -10,6 +10,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { loadTs } = require('./helpers/loadTs');
 const path = require('node:path');
 const ts = require('typescript');
 const React = require('react');
@@ -150,7 +151,7 @@ test('wizard look: the app sidebar, one progress bar, messages in the page, scop
   assert.match(page, /document\.addEventListener\('click', onClick, true\)/, 'Home in the app sidebar still asks to save or discard');
   assert.match(page, /'a\[href="\/host-home"\], a\[href\^="\/host-home\?"\], \[data-nav="home"\], \[data-nav="my-listings"\]'/);
   const frame = fs.readFileSync(path.join(root, 'components', 'listWizard', 'StepFrame.tsx'), 'utf8');
-  assert.match(frame, /export const STEP_LABELS = \['Basics', 'Location', 'Photos & amenities', 'Price & booking', 'Review'\]/);
+  assert.match(frame, /export const STEP_LABELS = \['Basics', 'Location', 'The space', 'Photos', 'Price & terms', 'Review'\] as const;/);
   assert.match(frame, /<StepAlert text=\{alert\} \/>/, 'the reason sits above Continue');
   const styles = fs.readFileSync(path.join(root, 'components', 'listWizard', 'listWizardStyles.ts'), 'utf8');
   for (const global of [/\n\s*\*\{/, /\n\s*body\{/, /\n\s*:root\{/, /\n\s*label\{/, /\n\s*input, textarea, select\{/, /\n\s*header\{/]) assert.doesNotMatch(styles, global, `no page-wide rule ${global}`);
@@ -162,4 +163,49 @@ test('wizard look: the app sidebar, one progress bar, messages in the page, scop
   assert.match(styles, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*animation-duration:1ms !important/);
   const copy = fs.readFileSync(path.join(root, 'lib', 'listWizard', 'copy.ts'), 'utf8');
   assert.doesNotMatch(copy, /aboutEyebrow|Turn Your Space Into an Opportunity/);
+});
+
+test('six steps in a better order: the space before photos, price last; old drafts reopen on the same place', () => {
+  const page = fs.readFileSync(path.join(root, 'pages', 'list.tsx'), 'utf8');
+  const order = ['STEP 1 — About', 'STEP 2 — Location', 'STEP 3 — The space', 'STEP 4 — Photos', 'STEP 5 — Price & terms', 'STEP 6 — Review'].map((label) => page.indexOf(label));
+  assert.ok(order.every((at, index) => at > 0 && (index === 0 || at > order[index - 1])), 'steps in order');
+  assert.match(page, /id="location-neighbourhood" required/);
+  assert.match(page, /id="location-city" required/);
+  assert.doesNotMatch(page, /separated by a comma/, 'no comma rule: two boxes');
+  const formState = loadTs(path.join(root, 'lib', 'listWizard', 'formState.ts'));
+  assert.equal(formState.REVIEW_STEP, 6);
+  assert.deepEqual({ ...formState.listingAreaParts({ 'location-text': 'Westlands, Nairobi' }) }, { neighbourhood: 'Westlands', city: 'Nairobi' }, 'older drafts fill both boxes');
+  assert.deepEqual({ ...formState.listingAreaParts({ 'location-neighbourhood': 'West ', 'location-city': '' }) }, { neighbourhood: 'West ', city: '' }, 'typing keeps its spaces');
+  assert.equal(formState.joinListingArea(' Karen ', 'Nairobi '), 'Karen, Nairobi');
+  const drafts = loadTs(path.join(root, 'lib', 'listWizard', 'drafts.ts'));
+  assert.deepEqual([1, 2, 3, 4, 5].map((step) => drafts.savedStep(step, undefined)), [1, 2, 4, 5, 6], 'five-step drafts: Photos 4, Pricing 5, Review 6');
+  assert.deepEqual([3, 6, 9].map((step) => drafts.savedStep(step, drafts.STEP_VERSION)), [3, 6, 6]);
+  const fields = fs.readFileSync(path.join(root, 'components', 'listWizard', 'WizardFields.tsx'), 'utf8');
+  const space = fields.slice(fields.indexOf('export function SpaceFields'), fields.indexOf('export function BookingFields'));
+  for (const id of ['size-or-type', 'max-guests', 'property-bedroom-type', 'property-bathrooms', 'property-units-available']) assert.ok(space.includes(`'${id}'`), `${id} is under "The space"`);
+  const booking = fields.slice(fields.indexOf('export function BookingFields'));
+  assert.ok(booking.indexOf('id="property-sale-section"') < booking.indexOf('id="short-stay-fields"'), 'the sale price follows the rent price');
+});
+
+test('office and shop: about 25 questions; amounts the server needs are required when they apply', () => {
+  const office = fs.readFileSync(path.join(root, 'components', 'listWizard', 'OfficeShopFields.tsx'), 'utf8');
+  for (const gone of ['os-power-note', 'os-internet-note', 'os-accessibility-note', 'os-ceiling-height', 'os-room-count', 'os-foot-traffic', 'os-nearby-anchors', 'os-lock-in', 'os-notice-period', 'os-renewal', 'os-payment-methods', 'os-rent-increases', 'os-add-charge', 'os-permitted-uses', 'os-subletting', 'os-documents-on-request']) {
+    assert.ok(!office.includes(`'${gone}'`) && !office.includes(`"${gone}"`), `${gone} is no longer asked`);
+  }
+  assert.match(office, /required=\{conditions\.serviceAmountRequired\}/);
+  assert.match(office, /required=\{conditions\.utilitiesAmountRequired\}/);
+  assert.match(office, /required=\{conditions\.parkingAmountRequired\}/);
+  assert.match(office, /card\.slot !== 'documents'/, 'floor plan and policy only');
+  const os = loadTs(path.join(root, 'lib', 'listWizard', 'officeShop.ts'));
+  const conditions = os.officeShopConditions({ 'os-service-charge': 'not_included', 'os-utilities': 'fixed_fee', 'os-parking-cost': 'paid', 'os-pricing-basis': 'per_desk' }, 'office');
+  assert.equal(conditions.serviceAmountRequired, true);
+  assert.equal(conditions.utilitiesAmountRequired, true);
+  assert.equal(conditions.parkingAmountRequired, true);
+  assert.equal(conditions.desksForPricing, true);
+  // An older listing keeps answers the form no longer asks.
+  const patch = os.hydrateOfficeShopDetails({ subtype: 'private_office', amenities: { power_note: '3-phase' }, lease: { lock_in: '12 months' } });
+  const form = { fields: patch.fields, officeShopAmenitySelections: {}, officeShopPermittedUses: [], officeShopCharges: [] };
+  const saved = os.collectOfficeShopDetails(form, 'office');
+  assert.equal(saved.amenities.power_note, '3-phase');
+  assert.equal(saved.lease.lock_in, '12 months');
 });

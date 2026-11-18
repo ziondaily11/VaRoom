@@ -180,6 +180,12 @@ export interface OfficeShopConditions {
   desksRequired: boolean;
   /** `required` on #os-capacity. */
   capacityRequired: boolean;
+  /** Per-desk pricing needs the number of desks (the server checks it too). */
+  desksForPricing: boolean;
+  /** The amounts that show, and are required, only when they apply (as the server requires them). */
+  serviceAmountRequired: boolean;
+  utilitiesAmountRequired: boolean;
+  parkingAmountRequired: boolean;
   /** Label and placeholder of #os-min-term. */
   minTermLabel: string;
   minTermPlaceholder: string;
@@ -201,6 +207,10 @@ export function officeShopConditions(fields: Fields, kind: OfficeShopKind): Offi
     businessHours: readValue(fields, 'os-after-hours', kind) === 'business_hours',
     desksRequired: kind === 'office' && ['shared_office', 'serviced_office', 'coworking_desk'].includes(readValue(fields, 'os-subtype', kind)),
     capacityRequired: kind === 'office',
+    desksForPricing: basis === 'per_desk',
+    serviceAmountRequired: readValue(fields, 'os-service-charge', kind) === 'not_included',
+    utilitiesAmountRequired: readValue(fields, 'os-utilities', kind) === 'fixed_fee',
+    parkingAmountRequired: readValue(fields, 'os-parking-cost', kind) === 'paid',
     minTermLabel: shortRate ? 'Minimum booking duration' : 'Minimum lease term',
     minTermPlaceholder: shortRate ? 'Number of days, weeks or hours' : 'Months',
     priceUnit: officeShopPriceUnit({ pricing: { basis }, space: { area_unit: readValue(fields, 'os-area-unit', kind) } }),
@@ -538,7 +548,7 @@ export type OfficeShopDocumentSlot = keyof OfficeShopFiles;
 export const DOCUMENT_CARDS: Array<{ slot: OfficeShopDocumentSlot; id: string; documentType: string; label: string; aria: string; multiple: boolean }> = [
   { slot: 'floorPlan', id: 'os-floor-plan', documentType: 'floor_plan', label: 'Floor plan (optional)', aria: 'Upload floor plan', multiple: false },
   { slot: 'documents', id: 'os-documents', documentType: 'ownership_management', label: 'Ownership and management (optional)', aria: 'Upload ownership and management documents', multiple: true },
-  { slot: 'policy', id: 'os-policy-file', documentType: 'commercial_policy', label: 'Property Policy', aria: 'Upload property policy', multiple: false },
+  { slot: 'policy', id: 'os-policy-file', documentType: 'commercial_policy', label: 'Property policy (optional)', aria: 'Upload property policy', multiple: false },
 ];
 
 /** Labels of the existing-document links in edit mode, by document type. */

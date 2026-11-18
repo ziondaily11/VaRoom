@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
-  bookedDays, calendarMonth, clientTab, computeStats, describeDates, endMoment, formatAmount, initial, isCancellable, perUnit, statusLabel,
+  bookedDays, bookingAmountText, calendarMonth, clientTab, computeStats, describeDates, endMoment, initial, isCancellable, perUnit, priceToConfirm, statusLabel,
   type Booking, type ClientTab,
 } from '../../lib/bookings/format';
 import { BackIcon, CardIcon, MessageIcon } from './BookingIcons';
@@ -81,7 +81,7 @@ function BookingCard({ booking, tab, reviewed, now, onCancel, onReview, onMessag
           <span className={`bk-status ${booking.status}`}>{statusLabel(booking.status)}</span>
         </div>
         <div className="bk-meta"><span><CardIcon name="calendar" />{describeDates(booking)}</span></div>
-        <div className="bk-price">{`KES ${formatAmount(booking.total_price)}`}<span>{perUnit(booking)}</span></div>
+        <div className="bk-price">{bookingAmountText(booking.total_price)}{priceToConfirm(booking.total_price) ? null : <span>{perUnit(booking)}</span>}</div>
         <div className="bk-bottom-row">
           <div className="bk-host">
             <div className="bk-host-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : initial(host.full_name)}</div>

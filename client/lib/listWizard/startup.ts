@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category, WizardForm } from './formState';
-import { emptyForm, isOfficeShop, SHORT_STAY } from './formState';
+import { emptyForm, isOfficeShop, REVIEW_STEP, SHORT_STAY } from './formState';
 import { bookingDefaultFields, loadBookingDefaults } from '../settings/bookingDefaults';
 import { CATEGORY_LABELS } from './copy';
 import type { ListingDraftCache } from './draftCache';
@@ -368,7 +368,7 @@ async function restoreDraft(deps: StartupDeps, niche: Category, remote: RemoteDr
         // Keep the paid listing's review reachable, but never publish an incomplete listing.
         flags.publishBlocked = true;
         messages.push({ text: 'Payment confirmed. Listing details could not be restored on this device, so publishing is paused. Restore the saved listing from My Profile or contact support.', error: true });
-        return { form: { ...emptyForm(), currentStep: 5, furthestStep: 5 }, media: {}, messages };
+        return { form: { ...emptyForm(), currentStep: REVIEW_STEP, furthestStep: REVIEW_STEP }, media: {}, messages };
       }
       messages.push({ text: 'This saved listing could not be restored. Its profile draft is still preserved; try Continue Listing again.', error: true });
       return { form: null, media: {}, messages };
@@ -378,7 +378,7 @@ async function restoreDraft(deps: StartupDeps, niche: Category, remote: RemoteDr
     if (snapshot.listingId && (!session.listingId || snapshot.listingId === session.listingId)) session.listingId = snapshot.listingId;
 
     const restored = restoreSnapshot(snapshot, niche);
-    const step = continuing ? restored.form.currentStep : 5;
+    const step = continuing ? restored.form.currentStep : REVIEW_STEP;
     const form: WizardForm = { ...restored.form, currentStep: step, furthestStep: Math.max(restored.form.furthestStep, step) };
     // Documents never go back into the form; only their uploaded references.
     const media: WizardMedia = { mediaFiles: restored.mediaFiles, documentRefs: restored.documentRefs, policyFile: null, officeShopFiles: { floorPlan: null, policy: null, documents: [] } };

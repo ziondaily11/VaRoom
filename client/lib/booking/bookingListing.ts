@@ -24,6 +24,9 @@ export interface BookingDetails {
   cleaning_fee?: number | null;
   available_from?: string | null;
   min_lease_months?: number | null;
+  /** Property rentals: the deposit and whether utilities are in the rent. */
+  deposit_amount?: number | string | null;
+  utilities_included?: boolean | null;
   checkin_time?: string | null;
   checkout_time?: string | null;
   cancellation_policy?: string | null;
@@ -416,11 +419,35 @@ export const plural = (count: number, word: string) => `${count} ${word}${count 
 
 // ---------- Prices ----------
 
-export interface PriceLine { quantity: number; label: string; base: number; fee: number | null; total: number }
+export interface PriceLine { quantity: number; label: string; base: number; fee: number | null; total: number; /** No total can be worked out: the host confirms the price. */ onRequest?: boolean }
 
 export function priceLine(rate: unknown, quantity: number, label: string, fee: number | null): PriceLine {
   const base = Number(rate) * quantity;
   return { quantity, label, base, fee: fee || null, total: base + (fee || 0) };
+}
+
+/**
+ * A rental of `months`, priced by the listing's unit. Monthly prices multiply;
+ * yearly ones are a twelfth a month; office and shop prices per area or per
+ * desk use the stored area or one desk. A daily or turnover price has no
+ * total here: the host confirms it (total 0, onRequest).
+ */
+export function rentalLine(details: Pick<BookingDetails, 'price_amount' | 'price_unit' | 'office_shop_details'>, months: number): PriceLine {
+  const label = plural(months, 'month');
+  const rate = Number(details.price_amount) || 0;
+  const unit = details.price_unit || 'month';
+  const office = isRecord(details.office_shop_details) ? details.office_shop_details : {};
+  const space = isRecord(office.space) ? office.space : {};
+  const pricing = isRecord(office.pricing) ? office.pricing : {};
+  const perMonth = (value: number, period: unknown) => (period === 'year' ? value / 12 : value);
+  let monthly: number | null = null;
+  if (unit === 'month') monthly = rate;
+  else if (unit === 'year') monthly = rate / 12;
+  else if (unit === 'sq_ft' || unit === 'm2') monthly = Number(space.area) > 0 ? perMonth(rate * Number(space.area), pricing.area_period) : null;
+  else if (unit === 'desk') monthly = rate;
+  if (monthly === null) return { quantity: months, label, base: 0, fee: null, total: 0, onRequest: true };
+  const total = Math.round(monthly * months);
+  return { quantity: months, label: unit === 'desk' ? `1 desk · ${label}` : label, base: total, fee: null, total };
 }
 
 export const ksh = (value: number) => `KSh ${value.toLocaleString()}`;

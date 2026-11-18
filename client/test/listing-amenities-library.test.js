@@ -51,6 +51,6 @@ test('property policy documents remain optional and visible only for residential
 
 test('office and shop amenities remain on their existing custom-field path', () => {
   assert.match(page, /<AmenitiesField category=\{category\} amenities=\{form\.amenities\} hidden=\{officeShop \|\| tableOnly\}/);
-  assert.match(page, /\{officeShop \? \(\s*<OfficeShopMedia /);
-  assert.match(read('components/listWizard/OfficeShopFields.tsx'), /id="office-shop-media-fields"/);
+  assert.match(page, /<OfficeShopSpace \{\.\.\.officeProps\} onOpenAmenities=\{openLibrary\} \/>/, 'office and shop amenities sit under "The space"');
+  assert.match(read('components/listWizard/OfficeShopFields.tsx'), /id="office-shop-space-fields"/);
 });
