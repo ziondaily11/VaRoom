@@ -80,6 +80,32 @@ Do not introduce new UI elements, navigation items or visual changes simply beca
 
 **The migrated page should look and behave like the original, while performing significantly better.**
 
+### 2.4 Apply the animation standard to every UI change
+
+`animation.md` at the repository root is VaRoom's permanent motion and animation standard. It is mandatory.
+
+**UI files** are files that decide what the user sees or how they interact with it:
+
+- React components and pages (`.tsx`) that render markup.
+- Style modules (`components/**/*Styles.ts`), CSS modules (`*.module.css`), files in `client/styles/` and `client/public/js/*.css`.
+- Tailwind classes, inline styles and `<style>` blocks.
+
+**Logic files** are not UI files: services, data fetching, caches, API helpers, types, Supabase and auth code, server code, migrations and tests. Hooks that hold only data or logic are logic files. Hooks that control visible behaviour (open/close, presence, gestures, motion) are UI files.
+
+Whenever a task creates or edits a UI file:
+
+1. Read `animation.md` before writing the UI code (at least §4 Motion tokens, §8 Component recipes and §17 Checklist).
+2. List every interaction the change creates or touches: open, close, press, hover, enter, exit, load, success, error, reorder, resize, drag and theme.
+3. Decide which principles in `animation.md` §5–§7 apply to each interaction, and **apply them fully**, not partially. For example, a menu needs its entrance, its exit to the trigger, its row stagger and its reduced-motion rule.
+4. Use the shared tokens and reuse existing building blocks (`AnimatedMenu`, `useMenuPresence`, `SeenSection`, `useCountUp`, `SendingButton`) before writing new motion code.
+5. Leave still what `animation.md` §14 says must not move (for example the theme switch, the persistent shell, prices and cached content).
+6. Add the `prefers-reduced-motion` behaviour in the same change (`animation.md` §13).
+7. Complete the checklist in `animation.md` §17.1 and add the "Motion" section (`animation.md` §17.2) to the PR description. "No motion needed, because …" is a valid answer; leaving it out is not.
+
+Changes that touch only logic files do not need this step.
+
+When this rule and another rule in this file disagree, performance (§13) and "Preserve the existing UI" (§2.3) come first.
+
 ---
 
 ## 3. Mandatory Investigation Before Every Migration
@@ -595,6 +621,7 @@ Every task follows these seven steps, in this order. Do not skip a step.
 - Do not introduce unnecessary dependencies.
 - Do not perform broad refactoring during a page migration without justification.
 - Keep changes incremental and testable.
+- After every edit to a UI file (not to a logic file), consult `animation.md` and apply the principles that apply (§2.4).
 
 ### After implementation
 
@@ -612,6 +639,7 @@ Provide a report, in the reply and in the PR description, containing:
 10. Remaining issues.
 11. Risks and recommended next steps.
 12. SQL migrations: paste the full SQL of every migration the change adds or edits (for example `server/migrations/*.sql`) in the reply, in a `sql` code block, with what to check before running it. If the change has no migration, say "No SQL migration in this change."
+13. Motion: for changes to UI files, the "Motion" section from `animation.md` §17.2 (interactions touched, principles applied, values, what is left still on purpose, reduced-motion behaviour, how it was tested). If the change touches only logic files, say "No UI files changed."
 
 Never claim that something works without actually verifying it.
 
@@ -662,6 +690,7 @@ A page is considered fully migrated only when all the following conditions are s
 - [ ] Authentication and account isolation work correctly.
 - [ ] Responsive behaviour has been preserved.
 - [ ] Loading and error states work.
+- [ ] `animation.md` has been consulted for every UI file changed, and the applicable principles are applied fully, including reduced motion.
 - [ ] Original workflows have been tested.
 - [ ] Related pages have been regression-tested.
 - [ ] Build and TypeScript checks pass.
