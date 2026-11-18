@@ -164,9 +164,19 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
   // themselves behave exactly as before.
   const track = (type: ListingEventType) => recordListingEvent(getSupabaseClient(), listing.id, type);
 
+  // Phones open the system share sheet; elsewhere the link is copied.
   const share = async () => {
+    const url = window.location.href;
+    const nav = navigator as Navigator & { share?: (data: { title?: string; url?: string }) => Promise<void> };
+    if (typeof nav.share === 'function' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+      try {
+        await nav.share({ title: listing.title, url });
+        track('share');
+      } catch { /* the guest closed the share sheet */ }
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(url);
       track('share');
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -180,7 +190,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
         <div className="title-actions">
           <button type="button" className="action-btn" id="share-btn" aria-label="Share listing" onClick={() => { void share(); }}>
             <Svg markup={ICON_SHARE} />
-            <span>{copied ? 'Copied!' : 'Share'}</span>
+            <span aria-live="polite">{copied ? 'Link copied' : 'Share'}</span>
           </button>
         </div>
       </div>
@@ -259,7 +269,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
                   <div className="review-card" key={review.id || index}>
                     <div className="review-top">
                       <span className="review-avatar">{avatar ? <img src={avatar} alt="" /> : (name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?')}</span>
-                      <div><div className="review-name">{name}</div><div className="review-time">{(() => { const date = new Date(review.created_at); return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(); })()}</div></div>
+                      <div><div className="review-name">{name}</div><div className="review-time">{(() => { const date = new Date(review.created_at); return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); })()}</div></div>
                     </div>
                     <div className="review-stars"><Stars rating={review.rating} /></div>
                     <div className="review-text">{review.comment}</div>

@@ -73,7 +73,8 @@ test('HostLayout and ClientLayout enforce non-red subtle grey active navigation 
 });
 
 test('Legacy pages define consistent non-red active navigation background tokens', () => {
-  const pages = ['components/settings/settingsStyles.ts', 'components/profile/profileStyles.ts', 'components/marketplace/marketplaceStyles.ts', 'components/booking/bookingStyles.ts'];
+  // (The booking page has no navigation of its own: the app shell's icon rail sits beside it.)
+  const pages = ['components/settings/settingsStyles.ts', 'components/profile/profileStyles.ts', 'components/marketplace/marketplaceStyles.ts'];
 
   for (const page of pages) {
     const content = fs.readFileSync(path.join(clientRoot, page), 'utf8');

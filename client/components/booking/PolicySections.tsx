@@ -8,6 +8,8 @@ import Svg from './Svg';
 // still being fetched.
 
 export function PropertyPolicy({ policy, loading }: { policy: ListingPolicy; loading: boolean }) {
+  // Nothing to tell the guest: no empty "No property policies provided." section.
+  if (policy.none && !loading) return null;
   const { document } = policy;
   const empty = loading && policy.empty ? 'Loading policy information…' : policy.empty;
   return (

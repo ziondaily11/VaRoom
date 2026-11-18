@@ -49,6 +49,8 @@ export interface ListingPolicy {
   document: PolicyDocument | null;
   /** Shown when nothing is known: no policies, or not loaded. */
   empty: string | null;
+  /** The documents loaded and the host gave no policy at all: the section is left out. */
+  none: boolean;
 }
 
 /** Policies for property and office/shop listings; null for other categories. */
@@ -91,6 +93,7 @@ export function listingPolicy(category: string | null, detailsValue: unknown, do
     rows,
     document,
     empty: known ? null : (documentsLoaded ? 'No property policies provided.' : 'Policy information is temporarily unavailable.'),
+    none: !known && documentsLoaded,
   };
 }
 

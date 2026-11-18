@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
@@ -20,9 +20,11 @@ import ListingDetails, { ratingInfo } from '../components/booking/ListingDetails
 import BookingWidget from '../components/booking/BookingWidget';
 import { TableReservationDialog } from '../components/booking/ReservationDialogs';
 import { BOOKING_STYLES } from '../components/booking/bookingStyles';
+import PhoneBookingBar from '../components/booking/PhoneBookingBar';
 
 // Booking (migrated from legacy-pages/booking.html): one listing's details
-// and its booking widget. Identity comes from AuthProvider. The page shows
+// and its booking widget. On phones a bar at the bottom shows the price and
+// scrolls to the widget. Identity comes from AuthProvider. The page shows
 // as soon as the listing is loaded (kept for two minutes per account, so a
 // revisit shows at once); reviews, documents, the video, likes and the open
 // dates load alongside and fill in place. The open dates are always read again.
@@ -72,6 +74,15 @@ export default function BookingPage() {
   const [tableOpen, setTableOpen] = useState(false);
   // The table form starts with the guest's phone, read when first opened.
   const [phone, setPhone] = useState<string | null>(null);
+  // A short message at the bottom of the screen (a chat that could not start).
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | null>(null);
+  const showNotice = useCallback((text: string) => {
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    setNotice(text);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 4000);
+  }, []);
+  useEffect(() => () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); }, []);
 
   useEffect(() => {
     if (status === 'signed-out') void router.replace(loginUrl(router.asPath));
@@ -141,11 +152,12 @@ export default function BookingPage() {
     try {
       void router.push(await openConversation(listing));
     } catch (error) {
-      window.alert(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Booking: the chat could not start:', error);
+      showNotice("We couldn't open the chat. Please try again.");
     } finally {
       setMessaging(false);
     }
-  }, [client, listing, userId, router, isOwner]);
+  }, [client, listing, userId, router, isOwner, showNotice]);
 
   const book = useCallback(async (choice: StayChoice, total: number): Promise<string | null> => {
     if (!client || !listing || !kind || !userId) return 'Not signed in.';
@@ -168,6 +180,8 @@ export default function BookingPage() {
     setTableOpen(true);
   }, [phone, client, userId]);
 
+  const closeTable = useCallback(() => setTableOpen(false), []);
+
   const closeGallery = useCallback(() => {
     if (window.history.length > 1 && document.referrer) window.history.back();
     else void router.push('/marketplace');
@@ -182,13 +196,10 @@ export default function BookingPage() {
   return (
     <>
       <Head>
-        <title>Book — VaRoom</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <title>{listing ? `${listing.title} · VaRoom` : 'Book · VaRoom'}</title>
       </Head>
       <style dangerouslySetInnerHTML={{ __html: BOOKING_STYLES }} />
-      <div className="page-shell">
+      <div className="page-shell booking-page">
         <div className="main-shell">
           {!showable && !pageError && <Skeleton />}
           <div id="booking-page" style={{ display: showable ? 'block' : 'none', height: '100%' }}>
@@ -225,18 +236,25 @@ export default function BookingPage() {
               </div>
             )}
           </div>
-          <p id="page-error" className="page-error" style={{ display: pageError ? 'block' : 'none' }}>{pageError}</p>
+          {pageError && (
+            <div id="page-error" className="page-error" role="alert">
+              <p>{pageError}</p>
+              <button type="button" className="page-error-btn" onClick={() => { void router.push('/marketplace'); }}>Back to Marketplace</button>
+            </div>
+          )}
         </div>
+        {showable && listing && kind && <PhoneBookingBar listing={listing} kind={kind} />}
+        <div className={`booking-toast${notice ? ' show' : ''}`} role="status" aria-live="polite">{notice || ''}</div>
       </div>
       {tableOpen && !isOwner && listing && bundle && bundle.diningConfig && (
-        <div className="booking-layer">
+        <div className="booking-layer booking-page">
         <TableReservationDialog
           listingId={listing.id}
           dining={bundle.diningConfig}
           clientName={profile?.full_name || ''}
           clientPhone={phone || ''}
           onSend={(request: TableRequest) => (token ? sendTableRequest(request, token) : Promise.resolve('Network error — please try again.'))}
-          onClose={() => setTableOpen(false)}
+          onClose={closeTable}
         />
         </div>
       )}

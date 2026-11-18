@@ -10,7 +10,7 @@ import { DURATION } from '../../lib/motion/tokens';
 import SegmentedTabs from '../ui/SegmentedTabs';
 import ConfirmSheet from './ConfirmSheet';
 import {
-  fetchHostBookings, fetchListingVideo, fetchTableReservations, HOST_TAB_STATUS, hostDateText, hostDurationText,
+  fetchHostBookings, fetchListingVideo, fetchTableReservations, HOST_TAB_STATUS, guestCountText, hostDateText, hostDurationText,
   hostTabFor, isBookingInMonth, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
   type HostBooking, type HostTab, type ListingVideo, type TableReservation,
 } from '../../lib/bookings/hostBookings';
@@ -58,12 +58,13 @@ function collapseCard(node: Element | null): Promise<void> {
 type Answer = { id: string; decision: 'approve' | 'decline'; done: boolean } | null;
 const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
-const MetaIcon = ({ name }: { name: 'calendar' | 'moon' | 'location' }) => (
+const MetaIcon = ({ name }: { name: 'calendar' | 'moon' | 'location' | 'guests' }) => (
   <i className="booking-icon" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       {name === 'calendar' && <><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></>}
       {name === 'moon' && <path d="M12 3a9 9 0 1 0 8.5 12.1A7 7 0 0 1 8.9 3.5 8.8 8.8 0 0 0 12 3Z" />}
       {name === 'location' && <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>}
+      {name === 'guests' && <><circle cx="9" cy="8" r="3.2" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 4.6a3.2 3.2 0 0 1 0 6.3M21 20a6 6 0 0 0-3.6-5.5" /></>}
     </svg>
   </i>
 );
@@ -145,6 +146,7 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
   const photoUrl = photoOf(booking);
   const avatarUrl = resolveAvatarUrl(guest.avatar_url, getSupabaseClient());
   const duration = hostDurationText(booking);
+  const guests = guestCountText(booking);
   let thumb: React.ReactNode = photoUrl ? <img src={photoUrl} alt="" loading="lazy" /> : <span>VaRoom</span>;
   if (video && video.videoUrl) thumb = <ListingVideoElement video={video} />;
   else if (video && video.thumbnailUrl) thumb = <img src={video.thumbnailUrl} alt="" loading="lazy" />;
@@ -177,6 +179,7 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
         <div className="bk-meta">
           <span><MetaIcon name="calendar" />{hostDateText(booking)}</span>
           {duration && <span><MetaIcon name="moon" />{duration}</span>}
+          {guests && <span><MetaIcon name="guests" />{guests}</span>}
           {listing.location_text && <span><MetaIcon name="location" />{listing.location_text}</span>}
         </div>
       </div>

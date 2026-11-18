@@ -4,20 +4,22 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
-  detailRows, firstName, formatAmount, initial, priceToConfirm, isCancellable, stayHasEnded, statusMessage, type Booking,
+  detailRows, firstName, formatAmount, initial, priceToConfirm, isCancellable, stayHasEnded, statusHero, type Booking,
 } from '../../lib/bookings/format';
 import { fetchBookingReview, REVIEW_FALLBACK_ERROR, submitBookingReview, type BookingReview } from '../../lib/bookings/clientBookings';
 import { getCachedReview, setCachedReview } from '../../lib/bookings/bookingsCache';
-import { CalendarIcon, CashIcon, CheckIcon, ClockIcon, ShieldIcon } from './BookingIcons';
+import { CalendarIcon, CashIcon, CheckIcon, ClockIcon, CloseIcon, GuestsIcon, ShieldIcon } from './BookingIcons';
 import PayDialog from './PayDialog';
 import ConfirmSheet from './ConfirmSheet';
 import { usePresence } from '../../lib/motion/usePresence';
 import { DURATION, exitMs } from '../../lib/motion/tokens';
 
-// A client's booking: the approved summary with payment, cancel, help and
-// (after the stay) the review; or a status card for any other state. One
-// component for the Bookings rail on laptops and desktops and the booking
-// details page on phones.
+// A client's booking, whatever its status: a header that says where it stands
+// (approved, waiting for the host, declined, cancelled, expired, complete),
+// then the listing, dates, guests and total. Approved bookings add payment
+// and its protection note; pending and approved ones can be cancelled; after
+// the stay comes the review. One component for the Bookings rail on laptops
+// and desktops and the booking details page on phones.
 
 export interface BookingDetailActions {
   /** Cancel after the guest confirms; rejects with the reason it failed. */
@@ -133,10 +135,6 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
       </div>
     );
   }
-  if (booking.status !== 'approved') {
-    const [title, text] = statusMessage(booking.status);
-    return <div className="booking-detail-status"><h2>{title}</h2><p>{text}</p></div>;
-  }
 
   const client = getSupabaseClient();
   const listing = booking.listing || {};
@@ -147,7 +145,11 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
   const title = listing.title || 'Listing';
   const hostName = host.full_name || 'VaRoom host';
   const total = formatAmount(booking.total_price);
-  const showReview = reviewed || stayHasEnded(booking);
+  const hero = statusHero(booking.status);
+  const approved = booking.status === 'approved';
+  const stayed = approved || booking.status === 'completed';
+  // Reviews follow a stay that happened; the map and directions follow an accepted booking.
+  const showReview = stayed && (reviewed || booking.status === 'completed' || stayHasEnded(booking));
 
   const cancel = async () => {
     setCancelling(true);
@@ -164,21 +166,21 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
 
   return (
     <>
-      <section className="booking-approved-hero" aria-label="Booking approved">
-        <div className="booking-approved-check"><CheckIcon /></div>
-        <h2>Booking <span>Approved!</span></h2>
-        <p>Great news! Your booking request has been approved by the host.</p>
+      <section className={`booking-approved-hero tone-${hero.tone}`} aria-label={hero.title}>
+        <div className="booking-approved-check">{hero.tone === 'good' ? <CheckIcon /> : hero.tone === 'wait' ? <ClockIcon /> : <CloseIcon />}</div>
+        <h2>{hero.title}</h2>
+        <p>{hero.text}</p>
       </section>
       <section className="booking-detail-card">
         <h3 className="booking-detail-greeting">{`Hello ${firstName(viewerName)},`}</h3>
-        <p className="booking-detail-intro">Your booking request for the property below has been approved. Please review your booking details and proceed with payment to confirm your booking.</p>
+        <p className="booking-detail-intro">{hero.intro}</p>
         <div className="booking-detail-property">
           <div className="booking-detail-photo">{photoUrl && <img src={photoUrl} alt={title} />}</div>
           <div className="booking-detail-property-info">
             <h3 className="booking-detail-property-title" title={title}>{title}</h3>
             <div className="booking-detail-location">
               <span>{listing.location_text || 'Location not available'}</span>
-              <Link className="booking-detail-map" href={`/map?booking=${encodeURIComponent(booking.id)}`}>View map &amp; directions</Link>
+              {stayed && <Link className="booking-detail-map" href={`/map?booking=${encodeURIComponent(booking.id)}`}>View map &amp; directions</Link>}
             </div>
             <div className="booking-detail-host">
               <div className="booking-detail-host-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : initial(host.full_name)}</div>
@@ -193,7 +195,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
         <div className="booking-detail-rows">
           {detailRows(booking).map((row) => (
             <div className="booking-detail-row" key={row.label}>
-              <span className="booking-detail-row-label">{row.icon === 'clock' ? <ClockIcon /> : <CalendarIcon />}<span>{row.label}</span></span>
+              <span className="booking-detail-row-label">{row.icon === 'clock' ? <ClockIcon /> : row.icon === 'guests' ? <GuestsIcon /> : <CalendarIcon />}<span>{row.label}</span></span>
               <span className="booking-detail-row-value">{row.value}</span>
             </div>
           ))}
@@ -202,23 +204,25 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
             <span className="booking-detail-row-value">{`KSh ${total}`}</span>
           </div>
         </div>
-        <div className="booking-detail-protection">
-          <ShieldIcon />
-          <div>
-            <div className="booking-detail-protection-title">Your payment is protected by VaRoom.</div>
-            <div className="booking-detail-protection-text">The host can only withdraw your payment after you’ve checked in.</div>
+        {approved && (
+          <div className="booking-detail-protection">
+            <ShieldIcon />
+            <div>
+              <div className="booking-detail-protection-title">Your payment is protected by VaRoom.</div>
+              <div className="booking-detail-protection-text">The host can only withdraw your payment after you’ve checked in.</div>
+            </div>
           </div>
-        </div>
+        )}
         {showReview && <ReviewSection key={booking.id} booking={booking} reviewed={reviewed} onReviewed={actions.onReviewed} />}
-        <div className="booking-detail-actions">
+        {(isCancellable(booking) || approved) && <div className="booking-detail-actions">
           {isCancellable(booking) && (
             <button type="button" className="bk-btn bk-btn-outline" disabled={cancelling} onClick={() => setConfirmingCancel(true)}>
               {cancelling ? 'Cancelling…' : 'Cancel Booking'}
             </button>
           )}
           {/* No total yet (the host confirms the price): nothing to pay here. */}
-          {!priceToConfirm(booking.total_price) && <button type="button" className="bk-btn booking-detail-pay" onClick={() => setPaying(true)}>{`Pay  KSh ${total}`}</button>}
-        </div>
+          {approved && !priceToConfirm(booking.total_price) && <button type="button" className="bk-btn booking-detail-pay" onClick={() => setPaying(true)}>{`Pay  KSh ${total}`}</button>}
+        </div>}
         <div className="booking-detail-help">
           <div className="booking-detail-help-icon">?</div>
           <div className="booking-detail-help-text">
