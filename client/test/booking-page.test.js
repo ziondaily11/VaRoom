@@ -165,3 +165,23 @@ test('the owner sees the page with notes instead of the actions', () => {
   assert.match(details, /\{MESSAGES\.ownContact\}/);
   assert.equal(bl.MESSAGES.ownContact, 'This is your own contact. Guests use these buttons to reach you.');
 });
+
+test('reviews: properties, offices and shops show nothing until one exists; other listings invite the first', () => {
+  assert.equal(bl.reviewsOptional({ isProperty: true, isOfficeShop: false }), true);
+  assert.equal(bl.reviewsOptional({ isProperty: false, isOfficeShop: true }), true);
+  assert.equal(bl.reviewsOptional({ isProperty: false, isOfficeShop: false }), false);
+  const result = (n, error = null) => ({ reviews: Array.from({ length: n }, (_, i) => ({ id: String(i) })), summary: { review_count: n, average_rating: n ? 4.5 : null }, error });
+  assert.equal(bl.reviewCount(null), 0, 'loading');
+  assert.equal(bl.reviewCount(result(0)), 0);
+  assert.equal(bl.reviewCount(result(3)), 3);
+  assert.equal(bl.reviewCount(result(2, 'Reviews are temporarily unavailable.')), 0);
+  const details = fs.readFileSync(path.join(root, 'components', 'booking', 'ListingDetails.tsx'), 'utf8');
+  assert.match(details, /const showReviews = !reviewsOptional\(kind\) \|\| count > 0;/);
+  assert.match(details, /\{rating && count > 0 && <div className="rating-row">/, 'no "No reviews yet" under the photos');
+  assert.match(details, /: <ReviewsEmpty isHotel=\{isHotel\} \/>/);
+  assert.doesNotMatch(details, /see-all-link|host-phone|Loading reviews…<\/span>/, 'no dead link, no phone line, no loading text in the rating row');
+  assert.match(details, /<Link className="host-avatar host-avatar-link" href=\{hostProfile\}/, 'the photo opens the profile too');
+  assert.match(details, /<Link className="host-name" href=\{hostProfile\}>/);
+  const widget = fs.readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
+  assert.match(widget, /rating && !reviewsOptional\(kind\) && <span className="new-badge">/);
+});
