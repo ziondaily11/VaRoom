@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from './types/profile';
+import { profileUsernameFromPath } from './profile/usernames';
 
 // Which account shell a route gets, decided from the verified session's role.
 
@@ -28,7 +29,10 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
 
   const isClientHome = matches('/client-home');
   const isHostHome = matches('/host-home');
-  const isHostProfile = paths.some((path) => path.startsWith('/host/'));
+  // A host's public profile: /<username> (a usable username only; anything
+  // else there is the not-found page) or /host/<id>.
+  const isHostProfile = paths.some((path) => path.startsWith('/host/'))
+    || (pathname === '/[username]' && profileUsernameFromPath(asPath) !== null);
   const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings', '/marketplace'].some(matches);
 
   if (isClientHome || isHostHome || isHostProfile || isSharedRoute) {

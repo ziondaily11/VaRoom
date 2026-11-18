@@ -105,7 +105,7 @@ function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text
 function UsernameStatusIcon({ state }: { state: UsernameAvailability }) {
   if (state === 'checking') return <span className="username-status checking" aria-hidden="true"><span className="settings-spinner" /></span>;
   if (state === 'available') return <span className="username-status available" aria-hidden="true">✓</span>;
-  if (state === 'taken' || state === 'invalid') return <span className="username-status taken" aria-hidden="true">✕</span>;
+  if (state === 'taken' || state === 'invalid' || state === 'reserved') return <span className="username-status taken" aria-hidden="true">✕</span>;
   return null;
 }
 
@@ -115,6 +115,7 @@ function UsernameStatusText({ state, draft }: { state: UsernameAvailability; dra
     : state === 'available' ? `${name} is available`
       : state === 'taken' ? `${name} is already taken`
         : state === 'invalid' ? DETAIL_MESSAGES.usernameFormat
+          : state === 'reserved' ? DETAIL_MESSAGES.usernameReserved
           : state === 'current' ? 'This is your current username'
             : state === 'error' ? 'Couldn’t check right now — you can still try saving.'
               : '';

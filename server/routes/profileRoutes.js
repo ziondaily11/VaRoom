@@ -63,7 +63,7 @@ router.delete('/profile/banner', async (req, res) => {
   }
 });
 
-// A host's public profile (/host/<id or username>, /u/<username>), as the
+// A host's public profile (/<username>, /host/<id>), as the
 // host chose to show it in Settings → Privacy ("Profile visibility").
 const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

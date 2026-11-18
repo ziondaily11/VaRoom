@@ -14,9 +14,8 @@ const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages',
 // The native profile's listing query and labels (legacy profile.html is retired).
 const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'hostProfile.ts'), 'utf8');
 const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'profilePage.ts'), 'utf8');
-// The public host pages share the native profile data (legacy .jsx pages are retired).
-const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'PublicHostProfile.tsx'), 'utf8');
-const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfileView.tsx'), 'utf8');
+// The public host profile (/<username>, /host/<id>) shares the native profile data.
+const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfile.tsx'), 'utf8');
 const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'listings', 'hostListingActions.ts'), 'utf8');
 // The listing wizard's own behaviour (edit mode reads only the host's listing,
 // a failed media upload stops before activation) is tested in
@@ -76,9 +75,15 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(profileListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
   assert.match(profileLabels, /value === 'draft'\) return \{ label: 'Draft'/);
 
-  assert.match(publicHostProfile, /loadHostListings\(client, viewerId, hostId, false\)/, 'the public page reads only active, available listings');
+  // The public profile's cards: the same filter (visitors: active and available; the owner: all).
+  const cardListings = profilePage.slice(
+    profilePage.indexOf('export async function fetchHostCardListings'),
+    profilePage.indexOf('export async function fetchProfileCategories')
+  );
+  assert.match(cardListings, /\.eq\('host_id', hostId\)/);
+  assert.match(cardListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
   assert.match(hostProfileView, /const isOwner = Boolean\(viewerId && hostId && viewerId === hostId\)/);
-  assert.match(hostProfileView, /loadHostListings\(client, viewerId, hostId, isOwner\)/, 'visitors read only active, available listings; the owner reads all');
+  assert.match(hostProfileView, /loadHostCardListings\(client, viewerId, hostId, isOwner\)/, 'visitors read only active, available listings; the owner reads all');
   assert.match(hostListingControls, /\{ status: 'draft', label: 'Save as draft' \}/);
 
   assert.match(listingRoutes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\)/);

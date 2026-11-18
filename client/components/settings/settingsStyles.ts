@@ -335,7 +335,7 @@ export const SETTINGS_STYLES = `
   .settings-page .username-field input{ padding-right:2.6rem; }
   .settings-page .username-status{ position:absolute; right:.8rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; font-weight:700; font-size:.95rem; }
   .settings-page .username-status.available, .settings-page .username-availability.available{ color:#1a7f37; }
-  .settings-page .username-status.taken, .settings-page .username-availability.taken, .settings-page .username-availability.invalid{ color:var(--red-deep); }
+  .settings-page .username-status.taken, .settings-page .username-availability.taken, .settings-page .username-availability.invalid, .settings-page .username-availability.reserved{ color:var(--red-deep); }
   html[data-theme="dark"] .settings-page .username-status.available, html[data-theme="dark"] .settings-page .username-availability.available{ color:#3fb950; }
   .settings-page .username-availability{ min-height:1.1rem; margin:.4rem 0 0; font-size:.8rem; color:var(--muted); }
   .settings-page .settings-spinner{ width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:settings-spin .7s linear infinite; }

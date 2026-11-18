@@ -43,9 +43,13 @@ test('choices keep their saved values and wording', () => {
 test('username rules and messages, and an exact availability check (no wildcards)', async () => {
   assert.equal(ob.normalizeUsername('  @@Amazing.Stays '), 'amazing.stays');
   assert.equal(ob.usernameFormatError('ab'), 'Username must be at least 3 characters.');
-  assert.equal(ob.usernameFormatError('bad-name'), 'Only lowercase letters, numbers, dot, and underscore allowed.');
+  assert.equal(ob.usernameFormatError('bad-name'), 'Only lowercase letters, numbers and underscore allowed.');
+  // One format everywhere (Settings, the server, the database): no dots.
+  assert.equal(ob.usernameFormatError('palm.view'), 'Only lowercase letters, numbers and underscore allowed.');
   assert.equal(ob.usernameFormatError('a'.repeat(21)), 'Username must be 20 characters or fewer.');
-  assert.equal(ob.usernameFormatError('palm_view.1'), null);
+  assert.equal(ob.usernameFormatError('palm_view_1'), null);
+  // Profiles live at varoom.co.ke/<username>: the site's page names are refused.
+  assert.equal(ob.usernameFormatError('settings'), 'This username is not available. Please choose another.');
   assert.equal(ob.takenMessage('zion'), 'Username "zion" is already taken. Try another.');
   const client = fakeClient({ profiles: { data: [{ id: 'other' }], error: null } });
   assert.equal(await ob.usernameTaken(client, 'a_b', 'u1'), true);

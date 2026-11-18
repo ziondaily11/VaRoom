@@ -19,54 +19,107 @@ test('Message opens the visitor’s chat with the host, ready to ask about one o
   // The host chose "Who can message you: No one": the visitor is told, not sent to an empty Chats.
   const off = Object.assign(new Error('This host isn’t accepting new messages.'), { status: 403, body: { code: 'messages_off' } });
   await assert.rejects(chat.hostChatPath('H1', 'L1', async () => { throw off; }), /accepting new messages/);
-  for (const file of ['HostProfileView.tsx', 'PublicHostProfile.tsx']) {
-    assert.match(read('components', 'hostProfile', file), /catch \(error\) \{\n\s+window\.alert\(/, `${file} shows why the chat did not open`);
-  }
+  assert.match(read('components', 'hostProfile', 'HostProfile.tsx'), /catch \(error\) \{\n\s+window\.alert\(/, 'shows why the chat did not open');
 });
 
-test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner in place, reviews channel cleaned up', () => {
+test('one public profile page: viewer from AuthProvider, shared cached data, owner tools, reviews channel cleaned up', () => {
   const notice = read('components', 'hostProfile', 'PrivateProfileNotice.tsx');
   assert.match(notice, /This profile is private/);
   assert.match(notice, /href="\/marketplace"/);
   assert.match(notice, /href=\{loginUrl\(router\.asPath\)\}/, 'signed out: sign in and come back');
-  const view = read('components', 'hostProfile', 'HostProfileView.tsx');
+  const view = read('components', 'hostProfile', 'HostProfile.tsx');
   assert.match(view, /useAuth\(\)/);
   assert.doesNotMatch(view, /window\.supabaseClient|\.select\("role"\)|select\('role'\)/, 'no second session or role lookup');
-  assert.match(view, /const by = keyIsId \? \{ id: hostKey \} : \{ username: hostKey \};/);
+  assert.match(view, /const by = byId \? \{ id: byId \} : \{ username: byUsername as string \};/);
   assert.match(view, /loadHostProfile\(token, viewerId, by\)/);
+  assert.match(view, /loadHostCardListings\(client, viewerId, hostId, isOwner\)/);
   assert.match(view, /loadHostReviews\(viewerId, hostId, force\)/);
   assert.match(view, /return \(\) => \{ cancelled = true; void client\.removeChannel\(channel\); \};/, 'the realtime channel is always removed');
   assert.doesNotMatch(view + read('components', 'hostProfile', 'ProfileBanner.tsx'), /coverHeader/, 'the owner sees the same banner and identity as visitors');
-  assert.match(view, /useNearVideo<HTMLDivElement>\(listing\.id, token, Boolean\(token\)\)/, 'videos near the screen, signed in only (as before)');
-  assert.match(view, /router\.push\(loginUrl\(router\.asPath\)\)/);
+  // The host: Edit profile, the banner editor and the category manager.
+  assert.match(view, /<Link href="\/profile" className="host-profile-message" aria-label="Edit profile">/);
+  assert.match(view, /This is your public profile/);
+  assert.match(view, /isOwner=\{isOwner\}\n\s+token=\{token\}/);
+  // A private profile replaces anything shown from the cache and gets its own screen.
+  assert.match(view, /isPrivateProfileError\(error\)\) \{ setProfile\(null\); setLoadError\('This profile is private\.'\); setIsPrivate\(true\); return; \}/);
+  assert.match(view, /<PrivateProfileNotice handle=\{handle\}/);
+  for (const text of ['Loading host profile', 'This host profile could not be found.', 'No ratings', 'No listings available.', 'No listings in this category yet.']) assert.ok(view.includes(text), text);
+  // One address per host: an id address or another letter case becomes /<username>.
+  assert.match(view, /const target = hostProfilePath\(profile\.id, profile\.username\);/);
+  assert.match(view, /router\.replace\(target, undefined, \{ shallow: router\.pathname === '\/\[username\]', scroll: false \}\)/);
 });
 
-test('/u/[username]: recognises signed-in visitors; signed-out sign-in returns to this page', () => {
-  const page = read('components', 'hostProfile', 'PublicHostProfile.tsx');
-  assert.match(page, /loginUrl\(`\/u\/\$\{encodeURIComponent\(username \|\| ''\)\}`\)/);
-  assert.match(page, /This is your public profile/);
-  assert.match(page, /<Link href="\/profile" style=\{railButton\}>Edit profile<\/Link>/);
-  assert.match(page, /if \(signedIn\) void startChat\(\); else setIsSignInPromptOpen\(true\);/);
-  for (const text of ['Sign in to message', 'Continue with Google', 'Continue with Email', 'No ratings', 'Loading host profile', 'This host profile could not be found.']) assert.ok(page.includes(text), text);
-  assert.match(page, /loadHostReviews\(viewerId, hostId\)/, 'reviews through the API (published only), not two table reads');
+test('signed out: no app sidebar, a sign-in rail and sheet that return to this profile; signed in: the account shell', () => {
+  const view = read('components', 'hostProfile', 'HostProfile.tsx');
+  assert.match(view, /const signedOut = status === 'signed-out';/);
+  assert.match(view, /\{signedOut && !isPrivate && !loadError && <SignInRail firstName=\{firstName\} onSignIn=\{signIn\} \/>\}/);
+  assert.match(view, /const signIn = \(\) => \{ void router\.push\(loginUrl\(here\(\)\)\); \};/);
+  assert.match(view, /if \(!viewerId\) \{ setSignInOpen\(true\); return; \}/, 'Message asks a signed-out visitor to sign in');
+  for (const text of ['Sign in to message', 'Continue with Google', 'Continue with Email']) assert.ok(view.includes(text), text);
+  // Hosts don't message other hosts from here (as before).
+  assert.match(view, /const canMessageHost = Boolean\(host\) && !isOwner && \(signedOut \|\| viewerRole !== 'host'\);/);
+
+  const layout = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts'));
+  assert.equal(layout.getAccountLayout('/[username]', '/amazingstays', 'host'), 'host');
+  assert.equal(layout.getAccountLayout('/[username]', '/amazingstays', 'client'), 'client');
+  assert.equal(layout.getAccountLayout('/[username]', '/amazingstays', null), 'none', 'signed out: no sidebar');
+  assert.equal(layout.getAccountLayout('/[username]', '/no-such-page', 'host'), 'none', 'the not-found page has no shell');
+  assert.equal(layout.getAccountLayout('/host/[hostId]', '/host/53f971b0-8489-4886-834f-bcc37a2469cd', 'client'), 'client');
+  const nav = loadTs(path.join(root, 'lib', 'navigation', 'activeNav.ts'));
+  assert.equal(nav.hostActiveNav('/[username]', '/amazingstays', ''), 'profile');
 });
 
-test('legacy profile components are retired; routes are TypeScript', () => {
-  for (const file of ['legacy-pages/public-profile.jsx', 'legacy-pages/host-profile-view.jsx', 'legacy-pages/ProfileBanner.jsx', 'legacy-pages/ProfileCategoryNav.jsx', 'legacy-pages/host-profile.jsx', 'components/VideoMedia.js', 'pages/host/[hostId].js', 'pages/u/[username].js']) {
+test('listings use the Marketplace card: about 280px wide, one full-width card per row on phones', () => {
+  const view = read('components', 'hostProfile', 'HostProfile.tsx');
+  assert.match(view, /<MarketplaceCard key=\{listing\.id\} listing=\{listing\} saved=\{saved\.has\(listing\.id\)\} token=\{token\} onOpen=\{onOpen\} onSave=\{onSave\} \/>/);
+  assert.match(view, /useCardGrid\(gridRef, \{ minColumns: 1, singleColumnQuery: MOBILE_QUERY \}\)/);
+  assert.match(view, /const MOBILE_QUERY = '\(max-width: 760px\)';/);
+  assert.match(view, /\$\{listingCardStyles\('\.host-profile-cards'\)\}/);
+  // A plain style element: styled-jsx drops interpolated CSS (and every rule after it).
+  assert.match(view, /<style dangerouslySetInnerHTML=\{\{ __html: CARD_STYLES \}\} \/>/);
+  const jsx = view.slice(view.indexOf('<style jsx global>'));
+  assert.doesNotMatch(jsx.slice(0, jsx.indexOf('`}</style>')), /\$\{/, 'no interpolation inside styled-jsx');
+  assert.match(view, /const saved = useSavedListingIds\(viewerId\);/, 'saved listings shared with Marketplace');
+  assert.doesNotMatch(view, /addEventListener\('resize'/, 'no window resize listener: one ResizeObserver per grid');
+
+  const grid = loadTs(path.join(root, 'components', 'marketplace', 'useCardGrid.ts'), { mocks: { react: { useEffect() {}, useLayoutEffect() {} } } });
+  assert.equal(grid.gridColumns(1200, 16), 4, 'about 280px cards');
+  assert.equal(grid.gridColumns(500, 16), 2, 'Marketplace keeps two columns on phones');
+  assert.equal(grid.gridColumns(250, 16, 280, 1), 1, 'a profile may show one');
+
+  // Marketplace still gets the same card rules, from the shared file.
+  const styles = read('components', 'marketplace', 'marketplaceStyles.ts');
+  assert.match(styles, /\$\{listingCardStyles\('\.marketplace-page'\)\}/);
+  assert.doesNotMatch(styles, /\.marketplace-page \.card-body\{/, 'card rules live in components/listings/listingCardStyles.ts');
+  const shared = loadTs(path.join(root, 'components', 'listings', 'listingCardStyles.ts')).listingCardStyles('.x');
+  for (const selector of ['.x .card{', '.x .card-body{', '.x .card-save{', '.x .card-slides{', '.x .grid[data-cols]{']) assert.ok(shared.includes(selector), selector);
+  assert.match(read('pages', 'marketplace.tsx'), /const saved = useSavedListingIds\(userId\);/);
+});
+
+test('routes: /<username> is the profile, /host/<id> shows it too, /u/<username> redirects; old components are gone', () => {
+  for (const file of ['legacy-pages/public-profile.jsx', 'legacy-pages/host-profile-view.jsx', 'legacy-pages/ProfileBanner.jsx', 'legacy-pages/ProfileCategoryNav.jsx', 'legacy-pages/host-profile.jsx', 'components/VideoMedia.js', 'pages/host/[hostId].js', 'pages/u/[username].js', 'pages/u/[username].tsx', 'components/hostProfile/HostProfileView.tsx', 'components/hostProfile/PublicHostProfile.tsx']) {
     assert.equal(fs.existsSync(path.join(root, file)), false, file);
   }
-  assert.ok(fs.existsSync(path.join(root, 'pages', 'host', '[hostId].tsx')));
-  assert.ok(fs.existsSync(path.join(root, 'pages', 'u', '[username].tsx')));
+  const page = read('pages', '[username].tsx');
+  assert.match(page, /profileUsernameFromPath\(/);
+  assert.match(page, /if \(router\.isReady && !username\) return <NotFound \/>;/, 'not a usable username: the not-found page');
+  assert.match(page, /<HostProfile hostKey=\{username \? \{ username \} : null\} \/>/);
+  const byId = read('pages', 'host', '[hostId].tsx');
+  assert.match(byId, /<HostProfile hostKey=\{id \? \{ id \} : null\} \/>/);
+  assert.match(byId, /router\.replace\(profileAddress\(username\), undefined, \{ scroll: false \}\)/, '/host/<username> moves to /<username>');
+  assert.match(read('next.config.js'), /source: '\/u\/:username',\n\s+destination: '\/:username',\n\s+permanent: true,/);
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.doesNotMatch(server, /profile-public\.html/);
-  assert.match(server, /destinationPath: `\/u\/\$\{encodeURIComponent\(req\.params\.username\)\}`/);
+  assert.match(server, /destinationPath: `\/\$\{encodeURIComponent\(req\.params\.username\)\}`/);
 });
 
 test('host page addresses use the username (unique, any case); id addresses keep working', async () => {
   const hp = loadTs(path.join(root, 'lib', 'profile', 'hostProfile.ts'));
-  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'amazingstays'), '/host/amazingstays');
-  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', '@Amazing Stays'), '/host/Amazing%20Stays');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'amazingstays'), '/amazingstays');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', '@AmazingStays'), '/amazingstays', 'one address, lowercase');
   assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', null), '/host/53f971b0-8489-4886-834f-bcc37a2469cd');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'Amazing Stays'), '/host/53f971b0-8489-4886-834f-bcc37a2469cd', 'not a usable username: the id address');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'settings'), '/host/53f971b0-8489-4886-834f-bcc37a2469cd', 'never a page name');
   // Read through the server (which applies Profile visibility), with the viewer's session when there is one.
   const calls = [];
   const row = { id: 'H1', role: 'host', username: 'amazingstays' };
@@ -84,14 +137,8 @@ test('host page addresses use the username (unique, any case); id addresses keep
   await assert.rejects(hp.fetchHostProfile({ id: 'H2' }, null, answer(403, { code: 'profile_private' })), (error) => hp.isPrivateProfileError(error));
   await assert.rejects(hp.fetchHostProfile({ id: 'H2' }, null, answer(502, { error: 'Could not load this host profile.' })), /Could not load/);
   assert.equal(hp.isPrivateProfileError(new Error('x')), false);
-  for (const file of ['HostProfileView.tsx', 'PublicHostProfile.tsx']) {
-    assert.match(read('components', 'hostProfile', file), /isPrivateProfileError\(error\)\) \{ setProfile\(null\); setLoadError\('This profile is private\.'\);/, `${file}: a private profile replaces the cached one`);
-    assert.match(read('components', 'hostProfile', file), /<PrivateProfileNotice handle=\{/, `${file}: a private profile gets its own screen`);
-  }
-
-  const view = read('components', 'hostProfile', 'HostProfileView.tsx');
-  assert.match(view, /router\.replace\(hostProfilePath\(profile\.id, profile\.username\), undefined, \{ shallow: true, scroll: false \}\)/);
+  // Every profile link is built in one place.
   assert.match(read('pages', 'client-home.tsx'), /href=\{hostProfilePath\(listing\.host_id, host\.username\)\}/);
-  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /href=\{`\/host\/\$\{encodeURIComponent\(\(listing\.host && listing\.host\.username\) \|\| listing\.host_id\)\}`\}/);
-  assert.match(read('components', 'hostHome', 'FeedCard.tsx'), /`\/host\/\$\{encodeURIComponent\(host\.username \|\| listing\.host_id\)\}`/);
+  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /href=\{hostProfilePath\(listing\.host_id, listing\.host && listing\.host\.username\)\}/);
+  assert.match(read('components', 'hostHome', 'FeedCard.tsx'), /hostProfilePath\(listing\.host_id, host\.username\)/);
 });

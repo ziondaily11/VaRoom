@@ -6,6 +6,7 @@ import { timeAgo, type FeedListing } from '../../lib/hostHome/hostHome';
 import { MOBILE_QUERY, sizeStage } from '../../lib/hostHome/mediaStage';
 import { FEED_PHOTO_SIZES, feedImageHints, feedPhotoSrcSet, isSlideNear } from '../../lib/discover/feedMedia';
 import type { FeedLikeState } from '../../lib/listings/listingLikes';
+import { hostProfilePath } from '../../lib/profile/usernames';
 import { ICONS, Svg } from './hostHomeIcons';
 
 // One Discover card on Host home, unchanged from legacy-pages/host-home.html:
@@ -226,7 +227,7 @@ export default function FeedCard(props: Props) {
   const own = listing.host_id === userId;
   const hostName = host.full_name || 'Host';
   const hostAvatar = avatarUrl(host.avatar_url);
-  const profileHref = own ? '/profile' : `/host/${encodeURIComponent(host.username || listing.host_id)}`;
+  const profileHref = own ? '/profile' : hostProfilePath(listing.host_id, host.username);
   const photos = (listing.listing_photos || []).map((photo) => ({ url: photoUrl(photo.storage_path) || '', width: Number(photo.width) || 0, height: Number(photo.height) || 0 }));
   const unavailableListing = Boolean(listing.availability_status && listing.availability_status !== 'available');
 

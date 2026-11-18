@@ -6,7 +6,8 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { accountRole } from '../lib/types/profile';
-import { loadBookmarks, peekBookmarks, subscribeBookmarks, toggleBookmark } from '../lib/bookmarks/bookmarks';
+import { toggleBookmark } from '../lib/bookmarks/bookmarks';
+import { useSavedListingIds } from '../lib/bookmarks/useSavedListingIds';
 import {
   CATEGORIES, CATEGORY_LABELS, fetchListingPage, getCachedPage, orderListings, preferredCategories, searchFromQuery,
   setCachedPage, type MarketplaceListing, type MarketplaceSearch,
@@ -59,7 +60,8 @@ export default function MarketplacePage() {
   const [offset, setOffset] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadingMore, setLoadingMore] = useState(false);
-  const [saved, setSaved] = useState<ReadonlySet<string>>(new Set());
+  // Saved listings for this account, shared with the rest of the app.
+  const saved = useSavedListingIds(userId);
   const requestRef = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
   useCardGrid(gridRef);
@@ -131,17 +133,6 @@ export default function MarketplacePage() {
       setLoadingMore(false);
     }
   };
-
-  // Saved listings for this account, shared with the rest of the app.
-  useEffect(() => {
-    if (!userId) { setSaved(new Set()); return undefined; }
-    const cached = peekBookmarks(userId);
-    if (cached) setSaved(cached);
-    const unsubscribe = subscribeBookmarks((owner, ids) => { if (owner === userId) setSaved(ids); });
-    const client = getSupabaseClient();
-    if (client && !cached) loadBookmarks(client, userId).catch((error) => console.warn('Saved listings could not be loaded:', error));
-    return unsubscribe;
-  }, [userId]);
 
   const openListing = (href: string) => {
     router.push(userId ? href : loginUrl(href));
