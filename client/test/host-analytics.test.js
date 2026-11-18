@@ -178,3 +178,19 @@ test('numbers count up, the curve draws and the gauge fills once each card is se
   assert.match(css, /\[data-seen\] :is\(\.va-draw/);
   assert.match(css, /prefers-reduced-motion:no-preference\)\{\s*\.va-draw/);
 });
+
+test('upgrade: real numbers for screen readers and print, sliding switches, quick sign-in redirect', () => {
+  const motion = fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', 'motion.tsx'), 'utf8');
+  assert.match(motion, /<span className="va-count" aria-hidden="true">\{shown\}<\/span>/);
+  assert.match(motion, /<span className="va-count-final">\{final\}<\/span>/);
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', 'analyticsStyles.ts'), 'utf8');
+  assert.match(styles, /@media print\{\.va-count\{display:none\}\.va-count-final\{position:static/);
+  const dashboard = fs.readFileSync(path.join(__dirname, '..', 'components', 'analytics', 'Analytics.tsx'), 'utf8');
+  assert.match(dashboard, /<SegmentedTabs label="Chart metric" activeKey=\{metric\.key\}>/);
+  assert.match(dashboard, /<SegmentedTabs label="Date range" activeKey=\{rk\}>/);
+  assert.doesNotMatch(dashboard, /aria-pressed=\{(rk|metric\.key) ===/);
+  const page = fs.readFileSync(path.join(__dirname, '..', 'pages', 'analytics.tsx'), 'utf8');
+  assert.match(page, /void router\.replace\(loginUrl\(router\.asPath \|\| '\/analytics'\)\);/);
+  assert.doesNotMatch(page, /window\.location\.assign/);
+  assert.match(page, /<title>Analytics · VaRoom<\/title>/);
+});
