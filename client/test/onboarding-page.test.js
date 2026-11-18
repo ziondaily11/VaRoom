@@ -29,13 +29,17 @@ function fakeClient(answers = {}) {
   };
 }
 
-test('choices keep their saved values and wording', () => {
+test('hosts get five photo tiles, clients six (buy and rent apart); every photo exists', () => {
   assert.deepEqual(ob.CATEGORIES.map((c) => c.value), ['airbnb', 'hotel', 'property', 'office', 'venue']);
-  assert.deepEqual(ob.CATEGORIES.map((c) => c.title), ['Airbnbs', 'Hotels', 'Property to let / buy', 'Shops & offices', 'Event venues']);
-  assert.equal(ob.CATEGORIES[0].description, 'Unique stays that feel like home');
-  assert.deepEqual(ob.TIMELINES.map((t) => [t.value, t.title, t.description]), [['soon', 'Looking soon', "I'm ready to find it"], ['browsing', 'Just browsing', "I'm exploring for now"]]);
+  assert.deepEqual(ob.CATEGORIES.map((c) => c.title), ['Airbnbs', 'Hotels', 'Property', 'Shops & offices', 'Event venues']);
+  assert.deepEqual(ob.INTERESTS.map((c) => c.value), ['airbnb', 'hotel', 'buy', 'rent', 'office', 'venue']);
+  assert.deepEqual(ob.INTERESTS.map((c) => c.title), ['Airbnbs', 'Hotels', 'Buy a property', 'Rent a property', 'Shops & offices', 'Event venues']);
+  for (const tile of [...ob.CATEGORIES, ...ob.INTERESTS]) assert.ok(fs.existsSync(path.join(root, 'public', tile.image)), tile.image);
+  assert.equal(ob.TIMELINES, undefined, 'clients are no longer asked when they are looking');
   assert.equal(ob.CITY_SUGGESTIONS[0], 'Nairobi, Kenya');
-  assert.deepEqual(ob.initialCategories(['hotel', 'bogus', 'venue']), ['hotel', 'venue']);
+  assert.deepEqual(ob.initialInterests(['venue', 'bogus', ' Hotel ']), ['hotel', 'venue'], 'tile order, unknown values dropped');
+  assert.deepEqual(ob.initialInterests(['property', 'airbnb']), ['airbnb', 'buy', 'rent'], 'an older property pick becomes buy and rent');
+  assert.deepEqual(ob.orderedInterests(['venue', 'rent', 'airbnb']), ['airbnb', 'rent', 'venue']);
   assert.equal(ob.initialNiche(['property']), 'property');
   assert.equal(ob.initialNiche(['property', 'hotel']), null, 'prefilled only for a single niche');
 });
@@ -75,9 +79,9 @@ test('phone shown without +254 and saved as +254…; location and Discover name 
   assert.equal(ob.discoverNameValid('x'.repeat(41)), false);
 });
 
-test('saves: client preferences finish onboarding; host profile, then listing finishes it', async () => {
+test('saves: client interests finish onboarding as looking soon; host profile, then listing finishes it', async () => {
   const client = fakeClient({ profiles: { error: null } });
-  await ob.saveClientPreferences(client, 'u1', ['airbnb', 'office'], 'soon');
+  await ob.saveClientPreferences(client, 'u1', ['airbnb', 'office']);
   await ob.saveHostProfile(client, 'u1', { username: 'amazingstays', phone: '712345678', city: ' Mombasa, Kenya ' });
   await ob.saveHostListing(client, 'u1', 'airbnb', ' Amazing Stays ');
   const updates = client.calls.map((c) => c.ops.find((op) => op[0] === 'update')[1]);
@@ -108,11 +112,11 @@ test('crop: covers the frame, zoom 1–4, drawn onto 1024 px', () => {
   assert.deepEqual({ ...ob.cropDraw(crop) }, { left: -512, top: 0, width: 2048, height: 1024 });
 });
 
-test('where people go: the safe link they came from, else their role’s home; hosts resume step 2 only after saving step 1', () => {
-  assert.equal(ob.destination('client', 'soon', null), '/marketplace');
-  assert.equal(ob.destination('client', 'browsing', null), '/client-home');
-  assert.equal(ob.destination('host', null, null), '/host-home');
-  assert.equal(ob.destination('host', null, '/booking?listing=1'), '/booking?listing=1');
+test('where people go: the safe link they came from, else Host Home or Marketplace; hosts resume step 2 only after saving step 1', () => {
+  assert.equal(ob.destination('client', null), '/marketplace');
+  assert.equal(ob.destination('host', null), '/host-home');
+  assert.equal(ob.destination('host', '/booking?listing=1'), '/booking?listing=1');
+  assert.equal(ob.destination('client', '/booking?listing=1'), '/booking?listing=1');
   assert.equal(ob.hostStepKey('u1'), 'varoom_host_onboarding_step_u1');
   assert.equal(ob.initialHostStep('2', { username: 'a', phone: '+2547', city: 'Nairobi' }), 2);
   assert.equal(ob.initialHostStep('2', { username: 'a', phone: null, city: 'Nairobi' }), 1);
@@ -127,8 +131,12 @@ test('page: AuthProvider profile, safe redirect, Split layout, legacy page and p
   assert.match(page, /onboardingRedirect\(router\.query\.redirect\)/);
   assert.match(page, /await refreshProfile\(\)/, 'the app sees onboarding as done before moving on');
   const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
-  for (const text of ['A little more you.', "Let's set up your profile so people can put a face to your name.", 'What will you be listing?', 'What are you hoping to find?', 'When are you looking?', '← Back to profile setup', 'Finishing setup...', 'Uploading your photo. You can keep going.', 'Try again', 'Continue without photo']) assert.ok(steps.includes(text), text);
+  for (const text of ['A little more you.', "Let's set up your profile so people can put a face to your name.", 'What will you be listing?', 'What are you looking for?', 'Pick 1 or more to continue', 'Pick one to continue', 'Choose a username to continue', 'Finishing setup...', 'Uploading your photo. You can keep going.', 'Try again', 'Continue without photo']) assert.ok(steps.includes(text), text);
+  for (const text of ['When are you looking?', 'Looking soon', 'Just browsing']) assert.ok(!steps.includes(text), `${text} is gone`);
   assert.match(steps, /disabled=\{!valid \|\| Boolean\(busy\)\}/, 'Continue waits for a valid form');
+  assert.match(steps, /<TileGrid tiles=\{CATEGORIES\}[^>]*multiple=\{false\}/, 'hosts pick one tile');
+  assert.match(steps, /<TileGrid tiles=\{INTERESTS\}[^>]*multiple /, 'clients pick several');
+  assert.match(page, /onBack=\{step === 2 \? \(\) => goToStep\(1\) : undefined\}/, 'the back arrow returns to the profile');
   const styles = read('components', 'onboarding', 'onboardingStyles.ts');
   assert.match(styles, /color-scheme:light/, 'the form side stays light in dark mode');
   assert.doesNotMatch(styles, /onboarding-hero|transparenttextures/);
@@ -139,7 +147,7 @@ test('page: AuthProvider profile, safe redirect, Split layout, legacy page and p
 
 test('laptop screens: each step fits without scrolling (compact below 860 px and 700 px tall)', () => {
   const styles = read('components', 'onboarding', 'onboardingStyles.ts');
-  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 860px\)\{[\s\S]*?\.onb-input\{ height:46px; \}/);
+  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 860px\)\{[\s\S]*?\.onb-input\{ height:46px; \}[\s\S]*?\.onb-tile-media\{ aspect-ratio:5 \/ 4; \}/);
   assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 700px\)\{[\s\S]*?\.onb-photo-frame\{ width:60px; height:60px; \}/);
   assert.match(styles, /align-items:safe center/, 'a step taller than the screen is never cut off at the top');
 });
@@ -190,4 +198,18 @@ test('finishing waits for the photo upload; a failed current upload keeps the ho
   const slow = { done: new Promise((resolve) => setImmediate(() => { order.push('uploaded'); resolve('done'); })) };
   await ob.photoAllowsFinish(() => slow).then(() => order.push('finished'));
   assert.deepEqual(order, ['uploaded', 'finished']);
+});
+
+test('motion: step slides, progress bar, tile press and check, all near-instant under reduced motion', () => {
+  const styles = read('components', 'onboarding', 'onboardingStyles.ts');
+  const parts = read('components', 'onboarding', 'OnboardingParts.tsx');
+  assert.match(parts, /key=\{stageKey\} className=\{`onb-stage/, 'a new step mounts and slides in');
+  assert.match(parts, /role="progressbar"/);
+  assert.match(styles, /\.onb-stage\.is-forward\{ animation:onb-in-right/);
+  assert.match(styles, /\.onb-stage\.is-back\{ animation:onb-in-left/);
+  assert.match(styles, /\.onb-progress-fill\{[^}]*transform-origin:left center; transition:transform var\(--motion-standard,250ms\) var\(--ease-in-out/);
+  assert.match(styles, /\.onb-tile:active\{ transform:scale\(var\(--press-scale,\.97\)\); \}/);
+  assert.match(styles, /animation-delay:calc\(var\(--onb-i, 0\) \* 30ms\)/, 'tiles stagger 30 ms');
+  const reduced = styles.slice(styles.indexOf('@media (prefers-reduced-motion: reduce)'));
+  for (const selector of ['.onb-stage.is-forward', '.onb-progress-fill', '.onb-tile-check svg', '.onb-tile:active']) assert.ok(reduced.includes(selector), selector);
 });

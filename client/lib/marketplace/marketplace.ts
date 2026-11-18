@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { listingMatchesInterests, normalizeInterests } from '../clientInterests';
 
 // Marketplace listings (migrated from legacy-pages/marketplace.html): what is
 // publicly listed, the search, the card display rules and the ordering.
-// Import-free apart from types, so it can be tested directly.
+// Import-free apart from types and the shared interest rule, so it can be tested directly.
 
 export const CATEGORY_LABELS: Record<string, string> = {
   airbnb: 'Airbnbs', hotel: 'Hotels', venue: 'Event Venues', office: 'Offices', shop: 'Shops', property: 'Property',
@@ -10,7 +11,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export const CATEGORIES = ['all', ...Object.keys(CATEGORY_LABELS)];
 export const PAGE_SIZE = 12;
 
-export const MARKETPLACE_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,'
+export const MARKETPLACE_SELECT = 'id,title,description,location_text,category,listing_purpose,verified,created_at,host_id,'
   + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),'
   + 'listing_photos(storage_path),listing_booking_details(*)';
 
@@ -33,6 +34,8 @@ export interface MarketplaceListing {
   title: string | null;
   location_text: string | null;
   category: string | null;
+  /** Property: 'rent', 'sale' or 'both'. */
+  listing_purpose?: string | null;
   verified: boolean | null;
   created_at: string;
   host_id: string;
@@ -124,12 +127,17 @@ export function categoryTone(category: string | null | undefined): CategoryTone 
   return (category && CATEGORY_TONES[category]) || 'teal';
 }
 
-/** A looking-soon client's chosen categories, ranked first in the default view. */
+/** A looking-soon client's interests (categories, plus 'buy' / 'rent' for property), ranked first in the default view. */
 export function preferredCategories(profile: { role?: string | null; looking_timeline?: string | null; interested_categories?: string[] | null } | null): string[] {
   if (!profile || profile.role !== 'client' || profile.looking_timeline !== 'soon') return [];
-  return (profile.interested_categories || [])
-    .map((category) => String(category || '').trim().toLowerCase())
-    .filter((category) => Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category));
+  return normalizeInterests(profile.interested_categories)
+    .filter((key) => key === 'buy' || key === 'rent' || Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, key));
+}
+
+/** Whether a listing matches the client's interests (property by rent / sale). */
+export function isPreferred(listing: MarketplaceListing, preferred: string[]): boolean {
+  const details = first(listing.listing_booking_details);
+  return listingMatchesInterests({ category: listing.category, purpose: listing.listing_purpose || (details && details.listing_purpose) || null }, preferred);
 }
 
 /** Newest first; preferred categories first while browsing all without a search. */
@@ -143,8 +151,8 @@ export function orderListings(listings: MarketplaceListing[], search: Marketplac
   const rankPreferred = search.category === 'all' && !search.q && preferred.length > 0;
   return unique.slice().sort((a, b) => {
     if (rankPreferred) {
-      const ap = preferred.includes(a.category || '');
-      const bp = preferred.includes(b.category || '');
+      const ap = isPreferred(a, preferred);
+      const bp = isPreferred(b, preferred);
       if (ap !== bp) return ap ? -1 : 1;
     }
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();

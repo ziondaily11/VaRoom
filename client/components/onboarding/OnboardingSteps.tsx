@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  CATEGORIES, CITY_SUGGESTIONS, cleanPhoneInput, discoverNameValid, locationValid, MESSAGES, normalizeUsername, phoneValid,
-  saveClientPreferences, saveHostListing, saveHostProfile, takenMessage, TIMELINES, USERNAME_HELP, usernameFormatError, usernameTaken,
-  type Category, type Timeline,
+  CATEGORIES, CITY_SUGGESTIONS, cleanPhoneInput, discoverNameValid, INTERESTS, locationValid, MESSAGES, normalizeUsername, orderedInterests, phoneValid,
+  saveClientPreferences, saveHostListing, saveHostProfile, takenMessage, USERNAME_HELP, usernameFormatError, usernameTaken,
+  type Category, type Interest,
 } from '../../lib/onboarding/onboarding';
-import { CATEGORY_ICONS, CheckIcon, CroppedImage, LockIcon, PersonIcon, PhotoPicker, PinIcon, type PhotoPickerHandle, type PhotoState } from './OnboardingParts';
+import { CheckIcon, CroppedImage, LockIcon, PersonIcon, PhotoPicker, PinIcon, TileGrid, type PhotoPickerHandle, type PhotoState } from './OnboardingParts';
 
-// The onboarding steps (hosts: profile, then listing; clients: preferences)
-// and the live previews shown in the brand panel.
+// The onboarding steps (hosts: profile, then what they list; clients: only
+// what they're looking for) and the live previews shown in the brand panel.
 
 const categoryTitle = (value: Category | null) => (value ? (CATEGORIES.find((option) => option.value === value) || { title: value }).title : null);
+const interestTitle = (value: Interest) => (INTERESTS.find((option) => option.value === value) || { title: value }).title;
 
 // ---------- Previews ----------
 
@@ -42,20 +43,19 @@ export function HostPreview({ name, username, city, niche, photo, existingAvatar
   );
 }
 
-export function ClientPreview({ categories, timeline }: { categories: Category[]; timeline: Timeline | null }) {
-  const when = TIMELINES.find((option) => option.value === timeline);
-  const ordered = CATEGORIES.map((option) => option.value).filter((value) => categories.includes(value));
+export function ClientPreview({ interests }: { interests: Interest[] }) {
+  const ordered = orderedInterests(interests);
   return (
     <>
       <p className="onb-eyebrow">Your picks</p>
       <div className="onb-picks">
-        <p className="onb-picks-title">{categories.length ? `${categories.length} type${categories.length === 1 ? '' : 's'} of space` : 'Nothing picked yet'}</p>
+        <p className="onb-picks-title">{ordered.length ? `${ordered.length} pick${ordered.length === 1 ? '' : 's'}` : 'Nothing picked yet'}</p>
         <div className="onb-chips">
-          {categories.length
-            ? ordered.map((value) => <span className="onb-chip" key={value}>{categoryTitle(value)}</span>)
+          {ordered.length
+            ? ordered.map((value) => <span className="onb-chip" key={value}>{interestTitle(value)}</span>)
             : <span className="onb-chip is-empty">Choose what you're looking for</span>}
         </div>
-        <div className="onb-chips"><span className={`onb-chip${when ? '' : ' is-empty'}`}>{when ? when.title : 'When are you looking?'}</span></div>
+        <p className="onb-picks-note">Marketplace shows these first.</p>
       </div>
     </>
   );
@@ -114,6 +114,9 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
 
   const usernameOk = status.kind === 'ok' || status.kind === 'current';
   const valid = usernameOk && phoneValid(phone) && locationValid(city);
+  // The button says what is still missing.
+  const needs = usernameOk ? (!phoneValid(phone) ? 'Add your phone number to continue' : !locationValid(city) ? 'Add your location to continue' : '')
+    : status.kind === 'checking' ? 'Checking your username...' : 'Choose a username to continue';
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -157,38 +160,42 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         <h1>A little more you.</h1>
         <p>Let's set up your profile so people can put a face to your name.</p>
       </div>
-      <PhotoPicker ref={picker} existingUrl={existingAvatar} initialPhoto={initialPhoto} onChange={setPhoto} error="" />
-      <div className="onb-field">
-        <label htmlFor="onb-username">Username</label>
-        <div className={`onb-input${status.kind === 'taken' || status.kind === 'invalid' ? ' is-invalid' : ''}`}>
-          <span className="onb-prefix">@</span>
-          <input id="onb-username" value={username} maxLength={20} autoComplete="username" placeholder="Choose a username" aria-describedby="onb-username-help"
-            onChange={(event) => setUsername(normalizeUsername(event.target.value))} />
-          {status.kind === 'checking' && <span className="onb-spinner" aria-hidden="true" />}
-          {usernameOk && <span style={{ color: 'var(--ok)', display: 'flex' }}><CheckIcon size={18} /></span>}
+      <div className="onb-sheet">
+        <PhotoPicker ref={picker} existingUrl={existingAvatar} initialPhoto={initialPhoto} onChange={setPhoto} error="" />
+        <div className="onb-field">
+          <label htmlFor="onb-username">Username</label>
+          <div className={`onb-input${status.kind === 'taken' || status.kind === 'invalid' ? ' is-invalid' : ''}`}>
+            <span className="onb-prefix">@</span>
+            <input id="onb-username" value={username} maxLength={20} autoComplete="username" placeholder="Choose a username" aria-describedby="onb-username-help"
+              onChange={(event) => setUsername(normalizeUsername(event.target.value))} />
+            {status.kind === 'checking' && <span className="onb-spinner" aria-hidden="true" />}
+            {usernameOk && <span style={{ color: 'var(--ok)', display: 'flex' }}><CheckIcon size={18} /></span>}
+          </div>
+          <p id="onb-username-help" className={`onb-help${helpClass}`} aria-live="polite">{status.message || USERNAME_HELP}</p>
         </div>
-        <p id="onb-username-help" className={`onb-help${helpClass}`} aria-live="polite">{status.message || USERNAME_HELP}</p>
-      </div>
-      <div className="onb-field">
-        <label htmlFor="onb-phone">Phone number</label>
-        <div className={`onb-input${touched.phone && !phoneValid(phone) ? ' is-invalid' : ''}`}>
-          <span className="onb-prefix is-strong">+254</span><span className="onb-divider" />
-          <input id="onb-phone" value={phone} inputMode="tel" autoComplete="tel-national" maxLength={20} placeholder="712345678"
-            onChange={(event) => setPhone(cleanPhoneInput(event.target.value))} onBlur={() => setTouched((current) => ({ ...current, phone: true }))} />
+        <div className="onb-field">
+          <label htmlFor="onb-phone">Phone number</label>
+          <div className={`onb-input${touched.phone && !phoneValid(phone) ? ' is-invalid' : ''}`}>
+            <span className="onb-prefix is-strong">+254</span><span className="onb-divider" />
+            <input id="onb-phone" value={phone} inputMode="tel" autoComplete="tel-national" maxLength={20} placeholder="712345678"
+              onChange={(event) => setPhone(cleanPhoneInput(event.target.value))} onBlur={() => setTouched((current) => ({ ...current, phone: true }))} />
+          </div>
+          <p className={`onb-help${touched.phone && !phoneValid(phone) ? ' is-error' : ''}`}>{touched.phone && !phoneValid(phone) ? MESSAGES.phone : <><LockIcon /> Your phone number stays private.</>}</p>
         </div>
-        <p className={`onb-help${touched.phone && !phoneValid(phone) ? ' is-error' : ''}`}>{touched.phone && !phoneValid(phone) ? MESSAGES.phone : <><LockIcon /> Your phone number stays private.</>}</p>
-      </div>
-      <div className="onb-field">
-        <label htmlFor="onb-city">Location</label>
-        <div className={`onb-input${touched.city && !locationValid(city) ? ' is-invalid' : ''}`}>
-          <input id="onb-city" value={city} maxLength={60} list="onb-cities" autoComplete="address-level2" placeholder="City, country"
-            onChange={(event) => setCity(event.target.value)} onBlur={() => setTouched((current) => ({ ...current, city: true }))} />
+        <div className="onb-field">
+          <label htmlFor="onb-city">Location</label>
+          <div className={`onb-input${touched.city && !locationValid(city) ? ' is-invalid' : ''}`}>
+            <input id="onb-city" value={city} maxLength={60} list="onb-cities" autoComplete="address-level2" placeholder="City, country"
+              onChange={(event) => setCity(event.target.value)} onBlur={() => setTouched((current) => ({ ...current, city: true }))} />
+          </div>
+          <datalist id="onb-cities">{CITY_SUGGESTIONS.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>
+          {touched.city && !locationValid(city) && <p className="onb-help is-error">{MESSAGES.location}</p>}
         </div>
-        <datalist id="onb-cities">{CITY_SUGGESTIONS.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>
-        {touched.city && !locationValid(city) && <p className="onb-help is-error">{MESSAGES.location}</p>}
       </div>
-      {error && <p className="onb-alert" role="alert">{error}</p>}
-      <button type="submit" className="onb-primary" disabled={!valid || Boolean(busy)}>{busy || 'Continue'}</button>
+      <div className="onb-actions">
+        {error && <p className="onb-alert" role="alert">{error}</p>}
+        <button type="submit" className="onb-primary" disabled={!valid || Boolean(busy)} aria-busy={Boolean(busy)}>{busy || needs || 'Continue'}</button>
+      </div>
     </form>
   );
 }
@@ -211,11 +218,11 @@ export function PhotoUploadNotice({ upload, onRetry, onSkip }: { upload: PhotoUp
   );
 }
 
-export function HostListingStep({ userId, initialNiche, initialName, photoNotice, onDraft, onBack, onDone }: {
+export function HostListingStep({ userId, initialNiche, initialName, photoNotice, onDraft, onDone }: {
   userId: string; initialNiche: Category | null; initialName: string;
-  /** The background photo upload's status (shown above Continue). */
+  /** The background photo upload's status (shown above the button). */
   photoNotice: React.ReactNode;
-  onDraft: (draft: { niche: Category | null; name: string }) => void; onBack: () => void;
+  onDraft: (draft: { niche: Category | null; name: string }) => void;
   /** Saved: finish (waits for a photo still uploading); resolves if the host stays here. */
   onDone: () => Promise<void>;
 }) {
@@ -228,6 +235,8 @@ export function HostListingStep({ userId, initialNiche, initialName, photoNotice
   useEffect(() => () => { mounted.current = false; }, []);
   useEffect(() => { onDraft({ niche, name }); }, [niche, name, onDraft]);
   const valid = Boolean(niche) && discoverNameValid(name);
+  const needs = !niche ? 'Pick one to continue' : !discoverNameValid(name) ? 'Add your Discover name to continue' : '';
+  const pick = useCallback((value: Category) => setNiche(value), []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -251,19 +260,9 @@ export function HostListingStep({ userId, initialNiche, initialName, photoNotice
     <form className="onb-form" onSubmit={(event) => { void submit(event); }} noValidate>
       <div className="onb-heading">
         <h1>What will you be listing?</h1>
-        <p>Choose the category that best describes your place.</p>
+        <p>Pick the one that best describes your place.</p>
       </div>
-      <div className="onb-options" role="radiogroup" aria-label="Listing category">
-        {CATEGORIES.map((option, index) => (
-          <button key={option.value} type="button" role="radio" aria-checked={niche === option.value}
-            className={`onb-option${niche === option.value ? ' is-selected' : ''}${index === CATEGORIES.length - 1 ? ' is-wide' : ''}`}
-            onClick={() => setNiche(option.value)}>
-            <span className="onb-icon">{CATEGORY_ICONS[option.value]}</span>
-            <span className="onb-option-copy"><span className="onb-option-title">{option.title}</span></span>
-            <span className="onb-radio" aria-hidden="true" />
-          </button>
-        ))}
-      </div>
+      <TileGrid tiles={CATEGORIES} picked={niche ? [niche] : []} multiple={false} label="Listing category" onPick={pick} />
       <div className="onb-field">
         <label htmlFor="onb-discover">How you'll appear in VaRoom's Discover</label>
         <div className={`onb-input${touched && !discoverNameValid(name) ? ' is-invalid' : ''}`}>
@@ -271,41 +270,39 @@ export function HostListingStep({ userId, initialNiche, initialName, photoNotice
         </div>
         {touched && !discoverNameValid(name) && <p className="onb-help is-error">{MESSAGES.discoverName}</p>}
       </div>
-      {photoNotice}
-      {error && <p className="onb-alert" role="alert">{error}</p>}
-      <button type="submit" className="onb-primary" disabled={!valid || busy}>{busy ? 'Finishing setup...' : 'Continue'}</button>
-      <p className="onb-footnote">You can update these listing details anytime.</p>
-      <button type="button" className="onb-link-btn onb-back" onClick={onBack} disabled={busy}>← Back to profile setup</button>
+      <div className="onb-actions">
+        {photoNotice}
+        {error && <p className="onb-alert" role="alert">{error}</p>}
+        <button type="submit" className="onb-primary" disabled={!valid || busy} aria-busy={busy}>{busy ? 'Finishing setup...' : needs || 'Finish setup'}</button>
+        <p className="onb-footnote">You can update these listing details anytime.</p>
+      </div>
     </form>
   );
 }
 
-// ---------- Client: preferences ----------
+// ---------- Client: what they're looking for ----------
 
-export function ClientStep({ userId, initialCategories, initialTimeline, onDraft, onDone }: {
-  userId: string; initialCategories: Category[]; initialTimeline: Timeline | null;
-  onDraft: (draft: { categories: Category[]; timeline: Timeline | null }) => void; onDone: (timeline: Timeline) => void;
+export function ClientStep({ userId, initialInterests, onDraft, onDone }: {
+  userId: string; initialInterests: Interest[];
+  onDraft: (interests: Interest[]) => void; onDone: () => void;
 }) {
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [timeline, setTimeline] = useState<Timeline | null>(initialTimeline);
+  const [interests, setInterests] = useState<Interest[]>(initialInterests);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { onDraft({ categories, timeline }); }, [categories, timeline, onDraft]);
-  const toggle = useCallback((value: Category) => setCategories((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value])), []);
-  const valid = categories.length > 0 && Boolean(timeline);
+  useEffect(() => { onDraft(interests); }, [interests, onDraft]);
+  const toggle = useCallback((value: Interest) => setInterests((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value])), []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!categories.length) { setError(MESSAGES.categories); return; }
-    if (!timeline) { setError(MESSAGES.timeline); return; }
+    if (!interests.length) { setError(MESSAGES.categories); return; }
     const client = getSupabaseClient();
     if (busy || !client) return;
     setBusy(true);
     setError('');
     try {
       // Saved in the order shown.
-      await saveClientPreferences(client, userId, CATEGORIES.map((option) => option.value).filter((value) => categories.includes(value)), timeline);
-      onDone(timeline);
+      await saveClientPreferences(client, userId, orderedInterests(interests));
+      onDone();
     } catch (saveError) {
       console.error('Onboarding preferences save failed:', saveError);
       setError(MESSAGES.saveClient);
@@ -316,35 +313,17 @@ export function ClientStep({ userId, initialCategories, initialTimeline, onDraft
   return (
     <form className="onb-form" onSubmit={(event) => { void submit(event); }} noValidate>
       <div className="onb-heading">
-        <h1>What are you hoping to find?</h1>
-        <p>Choose the types of spaces you're interested in right now.</p>
+        <h1>What are you looking for?</h1>
+        <p>Pick as many as you like. Marketplace shows these first.</p>
       </div>
-      <div className="onb-options" role="group" aria-label="Types of spaces">
-        {CATEGORIES.map((option, index) => (
-          <button key={option.value} type="button" role="checkbox" aria-checked={categories.includes(option.value)}
-            className={`onb-option${categories.includes(option.value) ? ' is-selected' : ''}${index === CATEGORIES.length - 1 ? ' is-wide' : ''}`}
-            onClick={() => toggle(option.value)}>
-            <span className="onb-icon">{CATEGORY_ICONS[option.value]}</span>
-            <span className="onb-option-copy"><span className="onb-option-title">{option.title}</span><span className="onb-option-desc">{option.description}</span></span>
-            <span className="onb-check" aria-hidden="true">{categories.includes(option.value) && <CheckIcon />}</span>
-          </button>
-        ))}
+      <TileGrid tiles={INTERESTS} picked={interests} multiple label="What you're looking for" onPick={toggle} />
+      <div className="onb-actions">
+        {error && <p className="onb-alert" role="alert">{error}</p>}
+        <button type="submit" className="onb-primary" disabled={!interests.length || busy} aria-busy={busy}>
+          {busy ? 'Saving...' : interests.length ? 'Continue' : 'Pick 1 or more to continue'}
+        </button>
+        <p className="onb-footnote">You can change these anytime.</p>
       </div>
-      <div className="onb-field">
-        <span className="onb-label" id="onb-when">When are you looking?</span>
-        <div className="onb-options" role="radiogroup" aria-labelledby="onb-when">
-          {TIMELINES.map((option) => (
-            <button key={option.value} type="button" role="radio" aria-checked={timeline === option.value}
-              className={`onb-option${timeline === option.value ? ' is-selected' : ''}`} onClick={() => setTimeline(option.value)}>
-              <span className="onb-radio" aria-hidden="true" />
-              <span className="onb-option-copy"><span className="onb-option-title">{option.title}</span><span className="onb-option-desc">{option.description}</span></span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {error && <p className="onb-alert" role="alert">{error}</p>}
-      <button type="submit" className="onb-primary" disabled={!valid || busy}>{busy ? 'Saving...' : 'Continue'}</button>
-      <p className="onb-footnote">You can change these preferences anytime.</p>
     </form>
   );
 }

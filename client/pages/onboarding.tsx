@@ -7,21 +7,22 @@ import { loginUrl } from '../lib/safeRedirect';
 import { accountRole } from '../lib/types/profile';
 import { resolveAvatarUrl, PHOTO_WIDTH } from '../components/resolveStoredPhotoUrl';
 import {
-  destination, hostStepKey, onboardingRedirect, photoAllowsFinish, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, readListingDraft, roleHome,
-  saveAvatar, writeListingDraft,
-  type Category, type HostExtras, type Timeline,
+  destination, discoverNameValid, hostStepKey, onboardingRedirect, photoAllowsFinish, initialHostStep, initialInterests, initialNiche, loadHostExtras, locationValid,
+  phoneForInput, phoneValid, readListingDraft, roleHome, saveAvatar, writeListingDraft,
+  type Category, type HostExtras, type Interest,
 } from '../lib/onboarding/onboarding';
-import { OnboardingLayout, type PhotoState, type StepInfo } from '../components/onboarding/OnboardingParts';
+import { OnboardingLayout, type PhotoState, type StepDirection, type StepInfo } from '../components/onboarding/OnboardingParts';
 import {
   ClientPreview, ClientStep, HostListingStep, HostPreview, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
 } from '../components/onboarding/OnboardingSteps';
 import { ONBOARDING_STYLES } from '../components/onboarding/onboardingStyles';
 
 // Onboarding (migrated from legacy-pages/onboarding.html, redesigned in the
-// Split style): hosts set up their profile, then what they list; clients say
-// what they're looking for. The account and profile come from AuthProvider;
-// hosts' phone, city and listing category are read once. When done, people
-// go back to the link they signed in from (if safe), else their role's home.
+// Split style): hosts set up their profile, then pick what they list from
+// picture tiles; clients only pick what they're looking for. The account and
+// profile come from AuthProvider; hosts' phone, city and listing category are
+// read once. When done, people go back to the link they signed in from (if
+// safe), else hosts go to Host Home and clients to Marketplace.
 
 const storage = () => { try { return window.localStorage; } catch { return null; } };
 const session = () => { try { return window.sessionStorage; } catch { return null; } };
@@ -39,10 +40,11 @@ export default function OnboardingPage() {
 
   const [extras, setExtras] = useState<HostExtras | null>(null);
   const [step, setStep] = useState<1 | 2 | null>(null);
+  const [direction, setDirection] = useState<StepDirection>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>({ username: '', phone: '', city: '', photo: null });
   // Step 2's choices; null until step 2 first opens (then kept while going back, and across a reload).
   const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null);
-  const [clientDraft, setClientDraft] = useState<{ categories: Category[]; timeline: Timeline | null }>({ categories: [], timeline: null });
+  const [clientDraft, setClientDraft] = useState<Interest[]>([]);
   const [leaving, setLeaving] = useState(false);
   // Step 1's saved username (the auth profile refreshes only at the end).
   const [savedUsername, setSavedUsername] = useState<string | null>(null);
@@ -95,6 +97,7 @@ export default function OnboardingPage() {
   }, [userId, role]);
 
   const goToStep = useCallback((next: 1 | 2) => {
+    setDirection(next === 2 ? 'forward' : 'back');
     setStep(next);
     if (userId) { try { storage()?.setItem(hostStepKey(userId), String(next)); } catch { /* storage unavailable */ } }
     window.scrollTo({ top: 0 });
@@ -125,7 +128,7 @@ export default function OnboardingPage() {
     setProfileDraft((draft) => ({ ...draft, photo: null }));
   }, []);
 
-  const leave = useCallback(async (timeline: Timeline | null) => {
+  const leave = useCallback(async () => {
     if (!role) return;
     setLeaving(true);
     if (userId && role === 'host') {
@@ -134,7 +137,7 @@ export default function OnboardingPage() {
     }
     // The app (navigation, home pages) must see onboarding as done.
     try { await refreshProfile(); } catch { /* the next page reads it anyway */ }
-    void router.replace(destination(role, timeline, redirect));
+    void router.replace(destination(role, redirect));
   }, [role, userId, refreshProfile, router, redirect]);
 
   const onProfileDraft = useCallback((draft: ProfileDraft) => setProfileDraft(draft), []);
@@ -146,9 +149,9 @@ export default function OnboardingPage() {
   // Finish waits for a photo still uploading; a failed one keeps the host here to retry or skip it.
   const finishHost = useCallback(async () => {
     if (!(await photoAllowsFinish(() => uploadRun.current))) return;
-    await leave(null);
+    await leave();
   }, [leave]);
-  const onClientDraft = useCallback((draft: { categories: Category[]; timeline: Timeline | null }) => setClientDraft(draft), []);
+  const onClientDraft = useCallback((draft: Interest[]) => setClientDraft(draft), []);
 
   const head = (
     <Head>
@@ -176,17 +179,20 @@ export default function OnboardingPage() {
         {head}{styles}
         <OnboardingLayout
           steps={[{ label: 'Your account', state: 'done' }, { label: "What you're looking for", state: 'current' }]}
-          mobileStep={clientDraft.categories.length ? `Your picks: ${clientDraft.categories.length}` : 'Almost there'}
-          mobileTitle="What are you hoping to find?"
-          preview={<ClientPreview categories={clientDraft.categories} timeline={clientDraft.timeline} />}
+          mobileStep={clientDraft.length ? `Your picks: ${clientDraft.length}` : 'Almost there'}
+          mobileTitle="What are you looking for?"
+          preview={<ClientPreview interests={clientDraft} />}
           note="You can change these preferences anytime."
+          progress={(1 + (clientDraft.length ? 1 : 0)) / 2}
+          stageKey="client"
+          direction={null}
+          wide
         >
           <ClientStep
             userId={userId}
-            initialCategories={initialCategories(profile.interested_categories)}
-            initialTimeline={initialTimeline(profile.looking_timeline)}
+            initialInterests={initialInterests(profile.interested_categories)}
             onDraft={onClientDraft}
-            onDone={(timeline) => { void leave(timeline); }}
+            onDone={() => { void leave(); }}
           />
         </OnboardingLayout>
       </>
@@ -195,6 +201,10 @@ export default function OnboardingPage() {
 
   const hostExtras = extras as HostExtras;
   const existingAvatar = profile.avatar_url ? resolveAvatarUrl(profile.avatar_url, getSupabaseClient(), PHOTO_WIDTH.thumb) : null;
+  // The bar: the account, the profile and the listing step; a step counts once it is filled in.
+  const profileFilled = (profileDraft.username || '').length >= 3 && phoneValid(profileDraft.phone) && locationValid(profileDraft.city);
+  const listingFilled = Boolean(listingDraft && listingDraft.niche && discoverNameValid(listingDraft.name));
+  const hostProgress = step === 1 ? (1 + (profileFilled ? 1 : 0)) / 3 : (2 + (listingFilled ? 1 : 0)) / 3;
   const steps: StepInfo[] = [
     { label: 'Your profile', state: step === 1 ? 'current' : 'done' },
     { label: "What you'll list", state: step === 2 ? 'current' : 'next' },
@@ -218,6 +228,12 @@ export default function OnboardingPage() {
           />
         )}
         note="You can change any of this later in your profile."
+        progress={hostProgress}
+        onBack={step === 2 ? () => goToStep(1) : undefined}
+        backLabel="Back to profile setup"
+        stageKey={`host-${step}`}
+        direction={direction}
+        wide={step === 2}
       >
         {step === 1 ? (
           <HostProfileStep
@@ -247,7 +263,6 @@ export default function OnboardingPage() {
               />
             )}
             onDraft={onListingDraft}
-            onBack={() => goToStep(1)}
             onDone={finishHost}
           />
         )}
