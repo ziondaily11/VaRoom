@@ -241,3 +241,19 @@ test('landing page 4: review, trust points, last call and footer, after the host
   assert.match(css, /animation: trustRise 700ms var\(--ease-out\) backwards;/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.section \.enter \{ animation: none !important; opacity: 1 !important; \}/);
 });
+
+test('landing page 3: the listing card shows three real photos, as small copies', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  const photos = [...section.matchAll(/'(\/assets\/landing\/host-tile-[a-z]+\.webp)'/g)].map((m) => m[1]);
+  assert.equal(photos.length, 3);
+  for (const photo of photos) {
+    const file = path.join(__dirname, '..', 'public', photo);
+    assert.ok(fs.existsSync(file), `${photo} exists`);
+    assert.ok(fs.statSync(file).size < 25 * 1024, `${photo} stays small`);
+  }
+  assert.match(section, /<img src=\{src\} alt="" width=\{280\} height=\{340\} loading="lazy" decoding="async"/);
+  assert.match(section, /\{i === 0 && <span className=\{styles\.play\}>▶<\/span>\}/);
+  assert.match(section, /<span className=\{styles\.addMore\}>\+<\/span>/);
+});
