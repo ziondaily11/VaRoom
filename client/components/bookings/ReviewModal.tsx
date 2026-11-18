@@ -8,7 +8,9 @@ import type { Booking } from '../../lib/bookings/format';
 const STARS = [1, 2, 3, 4, 5];
 const CLOSE_AFTER_MS = 900;
 
-export default function ReviewModal({ booking, onClose, onReviewed }: {
+export default function ReviewModal({ booking, closing = false, onClose, onReviewed }: {
+  /** Playing its exit (kept mounted by the parent): ignores input. */
+  closing?: boolean;
   booking: Booking;
   onClose: () => void;
   onReviewed: (bookingId: string, review: BookingReview | null) => void;
@@ -56,7 +58,7 @@ export default function ReviewModal({ booking, onClose, onReviewed }: {
   };
 
   return (
-    <div className="review-modal-backdrop show" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={`review-modal-backdrop show${closing ? ' is-closing' : ''}`} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
         <div className="review-modal-head">
           <h2 className="review-modal-title" id="review-modal-title">How was your experience?</h2>

@@ -10,7 +10,9 @@ type Method = 'mpesa' | 'card';
 
 const PROCESSING_MS = 1400;
 
-export default function PayDialog({ booking, onClose, onMessageHost }: {
+export default function PayDialog({ booking, closing = false, onClose, onMessageHost }: {
+  /** Playing its exit (kept mounted by the parent): ignores input. */
+  closing?: boolean;
   booking: Booking;
   onClose: () => void;
   onMessageHost: () => void;
@@ -36,7 +38,7 @@ export default function PayDialog({ booking, onClose, onMessageHost }: {
 
   const amount = formatAmount(booking.total_price);
   return (
-    <div className="desktop-pay-backdrop show" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={`desktop-pay-backdrop show${closing ? ' is-closing' : ''}`} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="desktop-pay-dialog" role="dialog" aria-modal="true" aria-labelledby="desktop-pay-title">
         {step === 'method' && (
           <div>

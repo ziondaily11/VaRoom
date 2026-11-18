@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Booking, BookingPerson } from './format';
+import { formatDate, type Booking, type BookingPerson } from './format';
 
 // The host's booking requests (migrated from legacy-pages/bookings.html):
 // loading, approve / decline, the month filter, listing videos and table
@@ -64,10 +64,6 @@ export function validDate(value: string | null | undefined): boolean {
   return Boolean(value) && !Number.isNaN(new Date(value as string).getTime());
 }
 
-export function formatHostDate(value: string | null | undefined): string {
-  if (!validDate(value)) return '';
-  return new Date(value as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 export function requestedTime(value: string | null | undefined, now: number = Date.now()): string {
   if (!validDate(value)) return 'Request received recently';
@@ -88,8 +84,8 @@ export function isBookingInMonth(b: Booking | HostBooking, month: Date): boolean
 }
 
 export function hostDateText(b: HostBooking): string {
-  if (b.start_date) return formatHostDate(b.start_date) + (b.end_date ? ` → ${formatHostDate(b.end_date)}` : '');
-  return b.lease_start_date ? `From ${formatHostDate(b.lease_start_date)}` : 'Dates to be confirmed';
+  if (b.start_date) return formatDate(b.start_date) + (b.end_date ? ` → ${formatDate(b.end_date)}` : '');
+  return b.lease_start_date ? `From ${formatDate(b.lease_start_date)}` : 'Dates to be confirmed';
 }
 
 export function hostDurationText(b: HostBooking): string {

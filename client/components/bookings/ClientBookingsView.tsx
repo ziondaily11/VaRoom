@@ -5,12 +5,16 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
 import {
-  calendarMonth, clientTab, computeStats, describeDates, endMoment, formatAmount, initial, isCancellable, perUnit, statusLabel,
+  bookedDays, calendarMonth, clientTab, computeStats, describeDates, endMoment, formatAmount, initial, isCancellable, perUnit, statusLabel,
   type Booking, type ClientTab,
 } from '../../lib/bookings/format';
 import { BackIcon, CardIcon, MessageIcon } from './BookingIcons';
 import BookingDetail from './BookingDetail';
 import ReviewModal from './ReviewModal';
+import ConfirmSheet from './ConfirmSheet';
+import SegmentedTabs from '../ui/SegmentedTabs';
+import { usePresentValue } from '../../lib/motion/usePresence';
+import { DURATION, exitMs } from '../../lib/motion/tokens';
 import { useClientBookings } from './useClientBookings';
 import { useBookingActions } from './useBookingActions';
 import { markOpenedFromList, usePhoneLayout } from './usePhoneLayout';
@@ -102,6 +106,7 @@ function BookingCard({ booking, tab, reviewed, now, onCancel, onReview, onMessag
 function RailSummary({ bookings }: { bookings: Booking[] }) {
   const stats = computeStats(bookings);
   const month = calendarMonth();
+  const booked = bookedDays(bookings);
   return (
     <div id="client-rail-summary">
       <div className="rail-card">
@@ -112,14 +117,15 @@ function RailSummary({ bookings }: { bookings: Booking[] }) {
           <div className="stat-item"><div className="stat-label">Total Invested</div><div className="stat-value">{`KES ${stats.invested.toLocaleString()}`}</div></div>
         </div>
       </div>
-      {/* Illustrative calendar for the current month, not booked dates (as before). */}
+      {/* This month: today is filled; days with a stay (approved or awaiting approval) have a dot. */}
       <div className="rail-card">
         <div className="cal-head"><span className="cal-month">{month.label}</span><span className="cal-active-tag">Active Month</span></div>
         <div className="cal-grid">
           {DOWS.map((d, i) => <div className="cal-dow" key={`dow-${i}`}>{d}</div>)}
           {Array.from({ length: month.leading }, (_, i) => <div className="cal-day muted" key={`blank-${i}`} />)}
           {Array.from({ length: month.days }, (_, i) => (
-            <div className={`cal-day${i + 1 === month.today ? ' booked' : ''}`} key={`day-${i}`}>{i + 1}</div>
+            <div className={`cal-day${i + 1 === month.today ? ' today' : ''}${booked.has(i + 1) ? ' has-stay' : ''}`} key={`day-${i}`}
+              aria-label={booked.has(i + 1) ? `${i + 1}: you have a stay` : undefined}>{i + 1}</div>
           ))}
         </div>
       </div>
@@ -139,6 +145,8 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
   const { state, loadMore, ensureLoaded, updateBooking, markReviewed } = useClientBookings(userId);
   const [tab, setTab] = useState<ClientTab>('upcoming');
   const [reviewing, setReviewing] = useState<Booking | null>(null);
+  // The review window stays through its exit (animation.md §8.3).
+  const { shown: shownReview, closing: reviewClosing } = usePresentValue(reviewing, exitMs(DURATION.standard));
   const feedRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const selectedId = queryValue(router.query.booking);
@@ -221,9 +229,19 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
     if (state.hasMore) loadMore();
   };
 
-  const confirmCancel = (booking: Booking) => {
-    if (!window.confirm('Cancel this booking? This can’t be undone.')) return;
-    cancel(booking).catch(() => { /* Reported by a toast. */ });
+  // Cancelling asks first, in the app's own dialog (ConfirmSheet).
+  const [cancelAsk, setCancelAsk] = useState<Booking | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const confirmCancel = (booking: Booking) => setCancelAsk(booking);
+  const runCancel = async () => {
+    if (!cancelAsk || cancelBusy) return;
+    setCancelBusy(true);
+    try {
+      await cancel(cancelAsk);
+      setCancelAsk(null);
+    } catch { /* Reported by a toast. */ } finally {
+      setCancelBusy(false);
+    }
   };
 
   const openDetails = (event: React.MouseEvent<HTMLAnchorElement>, booking: Booking) => {
@@ -248,10 +266,12 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
         <div id="client-bookings-view">
           <h1 className="page-title">My Bookings</h1>
           <p className="page-subtitle">Manage your verified stays, event venues, and workstations in Kenya.</p>
-          <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => switchTab(t.key)}>{t.label}</button>
-            ))}
+          <div className="bookings-tabs-row">
+            <SegmentedTabs label="Your bookings" activeKey={tab}>
+              {TABS.map((t) => (
+                <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}>{t.label}</button>
+              ))}
+            </SegmentedTabs>
           </div>
           <div>
             {state.initialLoading && !state.bookings.length && tab === 'upcoming' && <><BookingSkeleton /><BookingSkeleton /><BookingSkeleton /></>}
@@ -312,7 +332,16 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
         </div>
       </aside>
 
-      {reviewing && <ReviewModal booking={reviewing} onClose={() => setReviewing(null)} onReviewed={markReviewed} />}
+      <ConfirmSheet
+        open={cancelAsk !== null}
+        title="Cancel this booking?"
+        message="This can’t be undone. The host will be told."
+        confirmLabel="Cancel booking"
+        busy={cancelBusy}
+        onConfirm={() => { void runCancel(); }}
+        onClose={() => setCancelAsk(null)}
+      />
+      {shownReview && <ReviewModal booking={shownReview} closing={reviewClosing} onClose={() => setReviewing(null)} onReviewed={markReviewed} />}
     </>
   );
 }

@@ -39,11 +39,24 @@ export type ClientTab = 'upcoming' | 'past' | 'cancelled';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-/** The card's date line (legacy describeDates). */
+/**
+ * A date as both Bookings views show it: "21 Nov 2026". A date-only value
+ * ("2026-11-21") is that calendar day where the person is (new Date() would
+ * read it as UTC midnight, the day before west of UTC). '' when invalid.
+ */
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const date = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** The card's date line: "21 Nov 2026 → 24 Nov 2026", "21 Nov 2026 · 3 hours", "From 1 Dec 2026 · 6 months". */
 export function describeDates(b: Booking): string {
-  if (b.hours) return `${b.start_date} · ${plural(b.hours, 'hour')}`;
-  if (b.start_date && b.end_date) return `${b.start_date} → ${b.end_date}`;
-  if (b.lease_start_date) return `From ${b.lease_start_date} · ${plural(b.lease_months as number, 'month')}`;
+  if (b.hours) return `${formatDate(b.start_date)} · ${plural(b.hours, 'hour')}`;
+  if (b.start_date && b.end_date) return `${formatDate(b.start_date)} → ${formatDate(b.end_date)}`;
+  if (b.lease_start_date) return `From ${formatDate(b.lease_start_date)} · ${plural(b.lease_months as number, 'month')}`;
   return '';
 }
 
@@ -154,6 +167,28 @@ export function computeStats(bookings: Booking[], now: Date = new Date()): Booki
     upcoming: approved.filter((b) => endMoment(b) >= now).length,
     invested: approved.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
   };
+}
+
+/**
+ * Days of `now`'s month with a stay that is approved or awaiting approval
+ * (for the dots on the rail calendar). Leases mark only their start day.
+ */
+export function bookedDays(bookings: Booking[], now: Date = new Date()): Set<number> {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const local = (value: string) => { const [y, m, d] = value.split('-').map(Number); return new Date(y, m - 1, d); };
+  const days = new Set<number>();
+  bookings.forEach((b) => {
+    if (b.status !== 'approved' && b.status !== 'pending') return;
+    const startValue = b.start_date || b.lease_start_date;
+    if (!startValue || !/^\d{4}-\d{2}-\d{2}/.test(startValue)) return;
+    const start = local(startValue.slice(0, 10));
+    const end = b.end_date && /^\d{4}-\d{2}-\d{2}/.test(b.end_date) ? local(b.end_date.slice(0, 10)) : start;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (d.getFullYear() === year && d.getMonth() === month) days.add(d.getDate());
+    }
+  });
+  return days;
 }
 
 /** The rail calendar for the current month: leading blanks, then the days. */

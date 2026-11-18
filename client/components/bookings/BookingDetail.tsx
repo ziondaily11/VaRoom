@@ -10,6 +10,9 @@ import { fetchBookingReview, REVIEW_FALLBACK_ERROR, submitBookingReview, type Bo
 import { getCachedReview, setCachedReview } from '../../lib/bookings/bookingsCache';
 import { CalendarIcon, CashIcon, CheckIcon, ClockIcon, ShieldIcon } from './BookingIcons';
 import PayDialog from './PayDialog';
+import ConfirmSheet from './ConfirmSheet';
+import { usePresence } from '../../lib/motion/usePresence';
+import { DURATION, exitMs } from '../../lib/motion/tokens';
 
 // A client's booking: the approved summary with payment, cancel, help and
 // (after the stay) the review; or a status card for any other state. One
@@ -118,6 +121,9 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
 }) {
   const [paying, setPaying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // The payment window stays through its exit (animation.md §8.3).
+  const { mounted: payMounted, closing: payClosing } = usePresence(paying, exitMs(DURATION.standard));
 
   if (!booking) {
     return (
@@ -144,11 +150,11 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
   const showReview = reviewed || stayHasEnded(booking);
 
   const cancel = async () => {
-    if (!window.confirm('Cancel this booking? This can’t be undone.')) return;
     setCancelling(true);
     try {
       await actions.onCancel(booking);
       setPaying(false);
+      setConfirmingCancel(false);
     } catch {
       // The page reports why; the button becomes usable again.
     } finally {
@@ -206,7 +212,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
         {showReview && <ReviewSection key={booking.id} booking={booking} reviewed={reviewed} onReviewed={actions.onReviewed} />}
         <div className="booking-detail-actions">
           {isCancellable(booking) && (
-            <button type="button" className="bk-btn bk-btn-outline" disabled={cancelling} onClick={cancel}>
+            <button type="button" className="bk-btn bk-btn-outline" disabled={cancelling} onClick={() => setConfirmingCancel(true)}>
               {cancelling ? 'Cancelling…' : 'Cancel Booking'}
             </button>
           )}
@@ -221,9 +227,19 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
           <Link className="booking-detail-help-btn" href="/support" target="_blank" rel="noopener noreferrer">Contact Support ›</Link>
         </div>
       </section>
-      {paying && (
+      <ConfirmSheet
+        open={confirmingCancel}
+        title="Cancel this booking?"
+        message="This can’t be undone. The host will be told."
+        confirmLabel="Cancel booking"
+        busy={cancelling}
+        onConfirm={() => { void cancel(); }}
+        onClose={() => setConfirmingCancel(false)}
+      />
+      {payMounted && (
         <PayDialog
           booking={booking}
+          closing={payClosing}
           onClose={() => setPaying(false)}
           onMessageHost={() => { setPaying(false); actions.onMessageHost(booking); }}
         />
