@@ -11,10 +11,20 @@
 --
 -- Before running, this must return no rows (a row means an account already
 -- uses a name the rule refuses; the constraint below would then fail and
--- nothing changes):
+-- nothing changes). It works on its own, before the function below exists:
 --   select id, username from public.profiles
 --   where username is not null
---     and (username !~ '^[a-z0-9_]{3,20}$' or public.varoom_username_reserved(username));
+--     and (username !~ '^[a-z0-9_]{3,20}$'
+--       or lower(username) in ('404', '500', '_app', '_document', '_error', '_next', 'index', 'admin',
+--         'analytics', 'api', 'booking', 'bookings', 'chats', 'host', 'list', 'map', 'marketplace',
+--         'notifications', 'onboarding', 'pricing', 'privacy', 'profile', 'properties', 'settings',
+--         'support', 'terms', 'chat', 'elie', 'login', 'register', 'varoomadmin', 'assets', 'favicon',
+--         'about', 'account', 'accounts', 'auth', 'billing', 'blog', 'callback', 'careers', 'checkout',
+--         'contact', 'dashboard', 'discover', 'download', 'explore', 'faq', 'feed', 'guest', 'guests',
+--         'help', 'home', 'hosts', 'inbox', 'legal', 'listing', 'listings', 'logout', 'messages', 'new',
+--         'news', 'null', 'official', 'payments', 'press', 'property', 'reviews', 'root', 'search',
+--         'security', 'signin', 'signout', 'signup', 'static', 'staff', 'status', 'system', 'team',
+--         'transactions', 'undefined', 'user', 'users', 'varoom', 'verify', 'wallet', 'www'));
 -- Safe to re-run.
 
 create or replace function public.varoom_username_reserved(p_username text)

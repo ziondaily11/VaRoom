@@ -132,7 +132,8 @@ test('denies failed, payment-pending, discarded, and expired drafts to non-owner
   }
   await withVideoServer({
     state: 'draft',
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    // Past the 7-day retention (Terms: unpaid drafts are deleted after 7 days).
+    createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
   }, async ({ send, issued }) => {
     assert.equal((await send(`/media/${mediaId}/playback`, 'owner-token')).status, 404);
     assert.deepEqual(issued, []);
@@ -149,9 +150,10 @@ test('published paused listings retain public media semantics', async () => {
   }
 });
 
-test('five-day policy denies at the exact expiry boundary', () => {
+test('seven-day policy denies at the exact expiry boundary', () => {
   const createdAt = Date.parse('2026-10-01T00:00:00.000Z');
   const listing = { publication_state: 'draft', host_id: ownerId, created_at: new Date(createdAt).toISOString() };
-  assert.equal(decideListingMediaAccess(listing, ownerId, createdAt + 5 * 86400000 - 1).allowed, true);
-  assert.equal(decideListingMediaAccess(listing, ownerId, createdAt + 5 * 86400000).allowed, false);
+  assert.equal(decideListingMediaAccess(listing, ownerId, createdAt + 6 * 86400000).allowed, true, 'day 6: the owner still sees the draft media');
+  assert.equal(decideListingMediaAccess(listing, ownerId, createdAt + 7 * 86400000 - 1).allowed, true);
+  assert.equal(decideListingMediaAccess(listing, ownerId, createdAt + 7 * 86400000).allowed, false);
 });

@@ -39,7 +39,8 @@ const STYLES = `
   html[data-theme="dark"] .vr-listing-confirm-cancel{ border-color:rgba(255,255,255,.12); }
 `;
 
-function useStyles() {
+/** The menu and confirmation styles, added once (also used by the draft card's Discard). */
+export function useListingMenuStyles() {
   useEffect(() => {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement('style');
@@ -62,7 +63,7 @@ export interface HostListingMenuProps {
 }
 
 export default function HostListingMenu({ listing, notify, onStatus, onDeleted, buttonClassName = '' }: HostListingMenuProps) {
-  useStyles();
+  useListingMenuStyles();
   const router = useRouter();
   const { session } = useAuth();
   const token = session?.access_token || null;

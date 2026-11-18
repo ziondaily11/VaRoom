@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { BadgeCheck, CalendarDays, ChevronDown, Mail, MapPin, MessageCircle, Pencil, ShieldCheck, Star } from 'lucide-react';
+import { BadgeCheck, CalendarDays, ChevronDown, Mail, MapPin, MessageCircle, MessagesSquare, Pencil, ShieldCheck, Star } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { loginUrl } from '../../lib/safeRedirect';
@@ -141,34 +141,78 @@ function ListingGrid({ listings, empty, saved, token, onOpen, onSave }: {
 }
 
 /**
- * WhatsApp and email next to Message, as on the booking page: only the
- * channels the host left on in Reach Out. Signed-out visitors see both and
- * are asked to sign in (the channels are only read for signed-in people).
+ * One "Get in touch" button in place of Message, WhatsApp and email. It opens
+ * the ways this visitor can reach the host: Message (not for other hosts, as
+ * before) and the channels the host left on in Reach Out. A signed-out
+ * visitor is asked to sign in (the channels are only read for signed-in
+ * people). Nothing to offer: no button. A menu under the button on wide
+ * screens, a sheet from the bottom on phones; Escape or a click outside closes it.
  */
-function ContactButtons({ contact, signedOut, enquiry, onSignIn }: {
+function GetInTouch({ canMessage, contact, signedOut, enquiry, onMessage, onSignIn, onOpenChange }: {
+  canMessage: boolean;
   contact: ListingContact;
   signedOut: boolean;
   enquiry: { name: string; url: string };
+  onMessage: () => void;
   onSignIn: () => void;
+  onOpenChange: (open: boolean) => void;
 }) {
-  if (signedOut) {
-    return (
-      <>
-        <button type="button" className="host-profile-contact" aria-label={`WhatsApp ${enquiry.name}`} title="WhatsApp" onClick={onSignIn}><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></button>
-        <button type="button" className="host-profile-contact" aria-label={`Email ${enquiry.name}`} title="Email" onClick={onSignIn}><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></button>
-      </>
-    );
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const setMenu = useCallback((next: boolean) => { setOpen(next); onOpenChange(next); }, [onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const onDocument = (event: MouseEvent) => { if (!wrapRef.current?.contains(event.target as Node)) setMenu(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(false); buttonRef.current?.focus(); } };
+    document.addEventListener('click', onDocument);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', onDocument); document.removeEventListener('keydown', onKey); };
+  }, [open, setMenu]);
+
+  const options: React.ReactNode[] = [];
+  if (!signedOut) {
+    if (canMessage) {
+      options.push(<button key="message" type="button" role="menuitem" className="host-profile-touch-option" onClick={() => { setMenu(false); onMessage(); }}><span className="host-profile-touch-icon"><MessageCircle size={18} aria-hidden="true" /></span>Message</button>);
+    }
+    if (contact.whatsapp) {
+      options.push(<a key="whatsapp" role="menuitem" className="host-profile-touch-option" href={profileWhatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}><span className="host-profile-touch-icon"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></span>WhatsApp</a>);
+    }
+    if (contact.email) {
+      options.push(<a key="email" role="menuitem" className="host-profile-touch-option" href={profileMailtoHref(contact.email, enquiry)} onClick={() => setMenu(false)}><span className="host-profile-touch-icon"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></span>Email</a>);
+    }
+    if (!options.length) return null;
   }
+
   return (
-    <>
-      {contact.whatsapp && <a className="host-profile-contact" href={profileWhatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${enquiry.name}`} title="WhatsApp"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
-      {contact.email && <a className="host-profile-contact" href={profileMailtoHref(contact.email, enquiry)} aria-label={`Email ${enquiry.name}`} title="Email"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
-    </>
+    <div className="host-profile-touch" ref={wrapRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="host-profile-message"
+        aria-haspopup={signedOut ? 'dialog' : 'menu'}
+        aria-expanded={signedOut ? undefined : open}
+        aria-controls={signedOut ? undefined : 'host-profile-touch-menu'}
+        onClick={() => { if (signedOut) onSignIn(); else setMenu(!open); }}
+      >
+        <MessagesSquare size={16} aria-hidden="true" />
+        Get in touch
+      </button>
+      {open && (
+        <>
+          <div className="host-profile-touch-scrim" aria-hidden="true" onClick={() => setMenu(false)} />
+          <div className="host-profile-touch-menu" id="host-profile-touch-menu" role="menu" aria-label={`Ways to reach ${enquiry.name}`} ref={menuRef}>
+            <p className="host-profile-touch-title" aria-hidden="true">Get in touch with {enquiry.name}</p>
+            {options}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
-
-/** Why a signed-out visitor is asked to sign in (the sheet's title). */
-type SignInReason = 'message' | 'contact';
 
 /**
  * Signed-out visitors: who to sign in as, then back to this profile. A
@@ -176,7 +220,7 @@ type SignInReason = 'message' | 'contact';
  * their exit (animation.md §8.3) and give focus back to the button that
  * opened them.
  */
-function SignInDialog({ open, reason, firstName, onSignIn, onClose }: { open: boolean; reason: SignInReason; firstName: string; onSignIn: () => void; onClose: () => void }) {
+function SignInDialog({ open, firstName, onSignIn, onClose }: { open: boolean; firstName: string; onSignIn: () => void; onClose: () => void }) {
   const { mounted, closing } = usePresence(open, SHEET_EXIT_MS);
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -193,7 +237,7 @@ function SignInDialog({ open, reason, firstName, onSignIn, onClose }: { open: bo
     <div className={`host-profile-sign-in-overlay${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="host-profile-sign-in-title" onClick={onClose}>
       <div className="host-profile-sign-in-modal" ref={panelRef} onClick={(event) => event.stopPropagation()}>
         <button type="button" className="host-profile-sign-in-close" aria-label="Close sign-in prompt" onClick={onClose}>×</button>
-        <h2 id="host-profile-sign-in-title">{reason === 'contact' ? `Sign in to contact ${firstName}` : `Sign in to message ${firstName}`}</h2>
+        <h2 id="host-profile-sign-in-title">Sign in to contact {firstName}</h2>
         <p>You&apos;ll be redirected to this host&apos;s profile once you&apos;re signed in.</p>
         <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><GoogleIcon /> Continue with Google</button>
         <button type="button" className="host-profile-sign-in-option" onClick={onSignIn}><Mail size={16} aria-hidden="true" /> Continue with Email</button>
@@ -226,7 +270,8 @@ export default function HostProfile({ hostKey }: {
   const [reviewsError, setReviewsError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
-  const [signInReason, setSignInReason] = useState<SignInReason | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [touchOpen, setTouchOpen] = useState(false);
   const [contact, setContact] = useState<ListingContact>(NO_CONTACT);
   const saved = useSavedListingIds(viewerId);
 
@@ -327,12 +372,12 @@ export default function HostProfile({ hostKey }: {
 
   const here = () => (host ? hostProfilePath(host.id, host.username) : (router.asPath || '/'));
   const signIn = () => { void router.push(loginUrl(here())); };
-  const askToSignIn = useCallback(() => setSignInReason('contact'), []);
-  const closeSignIn = useCallback(() => setSignInReason(null), []);
+  const askToSignIn = useCallback(() => setSignInOpen(true), []);
+  const closeSignIn = useCallback(() => setSignInOpen(false), []);
 
   const startChat = async () => {
     if (!hostId) return;
-    if (!viewerId) { setSignInReason('message'); return; }
+    if (!viewerId) { setSignInOpen(true); return; }
     const listing = (listings || [])[0];
     try {
       void router.push(await hostChatPath(hostId, listing ? listing.id : null));
@@ -356,7 +401,7 @@ export default function HostProfile({ hostKey }: {
   } else {
     content = (
       <>
-        <div className="host-profile-banner-wrap">
+        <div className={`host-profile-banner-wrap${touchOpen ? ' is-touch-open' : ''}`}>
           <ProfileBanner
             hostId={host.id}
             imageKey={host.banner_image_key}
@@ -386,6 +431,7 @@ export default function HostProfile({ hostKey }: {
                   <span className="host-profile-meta-item" key={specialization}><ShieldCheck size={14} aria-hidden="true" /> Specializes in {specialization}</span>
                 ))}
               </div>
+              {host.bio && <p className="host-profile-bio">{host.bio}</p>}
               <div className="host-profile-rating" aria-label={`${averageRating !== null ? averageRating.toFixed(1) : 'No ratings'}, ${reviewCount} reviews`}>
                 <Stars count={averageRating !== null ? Math.round(averageRating) : 0} size={13} />
                 <span style={{ fontWeight: 600 }}>{averageRating !== null ? averageRating.toFixed(1) : 'No ratings'}</span>
@@ -399,17 +445,14 @@ export default function HostProfile({ hostKey }: {
               </Link>
             ) : (
               <div className="host-profile-actions" role="group" aria-label={`Contact ${host.full_name || 'host'}`}>
-                {canMessageHost && (
-                  <button type="button" className="host-profile-message" onClick={() => { void startChat(); }} aria-label={`Message ${host.full_name || host.username || 'host'}`}>
-                    <MessageCircle size={16} aria-hidden="true" />
-                    Message
-                  </button>
-                )}
-                <ContactButtons
+                <GetInTouch
+                  canMessage={canMessageHost}
                   contact={contact}
                   signedOut={signedOut}
                   enquiry={{ name: firstName, url: typeof window !== 'undefined' ? `${window.location.origin}${hostProfilePath(host.id, host.username)}` : '' }}
+                  onMessage={() => { void startChat(); }}
                   onSignIn={askToSignIn}
+                  onOpenChange={setTouchOpen}
                 />
               </div>
             )}
@@ -417,7 +460,6 @@ export default function HostProfile({ hostKey }: {
         </div>
         {isOwner && <p className="host-profile-owner-note">This is your public profile: how people see you when you share your profile link.</p>}
         <div className="host-profile-body">
-          {host.bio && <p className="host-profile-bio">{host.bio}</p>}
           <ProfileCategoryNav
             hostId={host.id}
             viewerId={viewerId}
@@ -602,14 +644,23 @@ export default function HostProfile({ hostKey }: {
         .host-profile-message:active { transform:scale(var(--press-scale)); }
         @media (hover: hover) { .host-profile-message:hover { background:#c9233c; } }
         .host-profile-actions { display:flex; align-items:center; gap:8px; }
-        .host-profile-contact { display:grid; place-items:center; width:40px; height:40px; flex:0 0 auto; padding:0; border:0; border-radius:50%; background:var(--host-profile-fill); cursor:pointer; transition:background-color var(--motion-micro) var(--ease-out), transform var(--motion-press) var(--ease-out); }
-        .host-profile-contact img { width:20px; height:20px; display:block; }
-        .host-profile-contact:active { transform:scale(var(--press-scale)); }
-        .host-profile-contact:focus-visible, .host-profile-message:focus-visible { outline:2px solid #e5384f; outline-offset:2px; }
-        @media (hover: hover) { .host-profile-contact:hover { background:var(--host-profile-surface-raised); } }
+        .host-profile-message:focus-visible, .host-profile-touch-option:focus-visible { outline:2px solid #e5384f; outline-offset:2px; }
+        /* Get in touch: a menu under the button; on phones a sheet from the bottom (below). */
+        /* While Get in touch is open, the banner (and its menu or sheet) sits above the page and the phone's bottom bar (z-index 150, shellStyles.ts). */
+        .host-profile-banner-wrap.is-touch-open { z-index:200; }
+        .host-profile-touch { position:relative; }
+        .host-profile-touch-scrim { display:none; }
+        .host-profile-touch-menu { position:absolute; z-index:30; top:calc(100% + 8px); right:0; min-width:220px; padding:6px; border-radius:16px; background:var(--host-profile-surface); color:var(--host-profile-text); box-shadow:0 12px 32px rgba(0,0,0,.18), 0 0 0 1px var(--host-profile-border); animation:hp-touch-in var(--motion-quick) var(--ease-out) both; }
+        .host-profile-touch-title { display:none; margin:4px 8px 8px; font-size:0.9375rem; font-weight:700; }
+        .host-profile-touch-option { display:flex; align-items:center; gap:12px; width:100%; padding:10px; border:0; border-radius:10px; background:transparent; color:inherit; font:inherit; font-size:0.875rem; font-weight:500; text-align:left; text-decoration:none; cursor:pointer; box-sizing:border-box; }
+        .host-profile-touch-icon { display:grid; place-items:center; width:32px; height:32px; flex:0 0 auto; border-radius:50%; background:var(--host-profile-fill); color:#e5384f; }
+        .host-profile-touch-icon img { width:18px; height:18px; display:block; }
+        @media (hover: hover) { .host-profile-touch-option:hover { background:var(--host-profile-fill); } }
+        @keyframes hp-touch-in { from { opacity:0; transform:translateY(-4px) scale(.98); } to { opacity:1; transform:none; } }
         .host-profile-owner-note { margin:14px 24px 0; color:var(--host-profile-subtle); font-size:0.8125rem; }
         .host-profile-body { padding:20px 24px 0; }
-        .host-profile-bio { margin:0 0 14px; color:var(--host-profile-muted); font-size:0.875rem; line-height:1.6; }
+        /* The host's bio: in the banner under the details, at most two lines (as on /profile). */
+        .host-profile-bio { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; max-width:560px; margin:8px 0 0; color:var(--host-profile-banner-ink); opacity:.86; font-size:0.8125rem; line-height:1.45; }
         .host-profile-listings-panel { padding:20px 24px 0; }
         .host-profile-load-error { color:var(--host-profile-error); }
         .host-profile-load-muted { color:var(--host-profile-subtle); }
@@ -621,8 +672,9 @@ export default function HostProfile({ hostKey }: {
         @media (hover: hover) { .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); } }
         .host-profile-more-reviews:active { transform:scale(var(--press-scale)); }
         @media (prefers-reduced-motion: reduce) {
-          .host-profile-message, .host-profile-more-reviews, .host-profile-sign-in-option, .host-profile-contact { transition:none; }
-          .host-profile-message:active, .host-profile-more-reviews:active, .host-profile-sign-in-option:active, .host-profile-contact:active { transform:none; }
+          .host-profile-message, .host-profile-more-reviews, .host-profile-sign-in-option { transition:none; }
+          .host-profile-touch-menu { animation:none; }
+          .host-profile-message:active, .host-profile-more-reviews:active, .host-profile-sign-in-option:active { transform:none; }
           .host-profile-sign-in-overlay, .host-profile-sign-in-overlay.is-closing, .host-profile-sign-in-modal, .host-profile-sign-in-overlay.is-closing .host-profile-sign-in-modal { animation-duration:1ms; }
         }
 
@@ -644,7 +696,10 @@ export default function HostProfile({ hostKey }: {
           .host-profile-avatar { width:68px; height:68px; }
           .host-profile-actions { grid-column:2; justify-self:start; }
           .host-profile-message { padding:8px 14px; }
-          .host-profile-contact { width:36px; height:36px; }
+          .host-profile-touch-scrim { display:block; position:fixed; inset:0; z-index:29; background:rgba(0,0,0,.4); animation:hp-scrim-in var(--motion-quick) var(--ease-out) both; }
+          .host-profile-touch-menu { position:fixed; top:auto; left:0; right:0; bottom:0; min-width:0; padding:16px 12px calc(16px + env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; box-shadow:0 -12px 40px rgba(0,0,0,.25); animation:hp-sheet-in var(--motion-standard) var(--ease-out) both; }
+          .host-profile-touch-title { display:block; }
+          .host-profile-touch-option { padding:12px 10px; font-size:0.9375rem; }
           .host-profile-meta { gap:8px 12px; font-size:0.75rem; }
           .host-profile-owner-note { margin:12px 16px 0; }
           .host-profile-body { padding:16px 16px 0; }
@@ -665,7 +720,7 @@ export default function HostProfile({ hostKey }: {
           <div className="host-profile-content">{content}</div>
         </main>
       </div>
-      {signedOut && <SignInDialog open={signInReason !== null} reason={signInReason || 'message'} firstName={firstName} onSignIn={signIn} onClose={closeSignIn} />}
+      {signedOut && <SignInDialog open={signInOpen} firstName={firstName} onSignIn={signIn} onClose={closeSignIn} />}
     </>
   );
 }

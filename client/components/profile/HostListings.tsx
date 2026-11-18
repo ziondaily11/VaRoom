@@ -58,6 +58,8 @@ export interface HostListingsProps {
   notify: (message: string) => void;
   onStatus: (id: string, status: string) => void;
   onDeleted: (id: string) => void;
+  /** A saved draft was discarded (Discard draft). */
+  onDraftDiscarded: (draftId: string) => void;
   onRetry: () => void;
   /** Owner gestures on a category tab. */
   onManage: () => void;
@@ -66,7 +68,7 @@ export interface HostListingsProps {
 }
 
 export default function HostListings(props: HostListingsProps) {
-  const { userId, listings, listingsError, drafts, categories, reviews, tab, onTab, token, notify, onStatus, onDeleted, onRetry, onManage, onSelectListings, onCategoryMenu } = props;
+  const { userId, listings, listingsError, drafts, categories, reviews, tab, onTab, token, notify, onStatus, onDeleted, onDraftDiscarded, onRetry, onManage, onSelectListings, onCategoryMenu } = props;
   const router = useRouter();
   const longPress = useRef<{ timer: number | null; suppressUntil: number }>({ timer: null, suppressUntil: 0 });
   const rows = listings || [];
@@ -161,7 +163,7 @@ export default function HostListings(props: HostListingsProps) {
           ? <CardSkeletons />
           : (
             <CardGrid id="listings-grid" label="Your listings">
-              {tab.kind === 'all' && looseDrafts.map((draft) => <DraftCard key={draft.id} draft={draft} />)}
+              {tab.kind === 'all' && looseDrafts.map((draft) => <DraftCard key={draft.id} draft={draft} token={token} notify={notify} onDiscarded={onDraftDiscarded} />)}
               {shown.map((listing) => {
                 const draft = draftFor(listing.id);
                 return (

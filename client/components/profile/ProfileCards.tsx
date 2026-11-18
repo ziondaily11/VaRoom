@@ -1,5 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { Trash2 } from 'lucide-react';
+import { useListingMenuStyles } from '../listings/HostListingMenu';
+import { discardListingDraft } from '../../lib/listings/hostListingActions';
 import { useCardGrid } from '../marketplace/useCardGrid';
 import { listingCardStyles } from '../listings/listingCardStyles';
 import type { ListingDraft } from '../../lib/profile/hostProfile';
@@ -26,6 +30,11 @@ export const PROFILE_CARD_STYLES = `
   @media ${MOBILE_QUERY}{ .profile-cards .grid{ grid-template-columns:minmax(0,1fr); } }
 
   .profile-cards a.card{ display:block; color:inherit; text-decoration:none; }
+  .profile-cards .draft-card-link{ position:absolute; inset:0; display:block; color:inherit; text-decoration:none; border-radius:inherit; }
+  .profile-cards .draft-card-link:focus-visible{ outline:2px solid #e5384f; outline-offset:2px; }
+  .profile-cards .draft-card .draft-discard-btn{ display:grid; place-items:center; cursor:pointer; }
+  .profile-cards .draft-card .draft-discard-btn svg{ width:46%; height:46%; }
+  @media (hover:hover){ .profile-cards .draft-card .draft-discard-btn:hover{ color:#C41E3A; } }
   .profile-cards .draft-card .card-media{ display:grid; place-items:center; background:linear-gradient(135deg, rgba(198,25,55,.28), rgba(30,20,18,.92)); color:rgba(255,255,255,.85); }
   .profile-cards .draft-card .card-media svg{ width:34px; height:34px; }
   .profile-cards .draft-card .card-category{ color:#C41E3A; }
@@ -93,21 +102,73 @@ const DraftIcon = () => (
   </svg>
 );
 
-/** A listing saved privately before publishing: the same card shape, leading back to the listing form. */
-export function DraftCard({ draft }: { draft: ListingDraft }) {
+/** A listing saved privately before publishing: the same card shape, leading back to the listing form, with Discard draft. */
+export function DraftCard({ draft, token, notify, onDiscarded }: {
+  draft: ListingDraft;
+  token: string | null;
+  notify: (message: string) => void;
+  onDiscarded: (draftId: string) => void;
+}) {
+  useListingMenuStyles();
   const title = draftTitle(draft.title, draft.category);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { if (confirming) confirmRef.current?.focus(); }, [confirming]);
+  useEffect(() => {
+    if (!confirming) return undefined;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) setConfirming(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [confirming, busy]);
+
+  const discard = async () => {
+    setBusy(true);
+    try {
+      await discardListingDraft(token, draft.id);
+      setConfirming(false);
+      onDiscarded(draft.id);
+      notify('Draft discarded');
+    } catch (error) {
+      setConfirming(false);
+      notify((error as Error).message || 'Could not discard this draft. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <Link className="card draft-card" href={`/list?draft=${encodeURIComponent(draft.id)}`} data-saved-listing-draft={draft.id} aria-label={`Continue draft listing: ${title}`}>
-      <div className="card-media"><DraftIcon /></div>
-      <span className="card-category">Draft</span>
-      <div className="card-body">
-        <div className="card-text">
-          <div className="card-title">{title}</div>
-          <div className="card-loc"><span className="card-loc-text">{draft.mediaNames.length ? `${draft.mediaNames.length} media file${draft.mediaNames.length === 1 ? '' : 's'} saved` : 'Saved privately'}</span></div>
+    <div className="card draft-card has-owner" data-saved-listing-draft={draft.id}>
+      <Link className="draft-card-link" href={`/list?draft=${encodeURIComponent(draft.id)}`} aria-label={`Continue draft listing: ${title}`}>
+        <div className="card-media"><DraftIcon /></div>
+        <span className="card-category">Draft</span>
+        <div className="card-body">
+          <div className="card-text">
+            <div className="card-title">{title}</div>
+            <div className="card-loc"><span className="card-loc-text">{draft.mediaNames.length ? `${draft.mediaNames.length} media file${draft.mediaNames.length === 1 ? '' : 's'} saved` : 'Saved privately'}</span></div>
+          </div>
+          <span className="card-status">Continue Listing →</span>
         </div>
-        <span className="card-status">Continue Listing →</span>
+      </Link>
+      <div className="card-owner">
+        <button type="button" className="card-menu-btn draft-discard-btn" aria-label={`Discard draft: ${title}`} title="Discard draft" onClick={() => setConfirming(true)}>
+          <Trash2 size={15} aria-hidden="true" />
+        </button>
       </div>
-    </Link>
+      {confirming && typeof document !== 'undefined' && createPortal(
+        <div className="vr-listing-confirm" onClick={(event) => { if (event.target === event.currentTarget && !busy) setConfirming(false); }}>
+          <div className="vr-listing-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby={`vr-discard-${draft.id}`} aria-describedby={`vr-discard-text-${draft.id}`}>
+            <h2 id={`vr-discard-${draft.id}`}>Discard this draft?</h2>
+            <p id={`vr-discard-text-${draft.id}`}>This permanently removes “{title}”, its saved details and its uploaded photos and videos. This cannot be undone.</p>
+            <div className="vr-listing-confirm-actions">
+              <button type="button" className="vr-listing-confirm-cancel" disabled={busy} onClick={() => setConfirming(false)}>Keep draft</button>
+              <button type="button" ref={confirmRef} className="vr-listing-confirm-delete" disabled={busy} onClick={() => { void discard(); }}>{busy ? 'Discarding…' : 'Discard draft'}</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
   );
 }
 

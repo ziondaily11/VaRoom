@@ -1,5 +1,7 @@
 'use strict';
 
+const { DRAFT_RETENTION_MS } = require('./draftRetention');
+
 const PRIVATE_STATES = new Set(['draft', 'payment_pending', 'failed']);
 const TERMINAL_STATES = new Set(['discarded', 'cleanup_pending', 'expired']);
 
@@ -19,7 +21,7 @@ function decideListingMediaAccess(listing, userId, now = Date.now()) {
   if (TERMINAL_STATES.has(state)) return { allowed: false, reason: 'unavailable' };
   if (PRIVATE_STATES.has(state)) {
     const createdAt = new Date(listing.created_at).getTime();
-    if (!Number.isFinite(createdAt) || now >= createdAt + 5 * 24 * 60 * 60 * 1000) {
+    if (!Number.isFinite(createdAt) || now >= createdAt + DRAFT_RETENTION_MS) {
       return { allowed: false, reason: 'unavailable' };
     }
     if (!userId) return { allowed: false, reason: 'authentication_required' };

@@ -57,6 +57,15 @@ export async function deleteListing(token: string | null, id: string, fetchFn: F
   await request(fetchFn, token, `/listings/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+/**
+ * Discard a saved draft (Discard draft on the host's profile): the draft and,
+ * when it has an unpublished listing, that listing too, whose media is then
+ * queued for cleanup. Refused while a payment for the listing is in progress.
+ */
+export async function discardListingDraft(token: string | null, draftId: string, fetchFn: FetchFn = fetch): Promise<void> {
+  await request(fetchFn, token, `/listing-drafts/${encodeURIComponent(draftId)}?discard=1`, { method: 'DELETE' });
+}
+
 export const listingShareUrl = (origin: string, id: string) => `${origin}/booking?listing=${encodeURIComponent(id)}`;
 
 export const isDraft = (listing: MenuListing) => listing.availability_status === 'draft';
