@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import { createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
+import { CODE_RESEND_SECONDS, createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
 import { OtpCodeInput, OtpCodeInputHandle } from './OtpCodeInput';
 import { errorMessage } from '../../lib/errors';
 
@@ -118,7 +118,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setEmail(normalizedEmail);
       setCode(createEmptyOtpCode());
       setFailedAttempts(0);
-      setResendSeconds(60);
+      setResendSeconds(CODE_RESEND_SECONDS);
       changeStep('otp');
     } catch (error) {
       setAlert({ type: 'error', message: errorMessage(error) || 'The code could not be sent. Try again.' });
@@ -191,7 +191,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     try {
       await sendCode(email);
       setFailedAttempts(0);
-      setResendSeconds(60);
+      setResendSeconds(CODE_RESEND_SECONDS);
       setAlert({ type: 'success', message: 'If this email has an account, a new code is on its way.' });
     } catch (error) {
       setAlert({ type: 'error', message: errorMessage(error) || 'The code could not be sent. Try again.' });
