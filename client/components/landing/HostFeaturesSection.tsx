@@ -28,7 +28,7 @@ const FEATURES: Feature[] = [
     title: 'List any kind of space',
     text: 'Stays, offices, venues, hotel rooms and property, with photos and video.',
     visual: (
-      <div className={`${styles.panel} ${styles.listingPanel}`}>
+      <div className={`${styles.panel} ${styles.fill}`}>
         <div className={styles.label}>What are you listing?</div>
         <div className={styles.niches}>
           <span className={styles.nicheOn}>Stay</span>
@@ -69,7 +69,7 @@ const FEATURES: Feature[] = [
     title: 'You approve every booking',
     text: 'Requests come to you. Block the days you are not available.',
     visual: (
-      <>
+      <div className={`${styles.fill} ${styles.bookingStack}`}>
         <div className={`${styles.panel} ${styles.request}`}>
           <div className={styles.row}>
             <span className={styles.avatar}>G</span>
@@ -93,7 +93,7 @@ const FEATURES: Feature[] = [
           <span className={styles.dayEdge}>6</span>
           <span>7</span>
         </div>
-      </>
+      </div>
     ),
   },
   {
@@ -101,7 +101,7 @@ const FEATURES: Feature[] = [
     title: 'Reply, even when you’re busy',
     text: 'Quick replies, business hours and an away message.',
     visual: (
-      <div className={`${styles.panel} ${styles.chat}`}>
+      <div className={`${styles.panel} ${styles.fill} ${styles.chat}`}>
         <span className={styles.away}>Away · replies after business hours</span>
         <div className={`${styles.bubble} ${styles.bubbleIn}`}>Is it free this weekend?</div>
         <div className={`${styles.bubble} ${styles.bubbleOut}`}>Yes, it is. Send a request and I’ll approve it.</div>
@@ -117,7 +117,7 @@ const FEATURES: Feature[] = [
     title: 'See what’s working',
     text: 'Views, saves, enquiries and requests for every listing.',
     visual: (
-      <div className={`${styles.panel} ${styles.analytics}`}>
+      <div className={`${styles.panel} ${styles.fill} ${styles.analytics}`}>
         <div className={`${styles.row} ${styles.analyticsTop}`}>
           <div className={styles.metrics}>
             <span>Views</span>
@@ -147,7 +147,7 @@ const FEATURES: Feature[] = [
     title: 'Run it as a team',
     text: 'Give people the access they need: listings, chats or billing.',
     visual: (
-      <div className={`${styles.panel} ${styles.team}`}>
+      <div className={`${styles.panel} ${styles.fill} ${styles.team}`}>
         {([['A', 'Manager', styles.roleManager], ['B', 'Messaging', styles.roleMessaging], ['C', 'Finance', styles.roleFinance]] as const).map(([initial, role, tone]) => (
           <div key={role} className={styles.member}>
             <span className={styles.avatar}>{initial}</span>
