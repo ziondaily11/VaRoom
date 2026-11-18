@@ -1,9 +1,9 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { constrainCrop, cropDraw, MESSAGES, PHOTO_MAX_BYTES, startCrop, type Crop, type Tile } from '../../lib/onboarding/onboarding';
 
-// Onboarding building blocks: icons, the Split layout (brand panel + form,
-// with the back arrow and progress bar above each step), the picture tiles,
-// and the photo picker with its crop.
+// Onboarding building blocks: icons, the layout (one centred column with the
+// back arrow and progress bar above each step), the picture tiles, and the
+// photo picker with its crop.
 
 const svg = (size: number, children: React.ReactNode, stroke = 2) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -15,25 +15,15 @@ export const CameraIcon = () => svg(22, <><path d="M14 4h-4L8 7H5a2 2 0 0 0-2 2v
 export const PersonIcon = ({ size = 30 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#8a847d" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" /></svg>
 );
-export const PinIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z" /></svg>
-);
 export const LockIcon = () => svg(13, <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>);
 export const BackIcon = () => svg(20, <path d="M15 5l-7 7 7 7" />, 2.2);
 
 // ---------- Layout ----------
 
-export interface StepInfo { label: string; state: 'done' | 'current' | 'next' }
-
 /** How the step got here: forward slides in from the right, back from the left; null on first paint. */
 export type StepDirection = 'forward' | 'back' | null;
 
-/** The dark side panel: steps, a live preview and a note (hosts only). */
-export interface PanelInfo { steps: StepInfo[]; mobileStep: string; mobileTitle: string; preview: React.ReactNode; note: string }
-
-export function OnboardingLayout({ panel, progress, onBack, backLabel = 'Back', stageKey, direction, wide = false, children }: {
-  /** Without a panel the step stands alone, centred on the page (clients). */
-  panel?: PanelInfo;
+export function OnboardingLayout({ progress, onBack, backLabel = 'Back', stageKey, direction, wide = false, children }: {
   /** 0–1: the share of onboarding done (the account counts as the first step). */
   progress: number;
   /** The step before this one; no arrow when there is none. */
@@ -48,32 +38,11 @@ export function OnboardingLayout({ panel, progress, onBack, backLabel = 'Back', 
 }) {
   const percent = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   return (
-    <div className={`onb${panel ? '' : ' is-solo'}`}>
-      {panel && (
-        <aside className="onb-panel" aria-label="Your progress">
-          <div className="onb-panel-top">
-            <span className="onb-logo"><span className="va">Va</span>Room</span>
-            <span className="onb-mobile-step">{panel.mobileStep}</span>
-          </div>
-          <p className="onb-mobile-title" aria-hidden="true">{panel.mobileTitle}</p>
-          <ol className="onb-steps">
-            {panel.steps.map((step, index) => (
-              <li key={step.label} className={`onb-step is-${step.state}`} aria-current={step.state === 'current' ? 'step' : undefined}>
-                <span className="onb-step-dot">{step.state === 'done' ? <CheckIcon size={12} /> : index + 1}</span>
-                {step.label}
-              </li>
-            ))}
-          </ol>
-          <div className="onb-preview">{panel.preview}</div>
-          <p className="onb-panel-note">{panel.note}</p>
-        </aside>
-      )}
+    <div className="onb">
       <main className="onb-main">
         <div className={`onb-flow${wide ? ' is-wide' : ''}`}>
           <div className="onb-topbar">
             {onBack && <button type="button" className="onb-back-arrow" onClick={onBack} aria-label={backLabel}><BackIcon /></button>}
-            {/* Hosts keep the arrow's space on step 1 so the bar does not jump between steps. */}
-            {!onBack && panel && <span className="onb-back-arrow is-placeholder" aria-hidden="true" />}
             <div className="onb-progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
               <span className="onb-progress-fill" style={{ transform: `scaleX(${percent / 100})` }} />
             </div>
