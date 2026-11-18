@@ -304,3 +304,26 @@ test('landing page 3: the share card shows the profile share panel and the profi
   // The chat card is gone, with its styles.
   assert.doesNotMatch(section + css, /bubbleOut|quickReplies|Reply, even when/);
 });
+
+test('profile share panel: Instagram and TikTok copy the link for the bio; the landing card shows the same five', () => {
+  const panel = read('components/profile/ProfileSections.tsx');
+  const page = read('lib/profile/profilePage.ts');
+  const icons = read('components/profile/ProfileIcons.tsx');
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  // No share link exists for these apps: open them, with the link already copied.
+  assert.match(page, /export const BIO_APPS = \{\s*instagram: 'https:\/\/www\.instagram\.com\/accounts\/edit\/',\s*tiktok: 'https:\/\/www\.tiktok\.com\/profile',/);
+  for (const [id, app] of [['instagram', 'Instagram'], ['tiktok', 'TikTok']]) {
+    assert.match(panel, new RegExp(`id="share-${id}" href=\\{BIO_APPS\\.${id}\\} target="_blank" rel="noopener noreferrer" aria-label="Copy link for your ${app} bio" onClick=\\{\\(\\) => copyForBio\\('${app}'\\)\\}`));
+  }
+  // The copy starts inside the click, before the new tab takes the focus.
+  assert.match(panel, /const copyForBio = \(app: string\) => \{\s*navigator\.clipboard\.writeText\(url\)\.then\(/);
+  assert.match(panel, /<p className="share-note" role="status">\{bioNote\}<\/p>/);
+  // One source for the marks.
+  assert.match(icons, /export const InstagramIcon = \(\) => <Svg markup=\{SOCIAL_ICONS\.instagram\} \/>;/);
+  assert.match(icons, /export const TikTokIcon = \(\) => <Svg markup=\{SOCIAL_ICONS\.tiktok\} \/>;/);
+  // The landing card shows the same five, in the same order.
+  const labels = [...section.matchAll(/\{ label: '([^']+)', icon:/g)].map((m) => m[1]);
+  assert.deepEqual(labels, ['X', 'WhatsApp', 'Email', 'Instagram', 'TikTok']);
+  // "Copy link" stays on one line.
+  assert.match(read('components/profile/profileStyles.ts'), /\.copy-btn\{[^}]*flex:none; white-space:nowrap;/);
+});

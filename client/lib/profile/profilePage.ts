@@ -51,6 +51,16 @@ export function shareLinks(url: string) {
   };
 }
 
+/**
+ * Instagram and TikTok take no link to share from a website: people put it
+ * in their bio. These open each app's profile editing (or the app, on a
+ * phone); the share panel copies the profile link first.
+ */
+export const BIO_APPS = {
+  instagram: 'https://www.instagram.com/accounts/edit/',
+  tiktok: 'https://www.tiktok.com/profile',
+} as const;
+
 export function listingStatus(status: string | null | undefined): { label: string; className: string; style?: Record<string, string> } {
   const value = (status || '').toLowerCase();
   if (value === 'booked') return { label: 'Booked', className: 'booked' };
