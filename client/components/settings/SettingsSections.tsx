@@ -149,7 +149,7 @@ export function NotificationsSection({ userId, prefs, isHost = false, onBack, no
   return (
     <div id="view-notifications">
       <DetailHead title="Notifications" onBack={onBack} />
-      <SettingsBox>
+      <SettingsBox title="Notify me about" icon={INFO_ICONS.bell}>
         {rows.map((row) => (
           <div className="toggle-row" key={row.key} id={`notify-${row.key}`}>
             <div><div className="toggle-label">{row.label}</div>{row.desc && <div className="toggle-desc">{row.desc}</div>}</div>
@@ -277,9 +277,11 @@ export function DisplaySection({ userId, onBack }: { userId: string; onBack: () 
 
 // ---------- Privacy & Security ----------
 
-export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: string; prefs: Preferences | null; onBack: () => void; onPassword: () => void }) {
-  const [values, setValues] = useState({ profile_visibility: 'public', who_can_message: 'everyone', location_visibility: 'general_area' });
-  const [msg, setMsg] = useState<{ text: string; kind: string }>({ text: '', kind: '' });
+type PrivacyValues = { profile_visibility: string; who_can_message: string; location_visibility: string };
+
+/** Each choice saves as soon as it changes (as Notifications do); a failed save puts the old choice back. */
+export function PrivacySection({ userId, prefs, onBack, onPassword, notify }: { userId: string; prefs: Preferences | null; onBack: () => void; onPassword: () => void; notify: Notify }) {
+  const [values, setValues] = useState<PrivacyValues>({ profile_visibility: 'public', who_can_message: 'everyone', location_visibility: 'general_area' });
   useEffect(() => {
     if (!prefs) return;
     setValues((current) => ({
@@ -288,13 +290,20 @@ export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: 
       location_visibility: prefs.location_visibility || current.location_visibility,
     }));
   }, [prefs]);
-  const set = (key: keyof typeof values) => (event: React.ChangeEvent<HTMLSelectElement>) => setValues((current) => ({ ...current, [key]: event.target.value }));
-
-  const save = async () => {
+  const set = (key: keyof PrivacyValues) => async (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = event.target.value;
+    const previous = values[key];
+    if (next === previous) return;
+    setValues((current) => ({ ...current, [key]: next }));
     const client = getSupabaseClient();
     if (!client) return;
-    const error = await savePreferences(client, userId, values);
-    setMsg(error ? { text: error, kind: 'error' } : { text: 'Saved.', kind: 'success' });
+    const error = await savePreferences(client, userId, { [key]: next });
+    if (error) {
+      setValues((current) => ({ ...current, [key]: previous }));
+      notify('That privacy setting could not be saved. Please try again.');
+    } else {
+      notify('Saved.');
+    }
   };
 
   return (
@@ -323,8 +332,6 @@ export function PrivacySection({ userId, prefs, onBack, onPassword }: { userId: 
               <option value="exact">Exact location only when required for a booking</option>
             </select>
           </div>
-          <button type="button" className="btn" onClick={save}>Save</button>
-          <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
       </SettingsBox>
       <SettingsBox title="Security" icon={INFO_ICONS.shield}>
           <a href="#" className="info-row clickable" onClick={(event) => { event.preventDefault(); onPassword(); }}>
