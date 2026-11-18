@@ -35,15 +35,12 @@ export const ONBOARDING_STYLES = `
   .onb-chips{ display:flex; gap:8px; flex-wrap:wrap; }
   .onb-chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#F3F1ED; font-size:0.75rem; font-weight:600; color:var(--ink); }
   .onb-chip.is-empty{ color:#8a847d; }
-  .onb-picks{ display:flex; flex-direction:column; gap:12px; padding:22px; border-radius:20px; background:#211d1a; border:1px solid #2e2925; }
-  .onb-picks-title{ margin:0; font-family:Fraunces, Georgia, serif; font-size:1.25rem; font-weight:700; }
-  .onb-picks .onb-chip{ background:#2e2925; color:var(--panel-ink); }
-  .onb-picks .onb-chip.is-empty{ color:var(--panel-muted); }
-  .onb-picks-note{ margin:0; font-size:0.8125rem; color:var(--panel-muted); }
 
   .onb-main{ flex:1; min-width:0; display:flex; justify-content:center; align-items:center; padding:48px 32px; background:var(--paper); }
   /* The app's dark theme paints every <main> black; the form side stays light. */
   html[data-theme="dark"] .onb .onb-main{ background:var(--paper) !important; color:var(--ink); }
+  /* Clients: no side panel; the step is centred on the page. */
+  .onb.is-solo .onb-main{ min-height:100vh; min-height:100dvh; }
   .onb-flow{ width:min(480px, 100%); display:flex; flex-direction:column; gap:22px; }
   .onb-flow.is-wide{ width:min(640px, 100%); }
   .onb-topbar{ display:flex; align-items:center; gap:14px; }
@@ -151,6 +148,9 @@ export const ONBOARDING_STYLES = `
     .onb-heading h1{ display:none; }
     .onb-heading p{ font-size:0.875rem; }
     .onb-form{ gap:20px; }
+    .onb.is-solo{ background:var(--paper); }
+    .onb.is-solo .onb-main{ border-radius:0; padding:20px 20px 32px; }
+    .onb.is-solo .onb-heading h1{ display:block; font-size:1.875rem; }
   }
   @media (min-width: 901px){ .onb-mobile-step{ display:none; } }
   /* Laptops (often 640–800 px tall with display scaling): each step fits without scrolling. */

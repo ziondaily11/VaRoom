@@ -28,8 +28,12 @@ export interface StepInfo { label: string; state: 'done' | 'current' | 'next' }
 /** How the step got here: forward slides in from the right, back from the left; null on first paint. */
 export type StepDirection = 'forward' | 'back' | null;
 
-export function OnboardingLayout({ steps, mobileStep, mobileTitle, preview, note, progress, onBack, backLabel = 'Back', stageKey, direction, wide = false, children }: {
-  steps: StepInfo[]; mobileStep: string; mobileTitle: string; preview: React.ReactNode; note: string;
+/** The dark side panel: steps, a live preview and a note (hosts only). */
+export interface PanelInfo { steps: StepInfo[]; mobileStep: string; mobileTitle: string; preview: React.ReactNode; note: string }
+
+export function OnboardingLayout({ panel, progress, onBack, backLabel = 'Back', stageKey, direction, wide = false, children }: {
+  /** Without a panel the step stands alone, centred on the page (clients). */
+  panel?: PanelInfo;
   /** 0–1: the share of onboarding done (the account counts as the first step). */
   progress: number;
   /** The step before this one; no arrow when there is none. */
@@ -44,30 +48,32 @@ export function OnboardingLayout({ steps, mobileStep, mobileTitle, preview, note
 }) {
   const percent = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   return (
-    <div className="onb">
-      <aside className="onb-panel" aria-label="Your progress">
-        <div className="onb-panel-top">
-          <span className="onb-logo"><span className="va">Va</span>Room</span>
-          <span className="onb-mobile-step">{mobileStep}</span>
-        </div>
-        <p className="onb-mobile-title" aria-hidden="true">{mobileTitle}</p>
-        <ol className="onb-steps">
-          {steps.map((step, index) => (
-            <li key={step.label} className={`onb-step is-${step.state}`} aria-current={step.state === 'current' ? 'step' : undefined}>
-              <span className="onb-step-dot">{step.state === 'done' ? <CheckIcon size={12} /> : index + 1}</span>
-              {step.label}
-            </li>
-          ))}
-        </ol>
-        <div className="onb-preview">{preview}</div>
-        <p className="onb-panel-note">{note}</p>
-      </aside>
+    <div className={`onb${panel ? '' : ' is-solo'}`}>
+      {panel && (
+        <aside className="onb-panel" aria-label="Your progress">
+          <div className="onb-panel-top">
+            <span className="onb-logo"><span className="va">Va</span>Room</span>
+            <span className="onb-mobile-step">{panel.mobileStep}</span>
+          </div>
+          <p className="onb-mobile-title" aria-hidden="true">{panel.mobileTitle}</p>
+          <ol className="onb-steps">
+            {panel.steps.map((step, index) => (
+              <li key={step.label} className={`onb-step is-${step.state}`} aria-current={step.state === 'current' ? 'step' : undefined}>
+                <span className="onb-step-dot">{step.state === 'done' ? <CheckIcon size={12} /> : index + 1}</span>
+                {step.label}
+              </li>
+            ))}
+          </ol>
+          <div className="onb-preview">{panel.preview}</div>
+          <p className="onb-panel-note">{panel.note}</p>
+        </aside>
+      )}
       <main className="onb-main">
         <div className={`onb-flow${wide ? ' is-wide' : ''}`}>
           <div className="onb-topbar">
-            {onBack
-              ? <button type="button" className="onb-back-arrow" onClick={onBack} aria-label={backLabel}><BackIcon /></button>
-              : <span className="onb-back-arrow is-placeholder" aria-hidden="true" />}
+            {onBack && <button type="button" className="onb-back-arrow" onClick={onBack} aria-label={backLabel}><BackIcon /></button>}
+            {/* Hosts keep the arrow's space on step 1 so the bar does not jump between steps. */}
+            {!onBack && panel && <span className="onb-back-arrow is-placeholder" aria-hidden="true" />}
             <div className="onb-progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
               <span className="onb-progress-fill" style={{ transform: `scaleX(${percent / 100})` }} />
             </div>

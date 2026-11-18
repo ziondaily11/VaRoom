@@ -13,7 +13,7 @@ import {
 } from '../lib/onboarding/onboarding';
 import { OnboardingLayout, type PhotoState, type StepDirection, type StepInfo } from '../components/onboarding/OnboardingParts';
 import {
-  ClientPreview, ClientStep, HostListingStep, HostPreview, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
+  ClientStep, HostListingStep, HostPreview, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
 } from '../components/onboarding/OnboardingSteps';
 import { ONBOARDING_STYLES } from '../components/onboarding/onboardingStyles';
 
@@ -178,11 +178,6 @@ export default function OnboardingPage() {
       <>
         {head}{styles}
         <OnboardingLayout
-          steps={[{ label: 'Your account', state: 'done' }, { label: "What you're looking for", state: 'current' }]}
-          mobileStep={clientDraft.length ? `Your picks: ${clientDraft.length}` : 'Almost there'}
-          mobileTitle="What are you looking for?"
-          preview={<ClientPreview interests={clientDraft} />}
-          note="You can change these preferences anytime."
           progress={(1 + (clientDraft.length ? 1 : 0)) / 2}
           stageKey="client"
           direction={null}
@@ -213,21 +208,23 @@ export default function OnboardingPage() {
     <>
       {head}{styles}
       <OnboardingLayout
-        steps={steps}
-        mobileStep={`Step ${step} of 2`}
-        mobileTitle={step === 1 ? 'A little more you.' : 'What will you be listing?'}
-        preview={(
-          <HostPreview
-            name={step === 2 && listingDraft ? listingDraft.name : (profile.full_name || '')}
-            username={profileDraft.username || profile.username || ''}
-            city={profileDraft.city || hostExtras.city || ''}
-            niche={step === 2 && listingDraft ? listingDraft.niche : null}
-            photo={profileDraft.photo}
-            existingAvatar={existingAvatar}
-            upload={upload}
-          />
-        )}
-        note="You can change any of this later in your profile."
+        panel={{
+          steps,
+          mobileStep: `Step ${step} of 2`,
+          mobileTitle: step === 1 ? 'A little more you.' : 'What will you be listing?',
+          preview: (
+            <HostPreview
+              name={step === 2 && listingDraft ? listingDraft.name : (profile.full_name || '')}
+              username={profileDraft.username || profile.username || ''}
+              city={profileDraft.city || hostExtras.city || ''}
+              niche={step === 2 && listingDraft ? listingDraft.niche : null}
+              photo={profileDraft.photo}
+              existingAvatar={existingAvatar}
+              upload={upload}
+            />
+          ),
+          note: 'You can change any of this later in your profile.',
+        }}
         progress={hostProgress}
         onBack={step === 2 ? () => goToStep(1) : undefined}
         backLabel="Back to profile setup"
