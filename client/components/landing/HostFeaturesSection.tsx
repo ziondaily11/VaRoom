@@ -10,6 +10,15 @@ interface HostFeaturesSectionProps {
   onListSpace: (trigger: HTMLElement) => void;
 }
 
+// A stay listing's media in the "List any kind of space" card: a video first,
+// then photos; the last tile's "+" says more can be added. Small copies of
+// the photos in public/assets (bnb.jpg, property-apartment.jpg, hote.jpg).
+const TILE_PHOTOS = [
+  '/assets/landing/host-tile-studio.webp',
+  '/assets/landing/host-tile-living.webp',
+  '/assets/landing/host-tile-bedroom.webp',
+];
+
 /** The order a detail settles in, inside its card (see the entrance in the CSS). */
 const at = (i: number) => ({ '--i': i }) as React.CSSProperties;
 
@@ -43,9 +52,13 @@ const FEATURES: Feature[] = [
           <span className={styles.settle} style={at(5)}>Property</span>
         </div>
         <div className={styles.tiles}>
-          <div className={`${styles.tile} ${styles.settle} ${styles.pop}`} style={at(6)}><span className={styles.play}>▶</span></div>
-          <div className={`${styles.tile} ${styles.tileDark} ${styles.settle} ${styles.pop}`} style={at(7)} />
-          <div className={`${styles.tile} ${styles.tileAdd} ${styles.settle} ${styles.pop}`} style={at(8)}>+</div>
+          {TILE_PHOTOS.map((src, i) => (
+            <div key={src} className={`${styles.tile} ${styles.settle} ${styles.pop}`} style={at(6 + i)}>
+              <img src={src} alt="" width={280} height={340} loading="lazy" decoding="async" className={styles.tilePhoto} />
+              {i === 0 && <span className={styles.play}>▶</span>}
+              {i === TILE_PHOTOS.length - 1 && <span className={styles.addMore}>+</span>}
+            </div>
+          ))}
         </div>
       </div>
     ),
