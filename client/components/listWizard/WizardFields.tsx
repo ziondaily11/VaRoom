@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Category, FieldBinding, FieldValue, HotelMode, PropertyPurpose, SaleMode } from '../../lib/listWizard/formState';
-import { SHORT_STAY, checked, isOfficeShop, text } from '../../lib/listWizard/formState';
+import { SHORT_STAY, checked, isOfficeShop, nightlyStayRules, text } from '../../lib/listWizard/formState';
 import type { WizardCopy } from '../../lib/listWizard/copy';
 import { priceUnitOptions } from '../../lib/listWizard/copy';
 import { ADVANCE_OPTIONS, NOTICE_OPTIONS } from '../../lib/settings/bookingDefaults';
@@ -219,6 +219,11 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
   const tableEnabled = category === 'hotel' && (hotelMode === 'table' || hotelMode === 'both');
   const sale = property && purpose === 'sale';
   const shortStayActive = SHORT_STAY.includes(category) && !tableOnly && !(category === 'hotel' && !hotelMode);
+  // Minimum and maximum nights are for nightly Airbnb and hotel stays: venues are booked as
+  // events (no nights, no check-in) and hourly prices have no nights. Instant book is for
+  // anything not priced by the hour (as the booking page applies it).
+  const venue = category === 'venue';
+  const nightRules = nightlyStayRules(category, priceUnit);
   const longTermActive = property;
   const hide = (hidden: boolean): React.CSSProperties | undefined => (hidden ? { display: 'none' } : undefined);
   const units = officeShop ? [{ value: priceUnit, label: '' }] : priceUnitOptions(category);
@@ -253,20 +258,24 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
         </div>
       </div>
       <div className={`booking-group${shortStayActive ? ' active' : ''}`} id="short-stay-fields">
-        <div className="field">
-          <label htmlFor="min-stay" id="min-stay-label">{copy.minStayLabel}</label>
-          <input type="number" {...bind(binding, 'min-stay')} min="1" placeholder={copy.minStayPlaceholder} />
-        </div>
-        <div className="field-row">
+        {nightRules && (
           <div className="field">
-            <label htmlFor="checkin-time">Check-in time</label>
-            <input type="time" {...bind(binding, 'checkin-time')} />
+            <label htmlFor="min-stay" id="min-stay-label">{copy.minStayLabel}</label>
+            <input type="number" {...bind(binding, 'min-stay')} min="1" placeholder={copy.minStayPlaceholder} />
           </div>
-          <div className="field">
-            <label htmlFor="checkout-time">Check-out time</label>
-            <input type="time" {...bind(binding, 'checkout-time')} />
+        )}
+        {!venue && (
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="checkin-time">Check-in time</label>
+              <input type="time" {...bind(binding, 'checkin-time')} />
+            </div>
+            <div className="field">
+              <label htmlFor="checkout-time">Check-out time</label>
+              <input type="time" {...bind(binding, 'checkout-time')} />
+            </div>
           </div>
-        </div>
+        )}
         <div className="field">
           <label htmlFor="cleaning-fee" id="cleaning-fee-label">{copy.cleaningFeeLabel}</label>
           <input type="number" {...bind(binding, 'cleaning-fee')} min="0" placeholder="Leave blank if none" />
@@ -280,10 +289,12 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
           </select>
         </div>
         <div className="field-row">
-          <div className="field">
-            <label htmlFor="max-stay">Maximum stay (nights)</label>
-            <input type="number" {...bind(binding, 'max-stay')} min="1" placeholder="No maximum" />
-          </div>
+          {nightRules && (
+            <div className="field">
+              <label htmlFor="max-stay">Maximum stay (nights)</label>
+              <input type="number" {...bind(binding, 'max-stay')} min="1" placeholder="No maximum" />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="min-notice">Minimum notice</label>
             <select {...bind(binding, 'min-notice')}>
@@ -297,10 +308,12 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
             {ADVANCE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </div>
-        <div className="checkbox-row">
-          <input {...bindCheckbox(binding, 'instant-book')} />
-          <label htmlFor="instant-book">Instant book: confirm guests for open nights without waiting for my approval</label>
-        </div>
+        {priceUnit !== 'hour' && (
+          <div className="checkbox-row">
+            <input {...bindCheckbox(binding, 'instant-book')} />
+            <label htmlFor="instant-book">{`Instant book: confirm guests for open ${venue ? 'dates' : 'nights'} without waiting for my approval`}</label>
+          </div>
+        )}
         {calendar}
       </div>
 

@@ -51,3 +51,24 @@ test('the wizard asks for them under "The space" and reloads them when editing',
   assert.equal(venue.fields['venue-seated'], '80');
   assert.equal(venue.fields['venue-standing'], '150');
 });
+
+test('venues: no nights and no check-in; hourly prices: no night rules or instant book', () => {
+  const formState = loadTs(path.join(root, 'lib', 'listWizard', 'formState.ts'));
+  assert.equal(formState.nightlyStayRules('airbnb', 'night'), true);
+  assert.equal(formState.nightlyStayRules('airbnb', 'hour'), false);
+  assert.equal(formState.nightlyStayRules('venue', 'night'), false);
+  const form = formState.emptyForm();
+  form.fields = { 'price-amount': '5000', 'price-unit': 'night', 'min-stay': '2', 'max-stay': '5', 'checkin-time': '14:00', 'checkout-time': '10:00', 'instant-book': true, 'venue-seated': '80' };
+  const venue = publish.bookingDetailsFor('venue', form, false, null);
+  assert.equal(venue.min_stay_nights, null);
+  assert.equal(venue.max_stay_nights, null);
+  assert.equal(venue.checkin_time, null);
+  assert.equal(venue.checkout_time, null);
+  assert.equal(venue.instant_book, true, 'a venue priced per night keeps instant book');
+  const hourly = publish.bookingDetailsFor('airbnb', { ...form, fields: { ...form.fields, 'price-unit': 'hour' } }, false, null);
+  assert.equal(hourly.min_stay_nights, null);
+  assert.equal(hourly.instant_book, false);
+  assert.equal(hourly.checkin_time, '14:00', 'an Airbnb keeps its check-in time');
+  const fields = fs.readFileSync(path.join(root, 'components', 'listWizard', 'WizardFields.tsx'), 'utf8');
+  assert.match(fields, /\{!venue && \(\s*<div className="field-row">\s*<div className="field">\s*<label htmlFor="checkin-time">/);
+});
