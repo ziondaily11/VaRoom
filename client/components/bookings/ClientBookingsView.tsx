@@ -112,9 +112,17 @@ function RailSummary({ bookings }: { bookings: Booking[] }) {
       <div className="rail-card">
         <h2>Stats Summary</h2>
         <div className="stat-row" id="stats-summary">
-          <div className="stat-item"><div className="stat-label">Total Bookings</div><div className="stat-value">{`${stats.total} Stay${stats.total === 1 ? '' : 's'}`}</div></div>
-          <div className="stat-item"><div className="stat-label">Upcoming</div><div className="stat-value">{`${stats.upcoming} Booked`}</div></div>
-          <div className="stat-item"><div className="stat-label">Total Invested</div><div className="stat-value">{`KES ${stats.invested.toLocaleString()}`}</div></div>
+          <div className="stat-item">
+            <div className="stat-label">Total Bookings</div>
+            <div className="stat-value">{`${stats.total} Stay${stats.total === 1 ? '' : 's'}`}</div>
+            {stats.awaiting > 0 && <div className="stat-sub">{`${stats.awaiting} awaiting approval`}</div>}
+          </div>
+          <div className="stat-item">
+            <div className="stat-label">Upcoming</div>
+            <div className="stat-value">{`${stats.upcoming} Upcoming`}</div>
+            {stats.upcomingAwaiting > 0 && <div className="stat-sub">{`${stats.upcomingAwaiting} awaiting approval`}</div>}
+          </div>
+          <div className="stat-item"><div className="stat-label">Total Invested</div><div className="stat-value">{`KES ${stats.invested.toLocaleString()}`}</div><div className="stat-sub">Confirmed bookings only</div></div>
         </div>
       </div>
       {/* This month: today is filled; days with a stay (approved or awaiting approval) have a dot. */}

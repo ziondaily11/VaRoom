@@ -475,6 +475,7 @@ export const BOOKINGS_STYLES = `
   .bookings-page .stat-item:last-child{ border-bottom:none; padding-bottom:0; }
   .bookings-page .stat-label{ font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:.2rem; }
   .bookings-page .stat-value{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; color:var(--red-deep); }
+  .bookings-page .stat-sub{ margin-top:.15rem; color:var(--muted); font-size:.74rem; }
   .bookings-page .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem; }
   .bookings-page .cal-month{ font-weight:700; font-size:.85rem; }
   .bookings-page .cal-active-tag{ font-size:.68rem; font-weight:700; color:var(--red); }
