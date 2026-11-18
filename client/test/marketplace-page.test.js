@@ -172,9 +172,9 @@ test('listing videos: one request per listing, kept under the 5-minute URL lifet
   assert.equal(await video.loadListingVideo('l2', null, async () => { throw new Error('offline'); }), null);
 });
 
-test('page: legacy markup and wording; the shared shell sidebar; the hidden filters are gone; legacy file retired', () => {
+test('page: wording; the shared shell sidebar; the shared shell sidebar; the hidden filters are gone; legacy file retired', () => {
   const page = read('pages', 'marketplace.tsx');
-  for (const text of ['Search by location, property name, or keyword...', 'Search properties, locations...', 'No listings match yet', 'Unable to load listings', 'Load more', 'Marketplace — VaRoom']) {
+  for (const text of ['Search by area, city or name', 'Listings could not load', 'Load more', 'Marketplace · VaRoom', 'More places could not load.']) {
     assert.ok(page.includes(text), text);
   }
   assert.match(page, /router\.push\(userId \? href : loginUrl\(href\)\)/, 'visitors sign in first, then return to the listing');
@@ -188,4 +188,35 @@ test('page: legacy markup and wording; the shared shell sidebar; the hidden filt
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/marketplace', '\/marketplace\.html', '\/legacy-pages\/marketplace\.html'\]/);
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'skeleton-loader.js')), false, 'retired with Host Home (nothing called it)');
+});
+
+test('upgrade: one debounced search, removable summary, return to the same place, visitors can sign in', () => {
+  const mk = loadTs(path.join(root, 'lib', 'marketplace', 'marketplace.ts'));
+  assert.deepEqual(mk.searchSummary({ q: ' Kilimani ', category: 'hotel', guests: '4' }).map((part) => part.label), ['“Kilimani”', 'Hotels', '4+ guests']);
+  assert.deepEqual(mk.searchSummary({ q: '', category: 'all', guests: '' }), []);
+  assert.equal(mk.emptyMessage({ q: 'zebra', category: 'all', guests: '' }).title, 'No places found');
+  assert.doesNotMatch(JSON.stringify(mk.emptyMessage({ q: '', category: 'hotel', guests: '' })), /price/i, 'there is no price filter to widen');
+  const search = { q: 'a', category: 'all', guests: '' };
+  mk.setListSnapshot(search, { listings: [], hasMore: true, offset: 24, scrollTop: 900 }, 1000);
+  assert.equal(mk.getListSnapshot(search, 1000 + 60 * 1000).offset, 24);
+  assert.equal(mk.getListSnapshot(search, 1000 + 3 * 60 * 1000), null, 'two minutes');
+
+  const page = read('pages', 'marketplace.tsx');
+  assert.equal((page.match(/<input\b/g) || []).length, 1, 'one search box for every width');
+  assert.match(page, /window\.setTimeout\(\(\) => runSearch\(\{ \.\.\.search, q \}\), SEARCH_DELAY_MS\)/);
+  assert.match(page, /aria-label="Clear search"/);
+  assert.match(page, /new IntersectionObserver/);
+  assert.match(page, /observer\.disconnect\(\)/);
+  assert.match(page, /setListSnapshot\(left, \{ listings: list, hasMore: more, offset: rows, scrollTop/);
+  assert.match(page, /<Link href=\{loginUrl\('\/marketplace'\)\} className="pill-btn">Log in<\/Link>/);
+  assert.match(page, /<SegmentedTabs label="Property categories"/);
+  assert.doesNotMatch(page, /fonts\.googleapis|mobile-search|mode-switch/);
+
+  const styles = read('components', 'marketplace', 'marketplaceStyles.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const own = styles.split('${SEGMENTED_TABS_STYLES}')[0].split('export const MARKETPLACE_STYLES = `')[1];
+  for (const rule of own.match(/^\s*[^@\s}$][^{};]*\{/gm) || []) {
+    if (/^\s*(from|to|\d+%)/.test(rule)) continue;
+    assert.match(rule, /marketplace-page/, `unscoped rule: ${rule.trim()}`);
+  }
+  assert.doesNotMatch(own, /:root|font-size:\s*0\.625rem|☷/);
 });
