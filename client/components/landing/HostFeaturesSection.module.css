@@ -439,7 +439,7 @@
   margin-top: 4px;
 }
 
-.bars span { flex: 1; border-radius: 6px 6px 3px 3px; background: #c9d0bf; }
+.bars span { flex: 1; border-radius: 6px 6px 3px 3px; background: #c9d0bf; transform-origin: 50% 100%; }
 .bars .barDark { background: #56644a; }
 
 .legend {
@@ -518,6 +518,81 @@
   .metrics .metricExtra { display: none; }
 }
 
+/*
+ * Entrance (animation.md §8.6, §8.14, B6). Played once, the first time the
+ * section and each card come into view; see the component for when things
+ * wait. The heading rises like the Spaces heading; each card fades and rises
+ * 16 px, 90 ms after the one before; then the small interface inside it
+ * settles piece by piece, 60 ms apart. Only opacity and the translate/scale
+ * properties move.
+ */
+@keyframes hostRise {
+  from { opacity: 0; translate: 0 16px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes hostSettle {
+  from { opacity: 0; translate: var(--dx, 0) var(--dy, 6px); }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes hostDrop {
+  from { opacity: 0; translate: 0 -18px; }
+  60% { opacity: 1; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes hostRing {
+  from { opacity: 0; scale: 0.55; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes hostPop {
+  from { opacity: 0; scale: 0.8; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes hostGrow {
+  from { scale: 1 0; }
+  to { scale: 1 1; }
+}
+
+.fromLeft { --dx: -10px; --dy: 0px; }
+.fromRight { --dx: 10px; --dy: 0px; }
+
+.section[data-entrance='waiting'] .head,
+.section[data-entrance='waiting'] .pager,
+.section[data-entrance='waiting'] .cta { opacity: 0; }
+
+.section[data-entrance='playing'] .head { animation: hostRise 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+.section[data-entrance='playing'] .pager,
+.section[data-entrance='playing'] .cta { animation: hostRise 600ms cubic-bezier(0.22, 1, 0.36, 1) 550ms backwards; }
+
+.card[data-reveal='waiting'][data-rise] { opacity: 0; }
+.card[data-reveal='waiting'] .settle { opacity: 0; }
+
+.card[data-reveal='playing'] {
+  /* Details start once the card has mostly arrived (or right after the arrows bring it in). */
+  --settle-from: 180ms;
+}
+
+.card[data-reveal='playing'][data-rise] {
+  --settle-from: calc(150ms + var(--order, 0) * 90ms + 200ms);
+  animation: hostRise 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(150ms + var(--order, 0) * 90ms);
+}
+
+.card[data-reveal='playing'] .settle {
+  animation: hostSettle 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--settle-from) + var(--i, 0) * 60ms);
+}
+
+.card[data-reveal='playing'] .drop { animation-name: hostDrop; animation-duration: 520ms; }
+.card[data-reveal='playing'] .ring { animation-name: hostRing; animation-duration: 600ms; }
+.card[data-reveal='playing'] .pop { animation-name: hostPop; }
+.card[data-reveal='playing'] .grow { animation-name: hostGrow; animation-duration: 560ms; }
+
 /* Calls to action */
 .cta {
   flex: none;
@@ -575,11 +650,12 @@
   background: transparent;
   color: #181513;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1), scale 120ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .arrow:hover:not(:disabled) { background: rgba(24, 21, 19, 0.06); border-color: rgba(24, 21, 19, 0.4); }
 .arrow:focus-visible { outline: 2px solid #bd2337; outline-offset: 2px; }
+.arrow:active:not(:disabled) { scale: 0.97; }
 .arrow:disabled { opacity: 0.35; cursor: default; }
 
 .dots { display: flex; gap: 8px; }
@@ -593,7 +669,7 @@
   border-radius: 999px;
   background: rgba(24, 21, 19, 0.2);
   cursor: pointer;
-  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+  transition: width 200ms cubic-bezier(0.65, 0, 0.35, 1), background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pageDot:focus-visible { outline: 2px solid #bd2337; outline-offset: 3px; }
@@ -681,7 +757,7 @@
     gap: var(--gap);
     max-width: none;
     transform: translateX(calc(var(--page, 0) * (-100% - var(--gap))));
-    transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 300ms cubic-bezier(0.65, 0, 0.35, 1);
   }
 
   .card { flex: 0 0 calc((100% - 2 * var(--gap)) / 3); }
@@ -722,4 +798,19 @@
 @media (max-width: 380px) {
   .visual { height: 240px; }
   .bubble { font-size: 0.75rem; }
+}
+
+/* Reduced motion (animation.md §13): everything shows in its final state at once. */
+@media (prefers-reduced-motion: reduce) {
+  .section .head,
+  .section .pager,
+  .section .cta,
+  .section .card,
+  .section .settle {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .arrow:active:not(:disabled) { scale: 1; }
+  .pageDot { transition: none; }
 }

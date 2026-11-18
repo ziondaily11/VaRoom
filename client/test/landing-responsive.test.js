@@ -190,3 +190,25 @@ test('landing page 3 fits one screen on laptops and desktops', () => {
   for (const h of [200, 170, 140, 110]) assert.match(css, new RegExp(`@container \\(max-height: ${h}px\\)`));
   assert.doesNotMatch(css, /\.tiles \{ display: none; \}/);
 });
+
+test('landing page 3 motion: plays once, never replays on return, honours reduced motion', () => {
+  const css = read('components/landing/HostFeaturesSection.module.css');
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  // Rendered visible; only what is still off screen waits, measured after the scroll is restored.
+  assert.match(section, /requestAnimationFrame\(\(\) => \{ frame = requestAnimationFrame\(begin\); \}\)/);
+  assert.match(section, /prefersReducedMotion\(\) \|\| alreadyPlayed\(\)\) return undefined;/);
+  assert.match(section, /const PLAYED_KEY = 'varoom_landing_hosts_played';/);
+  assert.match(section, /window\.sessionStorage\.setItem\(PLAYED_KEY, '1'\)/);
+  // Cards beside the others in the one-row layout settle their details but do not rise.
+  assert.match(section, /setRises\(rects\.map\(\(rect, i\) => waits\[i\] && !beside\(rect\)\)\);/);
+  // Tokens: entrances ease out; the carousel move eases in and out in 300 ms; press .97.
+  assert.match(css, /transition: transform 300ms cubic-bezier\(0\.65, 0, 0\.35, 1\);/);
+  assert.match(css, /\.arrow:active:not\(:disabled\) \{ scale: 0\.97; \}/);
+  assert.doesNotMatch(css, /transition:\s*all\b/);
+  // Keyframes move only opacity and the translate/scale properties.
+  for (const [, body] of css.matchAll(/@keyframes host\w+ \{([\s\S]*?)\n\}/g)) {
+    assert.doesNotMatch(body.replace(/\b(opacity|translate|scale)\s*:/g, ''), /[a-z-]+\s*:/, 'only opacity, translate and scale animate');
+  }
+  // Reduced motion: final state at once.
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.section \.head,\s*\.section \.pager,\s*\.section \.cta,\s*\.section \.card,\s*\.section \.settle \{\s*animation: none !important;\s*opacity: 1 !important;/);
+});
