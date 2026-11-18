@@ -8,7 +8,7 @@ import {
 } from '../../lib/settings/accountDetails';
 import { DetailHead, EyeIcon, EyeOffIcon, INFO_ICONS, InfoRow, LockLarge } from './SettingsIcons';
 import ReachOutSection from './ReachOutSection';
-import SettingsBox from './SettingsBox';
+import SettingsBox, { ExpandPanel } from './SettingsBox';
 
 // Your Account (legacy #view-account): the account details, email and
 // password changes, Reach Out (hosts) and account status. Locked only when
@@ -74,8 +74,8 @@ function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text
 
   return (
     <>
-      <InfoRow icon={icon} label={label} value={shown} onClick={onToggle} id={`${field.replace('_', '-')}-row`} />
-      <div className={`expand-panel${open ? ' show' : ''}`} id={`${field.replace('_', '-')}-panel`}>
+      <InfoRow icon={icon} label={label} value={shown} onClick={onToggle} id={`${field.replace('_', '-')}-row`} expanded={open} controls={`${field.replace('_', '-')}-panel`} />
+      <ExpandPanel open={open} id={`${field.replace('_', '-')}-panel`}>
         <div className="field">
           <label htmlFor={`${field}-input`}>New {label.toLowerCase()}</label>
           <div className={isUsername ? 'username-field' : undefined}>
@@ -96,7 +96,7 @@ function DetailRow({ userId, field, label, icon, value, shown, inputType = 'text
         </div>
         <button type="button" className="btn" disabled={saving || blocked} onClick={() => { void save(); }}>{saving ? 'Saving…' : `Update ${label.toLowerCase()}`}</button>
         <p className={`inline-msg${msg.kind ? ` ${msg.kind}` : ''}`}>{msg.text}</p>
-      </div>
+      </ExpandPanel>
     </>
   );
 }
@@ -316,15 +316,15 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
             userId={userId} field="full_name" label="Full name" icon={INFO_ICONS.user} value={fullName} shown={fullName || 'Not set'}
             placeholder="Your name or business name" open={Boolean(open.full_name)} onToggle={() => toggle('full_name')} onSaved={(value) => onDetailSaved('full_name', value)}
           />
-          <InfoRow icon={INFO_ICONS.mail} label="Email address" value={email || '—'} onClick={() => toggle('email')} id="email-row" />
-          <div className={`expand-panel${open.email ? ' show' : ''}`} id="email-panel">
+          <InfoRow icon={INFO_ICONS.mail} label="Email address" value={email || '—'} onClick={() => toggle('email')} id="email-row" expanded={Boolean(open.email)} controls="email-panel" />
+          <ExpandPanel open={Boolean(open.email)} id="email-panel">
             <div className="field">
               <label htmlFor="email-input">New email address</label>
               <input type="email" id="email-input" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} />
             </div>
             <button type="button" className="btn" onClick={saveEmail}>Update email</button>
             <p className={`inline-msg${emailMsg.kind ? ` ${emailMsg.kind}` : ''}`}>{emailMsg.text}</p>
-          </div>
+          </ExpandPanel>
           <DetailRow
             userId={userId} field="phone" label="Phone number" icon={INFO_ICONS.phone} value={phone} shown={phone || 'Not set'} inputType="tel"
             placeholder="e.g. 0712 345 678" open={Boolean(open.phone)} onToggle={() => toggle('phone')} onSaved={(value) => onDetailSaved('phone', value)}
@@ -332,8 +332,8 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
       </SettingsBox>
 
       <SettingsBox title="Password" icon={INFO_ICONS.lock}>
-          <InfoRow icon={INFO_ICONS.lock} label="Change password" onClick={() => toggle('password')} id="password-row" />
-          <div className={`expand-panel${open.password ? ' show' : ''}`} id="password-panel">
+          <InfoRow icon={INFO_ICONS.lock} label="Change password" onClick={() => toggle('password')} id="password-row" expanded={Boolean(open.password)} controls="password-panel" />
+          <ExpandPanel open={Boolean(open.password)} id="password-panel">
             <div className="field">
               <label htmlFor="new-password-input">New password</label>
               <input type="password" id="new-password-input" placeholder="At least 8 characters" minLength={8} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
@@ -350,24 +350,41 @@ function AccountDetails({ userId, email, username, fullName, phone, isHost, open
             )}
             <button type="button" className="btn" onClick={savePassword}>Update password</button>
             <p className={`inline-msg${passwordMsg.kind ? ` ${passwordMsg.kind}` : ''}`}>{passwordMsg.text}</p>
-          </div>
+          </ExpandPanel>
       </SettingsBox>
 
       {isHost && <ReachOutSection userId={userId} accountPhone={phone} accountEmail={email} />}
 
       <SettingsBox title="Account Status" icon={INFO_ICONS.alert}>
-          <InfoRow icon={INFO_ICONS.alert} label="Deactivate account" onClick={() => toggle('deactivate')} id="deactivate-row" />
-          <div className={`expand-panel${open.deactivate ? ' show' : ''}`} id="deactivate-panel">
+          <InfoRow icon={INFO_ICONS.alert} label="Deactivate account" onClick={() => toggle('deactivate')} id="deactivate-row" expanded={Boolean(open.deactivate)} controls="deactivate-panel" />
+          <ExpandPanel open={Boolean(open.deactivate)} id="deactivate-panel">
             <p className="inline-msg neutral">Your profile and listings are hidden and you&apos;re signed out everywhere. Nothing is deleted; sign in again to reactivate.</p>
             <button type="button" className="btn btn-danger btn-block" style={{ marginTop: '.8rem' }} disabled={deactivating} onClick={() => { void deactivate(); }}>{deactivating ? 'Deactivating...' : 'Deactivate my account'}</button>
             <p className={`inline-msg${deactivateMsg.kind ? ` ${deactivateMsg.kind}` : ''}`}>{deactivateMsg.text}</p>
-          </div>
-          <InfoRow icon={INFO_ICONS.trash} label="Delete account" danger onClick={() => toggle('delete')} id="show-delete-confirm" />
-          <div className={`expand-panel${open.delete ? ' show' : ''}`} id="delete-confirm">
+          </ExpandPanel>
+          <InfoRow icon={INFO_ICONS.trash} label="Delete account" danger onClick={() => toggle('delete')} id="show-delete-confirm" expanded={Boolean(open.delete)} controls="delete-confirm" />
+          <ExpandPanel open={Boolean(open.delete)} id="delete-confirm">
             <p className="inline-msg neutral">Permanently deleted after 30 days. Sign in before then to keep it.</p>
             <button type="button" className="btn btn-danger btn-block" style={{ marginTop: '.8rem' }} onClick={onDelete}>Delete my account</button>
-          </div>
+          </ExpandPanel>
       </SettingsBox>
+    </div>
+  );
+}
+
+/** While the server decides whether to ask for verification: the shape of the account rows, not a blank page. */
+function AccountSkeleton({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="settings-section" aria-busy="true" role="status" aria-label="Checking your account">
+      <DetailHead title="Your Account" onBack={onBack} />
+      <div className="plan-box account-skeleton" aria-hidden="true">
+        {[0, 1, 2, 3].map((row) => (
+          <div className="account-skeleton-row" key={row}>
+            <span className="skeleton-nav-icon-shape account-skeleton-icon" />
+            <span className="account-skeleton-text"><span className="skeleton-nav-title" /><span className="skeleton-nav-title is-short" /></span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -378,7 +395,7 @@ export default function AccountSection(props: Props) {
       {props.verified
         ? <AccountDetails {...props} />
         : props.checking
-          ? <div className="settings-section" aria-busy="true"><DetailHead title="Your Account" onBack={props.onBack} /></div>
+          ? <AccountSkeleton onBack={props.onBack} />
           : <VerifyGate userId={props.userId} email={props.email} token={props.token} onVerified={props.onVerified} onBack={props.onBack} />}
     </div>
   );

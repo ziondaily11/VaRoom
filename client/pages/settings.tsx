@@ -36,8 +36,9 @@ const HIT_CONTAINER = '.field, .toggle-row, .info-row, .cs-row, .cs-section, .pl
 const TOAST_STYLES = `
   .settings-toast{ position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%) translateY(20px); z-index:300; max-width:min(92vw, 30rem);
     padding:.8rem 1.4rem; border-radius:100px; background:var(--ink); color:var(--white); font-size:.88rem; font-weight:600; text-align:center;
-    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; }
-  .settings-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+    opacity:0; pointer-events:none; transition:opacity var(--motion-quick,200ms) var(--ease-in,ease), transform var(--motion-quick,200ms) var(--ease-in,ease); }
+  .settings-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); transition-duration:var(--motion-standard,250ms); transition-timing-function:var(--ease-out,ease); }
+  @media (prefers-reduced-motion:reduce){ .settings-toast, .settings-toast.show{ transition:none; transform:translateX(-50%); } }
   @media (max-width:860px){ .settings-toast{ bottom:calc(5.6rem + env(safe-area-inset-bottom)); } }
 `;
 
@@ -54,6 +55,8 @@ export default function SettingsPage() {
 
   const [view, setView] = useState<View>('account');
   const [mobileDetail, setMobileDetail] = useState(false);
+  // How the person moved (for the slide): into a section, or back to the list. None on first paint.
+  const [nav, setNav] = useState<'forward' | 'back' | null>(null);
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   // Your Account opens without asking unless the server sees a risk (lib/settings/settings.ts).
   const [lock, setLock] = useState<'checking' | 'unlocked' | 'locked'>('checking');
@@ -111,9 +114,11 @@ export default function SettingsPage() {
   }, []);
 
   // Once per session: remembered, else asked of the server (a refreshed token keeps its session id).
+  // A token without a session id is still asked; only remembering needs the id.
+  const hasToken = Boolean(token);
   useEffect(() => {
-    if (!sessionId || !tokenRef.current) return undefined;
-    const remembered = rememberedUnlock(sessionStore(), sessionId);
+    if (!hasToken || !tokenRef.current) return undefined;
+    const remembered = sessionId ? rememberedUnlock(sessionStore(), sessionId) : null;
     if (remembered) { setUnlockedUntil(remembered); setLock('unlocked'); return undefined; }
     let cancelled = false;
     setLock('checking');
@@ -125,7 +130,7 @@ export default function SettingsPage() {
       if (!cancelled) setLock('locked');
     });
     return () => { cancelled = true; };
-  }, [sessionId, unlock]);
+  }, [hasToken, sessionId, unlock]);
 
   // The unlock runs out while the page is open: lock again.
   useEffect(() => {
@@ -174,6 +179,7 @@ export default function SettingsPage() {
   }, [router, router.isReady, router.query.account_verification, token, unlock]);
 
   const show = useCallback((next: View) => {
+    setNav(next === 'list' ? 'back' : 'forward');
     setView(next);
     setMobileDetail(next !== 'list');
     window.scrollTo({ top: 0 });
@@ -263,7 +269,7 @@ export default function SettingsPage() {
 
   const ready = Boolean(profile && userId && prefs);
   const homeHref = role === 'host' ? '/host-home' : '/client-home';
-  const pageClass = `${ready ? '' : 'is-loading '}${ready && view !== 'list' ? 'has-selection ' : ''}${mobileDetail ? 'mobile-detail' : ''}`.trim();
+  const pageClass = `${ready ? '' : 'is-loading '}${ready && view !== 'list' ? 'has-selection ' : ''}${mobileDetail ? 'mobile-detail ' : ''}${nav ? `nav-${nav}` : ''}`.trim();
 
   let section: React.ReactNode = null;
   if (ready && userId) {
@@ -299,7 +305,7 @@ export default function SettingsPage() {
     } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} isHost={role === 'host'} onBack={back} notify={notify} />;
     else if (view === 'chats') section = <ChatsSection role={role === 'host' ? 'host' : 'client'} onBack={back} />;
     else if (view === 'display') section = <DisplaySection userId={userId} onBack={back} />;
-    else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} onPassword={() => { setOpenPassword(true); show('account'); }} />;
+    else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} notify={notify} onPassword={() => { setOpenPassword(true); show('account'); }} />;
     else if (view === 'support') section = <SupportSection onBack={back} />;
     else if (view === 'login-accounts') section = <LoginAccountsSection userId={userId} onBack={back} onDelete={() => setDeleting(true)} notify={notify} onLogout={logout} />;
   }

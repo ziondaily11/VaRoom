@@ -77,11 +77,17 @@ export function DetailHead({ title, onBack }: { title: string; onBack: () => voi
 }
 
 /** An info row: icon, label and value, optionally a chevron (clickable). */
-export function InfoRow({ icon: rowIcon, label, value, danger, onClick, id, valueStyle }: {
+/** A settings row; with onClick it is a keyboard-reachable button, and `expanded` says whether its panel is open. */
+export function InfoRow({ icon: rowIcon, label, value, danger, onClick, id, valueStyle, expanded, controls }: {
   icon: React.ReactNode; label: string; value?: React.ReactNode; danger?: boolean; onClick?: () => void; id?: string; valueStyle?: React.CSSProperties;
+  expanded?: boolean; controls?: string;
 }) {
+  const button = onClick ? {
+    role: 'button', tabIndex: 0, 'aria-expanded': expanded, 'aria-controls': controls,
+    onKeyDown: (event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } },
+  } : {};
   return (
-    <div className={`info-row${onClick ? ' clickable' : ''}${danger ? ' danger' : ''}`} id={id} onClick={onClick}>
+    <div className={`info-row${onClick ? ' clickable' : ''}${danger ? ' danger' : ''}`} id={id} onClick={onClick} {...button}>
       <span className="info-icon">{rowIcon}</span>
       <span className="info-main">
         <span className="info-label">{label}</span>

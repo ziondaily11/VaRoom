@@ -1,5 +1,6 @@
 // Styles for /settings, ported from legacy-pages/settings.html and scoped
-// under .settings-page. The legacy sidebar rules are dropped (the app shell
+// under .settings-page. Grouped white cards on a warm page (Apple-style
+// Settings); motion follows animation.md with a reduced-motion fallback at the end. The legacy sidebar rules are dropped (the app shell
 // renders its own sidebar); class names are kept so the shell's legacy-page
 // rules (shellStyles.ts) apply unchanged.
 
@@ -12,7 +13,8 @@ export const SETTINGS_STYLES = `
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
     --glass-shadow:0 24px 55px #E4E1DA;
-    --plan-box:#EEECE7; --plan-box-head:#E3E0DA; --plan-box-line:rgba(26,18,16,.08); --search-line:rgba(26,18,16,.2);
+    --plan-box:#FFFFFF; --plan-box-head:#F3F1ED; --plan-box-line:rgba(26,18,16,.08); --search-line:rgba(26,18,16,.2);
+    --card-shadow:0 1px 2px rgba(26,18,16,.04), 0 6px 20px -14px rgba(26,18,16,.22);
   }
   html[data-theme="dark"] .settings-page{
     --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --line:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.14); --row-hover:rgba(255,255,255,.05);
@@ -20,11 +22,12 @@ export const SETTINGS_STYLES = `
     --glass-border:rgba(255,255,255,.14);
     --glass-shadow:none;
     --plan-box:#141414; --plan-box-head:#232323; --plan-box-line:rgba(255,255,255,.07); --search-line:rgba(255,255,255,.2);
+    --card-shadow:none;
   }
   .settings-page, .settings-page :where(:not(.settings-chats *)){ margin:0; padding:0; box-sizing:border-box; }
   .settings-page{
     font-family:var(--font-body); color:var(--ink); min-height:100vh; overflow-x:hidden;
-    transition:background .2s ease, color .2s ease;
+    transition:background var(--motion-quick,200ms) var(--ease-out,ease), color var(--motion-quick,200ms) var(--ease-out,ease);
     background:var(--paper);
   }
   .settings-page a{ color:inherit; text-decoration:none; }
@@ -99,7 +102,7 @@ export const SETTINGS_STYLES = `
   .settings-page .skeleton-search-placeholder{ width:7.3rem; height:.8rem; border-radius:4px; }
   .settings-page .skeleton-cat-row{
     display:flex; align-items:center; gap:1rem; min-height:0; width:100%;
-    padding:1rem .75rem; border-bottom:1px solid var(--line);
+    padding:.85rem .75rem; margin-bottom:2px;
   }
   .settings-page .skeleton-nav-icon{
     display:flex; align-items:center; justify-content:center; width:30px; height:30px;
@@ -141,22 +144,24 @@ export const SETTINGS_STYLES = `
   }
   .settings-page .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:1.5rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
   .settings-page .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
-  .settings-page .detail-back:hover{ background:rgba(255,255,255,.08); }
+  .settings-page .detail-back{ transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
+  @media (hover:hover){ .settings-page .detail-back:hover{ background:var(--row-hover); } }
   .settings-page .detail-title{ font-family:var(--font-display); font-weight:700; font-size:1.45rem; }
   .settings-page .detail-sub{ color:var(--muted); font-size:.88rem; margin:-.5rem 0 1.4rem; }
   
   /* ---------- Category list (main screen) ---------- */
   
   .settings-page .cat-list{ display:flex; flex-direction:column; }
+  /* Rows are pills: the open section is a soft highlight (no divider lines). */
+  .settings-page .cat-list{ gap:2px; }
   .settings-page .cat-row{
     display:flex; align-items:center; gap:1rem; background:transparent;
-    border:none; border-bottom:1px solid var(--line); border-radius:0; padding:1rem .75rem; text-align:left; width:100%;
+    border:none; border-radius:12px; padding:.85rem .75rem; text-align:left; width:100%;
   }
-  .settings-page .cat-row:last-child{ border-bottom:none; }
-  .settings-page .cat-row{ position:relative; transition:background .15s ease; }
-  .settings-page .cat-row:hover{ background:var(--row-hover); }
+  .settings-page .cat-row{ position:relative; transition:background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }
+  @media (hover:hover){ .settings-page .cat-row:not(.disabled):not(.active):hover{ background:var(--row-hover); } }
+  .settings-page .cat-row:not(.disabled):active{ transform:scale(var(--press-scale,.97)); }
   .settings-page .cat-row.active{ background:var(--nav-active-bg); }
-  .settings-page .cat-row.active::before{ content:''; position:absolute; left:0; top:.6rem; bottom:.6rem; width:3px; border-radius:0 3px 3px 0; background:var(--red); }
   .settings-page .cat-row.active .cat-title{ font-weight:700; }
   .settings-page .cat-row.active .cat-icon{ color:var(--red); }
   .settings-page .cat-row.disabled{ opacity:.55; cursor:default; }
@@ -174,7 +179,7 @@ export const SETTINGS_STYLES = `
     font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
     background:var(--line); color:var(--muted); padding:.15rem .5rem; border-radius:100px;
   }
-  .settings-page .soon-divider{ display:flex; align-items:center; gap:.7rem; margin:.8rem 0 -.1rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .settings-page .soon-divider{ display:flex; align-items:center; gap:.7rem; margin:.8rem 0 .2rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
   .settings-page .soon-divider::before, .settings-page .soon-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
   
   /* ---------- Shared detail-view building blocks ---------- */
@@ -182,13 +187,14 @@ export const SETTINGS_STYLES = `
   .settings-page .settings-section{ margin-bottom:2.2rem; }
 
   /* The grey box (Plans & Billing style), used by every section. */
-  .settings-page .plan-box{ background:var(--plan-box); border-radius:16px; overflow:hidden; margin-bottom:1.1rem; }
+  .settings-page .plan-box{ background:var(--plan-box); border:1px solid var(--plan-box-line); border-radius:16px; overflow:hidden; margin-bottom:1.1rem; box-shadow:var(--card-shadow); }
   .settings-page .plan-box-head{ display:flex; align-items:center; gap:.55rem; padding:.85rem 1.4rem; border-bottom:1px solid var(--plan-box-line); font-size:.9rem; font-weight:700; }
   .settings-page .plan-box-head svg{ color:var(--muted); flex-shrink:0; }
   .settings-page .plan-box-body{ padding:1.3rem 1.4rem 1.4rem; }
   .settings-page .plan-box :is(.info-row, .toggle-row, .team-row, .dashboard-account){ padding-left:1.4rem; padding-right:1.4rem; border-bottom-color:var(--plan-box-line); }
-  .settings-page .plan-box .expand-panel{ padding:0 1.4rem 1.2rem; border-bottom-color:var(--plan-box-line); }
-  .settings-page .plan-box .info-row.clickable:hover{ background:var(--plan-box-head); }
+  .settings-page .plan-box .expand-pad{ padding:0 1.4rem 1.2rem; }
+  .settings-page .plan-box .expand-panel{ border-bottom-color:var(--plan-box-line); }
+  @media (hover:hover){ .settings-page .plan-box .info-row.clickable:hover{ background:var(--plan-box-head); } }
   .settings-page .plan-box .info-icon{ border:none; background:var(--plan-box-head); border-radius:10px; width:36px; height:36px; }
   .settings-page .plan-box-body + :is(.team-row, .dashboard-account){ border-top:1px solid var(--plan-box-line); }
   .settings-page .plan-box .team-empty{ margin:0; padding:1rem 1.4rem; }
@@ -203,7 +209,7 @@ export const SETTINGS_STYLES = `
   @media (max-width:600px){
     .settings-page .plan-box-head, .settings-page .plan-box-body{ padding-left:1.1rem; padding-right:1.1rem; }
     .settings-page .plan-box :is(.info-row, .toggle-row, .team-row, .dashboard-account){ padding-left:1.1rem; padding-right:1.1rem; }
-    .settings-page .plan-box .expand-panel{ padding-left:1.1rem; padding-right:1.1rem; }
+    .settings-page .plan-box .expand-pad{ padding-left:1.1rem; padding-right:1.1rem; }
   }
 
   /* Dark: fields in a box take the box's heavier grey (not black); a border only while typing.
@@ -214,7 +220,7 @@ export const SETTINGS_STYLES = `
 
   /* Chats (the shared Chat Settings, in grey boxes here). */
   .settings-page .settings-chats .cs{ padding:0; font-family:inherit; --cs-text:var(--ink); --cs-muted:var(--muted); --cs-divider:var(--plan-box-line); --cs-hover:var(--plan-box-head); --cs-bg:var(--paper); }
-  .settings-page .settings-chats .cs-section, .settings-page .settings-chats .cs-section:first-child{ padding:0; margin-bottom:1.1rem; background:var(--plan-box); border-radius:16px; }
+  .settings-page .settings-chats .cs-section, .settings-page .settings-chats .cs-section:first-child{ padding:0; margin-bottom:1.1rem; background:var(--plan-box); border:1px solid var(--plan-box-line); border-radius:16px; box-shadow:var(--card-shadow); }
   .settings-page .settings-chats .cs-section__title{ margin:0; padding:.85rem 1.4rem; border-bottom:1px solid var(--plan-box-line); font-size:.9rem; font-weight:700; letter-spacing:0; text-transform:none; color:var(--ink); }
   .settings-page .settings-chats .cs-section__list{ border-top:none; padding:.2rem 1.4rem .5rem; }
   .settings-page .settings-chats .cs-row__label{ font-size:.92rem; font-weight:600; }
@@ -227,8 +233,13 @@ export const SETTINGS_STYLES = `
     display:flex; align-items:center; gap:.9rem; padding:1rem 1.2rem; border-bottom:1px solid var(--line); cursor:default;
   }
   .settings-page .info-row:last-child{ border-bottom:none; }
-  .settings-page .info-row.clickable{ cursor:pointer; }
-  .settings-page .info-row.clickable:hover{ background:rgba(255,255,255,.05); }
+  .settings-page .info-row.clickable{ cursor:pointer; transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
+  @media (hover:hover){ .settings-page .info-row.clickable:hover{ background:var(--row-hover); } }
+  /* Rows sit inside rounded cards that clip overflow: their focus ring is drawn inside. */
+  .settings-page :is(.info-row.clickable, .cat-row, .cs-row):focus-visible{ outline:2px solid var(--ink); outline-offset:-2px; }
+  .settings-page .cat-row:focus-visible{ border-radius:12px; }
+  .settings-page .info-chevron{ transition:transform var(--motion-quick,200ms) var(--ease-in-out,ease-in-out); }
+  .settings-page .info-row.clickable[aria-expanded="true"] .info-chevron{ transform:rotate(90deg); }
   .settings-page .info-icon{ width:34px; height:34px; border-radius:9px; background:transparent; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
   .settings-page .info-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
   .settings-page .info-label{ font-size:.82rem; color:var(--muted); }
@@ -237,9 +248,13 @@ export const SETTINGS_STYLES = `
   .settings-page .info-main > .info-label:only-child{ font-size:.92rem; font-weight:600; color:var(--ink); }
   .settings-page .info-row.danger .info-icon{ color:var(--red-deep); }
   .settings-page .info-row.danger .info-label{ color:var(--red-deep); font-weight:600; }
-  .settings-page .expand-panel{ display:none; padding:0 1.2rem 1.1rem; border-bottom:1px solid var(--line); }
-  .settings-page .expand-panel.show{ display:block; }
+  /* Opens and closes smoothly by animating its grid row (animation.md C5). */
+  .settings-page .expand-panel{ display:grid; grid-template-rows:0fr; opacity:0; border-bottom:0 solid var(--line);
+    transition:grid-template-rows var(--motion-standard,250ms) var(--ease-in-out,ease-in-out), opacity var(--motion-quick,200ms) var(--ease-out,ease); }
+  .settings-page .expand-panel.show{ grid-template-rows:1fr; opacity:1; border-bottom-width:1px; }
   .settings-page .expand-panel:last-child{ border-bottom:none; }
+  .settings-page .expand-inner{ min-height:0; overflow:hidden; }
+  .settings-page .expand-pad{ padding:0 1.2rem 1.1rem; }
   .settings-page .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
   .settings-page .field:last-child{ margin-bottom:0; }
   .settings-page label:where(:not(.settings-chats *)){ font-size:.85rem; font-weight:600; }
@@ -250,14 +265,16 @@ export const SETTINGS_STYLES = `
   }
   .settings-page :is(input, select):where(:not(.settings-chats *)):focus{ outline:none; border-color:var(--ink); }
   .settings-page .btn{
-    background:var(--ink); color:var(--paper); padding:.7rem 1.15rem; border-radius:10px;
-    font-weight:600; font-size:.85rem; white-space:nowrap; transition:opacity .2s ease;
+    background:var(--ink); color:var(--paper); padding:.7rem 1.25rem; border-radius:999px;
+    font-weight:600; font-size:.85rem; white-space:nowrap;
+    transition:opacity var(--motion-micro,150ms) var(--ease-out,ease), background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease);
   }
-  .settings-page .btn:hover{ opacity:.82; }
+  @media (hover:hover){ .settings-page .btn:not(:disabled):hover{ opacity:.85; } }
+  .settings-page .btn:not(:disabled):active{ transform:scale(var(--press-scale,.97)); }
   .settings-page .btn:disabled{ opacity:.45; cursor:not-allowed; }
   .settings-page .btn-block{ width:100%; text-align:center; }
   .settings-page .btn-danger{ background:var(--red); color:var(--white); }
-  .settings-page .btn-danger:hover{ background:var(--red-deep); opacity:1; }
+  @media (hover:hover){ .settings-page .btn-danger:not(:disabled):hover{ background:var(--red-deep); opacity:1; } }
   .settings-page .btn-red-link{ color:var(--red-deep); font-weight:700; }
   .settings-page .btn-red-link:hover{ text-decoration:underline; }
   .settings-page .btn-ghost{ background:transparent; border:1.5px solid var(--line); color:var(--ink); }
@@ -301,16 +318,21 @@ export const SETTINGS_STYLES = `
   @media (max-width:560px){ .settings-page .field-pair{ grid-template-columns:1fr; } }
   .settings-page .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
   .settings-page .switch input{ opacity:0; width:0; height:0; }
+  /* On is red, like the Chats switches; the knob slides and stretches while pressed (animation.md B5). */
   .settings-page .switch-track{
     position:absolute; inset:0; background:var(--line); border-radius:100px;
-    transition:background .2s ease; cursor:pointer;
+    transition:background-color var(--motion-quick,200ms) var(--ease-out,ease); cursor:pointer;
   }
   .settings-page .switch-track::before{
     content:''; position:absolute; width:20px; height:20px; left:3px; top:3px;
-    background:var(--white); border-radius:50%; transition:transform .2s ease; box-shadow:0 1px 3px rgba(0,0,0,.25);
+    background:#fff; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.25);
+    transition:transform var(--motion-quick,200ms) var(--ease-in-out,ease-in-out), width var(--motion-press,120ms) var(--ease-out,ease);
   }
-  .settings-page .switch input:checked + .switch-track{ background:var(--ink); }
+  .settings-page .switch input:checked + .switch-track{ background:var(--red); }
   .settings-page .switch input:checked + .switch-track::before{ transform:translateX(18px); }
+  .settings-page .switch:active input:not(:disabled) + .switch-track::before{ width:24px; }
+  .settings-page .switch:active input:checked:not(:disabled) + .switch-track::before{ transform:translateX(14px); }
+  .settings-page .switch input:focus-visible + .switch-track{ outline:3px solid var(--ink); outline-offset:2px; }
   .settings-page .switch input:disabled + .switch-track{ opacity:.45; cursor:not-allowed; }
 
   /* Reach Out (Your Account, hosts) */
@@ -329,7 +351,9 @@ export const SETTINGS_STYLES = `
     display:flex; align-items:center; gap:.5rem;
     border:1.5px solid var(--line); border-radius:12px;
     padding:.7rem 1.1rem; font-size:.86rem; font-weight:600; color:var(--ink);
+    transition:border-color var(--motion-micro,150ms) var(--ease-out,ease), background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease);
   }
+  .settings-page .appearance-pill:active{ transform:scale(var(--press-scale,.97)); }
   .settings-page .appearance-pill.active{ border-color:var(--ink); background:var(--line); }
   .settings-page .username-field{ position:relative; }
   .settings-page .username-field input{ padding-right:2.6rem; }
@@ -448,6 +472,39 @@ export const SETTINGS_STYLES = `
   .settings-page .mobile-only-chevron{ display:none; }
   @media (max-width:860px){
     .settings-page .mobile-only-chevron{ display:flex; }
+    /* Phones: the list is its own screen, so no row looks open there. */
+    .settings-page .cat-row.active{ background:transparent; }
+    .settings-page .cat-row.active .cat-title{ font-weight:600; }
+    .settings-page .cat-row.active .cat-icon{ color:var(--ink); }
+  }
+
+  /* Your Account while the server decides: the shape of its rows. */
+  .settings-page .account-skeleton{ padding:.4rem 0; }
+  .settings-page .account-skeleton-row{ display:flex; align-items:center; gap:.9rem; padding:1rem 1.4rem; }
+  .settings-page .account-skeleton-icon{ width:36px; height:36px; border-radius:10px; flex-shrink:0; }
+  .settings-page .account-skeleton-text{ flex:1; display:flex; flex-direction:column; gap:.45rem; }
+  .settings-page .account-skeleton-text .skeleton-nav-title{ width:38%; height:.8rem; }
+  .settings-page .account-skeleton-text .skeleton-nav-title.is-short{ width:22%; height:.65rem; }
+
+  /* Moving between sections (animation.md C4): wide screens fade the new section in;
+     phones slide a section in from the right and the list back in from the left. */
+  .settings-page #settings-page.nav-forward > [id^="view-"]:not(#view-list),
+  .settings-page #settings-page.nav-back > [id^="view-"]:not(#view-list){ animation:settings-pane-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+  @keyframes settings-pane-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  @keyframes settings-from-right{ from{ opacity:0; transform:translateX(24px); } to{ opacity:1; transform:none; } }
+  @keyframes settings-from-left{ from{ opacity:0; transform:translateX(-24px); } to{ opacity:1; transform:none; } }
+  @media (max-width:860px){
+    .settings-page #settings-page.nav-forward.mobile-detail > [id^="view-"]:not(#view-list){ animation:settings-from-right var(--motion-standard,250ms) var(--ease-out,ease) both; }
+    .settings-page #settings-page.nav-back:not(.mobile-detail) #view-list{ animation:settings-from-left var(--motion-standard,250ms) var(--ease-out,ease) both; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .settings-page .cat-row, .settings-page .btn, .settings-page .appearance-pill, .settings-page .info-row.clickable, .settings-page .info-chevron,
+    .settings-page .expand-panel, .settings-page .switch-track, .settings-page .switch-track::before{ transition:none; }
+    .settings-page .cat-row:active, .settings-page .btn:active, .settings-page .appearance-pill:active{ transform:none; }
+    .settings-page .switch:active input + .switch-track::before{ width:20px; }
+    .settings-page .switch:active input:checked + .switch-track::before{ transform:translateX(18px); }
+    .settings-page #settings-page > [id^="view-"], .settings-page #settings-page #view-list{ animation:none !important; }
   }
   
 `;

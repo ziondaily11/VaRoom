@@ -78,12 +78,14 @@ test('your account: locked only on risk; a verification lasts for the session; p
 
   const section = read('components', 'settings', 'AccountSection.tsx');
   assert.doesNotMatch(section, /signInWithPassword|createClient\(SUPABASE_URL/, 'no browser-side password check');
-  assert.match(section, /: props\.checking\r?\n\s+\? <div className="settings-section" aria-busy="true">/, 'no lock flash while the server decides');
+  assert.match(section, /: props\.checking\r?\n\s+\? <AccountSkeleton onBack=\{props\.onBack\} \/>/, 'no lock flash while the server decides');
+  assert.match(section, /function AccountSkeleton[\s\S]*?aria-busy="true"[\s\S]*?account-skeleton-row/, 'a skeleton of the rows, not a blank page');
   assert.match(section, /\(error as \{ code\?: string \}\)\.code === 'reauthentication_needed'/, 'old sessions change the password with an emailed code');
   assert.match(section, /client\.auth\.updateUser\(codeSent \? \{ password: newPassword, nonce: code\.trim\(\) \} : \{ password: newPassword \}\)/);
   const page = read('pages', 'settings.tsx');
-  assert.match(page, /const remembered = rememberedUnlock\(sessionStore\(\), sessionId\);/);
-  assert.match(page, /\}, \[sessionId, unlock\]\);/, 'asked once per session, not on every token refresh');
+  assert.match(page, /const remembered = sessionId \? rememberedUnlock\(sessionStore\(\), sessionId\) : null;/);
+  assert.match(page, /\}, \[hasToken, sessionId, unlock\]\);/, 'asked once per session, not on every token refresh');
+  assert.match(page, /if \(!hasToken \|\| !tokenRef\.current\) return undefined;/, 'a token without a session id is still asked (never a blank page)');
   assert.match(page, /window\.setTimeout\(\(\) => setLock\('locked'\), Math\.max\(0, unlockedUntil - Date\.now\(\)\)\)/);
 
   // Account Information is edited here (no redirect to /profile).
@@ -250,4 +252,30 @@ test('username: checked as you type, with a spinner, before it can be saved', ()
   assert.match(section, /const blocked = isUsername && \(availability === 'checking' \|\| availability === 'taken'\);/);
   assert.match(section, /disabled=\{saving \|\| blocked\}/);
   assert.match(section, /role="status" aria-live="polite"/);
+});
+
+test('settings polish: smooth panels, keyboard rows, privacy saves on change, motion with a reduced-motion fallback', () => {
+  const box = read('components', 'settings', 'SettingsBox.tsx');
+  assert.match(box, /export function ExpandPanel/);
+  assert.match(box, /aria-hidden=\{!open\} inert=\{!open\}/, 'a closed panel is out of the tab order');
+  const account = read('components', 'settings', 'AccountSection.tsx');
+  assert.doesNotMatch(account, /className=\{`expand-panel/, 'every panel uses ExpandPanel');
+  for (const id of ['email-panel', 'password-panel', 'deactivate-panel', 'delete-confirm']) assert.match(account, new RegExp(`controls="${id}"`), id);
+  const icons = read('components', 'settings', 'SettingsIcons.tsx');
+  assert.match(icons, /role: 'button', tabIndex: 0, 'aria-expanded': expanded/, 'clickable rows work from the keyboard');
+  const sections = read('components', 'settings', 'SettingsSections.tsx');
+  assert.doesNotMatch(sections.slice(sections.indexOf('export function PrivacySection')), /className="btn" onClick=\{save\}>Save</, 'no separate Save button');
+  assert.match(sections, /const error = await savePreferences\(client, userId, \{ \[key\]: next \}\);/, 'each privacy choice saves on its own');
+  assert.match(sections, /setValues\(\(current\) => \(\{ \.\.\.current, \[key\]: previous \}\)\);/, 'a failed save puts the old choice back');
+  assert.match(sections, /<SettingsBox title="Notify me about" icon=\{INFO_ICONS\.bell\}>/);
+  const page = read('pages', 'settings.tsx');
+  assert.match(page, /setNav\(next === 'list' \? 'back' : 'forward'\);/);
+  const styles = read('components', 'settings', 'settingsStyles.ts');
+  assert.match(styles, /\.expand-panel\{ display:grid; grid-template-rows:0fr;/);
+  assert.match(styles, /\.switch input:checked \+ \.switch-track\{ background:var\(--red\); \}/);
+  assert.match(styles, /nav-forward\.mobile-detail > \[id\^="view-"\]:not\(#view-list\)\{ animation:settings-from-right/);
+  assert.match(styles, /nav-back:not\(\.mobile-detail\) #view-list\{ animation:settings-from-left/);
+  assert.match(styles, /@media \(max-width:860px\)\{[\s\S]*?\.cat-row\.active\{ background:transparent; \}/, 'on phones the list never shows a section as open');
+  const reduced = styles.slice(styles.lastIndexOf('@media (prefers-reduced-motion:reduce)'));
+  for (const sel of ['.expand-panel', '.switch-track::before', '.btn:active', '#view-list{ animation:none']) assert.ok(reduced.includes(sel.replace('{ animation:none', '')), sel);
 });
