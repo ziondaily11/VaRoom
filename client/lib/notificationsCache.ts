@@ -22,11 +22,13 @@ export interface CachedNotificationsResult {
 }
 
 export interface NotificationDetails {
-  category: 'booking' | 'other';
+  /** The Notifications tab it belongs to. */
+  category: 'booking' | 'message' | 'other';
   title: string;
   tint: string;
   tag: string;
-  iconKind: 'approved' | 'declined' | 'request';
+  /** Booking requests show a calendar, messages a speech bubble, reviews a star, team invitations people. */
+  iconKind: 'approved' | 'declined' | 'request' | 'message' | 'review' | 'team' | 'update';
 }
 
 // Notifications are mutable and event-driven; 30 seconds fresh TTL
@@ -123,7 +125,7 @@ export function detailsFor(type: string): NotificationDetails {
     return { category: 'booking', title: 'New Booking Request', tint: 'tint-red', tag: 'Booking', iconKind: 'request' };
   }
   if (type === 'new_message') {
-    return { category: 'other', title: 'New message', tint: 'tint-amber', tag: 'Message', iconKind: 'request' };
+    return { category: 'message', title: 'New message', tint: 'tint-amber', tag: 'Message', iconKind: 'message' };
   }
   if (type === 'new_review' || type === 'review_published') {
     return {
@@ -131,11 +133,11 @@ export function detailsFor(type: string): NotificationDetails {
       title: type === 'new_review' ? 'New review' : 'Review published',
       tint: 'tint-green',
       tag: 'Review',
-      iconKind: 'approved',
+      iconKind: 'review',
     };
   }
-  if (type === 'team_invite') return { category: 'other', title: 'Team invitation', tint: 'tint-black', tag: 'Team', iconKind: 'request' };
-  return { category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'request' };
+  if (type === 'team_invite') return { category: 'other', title: 'Team invitation', tint: 'tint-black', tag: 'Team', iconKind: 'team' };
+  return { category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'update' };
 }
 
 export function notificationTarget(notification: NotificationItem, role: 'host' | 'client'): string | null {
