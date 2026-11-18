@@ -1,4 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { usePresence } from '../../lib/motion/usePresence';
+import { CHAT_MODAL_EXIT_MS } from '../../lib/chat/sheets';
 import type { ChatListingSummary } from '../../lib/chatCache';
 import { cachedImageUrl, listingVideo, type ChatApi, type ListingVideo } from '../../lib/chat/chatMedia';
 import { getSupabaseClient } from '../../lib/supabase/client';
@@ -71,6 +73,8 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
   /** Sends the selected listings; the dialog closes when it resolves and stays open if it rejects. */
   onShare: (listings: ChatListingSummary[]) => Promise<void>;
 }) {
+  // Stays mounted through its exit (animation.md §8.3; chats.css .chat-modal.is-closing).
+  const { mounted, closing } = usePresence(open, CHAT_MODAL_EXIT_MS);
   const [listings, setListings] = useState<ChatListingSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -119,10 +123,10 @@ export default function ShareListingSheet({ open, userId, api, onClose, onShare 
     }
   };
 
-  if (!open) return null;
+  if (!mounted) return null;
   const count = selected.size;
   return (
-    <div className="chat-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={`chat-modal${closing ? ' is-closing' : ''}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section id="chatShareSheet" className="chat-modal-card chat-share" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="chat-modal-head">
           <div>

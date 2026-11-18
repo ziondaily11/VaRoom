@@ -9,6 +9,9 @@ import type { ChatApi } from './chatMedia';
  * Runs the dialog's action and closes it when that resolves. When it
  * rejects the dialog stays open to retry (the page reports the failure).
  */
+/** The Report and Share windows close in 200 ms (chats.css .chat-modal.is-closing; animation.md §8.3). */
+export const CHAT_MODAL_EXIT_MS = 200;
+
 export async function submitThenClose(action: () => Promise<void>, close: () => void): Promise<void> {
   try {
     await action();
