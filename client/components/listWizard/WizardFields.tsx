@@ -136,21 +136,66 @@ export function SpaceFields({ binding, copy, category, hotelMode }: { binding: F
     );
   }
   if (!stays) return null;
+  const number = (id: string, label: string, min: number, placeholder: string) => (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <input type="number" {...bind(binding, id)} min={min} step="1" inputMode="numeric" placeholder={placeholder} />
+    </div>
+  );
+  if (category === 'venue') {
+    return (
+      <div className="space-fields" id="space-fields">
+        <div className="field-row">
+          {number('venue-seated', 'Seated guests', 1, 'e.g. 80')}
+          {number('venue-standing', 'Standing guests', 1, 'e.g. 150')}
+        </div>
+        <p className="booking-hint">Fill in one or both. Guests searching by group size see the larger number.</p>
+      </div>
+    );
+  }
+  if (category === 'hotel') {
+    return (
+      <div className="space-fields" id="space-fields">
+        <div className="field" id="stay-room-type-field">
+          <label htmlFor="size-or-type" id="size-label">{copy.sizeLabel}</label>
+          <input type="text" {...bind(binding, 'size-or-type')} name="size-or-type" maxLength={300} placeholder={copy.sizePlaceholder} />
+        </div>
+        <div className="field-row">
+          {number('stay-beds', 'Beds', 1, 'e.g. 1')}
+          {number('max-guests', copy.maxGuestsLabel, 1, copy.maxGuestsPlaceholder)}
+        </div>
+        {number('hotel-rooms-available', 'Rooms of this type', 1, 'e.g. 12')}
+      </div>
+    );
+  }
+  const bedrooms = text(binding.fields, 'stay-bedrooms');
   return (
     <div className="space-fields" id="space-fields">
-      <div className="field" id="stay-room-type-field">
-        <label htmlFor="size-or-type" id="size-label">{copy.sizeLabel}</label>
-        <input type="text" {...bind(binding, 'size-or-type')} name="size-or-type" placeholder={copy.sizePlaceholder} />
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="stay-bedrooms">Bedrooms</label>
+          <select {...bind(binding, 'stay-bedrooms')}>
+            <option value="">Choose</option>
+            <option value="0">Studio</option>
+            {STAY_BEDROOMS.map((count) => <option key={count} value={String(count)}>{count}</option>)}
+            {/* A count above the list (an older value). */}
+            {bedrooms && !['0', ...STAY_BEDROOMS.map(String)].includes(bedrooms) && <option value={bedrooms}>{bedrooms}</option>}
+          </select>
+        </div>
+        {number('stay-beds', 'Beds', 1, 'e.g. 2')}
       </div>
-      <div className="field">
-        <label htmlFor="max-guests" id="max-guests-label">{copy.maxGuestsLabel}</label>
-        <input type="number" {...bind(binding, 'max-guests')} min="1" placeholder={copy.maxGuestsPlaceholder} />
+      <div className="field-row">
+        {number('stay-bathrooms', 'Bathrooms', 1, 'e.g. 1')}
+        {number('max-guests', copy.maxGuestsLabel, 1, copy.maxGuestsPlaceholder)}
       </div>
     </div>
   );
 }
 
 // ---------- Step 5: price and terms ----------
+
+/** Airbnb bedrooms after Studio (0). */
+const STAY_BEDROOMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const BEDROOM_TYPES = ['Bedsitter', 'Studio', '1 bedroom', '2 bedrooms', '3 bedrooms', '4 bedrooms', '5 bedrooms'];
 

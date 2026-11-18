@@ -20,6 +20,12 @@ export interface BookingDetails {
   size_or_type?: string | null;
   bathrooms?: number | null;
   units_available?: number | null;
+  /** Airbnb and hotel: bedrooms (0 = studio) and beds; venues: seated and standing guests. */
+  bedrooms?: number | null;
+  beds?: number | null;
+  seated_capacity?: number | null;
+  standing_capacity?: number | null;
+  max_guests?: number | null;
   amenities?: string[] | null;
   cleaning_fee?: number | null;
   available_from?: string | null;
@@ -416,6 +422,39 @@ export const bookingFailureText = (message: string) => (message.startsWith('book
 
 export const nightsBetween = (start: string, end: string) => Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000);
 export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/**
+ * What a stay or venue is like, as booking-page chips: Airbnb bedrooms, beds,
+ * bathrooms and guests; hotel room type, beds, guests and rooms of this type;
+ * venue seated and standing guests. Listings saved before these numbers
+ * existed show their free-text size_or_type instead.
+ */
+export function spaceChips(category: string | null, details: Pick<BookingDetails, 'size_or_type' | 'bedrooms' | 'beds' | 'bathrooms' | 'max_guests' | 'units_available' | 'seated_capacity' | 'standing_capacity'>): string[] {
+  const count = (value: unknown) => (value != null && Number(value) >= 0 ? Number(value) : null);
+  const bedrooms = count(details.bedrooms);
+  const beds = count(details.beds);
+  const baths = count(details.bathrooms);
+  const guests = count(details.max_guests);
+  const chips: Array<string | null> = [];
+  if (category === 'airbnb') {
+    chips.push(bedrooms === null ? null : bedrooms === 0 ? 'Studio' : plural(bedrooms, 'bedroom'));
+    chips.push(beds ? plural(beds, 'bed') : null, baths ? plural(baths, 'bathroom') : null);
+    if (bedrooms === null && !beds && details.size_or_type) chips.unshift(details.size_or_type);
+  } else if (category === 'hotel') {
+    chips.push(details.size_or_type || null, beds ? plural(beds, 'bed') : null);
+  } else if (category === 'venue') {
+    const seated = count(details.seated_capacity);
+    const standing = count(details.standing_capacity);
+    chips.push(seated ? `Seats ${seated}` : null, standing ? `${standing} standing` : null);
+    if (!seated && !standing && details.size_or_type) chips.push(details.size_or_type);
+    return chips.filter((chip): chip is string => Boolean(chip));
+  } else {
+    return details.size_or_type ? [details.size_or_type] : [];
+  }
+  chips.push(guests ? `Up to ${plural(guests, 'guest')}` : null);
+  if (category === 'hotel') { const rooms = count(details.units_available); chips.push(rooms ? `${plural(rooms, 'room')} of this type` : null); }
+  return chips.filter((chip): chip is string => Boolean(chip));
+}
 
 // ---------- Prices ----------
 

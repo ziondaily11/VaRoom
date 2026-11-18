@@ -62,3 +62,16 @@ test('property category assigns listing_purpose correctly', () => {
     assert.equal(payload.listing_purpose, purpose);
   });
 });
+
+test('stay and venue details: allowed keys, ranges and the listing types they belong to', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
+  assert.match(source, /'bedrooms', 'beds', 'seated_capacity', 'standing_capacity',/);
+  assert.match(source, /key === 'bedrooms'\) \{\s*detailUpdate\[key\] = value === null \? null : number\(value, key, \{ integer: true, min: 0, max: 100 \}\);/);
+  assert.match(source, /key === 'beds'\) \{\s*detailUpdate\[key\] = value === null \? null : number\(value, key, \{ integer: true, min: 1, max: 500 \}\);/);
+  assert.match(source, /units_available: \['property', 'hotel'\],\s*rooms: \['airbnb', 'hotel'\],\s*bathrooms: \['property', 'airbnb', 'hotel'\],/);
+  assert.match(source, /listing\.category !== 'venue' && \['seated_capacity', 'standing_capacity'\]\.some\(has\)/);
+  const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261120_000075_stay_and_venue_details.sql'), 'utf8');
+  for (const column of ['bedrooms', 'beds', 'seated_capacity', 'standing_capacity']) assert.match(migration, new RegExp(`add column if not exists ${column} integer`), column);
+});

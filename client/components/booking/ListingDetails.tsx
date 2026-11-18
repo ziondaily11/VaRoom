@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MESSAGES, reviewCount, reviewsOptional, type BookingKind, type BookingListing, type ReviewsResult } from '../../lib/booking/bookingListing';
+import { MESSAGES, reviewCount, reviewsOptional, spaceChips, type BookingKind, type BookingListing, type ReviewsResult } from '../../lib/booking/bookingListing';
 import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
 import { recordListingEvent, type ListingEventType } from '../../lib/analytics/listingEvents';
 import { getSupabaseClient } from '../../lib/supabase/client';
@@ -149,7 +149,8 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
   }
   if (officeShop && officeShop.subtype) chips.push(commercialLabel(officeShop.subtype, SUBTYPE_LABELS) as string);
   // Offices and shops keep their subtype key in size_or_type: the label above already shows it.
-  if (details.size_or_type && !officeShop) chips.push(details.size_or_type);
+  if (listing.category === 'property') { if (details.size_or_type) chips.push(details.size_or_type); }
+  else if (!officeShop) chips.push(...spaceChips(listing.category, details));
 
   const hostName = listing.host.full_name || 'Host';
   const hostPhone = String(contact.phone || '').trim();

@@ -40,7 +40,7 @@ test('office and shop rentals: totals that follow the price unit, or "the host c
 });
 
 test('booking page: one office/shop type chip, opening hours with times, property deposit and utilities', () => {
-  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /if \(details\.size_or_type && !officeShop\) chips\.push/);
+  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /else if \(!officeShop\) chips\.push\(\.\.\.spaceChips\(listing\.category, details\)\)/, 'offices and shops: the subtype label only');
   assert.match(read('lib', 'booking', 'commercial.ts'), /value: openingHours\(amenities\.after_hours, amenities\.operational_accessible_hours\)/);
   const widget = read('components', 'booking', 'BookingWidget.tsx');
   assert.match(widget, /Deposit KES \$\{Number\(details\.deposit_amount\)\.toLocaleString\(\)\}/);
