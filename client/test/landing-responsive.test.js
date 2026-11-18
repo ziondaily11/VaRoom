@@ -168,11 +168,25 @@ test('the sign-in panel backdrop draws no border over the page', () => {
 
 test('landing page 3 fits one screen on laptops and desktops', () => {
   const css = read('components/landing/HostFeaturesSection.module.css');
-  const fit = css.slice(css.indexOf('@media (min-width: 1001px) and (min-height: 600px) {'));
-  assert.match(fit, /\.section \{\s*height: 100vh;\s*height: 100dvh;/);
-  assert.match(fit, /\.grid \{\s*flex: 1 1 auto;\s*min-height: 0;\s*grid-template-rows: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(fit, /\.visual \{\s*flex: 1 1 0;\s*height: auto;\s*min-height: 0;/);
-  // Pictures are size containers and drop detail as they get short.
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  const block = (query) => css.slice(css.indexOf(query));
+  // Every laptop and desktop: exactly one screen.
+  assert.match(block('@media (min-width: 1001px) and (min-height: 600px) {'), /\.section \{\s*height: 100vh;\s*height: 100dvh;/);
+  // Tall screens: two rows share the space.
+  const tall = block('@media (min-width: 1001px) and (min-height: 1040px) {');
+  assert.match(tall, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(tall, /\.visual \{\s*flex: 1 1 0;\s*height: auto;\s*min-height: 0;/);
+  // Shorter screens: one row of three full-size cards, arrows and dots for the rest.
+  const row = block('@media (min-width: 1001px) and (min-height: 600px) and (max-height: 1039.98px) {');
+  assert.match(row, /transform: translateX\(calc\(var\(--page, 0\) \* \(-100% - var\(--gap\)\)\)\);/);
+  assert.match(row, /\.card \{ flex: 0 0 calc\(\(100% - 2 \* var\(--gap\)\) \/ 3\); \}/);
+  assert.match(row, /\.visual \{ height: clamp\(170px, calc\(100dvh - 405px\), 250px\); \}/);
+  assert.match(row, /\.pager \{\s*display: flex;/);
+  assert.match(section, /aria-label="Previous host features"/);
+  assert.match(section, /aria-label="Next host features"/);
+  assert.match(section, /style=\{\{ '--page': page \} as React\.CSSProperties\}/);
+  // Pictures are size containers and drop detail as they get short; the photo tiles always stay.
   assert.match(css, /container-type: size;/);
   for (const h of [200, 170, 140, 110]) assert.match(css, new RegExp(`@container \\(max-height: ${h}px\\)`));
+  assert.doesNotMatch(css, /\.tiles \{ display: none; \}/);
 });

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import styles from './HostFeaturesSection.module.css';
 
 interface HostFeaturesSectionProps {
@@ -161,8 +161,17 @@ const FEATURES: Feature[] = [
   },
 ];
 
+const PAGES = 2; // On shorter laptop screens the cards show three at a time.
+const SWIPE_PX = 40;
+
 /** Page 3 of the landing page: what hosts get, as six product cards. */
-export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onListSpace }) => (
+export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onListSpace }) => {
+  // Which three cards show in the one-row layout (CSS decides when that layout applies).
+  const [page, setPage] = useState(0);
+  const swipeStart = useRef<number | null>(null);
+  const go = (next: number) => setPage(Math.max(0, Math.min(PAGES - 1, next)));
+
+  return (
   <section id="hosts" className={`snap-page ${styles.section}`} aria-labelledby="hosts-heading">
     <div className={styles.head}>
       <p className={styles.eyebrow}>For hosts</p>
@@ -173,6 +182,18 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
       <p className={styles.sub}>Listings, bookings, chats and analytics in one place.</p>
     </div>
 
+    <div
+      className={styles.viewport}
+      style={{ '--page': page } as React.CSSProperties}
+      onPointerDown={(event) => { if (event.pointerType !== 'mouse') swipeStart.current = event.clientX; }}
+      onPointerUp={(event) => {
+        if (swipeStart.current === null) return;
+        const dx = event.clientX - swipeStart.current;
+        swipeStart.current = null;
+        if (Math.abs(dx) >= SWIPE_PX) go(page + (dx < 0 ? 1 : -1));
+      }}
+      onPointerCancel={() => { swipeStart.current = null; }}
+    >
     <div className={styles.grid}>
       {FEATURES.map((feature) => (
         <article key={feature.title} className={`${styles.card} ${feature.tone}`}>
@@ -183,6 +204,37 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
           <p className={styles.cardText}>{feature.text}</p>
         </article>
       ))}
+    </div>
+    </div>
+
+    <div
+      className={styles.pager}
+      role="group"
+      aria-label="More host features"
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowLeft') { event.preventDefault(); go(page - 1); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); go(page + 1); }
+      }}
+    >
+      <button type="button" className={styles.arrow} onClick={() => go(page - 1)} disabled={page === 0} aria-label="Previous host features">
+        <ArrowLeft size={18} aria-hidden="true" />
+      </button>
+      <div className={styles.dots}>
+        {Array.from({ length: PAGES }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`${styles.pageDot}${i === page ? ` ${styles.pageDotOn}` : ''}`}
+            onClick={() => go(i)}
+            aria-label={`Show cards ${i * 3 + 1} to ${i * 3 + 3}`}
+            aria-current={i === page ? 'true' : undefined}
+          />
+        ))}
+      </div>
+      <button type="button" className={styles.arrow} onClick={() => go(page + 1)} disabled={page === PAGES - 1} aria-label="Next host features">
+        <ArrowRight size={18} aria-hidden="true" />
+      </button>
+      <span className={styles.srOnly} aria-live="polite">{`Cards ${page * 3 + 1} to ${page * 3 + 3} of 6`}</span>
     </div>
 
     <div className={styles.cta}>
@@ -198,4 +250,5 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
       </Link>
     </div>
   </section>
-);
+  );
+};

@@ -180,7 +180,7 @@
   display: grid;
   grid-template-columns: 1.3fr 1fr 1fr;
   gap: 6px;
-  min-height: 44px;
+  min-height: 36px;
 }
 
 .tile {
@@ -511,7 +511,6 @@
 @container (max-height: 110px) {
   .choices { display: none; }
   .quickReplies { display: none; }
-  .tiles { display: none; }
 }
 
 /* A narrow picture keeps the labels on one row. */
@@ -549,6 +548,66 @@
   text-decoration: none;
 }
 
+/* The arrows and dots for the one-row layout; hidden elsewhere. */
+.viewport {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.pager {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(24, 21, 19, 0.22);
+  border-radius: 999px;
+  background: transparent;
+  color: #181513;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.arrow:hover:not(:disabled) { background: rgba(24, 21, 19, 0.06); border-color: rgba(24, 21, 19, 0.4); }
+.arrow:focus-visible { outline: 2px solid #bd2337; outline-offset: 2px; }
+.arrow:disabled { opacity: 0.35; cursor: default; }
+
+.dots { display: flex; gap: 8px; }
+
+.pageDot {
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(24, 21, 19, 0.2);
+  cursor: pointer;
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+}
+
+.pageDot:focus-visible { outline: 2px solid #bd2337; outline-offset: 3px; }
+.pageDotOn { width: 22px; background: #181513; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 /* Laptops and desktops: the whole section on one screen. */
 @media (min-width: 1001px) and (min-height: 600px) {
   .section {
@@ -562,16 +621,37 @@
   .headline { font-size: clamp(1.9rem, min(4vw, 5.4vh), 3.6rem); }
   .sub { margin-top: clamp(6px, 1.2vh, 14px); font-size: clamp(0.9375rem, 2vh, 1.1875rem); }
 
+  .card {
+    min-height: 0;
+    padding: clamp(14px, 2.2vh, 24px) clamp(16px, 1.6vw, 24px);
+  }
+
+  .cardTitle {
+    margin: clamp(12px, 1.8vh, 20px) 0 clamp(4px, 0.6vh, 6px);
+    font-size: clamp(1.0625rem, 2.2vh, 1.375rem);
+  }
+
+  .cardText {
+    font-size: clamp(0.875rem, 1.7vh, 1rem);
+    line-height: 1.45;
+  }
+
+  .cta { margin-top: clamp(12px, 2.2vh, 32px); }
+}
+
+/* Tall screens (1040 px and up): two rows of three, pictures about 200 px or more. */
+@media (min-width: 1001px) and (min-height: 1040px) {
+  .viewport {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+  }
+
   .grid {
     flex: 1 1 auto;
     min-height: 0;
     grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: clamp(10px, 1.6vh, 22px) clamp(12px, 1.4vw, 22px);
-  }
-
-  .card {
-    min-height: 0;
-    padding: clamp(12px, 1.9vh, 24px) clamp(14px, 1.4vw, 24px);
+    gap: clamp(14px, 1.8vh, 22px) clamp(14px, 1.4vw, 22px);
   }
 
   .visual {
@@ -579,18 +659,46 @@
     height: auto;
     min-height: 0;
   }
+}
 
-  .cardTitle {
-    margin: clamp(10px, 1.6vh, 18px) 0 clamp(3px, 0.5vh, 6px);
-    font-size: clamp(1.0625rem, 2.2vh, 1.375rem);
+/*
+ * Shorter laptop screens: one row of three full-size cards; the arrows and
+ * dots show the other three. The pictures keep the full card look (up to
+ * 250 px) instead of being squeezed into two short rows.
+ */
+@media (min-width: 1001px) and (min-height: 600px) and (max-height: 1039.98px) {
+  .viewport {
+    --gap: clamp(14px, 1.4vw, 22px);
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .cardText {
-    font-size: clamp(0.8125rem, 1.7vh, 1rem);
-    line-height: 1.42;
+  .grid {
+    display: flex;
+    gap: var(--gap);
+    max-width: none;
+    transform: translateX(calc(var(--page, 0) * (-100% - var(--gap))));
+    transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .cta { margin-top: clamp(12px, 2.2vh, 32px); }
+  .card { flex: 0 0 calc((100% - 2 * var(--gap)) / 3); }
+
+  .visual { height: clamp(170px, calc(100dvh - 405px), 250px); }
+
+  .pager {
+    display: flex;
+    flex: none;
+    margin-top: clamp(10px, 1.8vh, 18px);
+  }
+
+  .cta { margin-top: clamp(10px, 1.8vh, 20px); }
+}
+
+@media (min-width: 1001px) and (min-height: 600px) and (max-height: 1039.98px) and (prefers-reduced-motion: reduce) {
+  .grid { transition: none; }
 }
 
 /* Short laptop screens: the line under the heading goes, the cards keep their words. */
