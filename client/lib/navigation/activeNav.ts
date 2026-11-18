@@ -14,6 +14,8 @@ export function hostActiveNav(pathname: string, rawAsPath: string, view: string 
   if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) return 'notifications';
   if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/') || currentPath === '/[username]') return 'profile';
   if (asPath.startsWith('/analytics') || currentPath.startsWith('/analytics')) return 'analytics';
+  // The listing wizard belongs to "List a space".
+  if (asPath === '/list' || asPath === '/properties' || currentPath === '/list') return 'list';
   if (asPath.startsWith('/settings') || currentPath.startsWith('/settings')) return 'settings';
   if (asPath.startsWith('/support') || currentPath.startsWith('/support')) return 'support';
   return 'home';

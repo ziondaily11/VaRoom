@@ -71,7 +71,7 @@ test('the office/shop choice marks only the chosen kind as selected', () => {
   assert.deepEqual(selected(render('office')), ['office']);
   assert.deepEqual(selected(render('airbnb')), []);
   const styles = fs.readFileSync(path.join(root, 'components', 'listWizard', 'listWizardStyles.ts'), 'utf8');
-  assert.match(styles, /\.office-shop-type button\.selected\{ border-color:#050505; background:#050505; color:#fff; \}/);
+  assert.match(styles, /\(\.office-shop-type button, \.hotel-offer-option, \.property-purpose-option, \.sale-mode-option\)\.selected\{ border-color:var\(--red\); background:var\(--red-tint\); \}/);
   assert.match(styles, /\.submit-row \[hidden\]\{ display:none !important; \}/);
 });
 
@@ -137,4 +137,29 @@ test('discarding removes the checkout copy, and nothing uses window.confirm or r
   assert.match(between('const discardAndLeave = async', '// ---------- Pay to list'), /if \(current\.listingId\) await current\.clearCheckoutState\(current\.listingId\)/);
   assert.doesNotMatch(page, /window\.confirm\(/);
   assert.doesNotMatch(page, /\/list\?edit=/);
+});
+
+test('wizard look: the app sidebar, one progress bar, messages in the page, scoped styles, motion', () => {
+  const page = fs.readFileSync(path.join(root, 'pages', 'list.tsx'), 'utf8');
+  assert.equal(fs.existsSync(path.join(root, 'components', 'listWizard', 'WizardChrome.tsx')), false, 'the wizard no longer draws its own sidebar');
+  assert.doesNotMatch(page, /WizardSidebar|WizardTopNav|correction-step|step-tracker|progress-ring/, 'one progress bar instead of three');
+  assert.match(page, /<WizardProgress step=\{step\} furthest=\{form\.furthestStep\} saveStatus=\{saveStatus\} onGo=\{jumpTo\} \/>/);
+  assert.doesNotMatch(page, /window\.alert|reportValidity\(\)/, 'no browser pop-ups');
+  assert.match(page, /report\(step, field, invalidMessage\(field\)\)/);
+  assert.match(page, /field\.setAttribute\('aria-invalid', 'true'\)/);
+  assert.match(page, /document\.addEventListener\('click', onClick, true\)/, 'Home in the app sidebar still asks to save or discard');
+  assert.match(page, /'a\[href="\/host-home"\], a\[href\^="\/host-home\?"\], \[data-nav="home"\], \[data-nav="my-listings"\]'/);
+  const frame = fs.readFileSync(path.join(root, 'components', 'listWizard', 'StepFrame.tsx'), 'utf8');
+  assert.match(frame, /export const STEP_LABELS = \['Basics', 'Location', 'Photos & amenities', 'Price & booking', 'Review'\]/);
+  assert.match(frame, /<StepAlert text=\{alert\} \/>/, 'the reason sits above Continue');
+  const styles = fs.readFileSync(path.join(root, 'components', 'listWizard', 'listWizardStyles.ts'), 'utf8');
+  for (const global of [/\n\s*\*\{/, /\n\s*body\{/, /\n\s*:root\{/, /\n\s*label\{/, /\n\s*input, textarea, select\{/, /\n\s*header\{/]) assert.doesNotMatch(styles, global, `no page-wide rule ${global}`);
+  assert.match(styles, /#listing-page\.nav-forward \.step-frame\.active \.step-panel > :not\(\.panel-actions\)\{ animation:lw-from-right/);
+  assert.match(styles, /#listing-page\.nav-back \.step-frame\.active \.step-panel > :not\(\.panel-actions\)\{ animation:lw-from-left/);
+  assert.match(styles, /\.step-panel\{ position:relative; min-width:0; min-height:0; overflow-y:auto;/, 'the form scrolls inside the card, buttons kept in view');
+  assert.match(styles, /\.panel-actions\{ position:fixed; z-index:20; left:0; right:0; bottom:calc\(4\.6rem/, 'on phones the buttons sit above the bottom bar');
+  assert.match(styles, /\.wz-progress-fill::after\{[^}]*transition:transform var\(--motion-standard,250ms\) var\(--ease-in-out/);
+  assert.match(styles, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*animation-duration:1ms !important/);
+  const copy = fs.readFileSync(path.join(root, 'lib', 'listWizard', 'copy.ts'), 'utf8');
+  assert.doesNotMatch(copy, /aboutEyebrow|Turn Your Space Into an Opportunity/);
 });

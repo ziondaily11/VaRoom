@@ -131,6 +131,8 @@ export const HOST_SHELL_STYLES = `
     transition: background .18s ease, transform .15s ease;
   }
   .host-app-layout .list-space-btn:hover { background: var(--red-deep, #8F1229) !important; color: #ffffff !important; }
+  /* On the listing wizard: a ring shows where you are. */
+  .host-app-layout .list-space-btn.active { box-shadow: 0 0 0 2px var(--shell-bg, #fff), 0 0 0 4px var(--red, #C41E3A); }
 
   /* Account menu popover */
   .host-app-layout .account-menu {

@@ -25,12 +25,12 @@ const PRICING_HEADINGS: Record<Category, string> = {
   office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.',
 };
 const HEADLINES: Record<Category, string> = {
-  airbnb: 'Turn Your Space Into an Opportunity',
-  hotel: 'Turn Your Space Into an Opportunity',
-  venue: "Let's list your first event venue.",
-  office: 'Turn Your Space Into an Opportunity',
-  shop: 'Turn Your Space Into an Opportunity',
-  property: 'Put Your Property on the Map',
+  airbnb: 'Tell guests about your place.',
+  hotel: 'Tell guests about your room.',
+  venue: 'Tell guests about your venue.',
+  office: 'Tell renters about your office.',
+  shop: 'Tell renters about your shop.',
+  property: 'Tell people about your property.',
 };
 
 const INTRO_PLACEHOLDERS: Record<'airbnb' | 'hotel' | 'venue' | 'commercial', { title: string; summary: string; description: string }> = {
@@ -56,14 +56,13 @@ const INTRO_PLACEHOLDERS: Record<'airbnb' | 'hotel' | 'venue' | 'commercial', { 
   },
 };
 
-const DEFAULT_ABOUT_SUB = 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.';
-const DEFAULT_LOCATION_SUB = 'Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.';
+const DEFAULT_ABOUT_SUB = 'Give it a clear title, then describe what makes it worth choosing.';
+const DEFAULT_LOCATION_SUB = 'Add the neighbourhood and city. You can add the exact location later.';
 const DEFAULT_PHOTO_HINT = 'Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.';
 
 /** Every label, heading and placeholder the steps show. */
 export interface WizardCopy {
   headline: string;
-  aboutEyebrow: string;
   aboutSub: string;
   titleLabel: string;
   titlePlaceholder: string;
@@ -96,7 +95,6 @@ export interface WizardCopy {
 export function wizardCopy(category: Category, hotelMode: HotelMode | null, purpose: PropertyPurpose, editMode: boolean): WizardCopy {
   const copy: WizardCopy = {
     headline: HEADLINES[category] || "Let's list your first space.",
-    aboutEyebrow: '01 — About the property',
     aboutSub: DEFAULT_ABOUT_SUB,
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. Modern 2-bedroom apartment in Kilimani',
@@ -104,9 +102,9 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     captionPlaceholder: 'e.g. A stylish city retreat with everything you need for a comfortable stay.',
     descriptionLabel: 'Description',
     descriptionPlaceholder: 'Describe the accommodation, rooms, amenities, atmosphere, location, and what makes the stay special.',
-    locationTitle: 'Help Guests Find Your Space',
+    locationTitle: 'Where is your space?',
     locationSub: DEFAULT_LOCATION_SUB,
-    locationLabel: 'neighbourhood, city',
+    locationLabel: 'Neighbourhood, city',
     locationPlaceholder: 'eg Westlands, Nairobi',
     mediaTitle: 'Showcase the property.',
     mediaSub: 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.',
@@ -131,7 +129,6 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
 
   if (category === 'hotel') {
     Object.assign(copy, {
-      aboutEyebrow: '01 — About the room',
       titleLabel: 'Room listing name',
       titlePlaceholder: 'e.g. Deluxe King Room at Westlands',
       captionLabel: 'Guest-facing highlight',
@@ -152,7 +149,6 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     });
     if (hotelMode === 'table') {
       Object.assign(copy, {
-        aboutEyebrow: '01 — About your dining space',
         titleLabel: 'Restaurant / dining name',
         pricingHeading: 'Set up table reservations.',
         bookingSub: 'Add the hours and table capacity guests need before sending a request.',
@@ -164,8 +160,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
 
   if (category === 'property') {
     Object.assign(copy, {
-      aboutEyebrow: '01 — About the property',
-      aboutSub: 'The right tenant or buyer could be looking for a property just like yours. Create your listing on VaRoom, showcase its potential, and make it easier for the right people to find it.',
+      aboutSub: 'Give it a clear name, then describe the property and its units.',
       mediaTitle: 'Showcase the property.',
       titleLabel: 'Property name',
       titlePlaceholder: 'e.g. Karen Villas, Amani Apartments, or Greenview Residences',
@@ -173,9 +168,9 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       captionPlaceholder: 'A calm executive residence with generous natural light and secure compound.',
       descriptionLabel: 'Property & unit details',
       descriptionPlaceholder: 'Tell buyers or tenants what they should know — available units, property/unit sizes, bedrooms and bathrooms, layout, notable compound features, location access, and terms before deciding to rent or buy.',
-      locationTitle: 'Bring Your Property Closer to the Right People',
-      locationSub: 'Every property search starts with a location. Tell us the neighbourhood, town, or area so prospective tenants and buyers can discover your property. You can add the exact location later.',
-      locationLabel: 'neighbourhood, county/city',
+      locationTitle: 'Where is your property?',
+      locationSub: 'Add the neighbourhood and town. You can add the exact location later.',
+      locationLabel: 'Neighbourhood, county or city',
       mediaSub: 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.',
       photoHint: DEFAULT_PHOTO_HINT,
       amenitiesLabel: 'Property features & amenities',
@@ -190,11 +185,10 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
 
   if (isOfficeShop(category)) {
     Object.assign(copy, {
-      aboutEyebrow: `01 — ${category === 'office' ? 'Office' : 'Shop'} details`,
       aboutSub: DEFAULT_ABOUT_SUB,
-      locationTitle: 'Put Your Business Space in the Right Place',
-      locationSub: 'Add the area where your property is located so businesses can discover a space that fits their customers, operations, and ambitions. You can provide the exact location later.',
-      locationLabel: 'neighbourhood, city',
+      locationTitle: 'Where is your space?',
+      locationSub: 'Add the neighbourhood and city, separated by a comma. You can add the exact location later.',
+      locationLabel: 'Neighbourhood, city',
       locationPlaceholder: 'eg Westlands, Nairobi',
       mediaTitle: 'Show the actual space.',
       mediaSub: 'Add at least one photo or video of the unit, then specify its work-ready features.',

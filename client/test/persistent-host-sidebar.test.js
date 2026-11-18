@@ -5,7 +5,7 @@ const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
 const { resolveAvatarUrl, resolveStoredPhotoUrl } = loadTs(path.join(__dirname, '..', 'components', 'resolveStoredPhotoUrl.ts'));
 const clientDir = path.join(__dirname, '..');
-const { getAccountLayout, getSessionBoundCachedRole } = loadTs(path.join(clientDir, 'lib', 'accountRoleLayout.ts'));
+const { getAccountLayout, getSessionBoundCachedRole, usesIconRail } = loadTs(path.join(clientDir, 'lib', 'accountRoleLayout.ts'));
 const { shellFrame, shellState, isShellSettled } = loadTs(path.join(clientDir, 'lib', 'shell', 'appShell.ts'));
 const { hostActiveNav, clientActiveNav, HOST_MORE_ITEMS } = loadTs(path.join(clientDir, 'lib', 'navigation', 'activeNav.ts'));
 const identity = loadTs(path.join(clientDir, 'lib', 'shell', 'shellIdentity.ts'));
@@ -74,7 +74,9 @@ test('host sidebar active item follows the route, Host Home views and the More m
   assert.equal(hostActiveNav('/analytics', '/analytics', ''), 'analytics');
   assert.equal(hostActiveNav('/settings', '/settings', ''), 'settings');
   assert.equal(hostActiveNav('/support', '/support', ''), 'support');
-  assert.equal(hostActiveNav('/list', '/list', ''), 'home', 'other routes fall back to Home');
+  assert.equal(hostActiveNav('/list', '/list', ''), 'list', 'the listing wizard marks List a space');
+  assert.equal(hostActiveNav('/list', '/properties', ''), 'list');
+  assert.equal(hostActiveNav('/pricing', '/pricing', ''), 'home', 'other routes fall back to Home');
   assert.deepEqual(HOST_MORE_ITEMS, ['analytics', 'settings', 'support', 'upgrade']);
 });
 
@@ -120,12 +122,18 @@ test('account layout per route and role: shell routes only, none until the role 
   }
   assert.equal(getAccountLayout('/bookings', '/bookings?tab=past', 'host'), 'host', 'query strings still match');
   assert.equal(getAccountLayout('/profile', '/profile/edit', 'client'), 'client', 'sub-paths still match');
-  for (const route of ['/', '/chats', '/list', '/support', '/bookingsx']) {
+  for (const route of ['/', '/chats', '/support', '/bookingsx']) {
     assert.equal(getAccountLayout(route, route, 'host'), 'none', route);
   }
   assert.equal(getAccountLayout('/analytics', '/analytics', 'host'), 'host', 'analytics keeps the persistent host shell');
   assert.equal(getAccountLayout('/analytics', '/analytics?listing=x', 'client'), 'none', 'analytics is host-only');
   assert.equal(getAccountLayout('/analytics', '/analytics', null), 'none', 'no shell variant before the role resolves');
+  // The listing wizard: host shell with the icon rail, like Analytics and Marketplace.
+  for (const [pathname, asPath] of [['/list', '/list'], ['/list', '/properties'], ['/list', '/list?listing=x']]) {
+    assert.equal(getAccountLayout(pathname, asPath, 'host'), 'host', asPath);
+    assert.equal(getAccountLayout(pathname, asPath, 'client'), 'none', `${asPath} is host-only`);
+    assert.equal(usesIconRail(pathname, asPath), true, `${asPath} uses the icon rail`);
+  }
 });
 
 test('the shell role comes only from a profile that belongs to the signed-in session', () => {
@@ -256,7 +264,8 @@ test('Video player treats pause-interrupted play requests separately from playba
 test('one mobile navigation: client items have no host tools and Client Home keeps its own bar', () => {
   assert.deepEqual(mobileNav.CLIENT_MOBILE_ITEMS.map((item) => item.href), ['/client-home', '/marketplace', '/chats', '/bookings', '/notifications']);
   assert.deepEqual(mobileNav.HOST_MOBILE_ITEMS.map((item) => [item.key, item.href]), [['home', '/host-home'], ['marketplace', '/marketplace'], ['create', '/list'], ['chats', '/chats'], ['bookings', '/bookings']]);
-  for (const route of ['/booking', '/chat-settings', '/pricing', '/list', '/properties', '/client-home']) assert.equal(mobileNav.hidesMobileNav(route), true, route);
+  for (const route of ['/booking', '/chat-settings', '/pricing', '/client-home']) assert.equal(mobileNav.hidesMobileNav(route), true, route);
+  for (const route of ['/list', '/properties']) assert.equal(mobileNav.hidesMobileNav(route), false, `${route}: the bar is the way back on phones`);
   assert.equal(mobileNav.hidesMobileNav('/bookings'), false);
   assert.equal(mobileNav.showsMobileNav(true, 'host', true, '/bookings'), true);
   assert.equal(mobileNav.showsMobileNav(true, 'client', true, '/client-home'), false, 'Client Home keeps its own bar');

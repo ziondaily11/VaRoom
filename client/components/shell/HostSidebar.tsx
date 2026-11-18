@@ -241,7 +241,8 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
           <p className="nav-label">Host</p>
           <a
             href="/list"
-            className="list-space-btn"
+            className={`list-space-btn${activeNav === 'list' ? ' active' : ''}`}
+            aria-current={activeNav === 'list' ? 'page' : undefined}
             title={tip('List a space')}
             onClick={(e) => handleNav(e, '/list')}
           >
