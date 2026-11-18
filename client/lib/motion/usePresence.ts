@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Keeps an element mounted while it plays its exit (animation.md §8.3):
@@ -16,4 +16,15 @@ export function usePresence(open: boolean, exitMs: number): { mounted: boolean; 
     return () => window.clearTimeout(timer);
   }, [open, exitMs]);
   return { mounted: open || mounted, closing: !open && mounted };
+}
+
+/**
+ * Like usePresence for something shown from a value (a menu at a position):
+ * keeps the last non-null value on screen through its exit.
+ */
+export function usePresentValue<T>(value: T | null, exitMs: number): { shown: T | null; closing: boolean } {
+  const last = useRef<T | null>(value);
+  if (value !== null) last.current = value;
+  const { mounted, closing } = usePresence(value !== null, exitMs);
+  return { shown: mounted ? last.current : null, closing };
 }

@@ -1,4 +1,6 @@
 import React, { useEffect, useId, useState } from 'react';
+import { usePresence } from '../../lib/motion/usePresence';
+import { CHAT_MODAL_EXIT_MS } from '../../lib/chat/sheets';
 import { canSubmitReport, submitThenClose } from '../../lib/chat/sheets';
 
 // "Report User": a small dialog centred over the conversation (reported to
@@ -22,6 +24,8 @@ export default function ReportSheet({ open, personName, onClose, onSubmit }: {
   /** Resolves when the report is accepted; the dialog stays open if it rejects. */
   onSubmit: (reason: string, details: string) => Promise<void>;
 }) {
+  // Stays mounted through its exit (animation.md §8.3; chats.css .chat-modal.is-closing).
+  const { mounted, closing } = usePresence(open, CHAT_MODAL_EXIT_MS);
   const [reason, setReason] = useState('');
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -48,10 +52,10 @@ export default function ReportSheet({ open, personName, onClose, onSubmit }: {
     }
   };
 
-  if (!open) return null;
+  if (!mounted) return null;
   const name = personName || 'this user';
   return (
-    <div className="chat-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={`chat-modal${closing ? ' is-closing' : ''}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section id="chatReportSheet" className="chat-modal-card chat-report" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="chat-modal-head">
           <div>
