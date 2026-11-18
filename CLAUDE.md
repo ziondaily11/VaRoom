@@ -611,7 +611,7 @@ Provide a report, in the reply and in the PR description, containing:
 9. Build and type-check results.
 10. Remaining issues.
 11. Risks and recommended next steps.
-12. SQL migrations: paste the full SQL of every migration the change adds or edits (for example `server/migrations/*.sql`) in the reply, in a `sql` code block, with what to check before running it. If the change has no migration, say "No SQL migration in this change."
+12. SQL migrations: paste the full SQL of every migration the change adds or edits (for example `server/migrations/*.sql`) in the reply, in a `sql` code block, in the order to run it: any check query to run first (it must work before the migration runs), the migration itself, and how to undo it. Name each file. If the change has no migration, say "No SQL migration in this change."
 
 Never claim that something works without actually verifying it.
 
