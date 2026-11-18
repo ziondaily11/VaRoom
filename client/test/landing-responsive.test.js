@@ -227,7 +227,8 @@ test('landing page 4: review, trust points, last call and footer, after the host
   assert.match(section, /Book with <em>confidence\.<\/em>/);
   // Last call and footer links.
   assert.match(section, /<Link href="\/marketplace"/);
-  for (const href of ['/property-news', '/support', '/terms', '/privacy']) assert.match(section, new RegExp(`<Link href="${href}">`));
+  assert.match(section, /<Link href="\/property-news">/);
+  for (const href of ['/support', '/terms', '/privacy']) assert.match(section, new RegExp(`<Link href="${href}" \\{\\.\\.\\.newTabProps\\('${href}'\\)\\}>`));
   assert.match(section, /href=\{SOCIAL_LINKS\.instagram\} target="_blank" rel="noopener noreferrer"/);
   // One source for the social links.
   for (const file of ['pages/client-home.tsx', 'components/hostHome/HostRail.tsx', 'components/landing/TrustSection.tsx']) {
@@ -394,4 +395,26 @@ test('footer: Instagram and TikTok as icons at the words\' size; Facebook and X 
   assert.match(section, /<span role="img" aria-label="X \(coming soon\)"/);
   assert.doesNotMatch(section, />Instagram<\/a>|>TikTok<\/a>/);
   assert.match(css, /\.socialIcon svg \{ display: block; width: 1\.15em; height: 1\.15em; \}/);
+});
+
+test('Help & Support and the legal pages open in a new tab from every link', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = path.join(dir, e.name);
+    return e.isDirectory() ? walk(full) : /\.tsx$/.test(e.name) ? [full] : [];
+  });
+  const offenders = [];
+  for (const dir of ['components', 'pages']) {
+    for (const file of walk(path.join(__dirname, '..', dir))) {
+      fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+        if (/href=\{?['"`]\/(support|terms|privacy)\b/.test(line) && !/_blank|newTabProps|external/.test(line)) {
+          offenders.push(`${path.relative(path.join(__dirname, '..'), file)}:${i + 1}`);
+        }
+      });
+    }
+  }
+  assert.deepEqual(offenders, [], 'link to /support, /terms or /privacy without a new tab');
+  assert.match(read('components/settings/SettingsSections.tsx'), /<Link key=\{cat\.key\} href=\{cat\.href\} className="cat-row" \{\.\.\.newTabProps\(cat\.href\)\}>/);
+  assert.match(read('pages/settings.tsx'), /else if \(opensInNewTab\(entry\.href\)\) window\.open\(entry\.href, '_blank', 'noopener,noreferrer'\);/);
 });

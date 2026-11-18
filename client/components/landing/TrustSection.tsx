@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { authorRoleLabel, reviewAuthorHandle, type FeaturedReview } from '../../lib/reviews/varoomReviews';
 import { useSectionEntrance } from '../../lib/landing/entrance';
+import { newTabProps } from '../../lib/navigation/newTab';
 import { SOCIAL_ICONS, SOCIAL_LINKS } from '../shell/socialIcons';
 import Svg from '../booking/Svg';
 import { ReviewAvatar } from './ReviewAuthor';
@@ -107,9 +108,10 @@ export const TrustSection: React.FC<TrustSectionProps> = ({ reviews, onListSpace
         </div>
         <nav className={styles.links} aria-label="Footer">
           <Link href="/property-news">Property News</Link>
-          <Link href="/support">Help &amp; Support</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
+          {/* Help & Support and the legal pages open in a new tab (lib/navigation/newTab.ts). */}
+          <Link href="/support" {...newTabProps('/support')}>Help &amp; Support</Link>
+          <Link href="/terms" {...newTabProps('/terms')}>Terms</Link>
+          <Link href="/privacy" {...newTabProps('/privacy')}>Privacy</Link>
           {/* Social: icons at the text's size. Facebook and X are placeholders until VaRoom has those accounts. */}
           <span className={styles.social}>
             <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className={styles.socialIcon}><Svg markup={SOCIAL_ICONS.instagram} /></a>

@@ -20,6 +20,7 @@ import {
 } from '../components/settings/SettingsSections';
 import { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import type { SearchEntry } from '../lib/settings/settingsSearch';
+import { opensInNewTab } from '../lib/navigation/newTab';
 import { MenuIcon } from '../components/settings/SettingsIcons';
 import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 
@@ -191,6 +192,8 @@ export default function SettingsPage() {
   const pick = useCallback((entry: SearchEntry) => {
     if (entry.href) {
       if (entry.href.startsWith('mailto:')) window.location.href = entry.href;
+      // Help & Support and the legal pages open in a new tab, like their links.
+      else if (opensInNewTab(entry.href)) window.open(entry.href, '_blank', 'noopener,noreferrer');
       else void router.push(entry.href);
       return;
     }
