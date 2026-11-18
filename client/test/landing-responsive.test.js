@@ -286,3 +286,21 @@ test('landing page 3: niche chips stay on one row; the brand logo images are nev
   // A turned image can show a dark edge line on Windows: the logo cancels its circle's tilt.
   assert.match(css, /\.contact img \{ rotate: calc\(var\(--tilt\) \* -1\); \}/);
 });
+
+test('landing page 3: the share card shows the profile share panel and the profile address', () => {
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  const css = read('components/landing/HostFeaturesSection.module.css');
+  const share = read('lib/profile/profilePage.ts');
+  assert.match(section, /title: 'Your profile is your website',/);
+  assert.match(section, /text: 'Copy your link, share it anywhere, or use it as your website\.',/);
+  // The same places the profile's share panel offers.
+  for (const target of ['x', 'whatsapp', 'email']) assert.match(share, new RegExp(`\\b${target}: `));
+  assert.match(section, /\{ label: 'X', icon: <Svg markup=\{SOCIAL_ICONS\.x\} \/> \}/);
+  assert.match(section, /\{ label: 'WhatsApp', icon: <img src="\/assets\/whatsapp\.svg"/);
+  assert.match(section, /\{ label: 'Email', icon: <img src="\/assets\/gmail\.svg"/);
+  // The profile address format (lib/profile/usernames.ts), with a placeholder name.
+  assert.match(read('lib/profile/usernames.ts'), /export const profileAddress = \(username: string\) => `\/\$\{encodeURIComponent/);
+  assert.match(section, /varoom\.co\.ke\/\[username\]/);
+  // The chat card is gone, with its styles.
+  assert.doesNotMatch(section + css, /bubbleOut|quickReplies|Reply, even when/);
+});

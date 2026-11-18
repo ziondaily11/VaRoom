@@ -355,58 +355,91 @@
 .contactPhone { --x: 42%; --y: 74%; --size: clamp(40px, 27cqh, 58px); --tilt: 12deg; }
 .contactChat { --x: 79%; --y: 70%; --size: clamp(44px, 32cqh, 68px); --tilt: -5deg; }
 
-/* 4. Chat */
-.chat {
+/* 4. Share: the profile's share panel, with the profile address to copy. */
+.share {
   inset: 12px;
-  gap: 7px;
-  padding: 12px;
+  gap: 6px;
+  padding: 14px 16px;
 }
 
-.away {
-  align-self: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #f3eee6;
+.shareTitle { font-size: 0.875rem; font-weight: 700; }
+
+.shareTargets {
+  display: flex;
+  gap: 14px;
+  margin: 2px 0 4px;
+}
+
+.shareTarget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.shareIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 22cqh, 44px);
+  height: clamp(34px, 22cqh, 44px);
+  border-radius: 50%;
+  background: #f3f1ec;
+  color: #181513;
+}
+
+.shareIcon img { display: block; width: 56%; height: 56%; object-fit: contain; }
+.shareIcon svg { display: block; width: 44%; height: 44%; }
+
+.shareLabel { font-size: 0.6875rem; font-weight: 600; color: #4d463f; }
+
+.linkLabel {
+  margin-top: auto;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #6f675e;
+  color: #8a8278;
 }
 
-.bubble {
-  max-width: 80%;
-  padding: 7px 11px;
-  border-radius: 14px;
-  font-size: 0.7812rem;
-  line-height: 1.4;
-}
-
-.bubbleIn {
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-  background: #eceae6;
-}
-
-.bubbleOut {
-  align-self: flex-end;
-  border-bottom-right-radius: 4px;
-  background: #2f2c29;
-  color: #fff;
-}
-
-.quickReplies {
+.linkField {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f3f1ec;
 }
 
-.quickReplies span {
-  padding: 5px 10px;
-  border: 1px solid #e3ddd3;
-  border-radius: 999px;
-  background: #fff;
-  font-size: 0.7188rem;
-  font-weight: 600;
+.linkText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #4d463f;
+}
+
+/* The copy button, with the "copied" tick that lands on it last. */
+.copied {
+  position: relative;
+  display: flex;
+  flex: none;
+  color: #4d463f;
+}
+
+.copiedTick {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #1f7a4d;
+  color: #fff;
 }
 
 /* 5. Analytics */
@@ -498,7 +531,7 @@
 
 /* A short picture keeps what matters most. */
 @container (max-height: 200px) {
-  .away { display: none; }
+  .linkLabel { display: none; }
   .invite { display: none; }
 }
 
@@ -509,14 +542,14 @@
 }
 
 @container (max-height: 140px) {
-  .bubbleOut { display: none; }
+  .shareLabel { display: none; }
   .badgeNote { display: none; }
   .member:nth-of-type(3) { display: none; }
   .member:nth-of-type(2) { border-bottom: 0; }
 }
 
 @container (max-height: 110px) {
-  .quickReplies { display: none; }
+  .shareTitle { display: none; }
 }
 
 /* A narrow picture keeps the labels on one row. */
@@ -563,8 +596,6 @@
   to { scale: 1 1; }
 }
 
-.fromLeft { --dx: -10px; --dy: 0px; }
-.fromRight { --dx: 10px; --dy: 0px; }
 
 .section[data-entrance='waiting'] .head,
 .section[data-entrance='waiting'] .pager,
@@ -803,7 +834,6 @@
 
 @media (max-width: 380px) {
   .visual { height: 240px; }
-  .bubble { font-size: 0.75rem; }
 }
 
 /* Reduced motion (animation.md §13): everything shows in its final state at once. */
