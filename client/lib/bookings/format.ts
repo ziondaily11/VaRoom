@@ -157,15 +157,30 @@ export function statusMessage(status: BookingStatus): [string, string] {
 /** Bookings that can still be cancelled by the client. */
 export const isCancellable = (b: Booking) => b.status === 'pending' || b.status === 'approved';
 
-export interface BookingStats { total: number; upcoming: number; invested: number }
+export interface BookingStats {
+  /** Approved, completed and awaiting approval (not declined, cancelled or expired). */
+  total: number;
+  /** Of `total`, the ones still awaiting the host's approval. */
+  awaiting: number;
+  /** Approved or awaiting approval, and not over yet. */
+  upcoming: number;
+  /** Of `upcoming`, the ones still awaiting approval. */
+  upcomingAwaiting: number;
+  /** Confirmed bookings only (approved or completed): a request is not money yet. */
+  invested: number;
+}
 
-/** The rail's Stats Summary: approved bookings only, as before. */
+/** The rail's Stats Summary: bookings awaiting approval count too, and are shown apart. */
 export function computeStats(bookings: Booking[], now: Date = new Date()): BookingStats {
-  const approved = bookings.filter((b) => b.status === 'approved');
+  const confirmed = bookings.filter((b) => b.status === 'approved' || b.status === 'completed');
+  const awaiting = bookings.filter((b) => b.status === 'pending');
+  const upcoming = bookings.filter((b) => (b.status === 'approved' || b.status === 'pending') && endMoment(b) >= now);
   return {
-    total: approved.length,
-    upcoming: approved.filter((b) => endMoment(b) >= now).length,
-    invested: approved.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
+    total: confirmed.length + awaiting.length,
+    awaiting: awaiting.length,
+    upcoming: upcoming.length,
+    upcomingAwaiting: upcoming.filter((b) => b.status === 'pending').length,
+    invested: confirmed.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
   };
 }
 

@@ -74,14 +74,17 @@ test('tabs: pending requests are Upcoming ("Awaiting approval"); declined shows 
   assert.equal(format.stayHasEnded(booking({ end_date: '2026-11-02' }), now), false, 'the last day counts until 23:59:59');
 });
 
-test('stats count approved bookings only', () => {
+test('stats count bookings awaiting approval too, apart; money counts confirmed bookings only', () => {
   const now = new Date('2026-11-02T12:00:00Z');
   const stats = format.computeStats([
     booking({ id: 'a', end_date: '2026-12-01', total_price: 1000 }),
     booking({ id: 'b', end_date: '2026-10-01', total_price: '2500' }),
-    booking({ id: 'c', status: 'pending', total_price: 9999 }),
+    booking({ id: 'c', status: 'pending', end_date: '2026-11-20', total_price: 9999 }),
+    booking({ id: 'd', status: 'completed', end_date: '2026-09-01', total_price: 500 }),
+    booking({ id: 'e', status: 'declined', end_date: '2026-11-25', total_price: 7000 }),
+    booking({ id: 'f', status: 'cancelled', end_date: '2026-11-25', total_price: 7000 }),
   ], now);
-  assert.deepEqual({ ...stats }, { total: 2, upcoming: 1, invested: 3500 });
+  assert.deepEqual({ ...stats }, { total: 4, awaiting: 1, upcoming: 2, upcomingAwaiting: 1, invested: 4000 });
 });
 
 test('list page: own bookings, newest first, one extra row decides hasMore; reviews looked up once', async () => {
