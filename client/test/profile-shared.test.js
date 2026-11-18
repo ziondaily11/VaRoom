@@ -140,17 +140,19 @@ test('listing duplicate and delete go to the listings API; deletion updates cach
 
 // ---------- Host profile data ----------
 
-test('host listings: owner sees all; visitors only active and available; bounded; first photo and price', async () => {
+test('host listing cards: owner sees all; visitors only active and available; bounded; one query for both profile pages', async () => {
   const hp = loadTs(path.join(root, 'lib', 'profile', 'hostProfile.ts'));
   const row = { id: 'L1', title: 'Loft', category: 'airbnb', location_text: 'Nairobi', availability_status: 'available', publication_state: 'published', created_at: '2026-10-01', listing_photos: [{ storage_path: null }, { storage_path: 'a/b.jpg' }], listing_booking_details: [{ price_amount: '4000', price_unit: 'night' }] };
   const client = fakeClient({ listings: { data: [row], error: null } });
-  const [listing] = await hp.fetchHostListings(client, 'H1', false);
-  assert.deepEqual({ ...listing }, { id: 'L1', title: 'Loft', category: 'airbnb', location_text: 'Nairobi', availability_status: 'available', publication_state: 'published', created_at: '2026-10-01', photo: 'a/b.jpg', price_amount: 4000, price_unit: 'night' });
+  const [listing] = await hp.fetchHostCardListings(client, 'H1', false);
+  assert.equal(listing.id, 'L1');
   const visitorOps = client.calls[0].ops;
   assert.deepEqual(visitorOps.filter((op) => op[0] === 'eq'), [['eq', 'host_id', 'H1'], ['eq', 'moderation_status', 'active'], ['eq', 'availability_status', 'available']]);
   assert.deepEqual(visitorOps.find((op) => op[0] === 'limit'), ['limit', 200]);
-  await hp.fetchHostListings(client, 'H1', true);
+  assert.match(visitorOps.find((op) => op[0] === 'select')[1], /availability_status,publication_state/, 'the owner card needs its status');
+  await hp.fetchHostCardListings(client, 'H1', true);
   assert.deepEqual(client.calls[1].ops.filter((op) => op[0] === 'eq'), [['eq', 'host_id', 'H1']], 'the owner sees every listing');
+  assert.deepEqual({ ...hp.toProfileListing(row) }, { id: 'L1', title: 'Loft', category: 'airbnb', location_text: 'Nairobi', availability_status: 'available', publication_state: 'published', created_at: '2026-10-01', photo: 'a/b.jpg', price_amount: 4000, price_unit: 'night' });
   assert.equal(hp.toProfileListing({ id: 'x', listing_booking_details: null, listing_photos: [] }).price_amount, null);
 });
 
@@ -179,17 +181,17 @@ test('host profile cache: loads once, shared while loading, kept apart per viewe
   const hp = loadTs(path.join(root, 'lib', 'profile', 'hostProfile.ts'));
   let reads = 0;
   const client = fakeClient({ listings: async () => { reads += 1; await new Promise((r) => setTimeout(r, 5)); return { data: [{ id: `L${reads}` }], error: null }; } });
-  const [a, b] = await Promise.all([hp.loadHostListings(client, 'V1', 'H1', false), hp.loadHostListings(client, 'V1', 'H1', false)]);
+  const [a, b] = await Promise.all([hp.loadHostCardListings(client, 'V1', 'H1', false), hp.loadHostCardListings(client, 'V1', 'H1', false)]);
   assert.equal(a, b);
-  await hp.loadHostListings(client, 'V1', 'H1', false);
+  await hp.loadHostCardListings(client, 'V1', 'H1', false);
   assert.equal(reads, 1, 'fresh: reused');
-  await hp.loadHostListings(client, 'V2', 'H1', false);
-  await hp.loadHostListings(client, 'H1', 'H1', true);
+  await hp.loadHostCardListings(client, 'V2', 'H1', false);
+  await hp.loadHostCardListings(client, 'H1', 'H1', true);
   assert.equal(reads, 3, 'another viewer and the owner view load separately');
-  assert.equal(hp.peek('V1', 'H1', 'listings')[0].id, 'L1');
-  hp.invalidateHostProfile('V1', 'H1', 'listings');
-  assert.equal(hp.peek('V1', 'H1', 'listings'), null);
-  assert.equal(hp.peek('V2', 'H1', 'listings').length, 1, 'only that viewer and part');
+  assert.equal(hp.peek('V1', 'H1', 'cards')[0].id, 'L1');
+  hp.invalidateHostProfile('V1', 'H1', 'cards');
+  assert.equal(hp.peek('V1', 'H1', 'cards'), null);
+  assert.equal(hp.peek('V2', 'H1', 'cards').length, 1, 'only that viewer and part');
   hp.clearHostProfileCache();
-  assert.equal(hp.peek('V2', 'H1', 'listings'), null);
+  assert.equal(hp.peek('V2', 'H1', 'cards'), null);
 });

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchProfileContact, type ListingContact } from '../reachOut/reachOut';
 import { createCache } from '../cache/createCache';
 import type { MarketplaceListing } from '../marketplace/marketplace';
 import { hostProfilePath } from './usernames';
@@ -11,7 +12,6 @@ import { hostProfilePath } from './usernames';
 // theirs when they come near the screen (lib/media/listingVideo.ts).
 
 export const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories';
-export const LISTING_COLUMNS = 'id,title,category,location_text,availability_status,publication_state,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 /** What a public profile's listing cards show: the Marketplace card's fields (every photo, the full booking details). */
 export const CARD_LISTING_COLUMNS = 'id,title,location_text,category,verified,created_at,host_id,availability_status,publication_state,listing_photos(storage_path),listing_booking_details(*)';
 export const PROFILE_TTL_MS = 2 * 60 * 1000;
@@ -144,15 +144,7 @@ export async function fetchOwnProfile(client: SupabaseClient, userId: string): P
 }
 
 /** The owner sees every listing; visitors only active, available ones. */
-export async function fetchHostListings(client: SupabaseClient, hostId: string, owner: boolean): Promise<ProfileListing[]> {
-  let query = client.from('listings').select(LISTING_COLUMNS).eq('host_id', hostId);
-  if (!owner) query = query.eq('moderation_status', 'active').eq('availability_status', 'available');
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(LISTING_LIMIT);
-  if (error) throw new Error(error.message);
-  return ((data as Row[] | null) || []).map(toProfileListing);
-}
-
-/** The same listings as fetchHostListings, with what the Marketplace card shows. */
+/** A host's listings with what the listing card shows (owner: every listing; visitors: active and available). */
 export async function fetchHostCardListings(client: SupabaseClient, hostId: string, owner: boolean): Promise<MarketplaceListing[]> {
   let query = client.from('listings').select(CARD_LISTING_COLUMNS).eq('host_id', hostId);
   if (!owner) query = query.eq('moderation_status', 'active').eq('availability_status', 'available');
@@ -230,15 +222,16 @@ export function peek<T>(viewerId: string | null, hostId: string, part: string): 
   return entry ? (entry.value as T) : null;
 }
 
-export const loadHostListings = (client: SupabaseClient, viewerId: string | null, hostId: string, owner: boolean, force = false) =>
-  cached(key(viewerId, hostId, owner ? 'listings:owner' : 'listings'), () => fetchHostListings(client, hostId, owner), force);
-
-/** A public profile's listing cards (owner: every listing, as on /profile). */
+/** A host's listing cards, shared by /profile and the public profile (owner: every listing). */
 export const loadHostCardListings = (client: SupabaseClient, viewerId: string | null, hostId: string, owner: boolean, force = false) =>
   cached(key(viewerId, hostId, owner ? 'cards:owner' : 'cards'), () => fetchHostCardListings(client, hostId, owner), force);
 
 export const loadProfileCategories = (client: SupabaseClient, viewerId: string | null, hostId: string, force = false) =>
   cached(key(viewerId, hostId, 'categories'), () => fetchProfileCategories(client, hostId), force);
+
+/** The host's WhatsApp / email channels for this signed-in viewer (cached like the rest of the profile). */
+export const loadHostContact = (viewerId: string, hostId: string, token: string | null, force = false): Promise<ListingContact> =>
+  cached(key(viewerId, hostId, 'contact'), () => fetchProfileContact(hostId, token), force);
 
 export const loadHostReviews = (viewerId: string | null, hostId: string, force = false, fetchFn: FetchFn = fetch) =>
   cached(key(viewerId, hostId, 'reviews'), () => fetchHostReviews(hostId, fetchFn), force);

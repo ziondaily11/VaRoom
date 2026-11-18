@@ -56,7 +56,7 @@ export const listingCardStyles = (scope: string): string => `
   ${scope} .card{
     position:relative; container-type:inline-size; isolation:isolate; min-width:0; width:100%;
     aspect-ratio:1 / 0.95; border-radius:clamp(18px, calc(var(--mkt-card-w, 280px) * .09), 28px); overflow:hidden; background:var(--mkt-card-placeholder);
-    cursor:pointer; transition:transform .2s ease, box-shadow .2s ease;
+    cursor:pointer; transition:transform var(--motion-quick, 200ms) var(--ease-out, ease), box-shadow var(--motion-quick, 200ms) var(--ease-out, ease);
   }
   /* The global dark theme (public/js/varoom-dark-theme.css, on every
      route) turns any .card / .skeleton-card into a flat, square feed row
@@ -65,16 +65,19 @@ export const listingCardStyles = (scope: string): string => `
     background:var(--mkt-card-placeholder) !important; border:0 !important;
     border-radius:clamp(18px, calc(var(--mkt-card-w, 280px) * .09), 28px) !important; box-shadow:none !important;
   }
-  ${scope} .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(20,24,28,.14); }
-  [data-theme="dark"] ${scope} .card:hover{ box-shadow:0 10px 24px rgba(20,24,28,.14) !important; }
+  /* Motion (animation.md §8.6): one hover effect, the lift, on pointer devices only; press to .97. */
+  @media (hover: hover){
+    ${scope} .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(20,24,28,.14); }
+    [data-theme="dark"] ${scope} .card:hover{ box-shadow:0 10px 24px rgba(20,24,28,.14) !important; }
+  }
+  ${scope} .card:active{ transform:scale(var(--press-scale, .97)); transition-duration:var(--motion-press, 120ms); }
   ${scope} .card:focus-visible{ outline:2px solid var(--mkt-accent); outline-offset:2px; }
-  @media (hover: none){
-    ${scope} .card:hover, [data-theme="dark"] ${scope} .card:hover{ transform:none; box-shadow:none !important; }
+  @media (prefers-reduced-motion: reduce){
+    ${scope} .card, ${scope} .card-media img{ transition:none; }
+    ${scope} .card:hover, ${scope} .card:active, [data-theme="dark"] ${scope} .card:hover{ transform:none; }
   }
   ${scope} .card-media{ position:absolute; inset:0; overflow:hidden; background:var(--mkt-card-placeholder); }
   ${scope} .card-media img, ${scope} .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
-  ${scope} .card-media img{ transition:transform .25s ease; }
-  ${scope} .card:hover .card-media img{ transform:scale(1.03); }
   ${scope} .card-media.is-loading{ position:absolute; }
   ${scope} .card-media.is-loading::before{ position:absolute; z-index:1; top:50%; left:50%; margin:-18px 0 0 -18px; }
   ${scope} .card-media-loading{ position:absolute; inset:0; height:100%; aspect-ratio:auto; }
@@ -130,7 +133,26 @@ export const listingCardStyles = (scope: string): string => `
   ${scope} .card-save svg{ width:48%; height:48%; }
 
   ${scope} .skeleton-card{ cursor:default; }
-  ${scope} .skeleton-card:hover, [data-theme="dark"] ${scope} .skeleton-card:hover{ transform:none; box-shadow:none !important; }
+  ${scope} .skeleton-card:hover, ${scope} .skeleton-card:active, [data-theme="dark"] ${scope} .skeleton-card:hover{ transform:none; box-shadow:none !important; }
+
+  /* The owner's own card (/profile): the ⋮ menu on the photo, the status in place of Save. */
+  ${scope} .card-owner{ position:absolute; z-index:3; top:4cqw; right:4cqw; }
+  ${scope} .card-owner .card-menu-btn{
+    width:clamp(28px, 11cqw, 34px); height:clamp(28px, 11cqw, 34px); padding:0; border:0; border-radius:50%;
+    background:var(--mkt-panel-bg); color:var(--mkt-panel-ink); box-shadow:0 2px 8px rgba(0,0,0,.16); font-size:1.1rem; line-height:1;
+    transition:transform var(--motion-press, 120ms) var(--ease-out, ease);
+  }
+  ${scope} .card-owner .card-menu-btn:active{ transform:scale(var(--press-scale, .97)); }
+  ${scope} .card.has-owner .card-count{ right:calc(8cqw + clamp(28px, 11cqw, 34px)); }
+  ${scope} .card-status{
+    flex:none; align-self:flex-start; padding:1.4cqw 3cqw; border-radius:999px; background:var(--mkt-accent-soft);
+    font-size:clamp(.54rem, 3.3cqw, .7rem); font-weight:700; letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; color:var(--mkt-panel-ink);
+  }
+  ${scope} .card-status.available{ color:#1F9D55; }
+  ${scope} .card-status.paused, ${scope} .card-status.unavailable{ color:#B45309; }
+  ${scope} .card-status.booked{ color:var(--mkt-panel-muted); }
+  [data-theme="dark"] ${scope} .card-status.available{ color:#4ADE80; }
+  [data-theme="dark"] ${scope} .card-status.paused, [data-theme="dark"] ${scope} .card-status.unavailable{ color:#FBBF24; }
   ${scope} .skeleton-card .card-text{ gap:2.4cqw; }
 
   /* Photo carousel: a scroll-snapped strip (swipe on touch), arrows on

@@ -45,6 +45,43 @@ export function mailtoHref(email: string, listing: { title: string; url: string 
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+// ---------- A host's public profile ----------
+
+/** What a profile visitor's WhatsApp / email opens with: the profile's name and link. */
+export interface ProfileEnquiry { name: string; url: string }
+
+export function profileWhatsappHref(phone: string, profile: ProfileEnquiry): string {
+  const text = `Hello ${profile.name}, I found your profile on VaRoom and I'm interested in your spaces.\n${profile.url}`;
+  return `https://wa.me/${normalisePhone(phone).slice(1)}?text=${encodeURIComponent(text)}`;
+}
+
+export function profileMailtoHref(email: string, profile: ProfileEnquiry): string {
+  const subject = 'Enquiry About Your VaRoom Spaces';
+  const body = `Hello ${profile.name},\n\nI came across your profile on VaRoom and I'm interested in learning more about your spaces.\n\nProfile: ${profile.url}\n\nI would appreciate more information. Thank you.`;
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+type FetchFn = typeof fetch;
+
+/**
+ * A host's Reach Out channels for their public profile (signed-in viewers;
+ * the server applies the profile's visibility). Never throws: without
+ * contact details the profile still shows, with Message only.
+ */
+export async function fetchProfileContact(hostKey: string, token: string | null, fetchFn: FetchFn = fetch): Promise<ListingContact> {
+  if (!token || !hostKey) return NO_CONTACT;
+  try {
+    const response = await fetchFn(`/api/host-profiles/${encodeURIComponent(hostKey)}/contact`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    const body = (await response.json()) as { contact?: Partial<ListingContact> };
+    const row = body.contact || {};
+    return { whatsapp: row.whatsapp || null, email: row.email || null, phone: row.phone || null };
+  } catch (error) {
+    console.warn('Host profile: the contact options could not be loaded:', error);
+    return NO_CONTACT;
+  }
+}
+
 // ---------- Settings ----------
 
 export type ReachChannel = 'whatsapp' | 'email' | 'phone';

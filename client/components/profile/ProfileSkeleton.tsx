@@ -4,12 +4,8 @@ import React from 'react';
 // (without its sidebar: the shell renders the real one). Host or client
 // content follows html[data-account-role], set by AuthProvider.
 
-const ListingCard = () => (
-  <div className="skeleton-listing-card">
-    <div className="skel skeleton-listing-image" />
-    <div className="skeleton-listing-body"><div className="skel" /><div className="skel" /><div className="skeleton-listing-footer"><div className="skel" /><div className="skel" /></div></div>
-  </div>
-);
+/** The same shape as a listing card (components/profile/ProfileCards.tsx). */
+const ListingCard = () => <div className="skel skeleton-listing-card" />;
 const Booking = () => (
   <div className="skeleton-booking">
     <div className="skel skeleton-booking-image" />
