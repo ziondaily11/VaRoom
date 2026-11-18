@@ -148,7 +148,7 @@ test('page: AuthProvider profile, safe redirect, centred layout, legacy page and
 test('laptop screens: each step fits without scrolling (compact below 860 px and 700 px tall)', () => {
   const styles = read('components', 'onboarding', 'onboardingStyles.ts');
   assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 860px\)\{[\s\S]*?\.onb-input\{ height:46px; \}[\s\S]*?\.onb-tile-media\{ aspect-ratio:5 \/ 4; \}/);
-  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 700px\)\{[\s\S]*?\.onb-photo-frame\{ width:60px; height:60px; \}/);
+  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 700px\)\{[\s\S]*?\.onb-photo-ring\{ --photo-size:96px; --cam-size:36px; \}/);
   assert.match(styles, /align-items:safe center/, 'a step taller than the screen is never cut off at the top');
 });
 
@@ -224,4 +224,22 @@ test('no side panel on any step: one centred column for hosts and clients', () =
   assert.doesNotMatch(steps, /HostPreview|ClientPreview/);
   assert.doesNotMatch(styles, /onb-panel|onb-card-|onb-mobile-title|onb-steps|is-solo/);
   assert.match(styles, /\.onb-main\{ flex:1; min-width:0; min-height:100vh; min-height:100dvh; display:flex; justify-content:center; align-items:center;/);
+});
+
+test('profile photo: a large circle, the camera on its edge; Change or Remove once there is a photo', async () => {
+  const parts = read('components', 'onboarding', 'OnboardingParts.tsx');
+  const styles = read('components', 'onboarding', 'onboardingStyles.ts');
+  assert.match(styles, /\.onb-photo-ring\{ --photo-size:144px; --cam-size:44px;/, 'larger on wide screens');
+  assert.match(styles, /right:calc\(var\(--photo-size\) \* \.1464 - var\(--cam-size\) \/ 2\)/, 'the camera sits on the circle at 45°');
+  assert.match(parts, /const onCamera = \(\) => \{ if \(showing === 'none'\) choose\(\); else setMenuOpen\(\(open\) => !open\); \};/, 'no photo: open the library; a photo: the menu');
+  for (const text of ['Change photo', 'Remove photo', 'Cancel']) assert.ok(parts.includes(`>${text}</button>`), text);
+  for (const text of ['Add a profile photo · Optional', 'Helps people put a face to your name.', 'Choose a photo</button>', 'onb-link-btn" onClick={choose}']) assert.ok(!parts.includes(text), `${text} is gone`);
+  assert.match(styles, /@media \(max-width: 640px\)\{[\s\S]*?\.onb-photo-menu\{ position:fixed;[^}]*bottom:0;/, 'a bottom sheet on phones');
+  assert.ok(styles.slice(styles.indexOf('@media (prefers-reduced-motion: reduce)')).includes('.onb-photo-menu, .onb-photo-menu.is-closing'), 'the menu is near-instant under reduced motion');
+  // Removing the saved photo clears it with step 1's save.
+  const client = fakeClient({ profiles: { error: null } });
+  await ob.saveHostProfile(client, 'u1', { username: 'amazingstays', phone: '712345678', city: 'Nairobi', removeAvatar: true });
+  assert.deepEqual(client.calls[0].ops.find((op) => op[0] === 'update')[1], { username: 'amazingstays', phone: '+254712345678', city: 'Nairobi', avatar_url: null });
+  const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
+  assert.match(steps, /const removedAvatar = Boolean\(existingAvatar\) && !savedPhoto && !photo;/);
 });

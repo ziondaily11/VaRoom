@@ -1,4 +1,6 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
+import { usePresence } from '../../lib/motion/usePresence';
+import { DURATION, exitMs } from '../../lib/motion/tokens';
 import { constrainCrop, cropDraw, MESSAGES, PHOTO_MAX_BYTES, startCrop, type Crop, type Tile } from '../../lib/onboarding/onboarding';
 
 // Onboarding building blocks: icons, the layout (one centred column with the
@@ -104,9 +106,20 @@ export function CroppedImage({ photo, size, className }: { photo: PhotoState; si
 
 export interface PhotoPickerHandle { blob: () => Promise<Blob | null> }
 
-/** Choose a photo, then drag to position it and scroll or pinch to zoom (1–4×). */
-export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string | null; initialPhoto?: PhotoState | null; onChange: (photo: PhotoState | null) => void; error: string }>(
-  function PhotoPicker({ existingUrl, initialPhoto = null, onChange, error }, ref) {
+const MENU_EXIT_MS = exitMs(DURATION.quick);
+
+/**
+ * The profile photo: a large circle with a camera button on its edge. With no
+ * photo the camera (or the circle) opens the photo library; with one it offers
+ * Change or Remove (a popover; a bottom sheet on phones). A new photo is
+ * positioned by dragging and zoomed by scrolling or pinching.
+ */
+export const PhotoPicker = forwardRef<PhotoPickerHandle, {
+  existingUrl: string | null; initialPhoto?: PhotoState | null; onChange: (photo: PhotoState | null) => void;
+  /** The saved photo was removed (it is cleared when the step is saved). */
+  onRemoveExisting: () => void;
+}>(
+  function PhotoPicker({ existingUrl, initialPhoto = null, onChange, onRemoveExisting }, ref) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const frameRef = useRef<HTMLDivElement | null>(null);
     const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -114,13 +127,13 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
     const [photo, setPhoto] = useState<PhotoState | null>(initialPhoto);
     const [hint, setHint] = useState('');
     const [adjusting, setAdjusting] = useState(false);
-    const [frameWidth, setFrameWidth] = useState(96);
+    const [frameWidth, setFrameWidth] = useState(144);
 
     // The frame shrinks on small screens; the crop scales with it.
     useEffect(() => {
       const frame = frameRef.current;
       if (!frame || typeof ResizeObserver === 'undefined') return undefined;
-      const observer = new ResizeObserver(() => setFrameWidth(frame.getBoundingClientRect().width || 96));
+      const observer = new ResizeObserver(() => setFrameWidth(frame.getBoundingClientRect().width || 144));
       observer.observe(frame);
       return () => observer.disconnect();
     }, []);
@@ -166,6 +179,28 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
     }), [photo]);
 
     const choose = () => { if (inputRef.current) { inputRef.current.value = ''; inputRef.current.click(); } };
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menu = usePresence(menuOpen, MENU_EXIT_MS);
+    const menuId = useId();
+    const cameraRef = useRef<HTMLButtonElement | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+
+    // The menu: focus its first choice; Escape or a press outside closes it and returns focus to the camera.
+    useEffect(() => {
+      if (!menuOpen) return undefined;
+      const first = menuRef.current?.querySelector('button');
+      first?.focus();
+      const close = () => { setMenuOpen(false); cameraRef.current?.focus(); };
+      const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+      const onDown = (event: PointerEvent) => {
+        const target = event.target as Node;
+        if (menuRef.current?.contains(target) || cameraRef.current?.contains(target)) return;
+        setMenuOpen(false);
+      };
+      document.addEventListener('keydown', onKey);
+      document.addEventListener('pointerdown', onDown);
+      return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown); };
+    }, [menuOpen]);
 
     const onFile = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files && event.target.files[0];
@@ -216,6 +251,14 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
     };
 
     const showing = photo ? 'new' : existingUrl ? 'existing' : 'none';
+    const onCamera = () => { if (showing === 'none') choose(); else setMenuOpen((open) => !open); };
+    const change = () => { setMenuOpen(false); choose(); };
+    const remove = () => {
+      setMenuOpen(false);
+      setHint('');
+      if (photo) setPhoto(null);
+      else onRemoveExisting();
+    };
     return (
       <div className={`onb-photo${showing !== 'none' ? ' has-photo' : ''}`}>
         <input ref={inputRef} type="file" accept="image/*" hidden onChange={onFile} aria-label="Choose profile photo" />
@@ -227,24 +270,38 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
             onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd}
             onPointerCancel={onPointerEnd}
-            title={photo ? 'Drag to position, scroll or pinch to zoom' : 'Click to choose profile photo'}
+            title={photo ? 'Drag to position, scroll or pinch to zoom' : showing === 'none' ? 'Add a profile photo' : undefined}
           >
             {photo && <CroppedImage photo={photo} size={frameWidth} />}
             {!photo && existingUrl && <img className="is-whole" src={existingUrl} alt="" />}
-            {showing === 'none' && <PersonIcon size={40} />}
+            {showing === 'none' && <PersonIcon size={56} />}
           </div>
-          <button type="button" className="onb-photo-badge" onClick={choose} aria-label={showing === 'none' ? 'Choose a photo' : 'Change photo'}><CameraIcon /></button>
+          <button
+            ref={cameraRef}
+            type="button"
+            className="onb-photo-camera"
+            onClick={onCamera}
+            aria-label={showing === 'none' ? 'Add a profile photo' : 'Change or remove profile photo'}
+            aria-haspopup={showing === 'none' ? undefined : 'menu'}
+            aria-expanded={showing === 'none' ? undefined : menuOpen}
+            aria-controls={menu.mounted ? menuId : undefined}
+          >
+            <CameraIcon />
+          </button>
+          {menu.mounted && (
+            <>
+              <div className={`onb-photo-scrim${menu.closing ? ' is-closing' : ''}`} aria-hidden="true" />
+              <div ref={menuRef} id={menuId} role="menu" aria-label="Profile photo" className={`onb-photo-menu${menu.closing ? ' is-closing' : ''}`}>
+                <button type="button" role="menuitem" onClick={change}>Change photo</button>
+                <button type="button" role="menuitem" className="is-danger" onClick={remove}>Remove photo</button>
+                <button type="button" className="onb-photo-menu-cancel" onClick={() => { setMenuOpen(false); cameraRef.current?.focus(); }}>Cancel</button>
+              </div>
+            </>
+          )}
         </div>
-        <div className="onb-photo-copy">
-          <span className="onb-photo-title">{showing === 'none' ? 'Add a profile photo' : 'Profile photo'}<span className="onb-optional">{showing === 'none' ? ' · Optional' : ''}</span></span>
-          <span className={`onb-help${hint || error ? ' is-error' : ''}`}>
-            {hint || error || (photo ? 'Drag to position it; scroll or pinch to zoom.' : 'Helps people put a face to your name.')}
-          </span>
-          <div className="onb-photo-actions">
-            <button type="button" className="onb-link-btn" onClick={choose}>{showing === 'none' ? 'Choose a photo' : 'Change photo'}</button>
-            {photo && <button type="button" className="onb-link-btn" onClick={() => setPhoto(null)}>Remove</button>}
-          </div>
-        </div>
+        {hint
+          ? <p className="onb-help is-error" role="alert">{hint}</p>
+          : photo && <p className="onb-help">Drag or pinch to adjust.</p>}
       </div>
     );
   },

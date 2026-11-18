@@ -28,12 +28,15 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
   initialPhoto: PhotoState | null;
   onDraft: (draft: ProfileDraft) => void;
   /** Step 1 is saved; a new photo's image is handed over to upload in the background. */
-  onDone: (newPhoto: { photo: PhotoState; blob: Blob } | null) => void;
+  onDone: (newPhoto: { photo: PhotoState; blob: Blob } | null, removedAvatar: boolean) => void;
 }) {
   const [username, setUsername] = useState(initial.username);
   const [phone, setPhone] = useState(initial.phone);
   const [city, setCity] = useState(initial.city);
   const [photo, setPhoto] = useState<PhotoState | null>(initialPhoto);
+  // The saved photo, until the host removes it.
+  const [savedPhoto, setSavedPhoto] = useState<string | null>(existingAvatar);
+  const removeSaved = useCallback(() => setSavedPhoto(null), []);
   const [status, setStatus] = useState<UsernameStatus>({ kind: initial.username && initial.username === currentUsername ? 'current' : 'idle', message: '' });
   const [touched, setTouched] = useState({ phone: false, city: false });
   const [busy, setBusy] = useState('');
@@ -70,6 +73,8 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
   const needs = usernameOk ? (!phoneValid(phone) ? 'Add your phone number to continue' : !locationValid(city) ? 'Add your location to continue' : '')
     : status.kind === 'checking' ? 'Checking your username...' : 'Choose a username to continue';
 
+  const removedAvatar = Boolean(existingAvatar) && !savedPhoto && !photo;
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!valid || busy) return;
@@ -84,7 +89,7 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         return;
       }
       setBusy('Saving details...');
-      await saveHostProfile(client, userId, { username, phone, city });
+      await saveHostProfile(client, userId, { username, phone, city, removeAvatar: removedAvatar });
     } catch (saveError) {
       console.error('Onboarding profile save failed:', saveError);
       setBusy('');
@@ -102,7 +107,7 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
       }
     }
     setBusy('');
-    onDone(newPhoto);
+    onDone(newPhoto, removedAvatar);
   };
 
   const helpClass = status.kind === 'ok' || status.kind === 'current' ? ' is-ok' : status.kind === 'taken' || status.kind === 'invalid' || status.kind === 'error' ? ' is-error' : '';
@@ -113,7 +118,7 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         <p>Let's set up your profile so people can put a face to your name.</p>
       </div>
       <div className="onb-sheet">
-        <PhotoPicker ref={picker} existingUrl={existingAvatar} initialPhoto={initialPhoto} onChange={setPhoto} error="" />
+        <PhotoPicker ref={picker} existingUrl={savedPhoto} initialPhoto={initialPhoto} onChange={setPhoto} onRemoveExisting={removeSaved} />
         <div className="onb-field">
           <label htmlFor="onb-username">Username</label>
           <div className={`onb-input${status.kind === 'taken' || status.kind === 'invalid' ? ' is-invalid' : ''}`}>
