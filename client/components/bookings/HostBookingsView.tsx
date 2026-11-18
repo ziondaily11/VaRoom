@@ -3,9 +3,14 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl, resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
-import { formatAmount } from '../../lib/bookings/format';
+import { formatAmount, formatDate } from '../../lib/bookings/format';
+import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
+import { usePresentValue } from '../../lib/motion/usePresence';
+import { DURATION } from '../../lib/motion/tokens';
+import SegmentedTabs from '../ui/SegmentedTabs';
+import ConfirmSheet from './ConfirmSheet';
 import {
-  fetchHostBookings, fetchListingVideo, fetchTableReservations, formatHostDate, HOST_TAB_STATUS, hostDateText, hostDurationText,
+  fetchHostBookings, fetchListingVideo, fetchTableReservations, HOST_TAB_STATUS, hostDateText, hostDurationText,
   hostTabFor, isBookingInMonth, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
   type HostBooking, type HostTab, type ListingVideo, type TableReservation,
 } from '../../lib/bookings/hostBookings';
@@ -15,7 +20,10 @@ import {
 
 // The host's Bookings (migrated from legacy-pages/bookings.html): requests by
 // status for a month, approve / decline, the request detail in the right rail
-// (a full-screen panel on phones) and table reservations.
+// (a full-screen panel on phones) and table reservations. Declining asks
+// first (ConfirmSheet). A request that was answered shows its result on the
+// button, then leaves the list with a short fade and collapse
+// (animation.md §8.6, C5); with reduced motion it leaves at once.
 
 const TABS: Array<{ key: HostTab; label: string }> = [
   { key: 'pending', label: 'Pending' },
@@ -29,6 +37,25 @@ const EMPTY: Record<string, string> = {
 };
 
 const stop = (event: React.SyntheticEvent) => event.stopPropagation();
+/** How long an answered request shows its result before it leaves the list. */
+const RESULT_MS = 600;
+const wait = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
+
+/** Fades and collapses a card that leaves the list (instant with reduced motion). */
+function collapseCard(node: Element | null): Promise<void> {
+  if (!node || prefersReducedMotion() || typeof (node as HTMLElement).animate !== 'function') return Promise.resolve();
+  const el = node as HTMLElement;
+  const style = getComputedStyle(el);
+  const animation = el.animate([
+    { height: `${el.offsetHeight}px`, opacity: 1, marginBottom: style.marginBottom, paddingTop: style.paddingTop, paddingBottom: style.paddingBottom },
+    { height: '0px', opacity: 0, marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' },
+  ], { duration: DURATION.standard, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' });
+  el.style.overflow = 'hidden';
+  return animation.finished.then(() => undefined, () => undefined);
+}
+
+/** What a request's buttons show while it is being answered. */
+type Answer = { id: string; decision: 'approve' | 'decline'; done: boolean } | null;
 const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
 const MetaIcon = ({ name }: { name: 'calendar' | 'moon' | 'location' }) => (
@@ -84,12 +111,34 @@ interface CardProps {
   video: ListingVideo | null | undefined;
   selected: boolean;
   busy: boolean;
+  /** This request is being answered (spinner, then its result). */
+  answer: Answer;
   now: number;
   onSelect: (booking: HostBooking) => void;
   onRespond: (booking: HostBooking, decision: 'approve' | 'decline') => void;
 }
 
-function HostBookingCard({ booking, tab, video, selected, busy, now, onSelect, onRespond }: CardProps) {
+/** Approve / Decline, or the answer in progress and its result. */
+function AnswerButtons({ booking, busy, answer, approveLabel, onRespond }: { booking: HostBooking; busy: boolean; answer: Answer; approveLabel: string; onRespond: CardProps['onRespond'] }) {
+  const mine = answer && answer.id === booking.id ? answer : null;
+  if (mine) {
+    const text = mine.decision === 'approve' ? (mine.done ? 'Approved' : 'Approving…') : (mine.done ? 'Declined' : 'Declining…');
+    return (
+      <span className={`bk-answer${mine.done ? ' is-done' : ''}${mine.decision === 'decline' ? ' is-decline' : ''}`} role="status" aria-live="polite">
+        {mine.done ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg> : <span className="bk-answer-spinner" aria-hidden="true" />}
+        {text}
+      </span>
+    );
+  }
+  return (
+    <>
+      <button type="button" className="bk-btn bk-btn-solid approve-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); onRespond(booking, 'approve'); }}>{approveLabel}</button>
+      <button type="button" className="bk-btn bk-btn-outline decline-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); onRespond(booking, 'decline'); }}>Decline</button>
+    </>
+  );
+}
+
+function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onSelect, onRespond }: CardProps) {
   const listing = booking.listing || {};
   const guest = booking.client || {};
   const guestName = guest.full_name || 'Guest';
@@ -136,8 +185,7 @@ function HostBookingCard({ booking, tab, video, selected, busy, now, onSelect, o
         <div className="bk-requested">{requestedTime(booking.created_at, now)}</div>
         {tab === 'pending' && (
           <div className="bk-actions">
-            <button type="button" className="bk-btn bk-btn-solid approve-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); onRespond(booking, 'approve'); }}>Approve</button>
-            <button type="button" className="bk-btn bk-btn-outline decline-btn" disabled={busy} onClick={(event) => { event.stopPropagation(); onRespond(booking, 'decline'); }}>Decline</button>
+            <AnswerButtons booking={booking} busy={busy} answer={answer} approveLabel="Approve" onRespond={onRespond} />
           </div>
         )}
       </div>
@@ -145,17 +193,18 @@ function HostBookingCard({ booking, tab, video, selected, busy, now, onSelect, o
   );
 }
 
-function HostDetail({ booking, video, busy, onClose, onRespond }: {
+function HostDetail({ booking, video, busy, answer, onClose, onRespond }: {
   booking: HostBooking;
   video: ListingVideo | null | undefined;
   busy: boolean;
+  answer: Answer;
   onClose: () => void;
   onRespond: (booking: HostBooking, decision: 'approve' | 'decline') => void;
 }) {
   const listing = booking.listing || {};
   const photoUrl = photoOf(booking);
-  const checkIn = formatHostDate(booking.start_date || booking.lease_start_date);
-  const checkOut = formatHostDate(booking.end_date);
+  const checkIn = formatDate(booking.start_date || booking.lease_start_date);
+  const checkOut = formatDate(booking.end_date);
   let media: React.ReactNode = <div className="host-detail-image" aria-hidden="true" />;
   if (video && video.videoUrl) media = <ListingVideoElement video={video} className="host-detail-video" />;
   else if (photoUrl) media = <img className="host-detail-image" src={photoUrl} alt="" />;
@@ -178,8 +227,7 @@ function HostDetail({ booking, video, busy, onClose, onRespond }: {
       </div>
       {booking.status === 'pending' && (
         <div className="host-detail-actions">
-          <button className="bk-btn bk-btn-solid detail-approve" type="button" disabled={busy} onClick={() => onRespond(booking, 'approve')}>Approve booking</button>
-          <button className="bk-btn bk-btn-outline detail-decline" type="button" disabled={busy} onClick={() => onRespond(booking, 'decline')}>Decline</button>
+          <AnswerButtons booking={booking} busy={busy} answer={answer} approveLabel="Approve booking" onRespond={onRespond} />
         </div>
       )}
     </>
@@ -231,6 +279,8 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
   const [month, setMonth] = useState(() => firstOfMonth(new Date()));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<Answer>(null);
+  const [declineAsk, setDeclineAsk] = useState<HostBooking | null>(null);
   const [videos, setVideos] = useState<Record<string, ListingVideo | null>>({});
   const feedRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef(token);
@@ -321,6 +371,9 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
   }, [bookings, tab, month]);
 
   const selected = selectedId && bookings ? bookings.find((b) => b.id === selectedId) || null : null;
+  // The detail stays through its exit (a slide on phones, a fade in the rail).
+  const { shown: shownDetail, closing: detailClosing } = usePresentValue(selected, DURATION.quick);
+  const confirmedThisMonth = useMemo(() => (bookings || []).filter((b) => b.status === 'approved' && isBookingInMonth(b, month)).length, [bookings, month]);
 
   // Deep link (/bookings?booking=…): open that request on its tab.
   const requestedId = queryValue(router.query.booking);
@@ -347,19 +400,33 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
     const client = getSupabaseClient();
     if (busy || !client || !userId) return;
     setBusy(true);
+    setAnswer({ id: booking.id, decision, done: false });
     try {
       const { status } = await respondToBooking(client, { booking, userId: hostId, decision });
-      const next = (bookings || []).map((b) => (b.id === booking.id ? { ...b, status } : b));
-      save({ bookings: next });
-      setBookings(next);
+      setDeclineAsk(null);
+      // The result shows on the button, then the request leaves the list.
+      setAnswer({ id: booking.id, decision, done: true });
+      if (!prefersReducedMotion()) await wait(RESULT_MS);
+      await collapseCard(feedRef.current?.querySelector(`[data-booking-id="${CSS.escape(booking.id)}"]`) || null);
+      setBookings((current) => {
+        const next = (current || []).map((b) => (b.id === booking.id ? { ...b, status } : b));
+        save({ bookings: next });
+        return next;
+      });
       setSelectedId(null);
       showToast(decision === 'approve' ? 'Booking approved!' : 'Booking declined.');
     } catch (error) {
       console.error(`Failed to ${decision} booking:`, error);
       showToast(RESPOND_FAILED[decision]);
     } finally {
+      setAnswer(null);
       setBusy(false);
     }
+  };
+  // Approving is one tap; declining asks first.
+  const onRespond = (booking: HostBooking, decision: 'approve' | 'decline') => {
+    if (decision === 'decline') setDeclineAsk(booking);
+    else void respond(booking, 'approve');
   };
 
   const now = Date.now();
@@ -383,9 +450,10 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
         video={b.listing && b.listing.id ? videos[b.listing.id] : undefined}
         selected={b.id === selectedId}
         busy={busy}
+        answer={answer}
         now={now}
         onSelect={(item) => setSelectedId(item.id)}
-        onRespond={respond}
+        onRespond={onRespond}
       />
     ));
   }
@@ -406,30 +474,52 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
               <button type="button" className="host-month-current" style={{ visibility: isCurrentMonth ? 'hidden' : 'visible' }} onClick={() => setMonth(firstOfMonth(new Date()))}>This month</button>
             </div>
           </div>
-          <div className="tabs host-bookings-tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => switchTab(t.key)}>
-                {t.label}<span className={`tab-count${counts[t.key] > 0 ? ' has-count' : ''}`}>{counts[t.key] > 0 ? counts[t.key] : ''}</span>
-              </button>
-            ))}
+          <div className="bookings-tabs-row">
+            <SegmentedTabs label="Booking status" activeKey={`${tab}:${counts.pending}:${counts.confirmed}`}>
+              {TABS.map((t) => (
+                <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}>
+                  {t.label}{counts[t.key] > 0 && <span className="vr-seg-count">{counts[t.key]}</span>}
+                </button>
+              ))}
+            </SegmentedTabs>
           </div>
           <div className={entering ? 'host-booking-results-enter' : undefined} aria-busy={!bookings && !loadError && tab !== 'table-reservations'}>{panel}</div>
         </div>
       </div>
       <aside className="right-rail host-empty" id="right-rail">
-        <div className={`rail-card host-detail${selected ? ' show' : ''}`} id="host-booking-detail" aria-live="polite">
-          {selected && (
+        <div className={`rail-card host-detail${shownDetail ? ' show' : ''}${detailClosing ? ' is-closing' : ''}`} id="host-booking-detail" aria-live="polite">
+          {shownDetail && (
             <HostDetail
-              key={selected.id}
-              booking={selected}
-              video={selected.listing && selected.listing.id ? videos[selected.listing.id] : undefined}
-              busy={busy}
+              key={shownDetail.id}
+              booking={shownDetail}
+              video={shownDetail.listing && shownDetail.listing.id ? videos[shownDetail.listing.id] : undefined}
+              busy={busy || detailClosing}
+              answer={answer}
               onClose={() => setSelectedId(null)}
-              onRespond={respond}
+              onRespond={onRespond}
             />
           )}
         </div>
+        {!shownDetail && (
+          <div className="rail-card host-rail-summary">
+            <h2>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
+            <div className="host-rail-stats">
+              <div><strong>{counts.pending}</strong><span>{counts.pending === 1 ? 'Request waiting' : 'Requests waiting'}</span></div>
+              <div><strong>{confirmedThisMonth}</strong><span>Confirmed this month</span></div>
+            </div>
+            <p>{counts.pending ? 'Choose a request to see its details and answer it.' : 'New booking requests appear here for you to approve or decline.'}</p>
+          </div>
+        )}
       </aside>
+      <ConfirmSheet
+        open={declineAsk !== null}
+        title="Decline this request?"
+        message={`${(declineAsk && declineAsk.client && declineAsk.client.full_name) || 'The guest'} will be told the request was declined.`}
+        confirmLabel="Decline"
+        busy={busy}
+        onConfirm={() => { if (declineAsk) void respond(declineAsk, 'decline'); }}
+        onClose={() => setDeclineAsk(null)}
+      />
     </>
   );
 }

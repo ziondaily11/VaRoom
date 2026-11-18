@@ -43,9 +43,9 @@ function fakeClient(results) {
 }
 
 test('dates and rows: stays, hourly and leases (legacy describeDates / detail rows)', () => {
-  assert.equal(format.describeDates(booking({ start_date: '2026-11-03', end_date: '2026-11-06' })), '2026-11-03 → 2026-11-06');
-  assert.equal(format.describeDates(booking({ start_date: '2026-11-03', hours: 1 })), '2026-11-03 · 1 hour');
-  assert.equal(format.describeDates(booking({ lease_start_date: '2026-12-01', lease_months: 6 })), 'From 2026-12-01 · 6 months');
+  assert.equal(format.describeDates(booking({ start_date: '2026-11-03', end_date: '2026-11-06' })), '3 Nov 2026 → 6 Nov 2026');
+  assert.equal(format.describeDates(booking({ start_date: '2026-11-03', hours: 1 })), '3 Nov 2026 · 1 hour');
+  assert.equal(format.describeDates(booking({ lease_start_date: '2026-12-01', lease_months: 6 })), 'From 1 Dec 2026 · 6 months');
   const stay = format.detailRows(booking({ start_date: '2026-11-03', end_date: '2026-11-06' }));
   assert.deepEqual(stay.map((r) => r.label), ['Check-in', 'Check-out', 'Duration']);
   assert.equal(stay[2].value, '3 nights');
@@ -157,11 +157,14 @@ test('cache: per account, updated in place, cleared on sign-out', () => {
 
 test('detail: approved layout, Contact Support opens /support in a new tab, cancel asks first, payment is a preview', () => {
   const detail = read('components', 'bookings', 'BookingDetail.tsx');
-  for (const text of ['Booking <span>Approved!</span>', 'Great news! Your booking request has been approved by the host.', 'View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking? This can’t be undone.', 'Your stay is complete. Share your verified experience with future guests.']) {
+  for (const text of ['Booking <span>Approved!</span>', 'Great news! Your booking request has been approved by the host.', 'View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking?', 'This can’t be undone. The host will be told.', 'Your stay is complete. Share your verified experience with future guests.']) {
     assert.ok(detail.includes(text), text);
   }
   assert.match(detail, /href="\/support" target="_blank" rel="noopener noreferrer">Contact Support ›/);
-  assert.match(detail, /window\.confirm\(/);
+  // Cancelling asks first, in the app's own dialog (no window.confirm).
+  assert.doesNotMatch(detail, /window\.confirm\(/);
+  assert.match(detail, /onClick=\{\(\) => setConfirmingCancel\(true\)\}/);
+  assert.match(detail, /<ConfirmSheet\s+open=\{confirmingCancel\}/);
   const pay = read('components', 'bookings', 'PayDialog.tsx');
   assert.ok(pay.includes("Online payment isn&apos;t connected yet"));
   assert.match(pay, /clearTimeout/);
@@ -207,7 +210,9 @@ test('client view: legacy tabs and wording; pending shown in Upcoming; review on
   }
   assert.match(view, /const canReview = tab === 'past' && endMoment\(booking\) < now;/);
   assert.match(view, /tab === 'upcoming' && isCancellable\(booking\)/);
-  assert.match(view, /window\.confirm\('Cancel this booking\? This can’t be undone\.'\)/);
+  assert.doesNotMatch(view, /window\.confirm\(/);
+  assert.match(view, /const confirmCancel = \(booking: Booking\) => setCancelAsk\(booking\);/);
+  assert.match(view, /<ConfirmSheet\s+open=\{cancelAsk !== null\}/);
   assert.match(view, /href=\{`\/booking-approved\?id=\$\{encodeURIComponent\(booking\.id\)\}`\}/);
   assert.match(view, /new IntersectionObserver\(/);
   assert.doesNotMatch(view, /addEventListener\('scroll'/, 'no scroll listeners');
@@ -291,4 +296,30 @@ test('bookings.html and its notification widget are retired; old URLs reach the 
   assert.doesNotMatch(dark, /\.rail-card|\.booking-card|booking-approved\.html|bookings\.html/);
   const styles = read('components', 'bookings', 'bookingsStyles.ts');
   assert.match(styles, /html\[data-theme="dark"\] \.bookings-page \.rail-card\{/);
+});
+
+test('one date format on both views; booked days for the guest calendar', () => {
+  assert.equal(format.formatDate('2026-11-21'), '21 Nov 2026', 'a date-only value is that local day');
+  assert.equal(format.formatDate(null), '');
+  assert.equal(format.formatDate('not a date'), '');
+  const now = new Date(2026, 10, 18);
+  const days = format.bookedDays([
+    booking({ status: 'approved', start_date: '2026-11-20', end_date: '2026-11-22' }),
+    booking({ status: 'pending', start_date: '2026-10-30', end_date: '2026-11-02' }),
+    booking({ status: 'declined', start_date: '2026-11-25', end_date: '2026-11-26' }),
+    booking({ status: 'approved', lease_start_date: '2026-11-28', lease_months: 6 }),
+  ], now);
+  assert.deepEqual([...days].sort((a, b) => a - b), [1, 2, 20, 21, 22, 28], 'approved and pending only; this month only; a lease marks its start');
+});
+
+test('host: declining asks first; an answer shows its result, then the request leaves', () => {
+  const view = read('components', 'bookings', 'HostBookingsView.tsx');
+  assert.match(view, /if \(decision === 'decline'\) setDeclineAsk\(booking\);\s+else void respond\(booking, 'approve'\);/);
+  assert.match(view, /<ConfirmSheet\s+open=\{declineAsk !== null\}/);
+  assert.match(view, /setAnswer\(\{ id: booking\.id, decision, done: true \}\);/);
+  assert.match(view, /await collapseCard\(/);
+  assert.match(view, /if \(!node \|\| prefersReducedMotion\(\)/, 'no collapse with reduced motion');
+  const sheet = read('components', 'bookings', 'ConfirmSheet.tsx');
+  assert.match(sheet, /usePresence\(open, EXIT_MS\)/, 'the dialog plays its exit');
+  assert.match(sheet, /@media \(prefers-reduced-motion:reduce\)/);
 });
