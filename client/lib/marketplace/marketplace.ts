@@ -233,3 +233,44 @@ export function setCachedPage(search: MarketplaceSearch, offset: number, page: L
   pages.set(pageKey(search, offset), { page, at: now });
   if (pages.size > 60) pages.delete(pages.keys().next().value as string);
 }
+
+// ---------- Coming back to the list ----------
+
+/**
+ * The list as the guest left it (every page loaded so far and the scroll
+ * position), per search, so Back from a listing shows the same places at the
+ * same place. In memory only (public data, gone on reload); two minutes, like
+ * the pages above.
+ */
+export interface ListSnapshot { listings: MarketplaceListing[]; hasMore: boolean; offset: number; scrollTop: number }
+
+const snapshots = new Map<string, { snapshot: ListSnapshot; at: number }>();
+const snapshotKey = (search: MarketplaceSearch) => JSON.stringify([search.q, search.category, search.guests]);
+
+export function getListSnapshot(search: MarketplaceSearch, now: number = Date.now()): ListSnapshot | null {
+  const entry = snapshots.get(snapshotKey(search));
+  return entry && now - entry.at < PAGE_TTL_MS ? entry.snapshot : null;
+}
+
+export function setListSnapshot(search: MarketplaceSearch, snapshot: ListSnapshot, now: number = Date.now()): void {
+  snapshots.delete(snapshotKey(search));
+  snapshots.set(snapshotKey(search), { snapshot, at: now });
+  if (snapshots.size > 20) snapshots.delete(snapshots.keys().next().value as string);
+}
+
+/** What the summary line says about the search, one part per removable filter. */
+export function searchSummary(search: MarketplaceSearch): Array<{ key: 'q' | 'category' | 'guests'; label: string }> {
+  const parts: Array<{ key: 'q' | 'category' | 'guests'; label: string }> = [];
+  if (search.q.trim()) parts.push({ key: 'q', label: `“${search.q.trim()}”` });
+  if (search.category !== 'all') parts.push({ key: 'category', label: CATEGORY_LABELS[search.category] || search.category });
+  const guests = parseInt(search.guests, 10);
+  if (guests > 0) parts.push({ key: 'guests', label: `${guests}+ guests` });
+  return parts;
+}
+
+/** The empty state for a search that found nothing. */
+export function emptyMessage(search: MarketplaceSearch): { title: string; text: string } {
+  if (search.q.trim()) return { title: 'No places found', text: `Nothing matches “${search.q.trim()}”. Try another word, an area or a city.` };
+  if (search.category !== 'all' || search.guests) return { title: 'No places here yet', text: 'Try another category, or clear the filters.' };
+  return { title: 'No places listed yet', text: 'New places appear here as soon as hosts publish them.' };
+}
