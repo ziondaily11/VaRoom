@@ -302,64 +302,39 @@
 .badgeTitle { font-size: 0.7812rem; font-weight: 700; }
 .badgeNote { font-size: 0.6875rem; color: #8a8278; }
 
-/* 3. Booking */
-.bookingStack {
-  justify-content: space-between;
-  padding: 12px;
-}
+/*
+ * 3. Contact: the booking page's contact buttons (a 44 px circle with a thin
+ * border, the WhatsApp and Gmail logos at 27 px, line icons at 20 px), a
+ * little larger here and scattered with a slight tilt: the host chooses.
+ */
+.scatter { position: absolute; inset: 0; }
 
-.request { padding: 12px 14px; }
-
-.requestTitle { font-size: 0.8125rem; font-weight: 700; }
-.requestNote { font-size: 0.7188rem; color: #8a8278; }
-
-.pending {
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: #fdf1e3;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #9a5a12;
-}
-
-.choices {
+.contact {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.choices span {
-  flex: 1;
-  padding: 8px 0;
-  border: 1px solid #e3ddd3;
-  border-radius: 10px;
-  text-align: center;
-  font-size: 0.7812rem;
-  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  border: 1px solid rgba(24, 21, 19, 0.16);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.35);
   color: #181513;
+  rotate: var(--tilt);
 }
 
-.choices .approve {
-  border-color: #181513;
-  background: #181513;
-  color: #fff;
-}
+.contact img { display: block; width: 61%; height: 61%; object-fit: contain; }
+.contact svg { display: block; width: 45%; height: 45%; }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  padding: 8px 12px;
-  text-align: center;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #4d463f;
-}
-
-.calendar span { padding: 5px 0; border-radius: 7px; }
-.calendar .dayOff { color: #b8b2a7; text-decoration: line-through; }
-.calendar .dayEdge { background: #bd2337; color: #fff; }
-.calendar .dayIn { background: #f6dfe2; color: #8f1a2a; }
+/* Sizes follow the picture's height, so the scatter keeps its shape on every screen. */
+.contactWhatsapp { --x: 24%; --y: 34%; --size: clamp(46px, 34cqh, 72px); --tilt: -8deg; }
+.contactEmail { --x: 70%; --y: 24%; --size: clamp(40px, 28cqh, 60px); --tilt: 7deg; }
+.contactPhone { --x: 42%; --y: 74%; --size: clamp(40px, 27cqh, 58px); --tilt: 12deg; }
+.contactChat { --x: 79%; --y: 70%; --size: clamp(44px, 32cqh, 68px); --tilt: -5deg; }
 
 /* 4. Chat */
 .chat {
@@ -509,8 +484,6 @@
 }
 
 @container (max-height: 170px) {
-  .calendar { display: none; }
-  .bookingStack { justify-content: center; }
   .label { display: none; }
   .legend { display: none; }
   .member { padding: 6px 0; }
@@ -525,7 +498,6 @@
 }
 
 @container (max-height: 110px) {
-  .choices { display: none; }
   .quickReplies { display: none; }
 }
 

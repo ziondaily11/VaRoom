@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { isBelowScreen, playedThisTab, rememberPlayed, type Reveal } from '../../lib/landing/entrance';
 import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
+import { ICON_MESSAGE, ICON_PHONE } from '../../lib/booking/bookingIcons';
+import Svg from '../booking/Svg';
 import styles from './HostFeaturesSection.module.css';
 
 interface HostFeaturesSectionProps {
@@ -17,6 +19,14 @@ const TILE_PHOTOS = [
   '/assets/landing/host-tile-studio.webp',
   '/assets/landing/host-tile-living.webp',
   '/assets/landing/host-tile-bedroom.webp',
+];
+
+// The ways a guest can reach a host, drawn like the booking page's contact buttons.
+const CONTACT_LOGOS: Array<{ key: 'contactWhatsapp' | 'contactEmail' | 'contactPhone' | 'contactChat'; logo: React.ReactNode }> = [
+  { key: 'contactWhatsapp', logo: <img src="/assets/whatsapp.svg" alt="" width={27} height={27} /> },
+  { key: 'contactEmail', logo: <img src="/assets/gmail.svg" alt="" width={27} height={27} /> },
+  { key: 'contactPhone', logo: <Svg markup={ICON_PHONE} /> },
+  { key: 'contactChat', logo: <Svg markup={ICON_MESSAGE} /> },
 ];
 
 /** The order a detail settles in, inside its card (see the entrance in the CSS). */
@@ -84,33 +94,18 @@ const FEATURES: Feature[] = [
   },
   {
     tone: styles.tone3,
-    title: 'You approve every booking',
-    text: 'Requests come to you. Block the days you are not available.',
+    title: 'Be reached your way',
+    text: 'Choose how guests contact you: WhatsApp, email, a call or VaRoom chat.',
     visual: (
-      <div className={`${styles.fill} ${styles.bookingStack}`}>
-        <div className={`${styles.panel} ${styles.request} ${styles.settle}`} style={at(0)}>
-          <div className={styles.row}>
-            <span className={styles.avatar}>G</span>
-            <div style={{ flex: 1 }}>
-              <div className={styles.requestTitle}>Booking request</div>
-              <div className={styles.requestNote}>[Guest] · 2 nights</div>
-            </div>
-            <span className={styles.pending}>Pending</span>
-          </div>
-          <div className={styles.choices}>
-            <span className={styles.settle} style={at(2)}>Decline</span>
-            <span className={`${styles.approve} ${styles.settle}`} style={at(3)}>Approve</span>
-          </div>
-        </div>
-        <div className={`${styles.panel} ${styles.calendar} ${styles.settle}`} style={at(4)}>
-          <span className={styles.dayOff}>1</span>
-          <span className={styles.dayOff}>2</span>
-          <span>3</span>
-          <span className={`${styles.dayEdge} ${styles.settle} ${styles.pop}`} style={at(6)}>4</span>
-          <span className={`${styles.dayIn} ${styles.settle} ${styles.pop}`} style={at(7)}>5</span>
-          <span className={`${styles.dayEdge} ${styles.settle} ${styles.pop}`} style={at(8)}>6</span>
-          <span>7</span>
-        </div>
+      // The contact buttons as the booking page shows them, scattered: the
+      // host turns WhatsApp, email and phone on or off (Settings → Reach Out);
+      // VaRoom chat is always there.
+      <div className={styles.scatter}>
+        {CONTACT_LOGOS.map(({ key, logo }, i) => (
+          <span key={key} className={`${styles.contact} ${styles[key]} ${styles.settle} ${styles.pop}`} style={at(i * 2)}>
+            {logo}
+          </span>
+        ))}
       </div>
     ),
   },

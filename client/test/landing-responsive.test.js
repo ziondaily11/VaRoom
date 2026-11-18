@@ -257,3 +257,22 @@ test('landing page 3: the listing card shows three real photos, as small copies'
   assert.match(section, /\{i === 0 && <span className=\{styles\.play\}>▶<\/span>\}/);
   assert.match(section, /<span className=\{styles\.addMore\}>\+<\/span>/);
 });
+
+test('landing page 3: the contact card shows the booking page contact buttons, scattered', () => {
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  const css = read('components/landing/HostFeaturesSection.module.css');
+  const booking = read('components/booking/ListingDetails.tsx');
+  assert.match(section, /title: 'Be reached your way',/);
+  assert.match(section, /text: 'Choose how guests contact you: WhatsApp, email, a call or VaRoom chat\.',/);
+  // The same logos and icons as the booking page's contact buttons.
+  for (const logo of ['/assets/whatsapp.svg', '/assets/gmail.svg']) {
+    assert.ok(booking.includes(`src="${logo}"`) && section.includes(`src="${logo}"`), logo);
+  }
+  assert.match(section, /import \{ ICON_MESSAGE, ICON_PHONE \} from '\.\.\/\.\.\/lib\/booking\/bookingIcons';/);
+  assert.match(section, /import Svg from '\.\.\/booking\/Svg';/);
+  // Round, bordered, and placed loosely with a tilt.
+  assert.match(css, /\.contact \{[^}]*border-radius: 50%;[^}]*rotate: var\(--tilt\);/);
+  assert.equal((css.match(/^\.contact(Whatsapp|Email|Phone|Chat) \{ --x: \d+%; --y: \d+%; --size: clamp\([^)]*\); --tilt: -?\d+deg; \}$/gm) || []).length, 4);
+  // The booking-request picture is gone, with its styles.
+  assert.doesNotMatch(section + css, /bookingStack|dayEdge|Booking request/);
+});
