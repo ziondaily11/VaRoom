@@ -82,7 +82,8 @@ export const LISTING_SELECT = 'id,title,description,property_description,locatio
 export const MESSAGES = {
   noListing: 'No listing specified.',
   loadFailed: "Couldn't load that listing.",
-  ownListing: "This is your own listing — you can't book it.",
+  ownListing: 'This is your own listing. Guests book it here.',
+  ownContact: 'This is your own contact. Guests use these buttons to reach you.',
   noDetails: 'This listing has no booking details set up yet.',
   noDining: 'This hotel has not finished setting up table reservations yet.',
   reviewsUnavailable: 'Reviews are temporarily unavailable.',
@@ -255,16 +256,42 @@ export function bookingKind(listing: BookingListing, now: number = Date.now()): 
 }
 
 /** Why the listing can't be shown for booking, in the order the page always checked; null when it can. */
-export function bookingPageError(bundle: ListingBundle | null, userId: string, role: 'host' | 'client'): string | null {
+/**
+ * Why the page can't show this listing, or null. The owner sees their own
+ * listing like a guest (with owner notes instead of the actions; see isOwnListing).
+ */
+export function bookingPageError(bundle: ListingBundle | null): string | null {
   const listing = bundle && bundle.listing;
   if (!listing) return MESSAGES.loadFailed;
-  if (role === 'host' && listing.host_id === userId) return MESSAGES.ownListing;
   const kind = bookingKind(listing);
   const { details } = kind;
   const hasBookingDetails = Boolean(details && (kind.officeShop || details.price_amount != null || details.sale_price_amount != null || details.size_or_type || details.bathrooms != null || (Array.isArray(details.amenities) && details.amenities.length > 0)));
   if (kind.supportsStay && (!listing.listing_booking_details || !hasBookingDetails)) return MESSAGES.noDetails;
   if (kind.supportsTableReservation && !bundle.diningConfig) return MESSAGES.noDining;
   return null;
+}
+
+/** The signed-in account owns this listing: it can look, not book or contact itself. */
+export const isOwnListing = (listing: Pick<BookingListing, 'host_id'>, userId: string | null): boolean => Boolean(userId && listing.host_id === userId);
+
+// ---------- Property: sale and rent ----------
+
+export type PropertyOption = 'sale' | 'rent';
+
+/**
+ * Which of sale and rent a property offers, for the Buy / Rent buttons: the
+ * host's purpose, limited to the options with a price. With no price at all,
+ * the purpose alone decides (the panel then says the price is not provided).
+ */
+export function propertyOptions(kind: Pick<BookingKind, 'isProperty' | 'propertyPurpose' | 'details'>): PropertyOption[] {
+  if (!kind.isProperty) return [];
+  const purpose = kind.propertyPurpose || 'rent';
+  const offered: PropertyOption[] = [];
+  if (purpose === 'sale' || purpose === 'both') offered.push('sale');
+  if (purpose === 'rent' || purpose === 'both') offered.push('rent');
+  const price = (value: unknown) => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
+  const priced = offered.filter((option) => price(option === 'sale' ? kind.details.sale_price_amount : kind.details.price_amount));
+  return priced.length ? priced : offered;
 }
 
 // ---------- Calendar ----------

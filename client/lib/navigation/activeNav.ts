@@ -7,7 +7,8 @@ export function hostActiveNav(pathname: string, rawAsPath: string, view: string 
   const asPath = rawAsPath.split('?')[0];
   if (view === 'my-listings') return 'my-listings';
   if (asPath.startsWith('/host-home') || currentPath === '/host-home') return 'home';
-  if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace')) return 'marketplace';
+  // A listing's booking page belongs to the Marketplace.
+  if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace') || asPath === '/booking' || currentPath === '/booking') return 'marketplace';
   if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) return 'bookings';
   if (asPath.startsWith('/chats') || currentPath.startsWith('/chats')) return 'chats';
   if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) return 'notifications';
@@ -24,7 +25,7 @@ export const HOST_MORE_ITEMS = ['analytics', 'settings', 'support', 'upgrade'];
 /** Client sidebar. */
 export function clientActiveNav(p: string, as: string): string {
   if (p === '/client-home' || as.startsWith('/client-home')) return 'home';
-  if (p === '/marketplace' || as.startsWith('/marketplace')) return 'marketplace';
+  if (p === '/marketplace' || as.startsWith('/marketplace') || p === '/booking' || as.split('?')[0] === '/booking') return 'marketplace';
   if (p === '/bookings' || as.startsWith('/bookings')) return 'bookings';
   if (p === '/chats' || as.startsWith('/chats')) return 'chats';
   if (p === '/notifications' || as.startsWith('/notifications')) return 'notifications';

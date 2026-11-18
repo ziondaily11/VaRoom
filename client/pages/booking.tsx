@@ -10,12 +10,11 @@ import { loadListingVideo, getCachedVideo, type ListingVideo } from '../lib/medi
 import { useListingLike } from '../lib/listings/listingLikes';
 import { recordListingEvent } from '../lib/analytics/listingEvents';
 import {
-  bookingFailureText, bookingKind, bookingPageError, bookingPayload, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
+  bookingFailureText, bookingKind, bookingPageError, bookingPayload, isOwnListing, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
   loadListingBundle, MESSAGES, openConversation, peekExtras, peekListingBundle, rememberExtras, sendTableRequest,
   type CalendarDates, type DocumentsResult, type ListingBundle, type ReviewsResult, type StayChoice, type TableRequest,
 } from '../lib/booking/bookingListing';
 import { resolveAvatarUrl, resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';
-import BookingSidebar from '../components/booking/BookingSidebar';
 import BookingGallery from '../components/booking/BookingGallery';
 import ListingDetails, { ratingInfo } from '../components/booking/ListingDetails';
 import BookingWidget from '../components/booking/BookingWidget';
@@ -95,8 +94,10 @@ export default function BookingPage() {
   const pageError = !router.isReady || !userId || !role ? null
     : !listingId ? MESSAGES.noListing
     : loadFailed ? MESSAGES.loadFailed
-    : bundle ? bookingPageError(bundle, userId, role) : null;
+    : bundle ? bookingPageError(bundle) : null;
   const showable = Boolean(listing && !pageError);
+  // The owner sees the page as guests do, with notes instead of the actions.
+  const isOwner = Boolean(listing && isOwnListing(listing, userId));
   const kind = useMemo(() => (listing ? bookingKind(listing) : null), [listing]);
 
   // Everything else, in parallel once the listing can be shown.
@@ -135,7 +136,7 @@ export default function BookingPage() {
   }, [showable, client, listingId]);
 
   const messageHost = useCallback(async () => {
-    if (!client || !listing || !userId) return;
+    if (!client || !listing || !userId || isOwner) return;
     setMessaging(true);
     try {
       void router.push(await openConversation(listing));
@@ -144,10 +145,11 @@ export default function BookingPage() {
     } finally {
       setMessaging(false);
     }
-  }, [client, listing, userId, router]);
+  }, [client, listing, userId, router, isOwner]);
 
   const book = useCallback(async (choice: StayChoice, total: number): Promise<string | null> => {
     if (!client || !listing || !kind || !userId) return 'Not signed in.';
+    if (isOwner) return MESSAGES.ownListing;
     // The database tells the host (booking notifications are created with the booking).
     const { error } = await client.from('bookings').insert(bookingPayload(listing, kind, userId, total, choice));
     if (error) return bookingFailureText(error.message);
@@ -156,7 +158,7 @@ export default function BookingPage() {
     if (feed) feed.invalidateAll();
     forgetListingBundle(userId, listing.id);
     return null;
-  }, [client, listing, kind, userId]);
+  }, [client, listing, kind, userId, isOwner]);
 
   const openTable = useCallback(async () => {
     if (phone === null && client && userId) {
@@ -187,7 +189,6 @@ export default function BookingPage() {
       </Head>
       <style dangerouslySetInnerHTML={{ __html: BOOKING_STYLES }} />
       <div className="page-shell">
-        {role ? <BookingSidebar role={role} /> : <aside className="client-sidebar" id="booking-sidebar" aria-label="Account navigation" aria-hidden="true" />}
         <div className="main-shell">
           {!showable && !pageError && <Skeleton />}
           <div id="booking-page" style={{ display: showable ? 'block' : 'none', height: '100%' }}>
@@ -202,6 +203,7 @@ export default function BookingPage() {
                     hostAvatarUrl={resolveAvatar(listing.host.avatar_url)}
                     resolveAvatar={resolveAvatar}
                     contact={bundle ? bundle.contact : NO_CONTACT}
+                    isOwner={isOwner}
                     messaging={messaging}
                     onMessageHost={() => { void messageHost(); }}
                   />
@@ -214,6 +216,7 @@ export default function BookingPage() {
                     calendar={calendar}
                     documents={documents}
                     dining={bundle ? bundle.diningConfig : null}
+                    isOwner={isOwner}
                     onBook={book}
                     onOpenTable={() => { void openTable(); }}
                     onMessageHost={() => { void messageHost(); }}
@@ -225,7 +228,8 @@ export default function BookingPage() {
           <p id="page-error" className="page-error" style={{ display: pageError ? 'block' : 'none' }}>{pageError}</p>
         </div>
       </div>
-      {tableOpen && listing && bundle && bundle.diningConfig && (
+      {tableOpen && !isOwner && listing && bundle && bundle.diningConfig && (
+        <div className="booking-layer">
         <TableReservationDialog
           listingId={listing.id}
           dining={bundle.diningConfig}
@@ -234,6 +238,7 @@ export default function BookingPage() {
           onSend={(request: TableRequest) => (token ? sendTableRequest(request, token) : Promise.resolve('Network error — please try again.'))}
           onClose={() => setTableOpen(false)}
         />
+        </div>
       )}
     </>
   );
