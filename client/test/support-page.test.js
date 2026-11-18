@@ -9,24 +9,44 @@ const support = loadTs(path.join(root, 'lib', 'support', 'support.ts'));
 const page = fs.readFileSync(path.join(root, 'pages', 'support.tsx'), 'utf8');
 const dialog = fs.readFileSync(path.join(root, 'components', 'support', 'SupportDialog.tsx'), 'utf8');
 
-test('the six legacy help articles, in order', () => {
-  assert.deepEqual(support.HELP_ARTICLES.map((a) => a.title), [
-    'How to become a host', 'How to turn on dark mode', 'How to view as marketplace',
-    'How to add a listing', 'How to report a listing', 'How to switch or add an account',
-  ]);
+test('help articles: six topics, each with answers that follow the app, and links to the Terms', () => {
+  assert.deepEqual(support.HELP_TOPICS.map((t) => t.id), ['start', 'bookings', 'hosting', 'chats', 'account', 'safety']);
+  for (const topic of support.HELP_TOPICS) assert.ok(support.HELP_ARTICLES.some((a) => a.topic === topic.id), `${topic.id} has articles`);
+  const ids = support.HELP_ARTICLES.map((a) => a.id);
+  assert.equal(new Set(ids).size, ids.length, 'unique ids (they are page anchors)');
+  for (const article of support.HELP_ARTICLES) {
+    assert.ok(article.steps.length > 0 && article.summary, article.id);
+    if (article.link) assert.match(article.link.href, /^\/(terms|privacy)#[a-z-]+$/, `${article.id} links a section`);
+  }
+  const dark = support.HELP_ARTICLES.find((a) => a.id === 'dark-mode');
+  assert.deepEqual(dark.steps, ['Open **Settings**.', 'Select **Display**.', 'Under Appearance, choose **Dark**.'], 'the real path, not the old Profile one');
+  assert.match(support.HELP_ARTICLES.find((a) => a.id === 'pay-safely').note, /does not hold payments/, 'as the Terms say (no escrow)');
   assert.deepEqual(support.stepParts('Find and select **Become a Host**.'), [
     { bold: false, text: 'Find and select ' }, { bold: true, text: 'Become a Host' }, { bold: false, text: '.' },
   ]);
 });
 
-test('help search: first article containing every word, from visible text or keywords (legacy)', () => {
-  assert.equal(support.findHelpArticle('dark mode').id, 'dark-mode');
-  assert.equal(support.findHelpArticle('THEME').id, 'dark-mode', 'keywords count, case-insensitive');
-  assert.equal(support.findHelpArticle('host').id, 'become-host', 'first match wins');
-  assert.equal(support.findHelpArticle('three dot report').id, 'report-listing');
-  assert.equal(support.findHelpArticle('Login & Account').id, 'switch-account');
-  assert.equal(support.findHelpArticle('refund policy'), null);
-  assert.equal(support.findHelpArticle('   '), null);
+test('help search: every article with all the words, title matches first', () => {
+  assert.equal(support.searchHelpArticles('dark mode')[0].id, 'dark-mode');
+  assert.equal(support.searchHelpArticles('THEME')[0].id, 'dark-mode', 'keywords count, case-insensitive');
+  assert.equal(support.searchHelpArticles('cancel')[0].id, 'cancel-booking', 'a title match comes first');
+  assert.ok(support.searchHelpArticles('host').length > 2, 'all matches, not just the first');
+  assert.equal(support.searchHelpArticles('password')[0].id, 'change-password');
+  assert.deepEqual(support.searchHelpArticles('zebra crossing'), []);
+  assert.deepEqual(support.searchHelpArticles('   '), []);
+});
+
+test('page: live results, topics, articles that open, contact, and footer links that go somewhere', () => {
+  assert.match(page, /const results = useMemo\(\(\) => searchHelpArticles\(query\), \[query\]\);/);
+  assert.match(page, /aria-expanded=\{open\} aria-controls=\{panelId\}/);
+  assert.match(page, /window\.location\.hash\.replace\(\/\^#help-\/, ''\)/, 'an article can be linked');
+  assert.doesNotMatch(page, /href="#"/, 'no dead links');
+  assert.match(page, /href="\/terms#prohibited-conduct"/);
+  assert.match(page, /href="\/privacy#cookies"/);
+  for (const flow of ['ticket', 'account', 'bug', 'feature']) assert.match(page, new RegExp(`flow: '${flow}'`), flow);
+  const styles = fs.readFileSync(path.join(root, 'components', 'support', 'supportStyles.ts'), 'utf8');
+  assert.match(styles, /\.help-item-panel \{ display:grid; grid-template-rows:0fr;/);
+  assert.match(styles, /@media \(prefers-reduced-motion:reduce\) \{[\s\S]*\.help-item-panel/);
 });
 
 test('ticket checks, in legacy order and wording', () => {
@@ -70,7 +90,7 @@ test('page: legacy markup classes, identity from AuthProvider (no profile reques
   assert.match(page, /<RateVaroom userId=\{user\?\.id \|\| null\} \/>/);
   assert.match(page, /takeSupportHandoff\(\)/);
   assert.match(page, /router\.query\.topic === 'account'\) setFlow\('account'\)/);
-  for (const text of ['How can we help you today?', 'Create a support ticket', 'Report a bug', 'Request a feature', 'Need help with account', 'Write to VaRoom Support', 'Things people are looking for', 'No matching help article yet. More support guidance will be added here soon.']) {
+  for (const text of ['How can we help?', 'Contact support', 'Help with my account', 'Report a bug', 'Suggest a feature', 'Still need help?', 'Contact the VaRoom team', 'Ask our team']) {
     assert.ok(page.includes(text), text);
   }
 });
