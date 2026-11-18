@@ -15,6 +15,12 @@ export const normalizeUsername = (value: unknown): string => String(value || '')
 
 export const createEmptyOtpCode = (): OtpCode => ['', '', '', '', '', ''];
 
+/**
+ * Seconds before another email code can be asked for. The server refuses a new
+ * code for the same address sooner (AUTH_EMAIL_COOLDOWN_MS in server/server.js).
+ */
+export const CODE_RESEND_SECONDS = 60;
+
 /** One typed digit, or a pasted / autofilled code filling every box. */
 export function applyOtpInput(current: OtpCode, index: number, value: unknown): OtpCode {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 6);

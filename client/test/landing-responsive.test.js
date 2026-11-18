@@ -131,3 +131,17 @@ test('forgot-password and code panels keep only the words they need', () => {
   assert.match(signup, /Enter the code sent to <strong[^>]*>\{verificationEmail\}<\/strong>\./);
   assert.match(signup, /`Resend code in \$\{resendSeconds\}s`/);
 });
+
+test('a code can be resent only when the server allows it, starting with the first sign-up code', () => {
+  const flow = read('lib/auth/authFlow.ts');
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server', 'server.js'), 'utf8');
+  const seconds = Number(flow.match(/export const CODE_RESEND_SECONDS = (\d+);/)[1]);
+  const cooldownMs = Number(server.match(/const AUTH_EMAIL_COOLDOWN_MS = (\d+);/)[1]);
+  assert.equal(seconds * 1000, cooldownMs, 'the button waits exactly as long as the server');
+
+  const signup = read('components/landing/SignupForm.tsx');
+  const recovery = read('components/landing/PasswordRecovery.tsx');
+  assert.doesNotMatch(signup + recovery, /setResendSeconds\([1-9]\d*\)/, "no hard-coded wait");
+  // Sign-up starts the wait when the first code is sent, before the code step shows.
+  assert.match(signup, /setResendSeconds\(CODE_RESEND_SECONDS\);\s*setIsVerifying\(true\);/);
+});

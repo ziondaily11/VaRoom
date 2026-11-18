@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
-import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
+import { accountTypeDescriptions, CODE_RESEND_SECONDS, createEmptyOtpCode, createSubmissionGate } from '../../lib/auth/authFlow';
 import { OtpCodeInput } from './OtpCodeInput';
 import type { OtpCodeInputHandle } from './OtpCodeInput';
 import { GoogleLogo, GoogleSignInButton } from './GoogleSignInButton';
@@ -159,6 +159,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
       window.sessionStorage.setItem('varoom_intended_role', role);
       setVerificationEmail(email.trim());
       setVerificationCode(createEmptyOtpCode());
+      // The first code was just sent; the server refuses another one until this runs out.
+      setResendSeconds(CODE_RESEND_SECONDS);
       setIsVerifying(true);
     } catch (error) {
       setAlert(errorMessage(error) || 'Something went wrong. Please try again.');
@@ -212,7 +214,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
     otpInputRef.current?.clearAndFocus();
     setVerificationCode(createEmptyOtpCode());
     setIsLoading(true);
-    setResendSeconds(60);
+    setResendSeconds(CODE_RESEND_SECONDS);
     try {
       const response = await fetch('/api/auth/resend-confirmation', {
         method: 'POST',
