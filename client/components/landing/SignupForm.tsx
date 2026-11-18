@@ -129,7 +129,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
 
     const client = window.supabaseClient;
     if (!client) {
-      setAlert('Authentication is unavailable right now. Please try again.');
+      setAlert('Sign-in is unavailable. Try again.');
       return;
     }
 
@@ -169,13 +169,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
 
   const verifyCode = async (code: string) => verificationGate.run(async () => {
     if (code.length !== 6) {
-      setAlert('Enter the complete 6-digit verification code.');
+      setAlert('Enter all 6 digits.');
       return;
     }
 
     const client = window.supabaseClient;
     if (!client) {
-      setAlert('Authentication is unavailable right now. Please try again.');
+      setAlert('Sign-in is unavailable. Try again.');
       return;
     }
 
@@ -188,13 +188,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
         type: 'signup',
       });
       if (error) {
-        setAlert(error.message || 'That code is invalid or expired. Please try again.');
+        setAlert(error.message || 'Wrong or expired code. Try again.');
         otpInputRef.current?.clearAndFocus();
         return;
       }
       window.location.assign(`/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
     } catch (error) {
-      setAlert(errorMessage(error) || 'That code is invalid or expired. Please try again.');
+      setAlert(errorMessage(error) || 'Wrong or expired code. Try again.');
       otpInputRef.current?.clearAndFocus();
     } finally {
       setIsLoading(false);
@@ -220,9 +220,9 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
         body: JSON.stringify({ email: verificationEmail }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) setAlert(result.error || 'Could not resend the verification code.');
+      if (!response.ok) setAlert(result.error || 'The code could not be sent. Try again.');
     } catch (error) {
-      setAlert(errorMessage(error) || 'Could not resend the verification code.');
+      setAlert(errorMessage(error) || 'The code could not be sent. Try again.');
     } finally {
       setIsLoading(false);
       window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());
@@ -242,10 +242,10 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
           </button>
         )}
         <h2 id="auth-panel-signup-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
-          {isVerifying ? 'Verify your email.' : heading[step]}
+          {isVerifying ? 'Check your email.' : heading[step]}
         </h2>
         <p className="mt-2 text-sm text-[#d9d2c9]/80">
-          {isVerifying ? 'Enter the 6-digit code we sent to your email.' : step === 'details' ? `Creating a ${role} account.` : subheading[step]}
+          {isVerifying ? <>Enter the code sent to <strong className="font-semibold text-[#f5efe7]">{verificationEmail}</strong>.</> : step === 'details' ? `Creating a ${role} account.` : subheading[step]}
         </p>
       </div>
 
@@ -262,9 +262,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
 
       {isVerifying ? (
         <div>
-          <p className="mb-5 text-sm text-[#d9d2c9]/80">
-            We sent a verification code to <strong className="text-[#f5efe7]">{verificationEmail}</strong>
-          </p>
           <form className="space-y-5" onSubmit={handleVerify} noValidate>
             <OtpCodeInput
               ref={otpInputRef}
@@ -284,7 +281,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
             disabled={resendSeconds > 0 || isLoading}
             className="mt-4 w-full border-0 bg-transparent p-0 text-center text-sm font-medium text-[#f0e7df] hover:underline disabled:cursor-default disabled:text-[#d9d2c9]/55"
           >
-            {resendSeconds > 0 ? `Code sent — try again in ${resendSeconds}s` : 'Resend code'}
+            {resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Resend code'}
           </button>
         </div>
       ) : step === 'start' ? (
