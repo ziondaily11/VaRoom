@@ -611,6 +611,7 @@ Provide a report, in the reply and in the PR description, containing:
 9. Build and type-check results.
 10. Remaining issues.
 11. Risks and recommended next steps.
+12. Database migrations: if the change adds or edits a SQL migration, share the full SQL in the reply, in the order to run it: any check query to run first, the migration itself, and how to undo it. Name each file. A check query must work before the migration runs.
 
 Never claim that something works without actually verifying it.
 
