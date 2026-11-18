@@ -7,6 +7,7 @@ import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { HostFeaturesSection } from '../components/landing/HostFeaturesSection';
 import { SpacesSection } from '../components/landing/SpacesSection';
+import { TrustSection } from '../components/landing/TrustSection';
 import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
 import { fetchFeaturedReview } from '../lib/reviews/varoomReviews';
@@ -312,6 +313,9 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
 
         {/* Page 3: what hosts get */}
         <HostFeaturesSection onListSpace={openHostSignup} />
+
+        {/* Page 4: a review, why VaRoom is safe, a last call and the footer */}
+        <TrustSection review={review} onListSpace={openHostSignup} />
 
         <AuthPanel
           isOpen={isAuthOpen}

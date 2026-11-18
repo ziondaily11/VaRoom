@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { isBelowScreen, playedThisTab, rememberPlayed, type Reveal } from '../../lib/landing/entrance';
+import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
 import styles from './HostFeaturesSection.module.css';
 
 interface HostFeaturesSectionProps {
@@ -167,23 +169,7 @@ const FEATURES: Feature[] = [
 const PAGES = 2; // On shorter laptop screens the cards show three at a time.
 const SWIPE_PX = 40;
 
-type Reveal = 'none' | 'waiting' | 'playing';
-
-// Set once the entrance has played in this tab, so coming back (the landing
-// page reopens at the top) does not play it again (animation.md §2.3, §14.3).
 const PLAYED_KEY = 'varoom_landing_hosts_played';
-
-const alreadyPlayed = (): boolean => {
-  try { return window.sessionStorage.getItem(PLAYED_KEY) === '1'; } catch { return false; }
-};
-
-const rememberPlayed = (): void => {
-  try { window.sessionStorage.setItem(PLAYED_KEY, '1'); } catch { /* The entrance may play again. */ }
-};
-
-const prefersReducedMotion = (): boolean => (
-  typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
-);
 
 /** Page 3 of the landing page: what hosts get, as six product cards. */
 export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onListSpace }) => {
@@ -205,7 +191,7 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
   const [order, setOrder] = useState<number[]>(() => FEATURES.map(() => 0));
   useEffect(() => {
     const section = sectionRef.current;
-    if (!section || typeof IntersectionObserver === 'undefined' || prefersReducedMotion() || alreadyPlayed()) return undefined;
+    if (!section || typeof IntersectionObserver === 'undefined' || prefersReducedMotion() || playedThisTab(PLAYED_KEY)) return undefined;
     const observers: IntersectionObserver[] = [];
 
     // Measured two frames after mounting, once the browser has restored the
@@ -215,7 +201,7 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
       const cards = Array.from(section.querySelectorAll('article'));
       // The one-row layout clips the cards beside the others at its own edges, not the window's.
       const clip = (cards[0]?.parentElement?.parentElement ?? section).getBoundingClientRect();
-      const below = (rect: DOMRect) => rect.top >= window.innerHeight * 0.85;
+      const below = isBelowScreen;
       const beside = (rect: DOMRect) => rect.left >= clip.right - 1 || rect.right <= clip.left + 1;
       const rects = cards.map((card) => card.getBoundingClientRect());
       const waits = rects.map((rect) => below(rect) || rect.bottom <= 0 || beside(rect));
@@ -230,7 +216,7 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
         const sectionObserver = new IntersectionObserver((entries) => {
           if (!entries.some((entry) => entry.isIntersecting)) return;
           setEntrance('playing');
-          rememberPlayed();
+          rememberPlayed(PLAYED_KEY);
           sectionObserver.disconnect();
         }, { threshold: 0.15 });
         sectionObserver.observe(section);
@@ -248,7 +234,7 @@ export const HostFeaturesSection: React.FC<HostFeaturesSectionProps> = ({ onList
         // Cards that arrive together follow each other in reading order.
         setOrder((was) => was.map((n, i) => (arrived.includes(i) ? arrived.indexOf(i) : n)));
         setReveal((was) => was.map((state, i) => (arrived.includes(i) ? 'playing' : state)));
-        rememberPlayed();
+        rememberPlayed(PLAYED_KEY);
         if (!pending.size) cardObserver.disconnect();
       }, { threshold: 0.35 });
       pending.forEach((card) => cardObserver.observe(card));

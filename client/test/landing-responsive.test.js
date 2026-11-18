@@ -196,13 +196,15 @@ test('landing page 3 motion: plays once, never replays on return, honours reduce
   const section = read('components/landing/HostFeaturesSection.tsx');
   // Rendered visible; only what is still off screen waits, measured after the scroll is restored.
   assert.match(section, /requestAnimationFrame\(\(\) => \{ frame = requestAnimationFrame\(begin\); \}\)/);
-  assert.match(section, /prefersReducedMotion\(\) \|\| alreadyPlayed\(\)\) return undefined;/);
+  assert.match(section, /prefersReducedMotion\(\) \|\| playedThisTab\(PLAYED_KEY\)\) return undefined;/);
   assert.match(section, /const PLAYED_KEY = 'varoom_landing_hosts_played';/);
-  assert.match(section, /window\.sessionStorage\.setItem\(PLAYED_KEY, '1'\)/);
+  assert.match(section, /rememberPlayed\(PLAYED_KEY\)/);
+  assert.match(read('lib/landing/entrance.ts'), /window\.sessionStorage\.setItem\(key, '1'\)/);
   // Cards beside the others in the one-row layout settle their details but do not rise.
   assert.match(section, /setRises\(rects\.map\(\(rect, i\) => waits\[i\] && !beside\(rect\)\)\);/);
   // Tokens: entrances ease out; the carousel move eases in and out in 300 ms; press .97.
-  assert.match(css, /transition: transform 300ms cubic-bezier\(0\.65, 0, 0\.35, 1\);/);
+  assert.match(css, /transition: transform 300ms var\(--ease-in-out\);/);
+  assert.doesNotMatch(css, /cubic-bezier/, 'motion tokens from styles/motion.css');
   assert.match(css, /\.arrow:active:not\(:disabled\) \{ scale: 0\.97; \}/);
   assert.doesNotMatch(css, /transition:\s*all\b/);
   // Keyframes move only opacity and the translate/scale properties.
@@ -211,4 +213,31 @@ test('landing page 3 motion: plays once, never replays on return, honours reduce
   }
   // Reduced motion: final state at once.
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.section \.head,\s*\.section \.pager,\s*\.section \.cta,\s*\.section \.card,\s*\.section \.settle \{\s*animation: none !important;\s*opacity: 1 !important;/);
+});
+
+test('landing page 4: review, trust points, last call and footer, after the host section', () => {
+  const page = read('pages/index.tsx');
+  const section = read('components/landing/TrustSection.tsx');
+  const css = read('components/landing/TrustSection.module.css');
+  assert.ok(page.indexOf('<HostFeaturesSection') < page.indexOf('<TrustSection'), 'hosts first, then the last page');
+  assert.match(page, /<TrustSection review=\{review\} onListSpace=\{openHostSignup\} \/>/);
+  // The real featured review with picture and handle; a heading when there is none.
+  assert.match(section, /<ReviewAvatar review=\{review\} \/>/);
+  assert.match(section, /\{reviewAuthorHandle\(review\)\}/);
+  assert.match(section, /Book with <em>confidence\.<\/em>/);
+  // Last call and footer links.
+  assert.match(section, /<Link href="\/marketplace"/);
+  for (const href of ['/property-news', '/support', '/terms', '/privacy']) assert.match(section, new RegExp(`<Link href="${href}">`));
+  assert.match(section, /href=\{SOCIAL_LINKS\.instagram\} target="_blank" rel="noopener noreferrer"/);
+  // One source for the social links.
+  for (const file of ['pages/client-home.tsx', 'components/hostHome/HostRail.tsx', 'components/landing/TrustSection.tsx']) {
+    assert.doesNotMatch(read(file), /https:\/\/www\.(instagram|tiktok)\.com/, `${file} uses SOCIAL_LINKS`);
+  }
+  // One screen tall; long reviews are shown in full on phones.
+  assert.match(css, /\.section \{[^}]*min-height: 100dvh;/);
+  assert.match(css, /@media \(min-width: 641px\) \{\s*\.quoteLong \{[^}]*-webkit-line-clamp: 9;/);
+  // Motion: played once with the shared helper, tokens, reduced motion.
+  assert.match(section, /useSectionEntrance\(sectionRef, 'varoom_landing_trust_played'\)/);
+  assert.match(css, /animation: trustRise 700ms var\(--ease-out\) backwards;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.section \.enter \{ animation: none !important; opacity: 1 !important; \}/);
 });
