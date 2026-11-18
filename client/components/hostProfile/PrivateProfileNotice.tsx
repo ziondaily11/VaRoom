@@ -64,8 +64,9 @@ export default function PrivateProfileNotice({ handle, signedIn }: PrivateProfil
         .private-profile-card {
           width: 100%; max-width: 440px; text-align: center; padding: 36px 28px 30px;
           background: var(--host-profile-surface, #0e0e0e);
-          border: 1px solid var(--host-profile-border, #1f1f1f);
-          border-radius: 20px;
+          border: 0;
+          border-radius: 22px;
+          box-shadow: var(--host-profile-shadow, none);
         }
         .private-profile-art { display: flex; justify-content: center; margin-bottom: 18px; }
         .pp-halo { fill: rgba(196, 30, 58, .08); }

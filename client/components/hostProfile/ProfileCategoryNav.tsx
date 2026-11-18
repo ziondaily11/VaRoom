@@ -113,24 +113,35 @@ export default function ProfileCategoryNav({ hostId, viewerId, listings, isOwner
 
   return (
     <>
-      <div className="profile-category-row" role="tablist" aria-label="Profile listing categories">
-        <button type="button" role="tab" aria-selected={activeTab === 'listings' && !value} onClick={() => { onChange?.(null); onTabChange?.('listings'); }}>Spaces</button>
-        {categories.map((category) => (
-          <button key={category.id} type="button" role="tab" aria-selected={activeTab === 'listings' && value === category.id} onClick={() => { onChange?.(category.id); onTabChange?.('listings'); }}>
-            {category.name}<span className="profile-category-count">{listings.filter((listing) => category.listingIds.includes(listing.id)).length}</span>
-          </button>
-        ))}
-        <button type="button" role="tab" aria-selected={activeTab === 'reviews'} onClick={() => onTabChange?.('reviews')}>Reviews</button>
+      <div className="profile-category-bar">
+        <div className="profile-category-row" role="tablist" aria-label="Profile listing categories">
+          <button type="button" role="tab" aria-selected={activeTab === 'listings' && !value} onClick={() => { onChange?.(null); onTabChange?.('listings'); }}>Spaces</button>
+          {categories.map((category) => (
+            <button key={category.id} type="button" role="tab" aria-selected={activeTab === 'listings' && value === category.id} onClick={() => { onChange?.(category.id); onTabChange?.('listings'); }}>
+              {category.name}<span className="profile-category-count">{listings.filter((listing) => category.listingIds.includes(listing.id)).length}</span>
+            </button>
+          ))}
+          <button type="button" role="tab" aria-selected={activeTab === 'reviews'} onClick={() => onTabChange?.('reviews')}>Reviews</button>
+        </div>
         {isOwner && <button type="button" className="profile-category-manage" onClick={() => { setError(''); setOpen(true); }}><Plus size={15} /> Manage categories</button>}
       </div>
       <style jsx>{`
-        .profile-category-row { display:flex; align-items:center; gap:8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; white-space:nowrap; padding:0 4px; border-bottom:1px solid var(--host-profile-border,#242424); }
+        /* An Apple segmented control (a raised pill in a soft track) that still
+           scrolls sideways; the hairline under the row stays. */
+        .profile-category-bar { display:flex; align-items:center; gap:12px; padding:10px 0 12px; border-bottom:1px solid var(--host-profile-border,#242424); }
+        .profile-category-row { display:flex; align-items:center; gap:2px; min-width:0; max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; white-space:nowrap; padding:3px; border-radius:999px; background:var(--host-profile-fill,rgba(118,118,128,.24)); box-sizing:border-box; }
         .profile-category-row::-webkit-scrollbar { display:none; }
-        .profile-category-row button { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; border:0; border-bottom:2px solid transparent; padding:13px 10px 11px; background:transparent; color:var(--host-profile-muted,#aaa); font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; }
-        .profile-category-row button[aria-selected="true"] { color:var(--host-profile-text,#fff); border-bottom-color:#e5384f; }
-        .profile-category-row .profile-category-manage { margin-left:auto; color:#f0a0ab; }
+        .profile-category-row button, .profile-category-manage { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; border:0; border-radius:999px; padding:7px 14px; background:transparent; color:var(--host-profile-muted,#aaa); font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; transition:background-color .2s cubic-bezier(.25,.1,.25,1), color .2s cubic-bezier(.25,.1,.25,1), box-shadow .2s cubic-bezier(.25,.1,.25,1), transform .15s cubic-bezier(.25,.1,.25,1); }
+        .profile-category-row button:hover { color:var(--host-profile-text,#fff); }
+        .profile-category-row button:active, .profile-category-manage:active { transform:scale(.97); }
+        .profile-category-row button[aria-selected="true"] { color:var(--host-profile-text,#fff); background:var(--host-profile-selected,#2c2c2e); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.04); }
+        .profile-category-manage { margin-left:auto; color:#e5384f; }
+        .profile-category-manage:hover { background:var(--host-profile-fill,rgba(118,118,128,.24)); }
+        /* Phones: the owner's Manage button takes its own line, so the tabs keep the width. */
+        @media (max-width: 760px) { .profile-category-bar { flex-wrap:wrap; gap:6px; } .profile-category-manage { margin-left:0; padding-left:4px; } }
+        @media (prefers-reduced-motion: reduce) { .profile-category-row button, .profile-category-manage { transition:none; } .profile-category-row button:active, .profile-category-manage:active { transform:none; } }
         .profile-category-count { font-size:0.6875rem; opacity:.65; }
-        .profile-category-row button:focus-visible { outline:2px solid #e5384f; outline-offset:-2px; }
+        .profile-category-row button:focus-visible, .profile-category-manage:focus-visible { outline:2px solid #e5384f; outline-offset:-2px; }
         .profile-category-error { color:var(--host-profile-error,#ff98a6); font-size:0.8125rem; }
       `}</style>
       {open && (
