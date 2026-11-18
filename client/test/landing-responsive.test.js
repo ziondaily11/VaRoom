@@ -276,3 +276,13 @@ test('landing page 3: the contact card shows the booking page contact buttons, s
   // The booking-request picture is gone, with its styles.
   assert.doesNotMatch(section + css, /bookingStack|dayEdge|Booking request/);
 });
+
+test('landing page 3: niche chips stay on one row; the brand logo images are never drawn turned', () => {
+  const css = read('components/landing/HostFeaturesSection.module.css');
+  // One row; on a narrow picture the last chip fades at the edge instead of wrapping alone.
+  assert.match(css, /\.niches \{\s*display: flex;\s*flex-wrap: nowrap;\s*gap: 6px;\s*overflow: hidden;\s*\}/);
+  assert.match(css, /@container \(max-width: 440px\) \{\s*\.niches \{[^}]*mask-image: linear-gradient\(to right, #000 calc\(100% - 32px\), transparent\);/);
+  assert.doesNotMatch(css, /\.niches span:nth-child\(n \+ 4\) \{ display: none; \}/);
+  // A turned image can show a dark edge line on Windows: the logo cancels its circle's tilt.
+  assert.match(css, /\.contact img \{ rotate: calc\(var\(--tilt\) \* -1\); \}/);
+});

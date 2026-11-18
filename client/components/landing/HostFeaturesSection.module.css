@@ -155,8 +155,19 @@
 /* 1. Listing */
 .niches {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  overflow: hidden;
+}
+
+/* One row of chips, like a chip row you can scroll: when they do not all fit, the last one fades at the edge. */
+.niches span { flex: none; }
+
+@container (max-width: 440px) {
+  .niches {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  }
 }
 
 .niches span {
@@ -328,6 +339,14 @@
 }
 
 .contact img { display: block; width: 61%; height: 61%; object-fit: contain; }
+
+/*
+ * The WhatsApp and Gmail logos are images. Some browsers on Windows draw a
+ * thin dark line at the edge of a turned image whose drawing touches its own
+ * edge (both logos do), so the logos stay upright, as on the booking page;
+ * the circle around them, and the phone and chat line icons, keep the tilt.
+ */
+.contact img { rotate: calc(var(--tilt) * -1); }
 .contact svg { display: block; width: 45%; height: 45%; }
 
 /* Sizes follow the picture's height, so the scatter keeps its shape on every screen. */
@@ -494,7 +513,6 @@
   .badgeNote { display: none; }
   .member:nth-of-type(3) { display: none; }
   .member:nth-of-type(2) { border-bottom: 0; }
-  .niches span:nth-child(n + 4) { display: none; }
 }
 
 @container (max-height: 110px) {
