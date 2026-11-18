@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveAvatarUrl } from '../../components/resolveStoredPhotoUrl';
 
 // Reviews of VaRoom itself (table public.varoom_reviews). A signed-in person
 // rates VaRoom from Help & Support; an admin approves reviews before one is
@@ -12,6 +13,10 @@ export interface FeaturedReview {
   comment: string;
   authorName: string;
   authorRole: 'host' | 'client';
+  /** Without the @; null for a private profile or before migration 000072. */
+  authorUsername: string | null;
+  /** A ready-to-use picture URL, or null when there is none to show. */
+  authorAvatarUrl: string | null;
 }
 
 export type ReviewStatus = 'pending' | 'approved' | 'hidden';
@@ -25,10 +30,17 @@ export interface MyReview {
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>;
 
-interface FeaturedRow { rating: number; comment: string; author_name: string; author_role: string }
+interface FeaturedRow {
+  rating: number;
+  comment: string;
+  author_name: string;
+  author_role: string;
+  author_username?: string | null;
+  author_avatar_url?: string | null;
+}
 
 /** The review to show on the sign-in panel, or null when none is approved yet (or on any error). */
-export async function fetchFeaturedReview(client: Pick<SupabaseClient, 'rpc'>): Promise<FeaturedReview | null> {
+export async function fetchFeaturedReview(client: Pick<SupabaseClient, 'rpc' | 'storage'>): Promise<FeaturedReview | null> {
   const { data, error } = await client.rpc('varoom_featured_review');
   if (error) {
     console.warn('VaRoom review unavailable', error.message);
@@ -41,8 +53,15 @@ export async function fetchFeaturedReview(client: Pick<SupabaseClient, 'rpc'>): 
     comment: row.comment,
     authorName: row.author_name || 'VaRoom member',
     authorRole: row.author_role === 'host' ? 'host' : 'client',
+    authorUsername: row.author_username?.trim().replace(/^@+/, '') || null,
+    authorAvatarUrl: resolveAvatarUrl(row.author_avatar_url?.trim() || null, client),
   };
 }
+
+/** "@susan" when the author has a public username, otherwise their short name ("Susan W."). */
+export const reviewAuthorHandle = (review: Pick<FeaturedReview, 'authorName' | 'authorUsername'>): string => (
+  review.authorUsername ? `@${review.authorUsername}` : review.authorName
+);
 
 /** The signed-in person's review, or null when they have not rated VaRoom. Throws on error. */
 export async function fetchMyReview(client: Client, userId: string): Promise<MyReview | null> {

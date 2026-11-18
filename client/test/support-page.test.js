@@ -163,6 +163,11 @@ test('sign-in panel: "Get help" carries the typed email to account help in a new
   const panel = fs.readFileSync(path.join(root, 'components', 'landing', 'AuthPanel.tsx'), 'utf8');
   assert.match(panel, /href=\{ACCOUNT_HELP_HREF\}\s+target="_blank"\s+rel="noopener noreferrer"\s+onClick=\{\(\) => saveSupportHandoff\(email\)\}/);
   assert.match(panel, /\{review && authView !== 'recovery' && <ReviewQuote review=\{review\} \/>\}/);
+  // Picture and @username, no outline around them.
+  assert.match(panel, /<ReviewAvatar review=\{review\} \/>/);
+  assert.match(panel, /\{reviewAuthorHandle\(review\)\}/);
+  assert.match(panel, /className="h-9 w-9 shrink-0 rounded-full object-cover"/);
+  assert.doesNotMatch(panel, /<figcaption[^>]*border/);
   const landing = fs.readFileSync(path.join(root, 'pages', 'index.tsx'), 'utf8');
   assert.match(landing, /fetchFeaturedReview\(client\)\.catch\(\(\) => null\)/);
   assert.match(landing, /review=\{review\}/);
@@ -174,8 +179,17 @@ test('VaRoom reviews: featured review shape, checks before saving, own review sa
   const rpc = (result) => ({ rpc: async (name) => { assert.equal(name, 'varoom_featured_review'); return result; } });
   assert.deepEqual(
     { ...(await reviews.fetchFeaturedReview(rpc({ data: [{ rating: 5, comment: 'Booked a venue in a day.', author_name: 'Susan W.', author_role: 'host' }], error: null }))) },
-    { rating: 5, comment: 'Booked a venue in a day.', authorName: 'Susan W.', authorRole: 'host' },
+    { rating: 5, comment: 'Booked a venue in a day.', authorName: 'Susan W.', authorRole: 'host', authorUsername: null, authorAvatarUrl: null },
+    'before migration 000072: no username or picture',
   );
+  const withProfile = await reviews.fetchFeaturedReview({
+    rpc: async () => ({ data: [{ rating: 4, comment: 'Great', author_name: 'Susan W.', author_role: 'client', author_username: '@susan', author_avatar_url: 'avatars/production/u1/face.jpg' }], error: null }),
+    storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: 'unused' } }) }) },
+  });
+  assert.equal(withProfile.authorUsername, 'susan', 'stored without the @');
+  assert.equal(withProfile.authorAvatarUrl, '/api/photos/avatars/avatars/production/u1/face.jpg?w=192', 'small copy through /api/photos');
+  assert.equal(reviews.reviewAuthorHandle(withProfile), '@susan');
+  assert.equal(reviews.reviewAuthorHandle({ authorName: 'Susan W.', authorUsername: null }), 'Susan W.', 'private profile: short name');
   assert.equal(await reviews.fetchFeaturedReview(rpc({ data: [], error: null })), null, 'none approved');
   const warn = console.warn;
   console.warn = () => {};
@@ -217,6 +231,12 @@ test('VaRoom reviews migration: own rows only, back to pending on change, one pu
   assert.match(sql, /revoke all on public\.varoom_reviews from anon;/);
   assert.match(sql, /returns table \(rating smallint, comment text, author_name text, author_role text\)/);
   assert.match(sql, /where r\.status = 'approved' and r\.comment <> ''/);
+  const profileSql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261118_000072_varoom_review_author_profile.sql'), 'utf8');
+  assert.match(profileSql, /drop function if exists public\.varoom_featured_review\(\);/);
+  assert.match(profileSql, /author_username text,\s*author_avatar_url text/);
+  assert.equal((profileSql.match(/p\.profile_visibility = 'private' or p\.deactivated_at is not null then null/g) || []).length, 2, 'private or deactivated: no username, no picture');
+  assert.doesNotMatch(profileSql, /select[^;]*r\.user_id,/, 'still no account ids');
+  assert.match(profileSql, /grant execute on function public\.varoom_featured_review\(\) to anon, authenticated, service_role;/);
   const routes = fs.readFileSync(path.join(root, '..', 'server', 'routes', 'adminRoutes.js'), 'utf8');
   assert.match(routes, /router\.patch\('\/varoom-reviews\/:id', \.\.\.adminWrite,/);
   assert.match(routes, /logActivity\(req\.admin, `varoom_review_\$\{status\}`/);
