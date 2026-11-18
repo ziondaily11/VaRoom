@@ -29,7 +29,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (status === 'signed-out') {
-      window.location.assign(loginUrl(router.asPath || '/analytics'));
+      void router.replace(loginUrl(router.asPath || '/analytics'));
     } else if (status === 'signed-in' && profile && !isHost) {
       void router.replace('/');
     }
@@ -46,7 +46,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <Head>
-        <title>Host Analytics — VaRoom</title>
+        <title>Analytics · VaRoom</title>
       </Head>
       {error && <p style={{ ...messageStyle, color: '#8f1229' }} role="alert">{error}</p>}
       {!error && !(isHost && user && client && router.isReady) && <AnalyticsSkeleton />}

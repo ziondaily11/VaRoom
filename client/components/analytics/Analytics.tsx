@@ -16,6 +16,7 @@ import {
 import { Icon } from './analyticsIcons';
 import ListingPicker from './ListingPicker';
 import { Count } from './motion';
+import SegmentedTabs from '../ui/SegmentedTabs';
 import { ANALYTICS_CSS } from './analyticsStyles';
 
 /* ---------- Cached loading ---------- */
@@ -129,10 +130,12 @@ function Dashboard({ data, rk, listingId, onListingChange, paymentsBody }: {
     <Card
       key="performance" className="s8" title="Performance" icon="bolt"
       action={(
-        <div className="va-tabs" role="group" aria-label="Chart metric">
-          {view.trendMetrics.map((m) => (
-            <button key={m.key} type="button" aria-pressed={metric.key === m.key} onClick={() => setMetricKey(m.key)}>{m.label}</button>
-          ))}
+        <div className="va-tabs">
+          <SegmentedTabs label="Chart metric" activeKey={metric.key}>
+            {view.trendMetrics.map((m) => (
+              <button key={m.key} type="button" role="tab" aria-selected={metric.key === m.key} onClick={() => setMetricKey(m.key)}>{m.label}</button>
+            ))}
+          </SegmentedTabs>
         </div>
       )}
     >
@@ -281,8 +284,10 @@ export default function HostAnalytics({ client, userId, firstName, listingId, on
               {(options.data?.length ?? 0) > 1 && (
                 <ListingPicker options={options.data || []} value={listingId} onChange={onListingChange} />
               )}
-              <div className="va-segctl" role="group" aria-label="Date range">
-                {ranges.map((k) => <button key={k} type="button" aria-pressed={rk === k} onClick={() => chooseRange(k)}>{RANGE_SHORT[k]}</button>)}
+              <div className="va-segctl">
+                <SegmentedTabs label="Date range" activeKey={rk}>
+                  {ranges.map((k) => <button key={k} type="button" role="tab" aria-selected={rk === k} onClick={() => chooseRange(k)}>{RANGE_SHORT[k]}</button>)}
+                </SegmentedTabs>
               </div>
               {full && (
                 <button type="button" className="va-iconbtn" onClick={exportCsv} aria-label="Export CSV" title="Export CSV">

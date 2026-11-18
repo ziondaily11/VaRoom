@@ -63,7 +63,18 @@ export function useCountUp(target: number | null, duration = 900): number | null
   return shown;
 }
 
-/** A metric that counts up to its value, formatted like everywhere else. */
+/**
+ * A metric that counts up to its value, formatted like everywhere else. The
+ * moving number is for the eye only: screen readers and printing always get
+ * the final value (a card further down reads "0" until it is scrolled to).
+ */
 export function Count({ value, format }: { value: number | null; format: MetricFormat }) {
-  return <>{formatMetric(useCountUp(value), format)}</>;
+  const shown = formatMetric(useCountUp(value), format);
+  const final = formatMetric(value, format);
+  return (
+    <>
+      <span className="va-count" aria-hidden="true">{shown}</span>
+      <span className="va-count-final">{final}</span>
+    </>
+  );
 }

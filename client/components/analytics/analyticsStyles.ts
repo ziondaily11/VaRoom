@@ -32,10 +32,10 @@ export const ANALYTICS_CSS = `
 .va-hello h1{font-size:clamp(1.5rem,2.4vw,2rem);font-weight:700;letter-spacing:-.025em;line-height:1.15}
 .va-chip{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:.74rem;font-weight:650;letter-spacing:.02em}
 .va-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.va-segctl{display:inline-flex;padding:4px;gap:2px;border-radius:999px;background:var(--card);border:1px solid var(--line)}
-.va-segctl button{border:0;background:transparent;padding:7px 14px;border-radius:999px;font-size:.84rem;font-weight:550;color:var(--mute);transition:background .15s,color .15s}
-.va-segctl button:hover{color:var(--fg)}
-.va-segctl button[aria-pressed="true"]{background:var(--fg);color:var(--card)}
+/* The date range and the chart metric use the shared sliding switch (components/ui/SegmentedTabs). */
+.va-segctl{display:flex;min-width:0;max-width:100%}
+.va-segctl .vr-seg{--seg-accent:var(--accent)}
+.va-segctl .vr-seg > button{font-size:.84rem;padding:8px 14px}
 .va-select{font-size:.84rem;font-weight:550;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 34px 9px 14px;max-width:240px;appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
 .va-picker{position:relative}
@@ -113,9 +113,12 @@ export const ANALYTICS_CSS = `
 /* ---------- charts ---------- */
 .va-readout{font-size:1.45rem;font-weight:700;letter-spacing:-.02em}
 .va-readout small{display:block;font-size:.74rem;font-weight:500;color:var(--mute);letter-spacing:0}
-.va-tabs{display:inline-flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:12px;background:var(--soft)}
-.va-tabs button{border:0;background:transparent;padding:6px 11px;border-radius:9px;font-size:.8rem;font-weight:550;color:var(--mute)}
-.va-tabs button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.va-tabs{display:flex;min-width:0;max-width:100%}
+.va-tabs .vr-seg{--seg-accent:var(--accent)}
+.va-tabs .vr-seg > button{font-size:.8rem;padding:6px 12px}
+/* Counters: the moving number is shown; the final one is for screen readers and print. */
+.va-count-final{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media print{.va-count{display:none}.va-count-final{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;white-space:normal}}
 .va-chart{position:relative;touch-action:pan-y}
 .va-chart svg{display:block;overflow:visible}
 .va-gridline{stroke:var(--hair);stroke-width:1}
