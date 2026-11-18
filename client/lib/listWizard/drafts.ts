@@ -1,5 +1,5 @@
 import type { Category, CapturedControl, Fields, HotelMode, OfficeShopCharge, PropertyPurpose, SaleMode, WizardForm } from './formState';
-import { emptyForm, isOfficeShop } from './formState';
+import { emptyForm, isOfficeShop, REVIEW_STEP } from './formState';
 import type { StoredDraft } from './draftCache';
 import type { DocumentRef } from './policyDocuments';
 import type { OfficeShopFiles } from './officeShop';
@@ -38,6 +38,8 @@ export interface DraftSnapshot extends StoredDraft {
   availableDates: string[];
   currentStep: number;
   furthestStep: number;
+  /** 2: the six steps (Basics, Location, The space, Photos, Price & terms, Review). Missing: the old five. */
+  stepVersion?: number;
   controls: CapturedControl[];
   amenities: Array<{ key: string; checked: boolean }>;
   officeShopAmenitySelections: Record<string, boolean>;
@@ -97,6 +99,7 @@ export function captureSnapshot(identity: SnapshotIdentity, category: Category, 
     availableDates: form.availableDates.slice(),
     currentStep: form.currentStep,
     furthestStep: form.furthestStep,
+    stepVersion: STEP_VERSION,
     controls: officeShop ? officeShopControls(form) : [],
     amenities: amenitySnapshot(category, form.amenities, form.officeShopAmenitySelections),
     officeShopAmenitySelections: officeShop
@@ -121,7 +124,20 @@ export function captureSnapshot(identity: SnapshotIdentity, category: Category, 
   };
 }
 
-const FORM_DATA_KEYS = ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'availableDates', 'currentStep', 'furthestStep', 'amenities',
+/** The step numbering drafts are saved with (see DraftSnapshot.stepVersion). */
+export const STEP_VERSION = 2;
+
+/**
+ * A saved step in today's numbering. Drafts from the five-step wizard
+ * (About, Location, Photos & amenities, Pricing, Review) reopen on the same
+ * place: Photos is now step 4, Pricing 5 and Review 6.
+ */
+export function savedStep(step: number, version: unknown): number {
+  const mapped = version === STEP_VERSION ? step : ([0, 1, 2, 4, 5, 6][Math.max(1, Math.min(5, step))] || 1);
+  return Math.max(1, Math.min(REVIEW_STEP, mapped));
+}
+
+const FORM_DATA_KEYS = ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'availableDates', 'currentStep', 'furthestStep', 'stepVersion', 'amenities',
   'officeShopAmenitySelections', 'officeShopPermittedUses', 'officeShopCharges', 'uploadedDocumentRefs', 'documentSelections'] as const;
 
 /** The server copy's form_data. */
@@ -224,8 +240,8 @@ export function restoreSnapshot(snapshot: Partial<DraftSnapshot>, category: Cate
     form.amenities = snapshot.amenities.filter((item) => item && typeof item.key === 'string').map((item) => ({ key: item.key, checked: item.checked === true }));
   }
   if (Array.isArray(snapshot.availableDates)) form.availableDates = snapshot.availableDates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(String(date)));
-  if (Number.isInteger(snapshot.furthestStep)) form.furthestStep = Math.max(1, Math.min(5, Number(snapshot.furthestStep)));
-  if (Number.isInteger(snapshot.currentStep)) form.currentStep = Math.max(1, Math.min(5, Number(snapshot.currentStep)));
+  if (Number.isInteger(snapshot.furthestStep)) form.furthestStep = savedStep(Number(snapshot.furthestStep), snapshot.stepVersion);
+  if (Number.isInteger(snapshot.currentStep)) form.currentStep = savedStep(Number(snapshot.currentStep), snapshot.stepVersion);
   const mediaFiles = Array.isArray(snapshot.mediaFiles)
     ? snapshot.mediaFiles.filter((file) => file && typeof file.name === 'string' && typeof file.slice === 'function') : [];
   return { form, mediaFiles, documentRefs: sanitizeRefs(snapshot.uploadedDocumentRefs) };

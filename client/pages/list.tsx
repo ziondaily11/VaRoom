@@ -6,7 +6,7 @@ import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import { getListingFeedCache } from '../lib/listingFeedCache';
 import type { Category, FieldBinding, FieldValue, HotelMode, PropertyPurpose, SaleMode, WizardForm } from '../lib/listWizard/formState';
-import { emptyForm, isOfficeShop, splitListingArea, text, checked } from '../lib/listWizard/formState';
+import { REVIEW_STEP, emptyForm, isOfficeShop, listingAreaParts, joinListingArea, text, checked } from '../lib/listWizard/formState';
 import { payLabel, pricePreview, reviewMeta, reviewPrice, unitLabel, wizardCopy } from '../lib/listWizard/copy';
 import { createListingDraftCache } from '../lib/listWizard/draftCache';
 import type { DocumentRefs, WizardMedia } from '../lib/listWizard/drafts';
@@ -22,7 +22,7 @@ import {
 import type { PublicationState } from '../lib/listWizard/publish';
 import { removeCurrentPolicyDocument, resolveCurrentPolicyPreview } from '../lib/listWizard/policyDocuments';
 import type { OfficeShopFiles, OfficeShopKind } from '../lib/listWizard/officeShop';
-import { listingDocumentMimeType, officeShopBusinessHoursError } from '../lib/listWizard/officeShop';
+import { listingDocumentMimeType, officeShopBusinessHoursError, officeShopConditions } from '../lib/listWizard/officeShop';
 import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSession';
 import { prepareListingCheckout, saveForCheckout } from '../lib/listWizard/checkout';
 import { INITIAL_FLAGS, startWizard } from '../lib/listWizard/startup';
@@ -31,7 +31,7 @@ import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../li
 import { LIST_WIZARD_STYLES } from '../components/listWizard/listWizardStyles';
 import { INITIAL_SAVE_STATUS, PanelActions, StepAlert, StepFrame, StepPhoto, WizardProgress } from '../components/listWizard/StepFrame';
 import type { SaveStatus } from '../components/listWizard/StepFrame';
-import { BookingFields, HotelModeChoice, IntroFields, OfficeShopTypeChoice, PropertyPurposeChoice } from '../components/listWizard/WizardFields';
+import { BookingFields, HotelModeChoice, IntroFields, OfficeShopTypeChoice, PropertyPurposeChoice, SpaceFields } from '../components/listWizard/WizardFields';
 import { MediaPicker, PhotoLightbox, useObjectUrls } from '../components/listWizard/MediaPicker';
 import type { LightboxItem } from '../components/listWizard/MediaPicker';
 import { AvailabilityCalendar } from '../components/listWizard/AvailabilityCalendar';
@@ -42,7 +42,7 @@ import type { PolicyPreviewState } from '../components/listWizard/PolicyDocument
 import { LeaveDialog } from '../components/listWizard/LeaveDialog';
 import type { LeaveStage } from '../components/listWizard/LeaveDialog';
 import { AmenitiesField, AmenitiesLibrary } from '../components/listWizard/AmenitiesLibrary';
-import { OfficeShopDetails, OfficeShopLocation, OfficeShopMedia, OfficeShopPricing, OfficeShopReview } from '../components/listWizard/OfficeShopFields';
+import { OfficeShopDetails, OfficeShopDocuments, OfficeShopLocation, OfficeShopPricing, OfficeShopReview, OfficeShopSpace } from '../components/listWizard/OfficeShopFields';
 import type { ExistingListingDocument } from '../components/listWizard/OfficeShopFields';
 import { profileWithNiche } from '../lib/auth/session';
 import { managerHostId, useWorkspace } from '../lib/team/team';
@@ -53,7 +53,7 @@ import { managerHostId, useWorkspace } from '../lib/team/team';
 // host types, a paid niche checks out through Paystack and comes back here
 // to publish, and publishing returns to Host home without a reload.
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = REVIEW_STEP;
 const EMPTY_FILES: OfficeShopFiles = { floorPlan: null, policy: null, documents: [] };
 
 const errorMessage = (error: unknown, fallback: string) => (error instanceof Error && error.message) || fallback;
@@ -227,6 +227,10 @@ export default function ListPage() {
     setForm((previous) => ({ ...previous, fields: { ...previous.fields, [id]: value } }));
     queueSave();
   }, [queueSave]);
+  const setFields = useCallback((patch: Record<string, FieldValue>) => {
+    setForm((previous) => ({ ...previous, fields: { ...previous.fields, ...patch } }));
+    queueSave();
+  }, [queueSave]);
   const update = useCallback((patch: Partial<WizardForm>) => {
     setForm((previous) => ({ ...previous, ...patch }));
     queueSave();
@@ -279,13 +283,6 @@ export default function ListPage() {
     const state = latest.current;
     const cat = state.category;
     const fields = state.form.fields;
-    if (step === 2 && isOfficeShop(cat)) {
-      const area = splitListingArea(text(fields, 'location-text'));
-      if (!area.neighborhood || !area.city) {
-        report(2, byId<HTMLInputElement>('location-text'), 'Enter the neighbourhood and city separated by a comma, for example Westlands, Nairobi.');
-        return false;
-      }
-    }
     if (step === 1 && isOfficeShop(cat) && !officeShopTypeSelected) {
       report(1, formRef.current?.querySelector<HTMLButtonElement>('[data-office-shop-type]') || null, 'Choose whether you are listing an Office or a Shop.');
       return false;
@@ -294,14 +291,14 @@ export default function ListPage() {
       report(1, formRef.current?.querySelector<HTMLButtonElement>('[data-hotel-mode]') || null, 'Choose whether this hotel offers stays, table reservations, or both.');
       return false;
     }
-    if (step === 4 && cat === 'property') {
+    if (step === 5 && cat === 'property') {
       const purpose = state.form.propertyPurpose;
       const checks: string[] = purpose === 'sale' ? ['property-sale-price'] : purpose === 'both' ? ['price-amount', 'property-sale-price'] : ['price-amount'];
       for (const id of checks) {
         const value = text(fields, id);
         if (!value || Number(value) <= 0) {
           // 0 used to pass silently.
-          report(4, byId<HTMLInputElement>(id), value ? 'Enter a price greater than 0.' : `Fill in ${fieldName(byId(id))}.`);
+          report(5, byId<HTMLInputElement>(id), value ? 'Enter a price greater than 0.' : `Fill in ${fieldName(byId(id))}.`);
           return false;
         }
       }
@@ -309,14 +306,24 @@ export default function ListPage() {
     if (step === 3 && isOfficeShop(cat)) {
       const hoursError = officeShopBusinessHoursError(fields, cat as OfficeShopKind);
       if (hoursError) { report(3, byId<HTMLInputElement>('os-operating-hours-to'), hoursError); return false; }
+    }
+    if (step === 5 && isOfficeShop(cat)) {
+      const conditions = officeShopConditions(fields, cat as OfficeShopKind);
+      // The desks are asked under "The space"; per-desk pricing needs them.
+      if (conditions.desksForPricing && !(Number(text(fields, 'os-desks')) >= 1)) {
+        report(5, byId<HTMLSelectElement>('os-pricing-basis'), 'Per-desk pricing needs the number of desks. Add it in step 3, "The space".');
+        return false;
+      }
+    }
+    if (step === 4 && isOfficeShop(cat)) {
       if (state.media.mediaFiles.length === 0 && existingPhotos.length === 0) {
         setPhotoError('Add at least one photo or video of the actual unit before continuing.');
         dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
       }
     }
-    if (step === 5 && isOfficeShop(cat) && !checked(fields, 'os-accuracy-confirmed')) {
-      report(5, byId<HTMLInputElement>('os-accuracy-confirmed'), 'Confirm that availability and pricing are accurate today before publishing.');
+    if (step === REVIEW_STEP && isOfficeShop(cat) && !checked(fields, 'os-accuracy-confirmed')) {
+      report(REVIEW_STEP, byId<HTMLInputElement>('os-accuracy-confirmed'), 'Confirm that availability and pricing are accurate today before publishing.');
       return false;
     }
     const element = frame(step);
@@ -600,7 +607,7 @@ export default function ListPage() {
 
   const payToList = async () => {
     if (paying.current || publishing.current) return;
-    if (!validateUpTo(4)) return;
+    if (!validateUpTo(REVIEW_STEP - 1)) return;
     paying.current = true;
     setPayBusy('pay');
     setPayLabelText('Preparing payment…');
@@ -626,7 +633,7 @@ export default function ListPage() {
     paying.current = true;
     setPayBusy('pro');
     try {
-      if (!validateUpTo(4)) return;
+      if (!validateUpTo(REVIEW_STEP - 1)) return;
       const accessToken = await token();
       if (!accessToken) throw new Error('Please log in again to continue.');
       await persistBeforeCheckout(accessToken, true);
@@ -647,8 +654,8 @@ export default function ListPage() {
     publishing.current = true;
     const current = sessionRef.current;
     try {
-      // Every step again, in case step 5 was reached through the tracker.
-      for (let step = 1; step <= 5; step += 1) if (!validateStep(step)) { goToStep(step); return; }
+      // Every step again, in case the review was reached through the progress bar.
+      for (let step = 1; step <= REVIEW_STEP; step += 1) if (!validateStep(step)) { goToStep(step); return; }
       const state = latest.current;
       const cat = state.category;
       const stateForm = state.form;
@@ -765,6 +772,12 @@ export default function ListPage() {
   const reviewMedia = editMode ? existingPhotos.map((photo) => ({ url: photo.url, video: false }))
     : mediaFiles.map((file) => ({ url: mediaUrls.get(file) || '', video: isVideoFile(file) }));
   const location = text(form.fields, 'location-text');
+  // Neighbourhood and city are two boxes; together they make location_text ("Westlands, Nairobi").
+  const area = listingAreaParts(form.fields);
+  const setArea = (id: 'location-neighbourhood' | 'location-city', value: string) => {
+    const next = { ...area, [id === 'location-neighbourhood' ? 'neighbourhood' : 'city']: value.replace(/,/g, ' ') };
+    setFields({ [id]: next[id === 'location-neighbourhood' ? 'neighbourhood' : 'city'], 'location-text': joinListingArea(next.neighbourhood, next.city) });
+  };
   const locationLine: ReviewLine = location
     ? { ok: true, text: 'General location added — exact location can be set later' }
     : { ok: false, text: 'General location still needed' };
@@ -823,7 +836,7 @@ export default function ListPage() {
 
             {/* STEP 1 — About the property */}
             <StepFrame step={1} active={step === 1}
-              photo={<StepPhoto step={1} badge="Your listing, coming to life" title="Every space has a story." text="Introduce your space and show people what makes it worth discovering." />}>
+              photo={<StepPhoto image={1} badge="Your listing, coming to life" title="Every space has a story." text="Introduce your space and show people what makes it worth discovering." />}>
               <h1 className="step-title" id="listing-headline">{copy.headline}</h1>
               <p className="step-sub" id="about-sub">{copy.aboutSub}</p>
               <OfficeShopTypeChoice category={category} onChoose={(choice) => { setOfficeShopTypeSelected(true); setCategory(choice); queueSave(); }} />
@@ -836,48 +849,70 @@ export default function ListPage() {
 
             {/* STEP 2 — Location */}
             <StepFrame step={2} active={step === 2}
-              photo={<StepPhoto step={2} badge="Location details added" title="Put your space on the map." text="Help people find your space with clear, accurate location details." />}>
+              photo={<StepPhoto image={2} badge="Location details added" title="Put your space on the map." text="Help people find your space with clear, accurate location details." />}>
               <h1 className="step-title" id="location-title">{copy.locationTitle}</h1>
               <p className="step-sub" id="location-sub">{copy.locationSub}</p>
               <div className="step-fields">
-                <div className="field">
-                  <label htmlFor="location-text" id="location-label">{copy.locationLabel}</label>
-                  <input type="text" id="location-text" name="location_text" required minLength={3} autoComplete="address-level2" placeholder={copy.locationPlaceholder}
-                    value={text(form.fields, 'location-text')} onChange={(event) => { event.target.setCustomValidity(''); setField('location-text', event.target.value); }} />
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="location-neighbourhood">Neighbourhood</label>
+                    <input type="text" id="location-neighbourhood" required minLength={2} maxLength={80} autoComplete="address-level3" placeholder="e.g. Westlands"
+                      value={area.neighbourhood} onChange={(event) => setArea('location-neighbourhood', event.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="location-city">{category === 'property' ? 'Town or city' : 'City'}</label>
+                    <input type="text" id="location-city" required minLength={2} maxLength={80} autoComplete="address-level2" placeholder="e.g. Nairobi"
+                      value={area.city} onChange={(event) => setArea('location-city', event.target.value)} />
+                  </div>
                 </div>
                 {officeShop ? <OfficeShopLocation {...officeProps} /> : <div className="office-shop-section" id="office-shop-location-fields" />}
               </div>
-              <PanelActions onBack={back} next="Continue to photos" onNext={next} alert={stepError && stepError.step === 2 ? stepError.text : null} />
+              <PanelActions onBack={back} next="Continue to the space" onNext={next} alert={stepError && stepError.step === 2 ? stepError.text : null} />
             </StepFrame>
 
-            {/* STEP 3 — Photos & gallery */}
+            {/* STEP 3 — The space */}
             <StepFrame step={3} active={step === 3}
               photo={(
-                <StepPhoto step={3} badge="Gallery ready" title="Show what makes it special." text="Bring your space to life with photos, videos, and the details that matter." ref={setStepPhoto3}>
+                <StepPhoto image={5} badge="Details added" title="Show what it's like inside." text="The details people compare before they choose." ref={setStepPhoto3}>
                   <AmenitiesLibrary open={library.open} trigger={library.trigger} category={category} amenities={form.amenities} officeShopSelections={form.officeShopAmenitySelections}
                     onToggle={toggleLibraryOption} onClose={closeLibrary} desktopContainer={stepPhoto3} />
-                  <PolicyPreviewOverlay preview={policyPreview} onClose={closePolicyPreview} />
                 </StepPhoto>
               )}>
+              <h1 className="step-title" id="space-title">{copy.spaceTitle}</h1>
+              <p className="step-sub" id="space-sub">{copy.spaceSub}</p>
+              <div className="step-fields">
+                {officeShop
+                  ? <OfficeShopSpace {...officeProps} onOpenAmenities={openLibrary} />
+                  : <SpaceFields binding={binding} copy={copy} category={category} hotelMode={form.hotelListingMode} />}
+                <AmenitiesField category={category} amenities={form.amenities} hidden={officeShop || tableOnly}
+                  onToggle={(key, on) => update({ amenities: setAmenityChecked(form.amenities, key, on) })} onOpenLibrary={openLibrary} />
+              </div>
+              <PanelActions onBack={back} next="Continue to photos" onNext={next} alert={stepError && stepError.step === 3 ? stepError.text : null} />
+            </StepFrame>
+
+            {/* STEP 4 — Photos */}
+            <StepFrame step={4} active={step === 4}
+              photo={<StepPhoto image={3} badge="Gallery ready" title="Show what makes it special." text="Lead with your best photo. People decide in seconds." />}>
               <h1 className="step-title" id="media-title">{copy.mediaTitle}</h1>
               <p className="step-sub" id="media-sub">{copy.mediaSub}</p>
               <div className="step-fields" ref={dropzoneRef}>
                 <MediaPicker files={mediaFiles} urls={mediaUrls} existingPhotos={existingPhotos} editMode={editMode} hint={copy.photoHint} error={photoError}
                   onAdd={addMedia} onRemove={removeMedia} onMove={moveMedia} onPreview={setLightbox} />
-                <AmenitiesField category={category} amenities={form.amenities} hidden={officeShop || tableOnly}
-                  onToggle={(key, on) => update({ amenities: setAmenityChecked(form.amenities, key, on) })} onOpenLibrary={openLibrary} />
-                {officeShop ? (
-                  <OfficeShopMedia {...officeProps} files={officeShopFiles} onFiles={(nextFiles) => { patchMedia({ officeShopFiles: nextFiles }); queueSave(); }}
-                    uploadedNames={uploadedNames} existingDocuments={existingDocuments} onOpenAmenities={openLibrary} onError={(text) => showMessage(text, true)} />
-                ) : <div className="office-shop-section" id="office-shop-media-fields" />}
-                <PolicyField hidden={category !== 'property'} filename={policyName} removing={policyRemoving} onChoose={choosePolicy} onPreview={() => { void previewPolicy(); }} onRemove={() => { void removePolicy(); }} />
+                {officeShop && (
+                  <OfficeShopDocuments files={officeShopFiles} onFiles={(nextFiles: OfficeShopFiles) => { patchMedia({ officeShopFiles: nextFiles }); queueSave(); }}
+                    uploadedNames={uploadedNames} existingDocuments={existingDocuments} onError={(message: string) => showMessage(message, true)} />
+                )}
               </div>
-              <PanelActions onBack={back} next="Continue to price" onNext={next} alert={stepError && stepError.step === 3 ? stepError.text : null} />
+              <PanelActions onBack={back} next="Continue to price" onNext={next} alert={stepError && stepError.step === 4 ? stepError.text : null} />
             </StepFrame>
 
-            {/* STEP 4 — Pricing & booking */}
-            <StepFrame step={4} active={step === 4}
-              photo={<StepPhoto step={4} badge="Pricing set" title="Make every detail count." text="Set clear terms so people know what to expect when booking or renting your space." />}>
+            {/* STEP 5 — Price & terms */}
+            <StepFrame step={5} active={step === 5}
+              photo={(
+                <StepPhoto image={4} badge="Pricing set" title="Make every detail count." text="Clear terms mean fewer questions and faster bookings.">
+                  <PolicyPreviewOverlay preview={policyPreview} onClose={closePolicyPreview} />
+                </StepPhoto>
+              )}>
               <h1 className="step-title" id="pricing-heading">{copy.pricingHeading}</h1>
               <p className="step-sub" id="booking-heading-sub">{copy.bookingSub}</p>
               <div className="price-preview">
@@ -889,12 +924,13 @@ export default function ListPage() {
                 <BookingFields binding={binding} copy={copy} category={category} hotelMode={form.hotelListingMode} purpose={form.propertyPurpose} saleMode={form.propertySalePriceMode}
                   priceUnit={priceUnit} onSaleMode={(mode: SaleMode) => update({ propertySalePriceMode: mode })} onPriceEdit={(event) => (event.target as HTMLInputElement).setCustomValidity('')}
                   calendar={<AvailabilityCalendar hint={copy.availabilityHint} openDates={form.availableDates} onChange={(dates) => update({ availableDates: dates })} />} />
+                <PolicyField hidden={category !== 'property'} filename={policyName} removing={policyRemoving} onChoose={choosePolicy} onPreview={() => { void previewPolicy(); }} onRemove={() => { void removePolicy(); }} />
               </div>
-              <PanelActions onBack={back} next="Continue to review" onNext={next} alert={stepError && stepError.step === 4 ? stepError.text : null} />
+              <PanelActions onBack={back} next="Continue to review" onNext={next} alert={stepError && stepError.step === 5 ? stepError.text : null} />
             </StepFrame>
 
-            {/* STEP 5 — Review & publish */}
-            <StepFrame step={5} active={step === 5}
+            {/* STEP 6 — Review & publish */}
+            <StepFrame step={6} active={step === 6}
               photo={<ReviewHero media={reviewMedia} />}>
               <h1 className="step-title">Ready when you are.</h1>
               <p className="step-sub">One last look, then it&apos;s live for people to see.</p>
@@ -905,7 +941,7 @@ export default function ListPage() {
                   cover={reviewMedia[0] || null} location={locationLine} amenities={amenitiesLine} policy={policyLine} />
                 {officeShop ? <OfficeShopReview form={form} setField={setField} summary={officeShopSummary} /> : <div className="office-shop-section" id="office-shop-review-fields" />}
               </div>
-              <StepAlert text={stepError && stepError.step === 5 ? stepError.text : null} />
+              <StepAlert text={stepError && stepError.step === 6 ? stepError.text : null} />
               <div className="submit-row">
                 <button type="button" className="pay-to-list-btn" id="pay-to-list-btn" hidden={!showPay} disabled={payDisabled} onClick={(event) => { event.preventDefault(); void payToList(); }}>
                   {payBusy === 'pay' && payLabelText ? payLabelText : payLabel()}

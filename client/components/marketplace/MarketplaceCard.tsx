@@ -115,7 +115,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave,
     .filter((item) => item && item.storage_path)
     .map((item) => resolveStoredPhotoUrl(item.storage_path, 'listing-photos', client, PHOTO_WIDTH.card))
     .filter((url): url is string => Boolean(url));
-  const price = formatPrice(listing.listing_booking_details, listing.category);
+  const price = formatPrice(listing.listing_booking_details, listing.category, listing.listing_purpose);
   const location = cardLocation(listing);
   const rooms = propertyRooms(listing);
   const showVideo = Boolean(video && video.videoUrl && !videoFailed);

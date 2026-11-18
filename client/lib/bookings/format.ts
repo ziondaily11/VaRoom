@@ -100,6 +100,12 @@ export function statusLabel(status: BookingStatus): string {
 
 export const formatAmount = (value: number | string | null | undefined) => Number(value || 0).toLocaleString();
 
+/** A request with no total (an office or shop priced per day or by turnover): the host confirms the price. */
+export const priceToConfirm = (value: number | string | null | undefined) => !(Number(value) > 0);
+
+/** "KES 12,000", or "Price to confirm" when there is no total. */
+export const bookingAmountText = (value: number | string | null | undefined) => (priceToConfirm(value) ? 'Price to confirm' : `KES ${formatAmount(value)}`);
+
 /** " / unit" after the card price. */
 export function perUnit(b: Booking): string {
   if (b.price_unit) return ` / ${b.price_unit}`;

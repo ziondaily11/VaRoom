@@ -18,6 +18,8 @@ export const LIST_WIZARD_STYLES = `
     --page:#000000; --card:#141414; --field:#000000; --chip:#232323; --shadow:none;
   }
   #listing-page *, #listing-page *::before, #listing-page *::after{ box-sizing:border-box; }
+  /* Anything marked hidden stays hidden, whatever display a class gives it (conditional fields). */
+  #listing-page [hidden]{ display:none !important; }
   #listing-page :where(h1,h2,h3,h4,p,ul,ol,li){ margin:0; padding:0; }
   #listing-page :where(ul,ol){ list-style:none; }
   #listing-page :where(button){ font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
@@ -35,7 +37,7 @@ export const LIST_WIZARD_STYLES = `
   #listing-page .listing-save-status{ font-size:.78rem; color:var(--muted); text-align:right; }
   #listing-page .listing-save-status[data-state="saved"]{ color:var(--ok); }
   #listing-page .listing-save-status[data-state="error"]{ color:var(--red); }
-  #listing-page .wz-progress-bar{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px; }
+  #listing-page .wz-progress-bar{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:6px; }
   #listing-page .wz-progress-seg button{ display:flex; flex-direction:column; gap:.4rem; width:100%; padding:0; text-align:left; }
   #listing-page .wz-progress-seg button:disabled{ cursor:default; }
   #listing-page .wz-progress-fill{ position:relative; display:block; height:5px; border-radius:999px; background:var(--line); overflow:hidden; }
@@ -117,7 +119,7 @@ export const LIST_WIZARD_STYLES = `
   /* Office and shop sections. */
   #listing-page .office-shop-section{ display:none; margin-top:.4rem; }
   #listing-page .office-shop-section.active{ display:block; }
-  #listing-page .office-shop-section .section-heading{ font-size:1.05rem; font-weight:700; margin:1.6rem 0 .35rem; padding-top:1.2rem; border-top:1px solid var(--line); }
+  #listing-page .office-shop-section .section-heading{ font-size:1.05rem; font-weight:700; margin:1.6rem 0 .7rem; padding-top:1.2rem; border-top:1px solid var(--line); }
   #listing-page .office-shop-section .section-heading:first-child{ margin-top:.4rem; padding-top:0; border-top:0; }
   #listing-page .office-shop-section .section-help{ font-size:.82rem; line-height:1.45; color:var(--muted); margin:0 0 .8rem; }
   #listing-page .option-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.45rem .8rem; margin-bottom:1rem; }

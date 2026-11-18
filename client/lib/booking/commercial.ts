@@ -5,6 +5,13 @@
 type Labels = Record<string, string>;
 type Bag = Record<string, unknown>;
 
+/** "Business hours only, 08:00–18:00" when the host gave the times. */
+function openingHours(afterHours: unknown, hours: unknown): string | null {
+  const label = commercialLabel(afterHours, LABELS.afterHours);
+  const times = typeof hours === 'string' ? hours.match(/^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/) : null;
+  return label && afterHours === 'business_hours' && times ? `${label}, ${times[1]}–${times[2]}` : label;
+}
+
 export interface GridItem { label: string; value: string }
 
 const bag = (value: unknown): Bag => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Bag) : {});
@@ -139,7 +146,7 @@ export function commercialDetails(
     layout: Array.isArray(layout) ? (layout as unknown[]).map(String) : [],
     amenities: Object.keys(TRUE_AMENITIES).filter((key) => amenities[key] === true).map((key) => TRUE_AMENITIES[key]),
     amenityNotes: gridItems([
-      { label: 'After-hours access', value: commercialLabel(amenities.after_hours, LABELS.afterHours) },
+      { label: 'After-hours access', value: openingHours(amenities.after_hours, amenities.operational_accessible_hours) },
       { label: 'Power note', value: text(amenities.power_note) },
       { label: 'Internet note', value: text(amenities.internet_note) },
       { label: 'Accessibility note', value: text(amenities.accessibility_note) },

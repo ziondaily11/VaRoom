@@ -148,7 +148,8 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
     if (details.bathrooms != null) chips.push(`${details.bathrooms} bathroom${Number(details.bathrooms) === 1 ? '' : 's'}`);
   }
   if (officeShop && officeShop.subtype) chips.push(commercialLabel(officeShop.subtype, SUBTYPE_LABELS) as string);
-  if (details.size_or_type) chips.push(details.size_or_type);
+  // Offices and shops keep their subtype key in size_or_type: the label above already shows it.
+  if (details.size_or_type && !officeShop) chips.push(details.size_or_type);
 
   const hostName = listing.host.full_name || 'Host';
   const hostPhone = String(contact.phone || '').trim();

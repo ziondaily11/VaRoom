@@ -82,6 +82,19 @@ export const text = (fields: Fields, id: string): string => {
 export const checked = (fields: Fields, id: string): boolean => fields[id] === true;
 
 /** "Westlands, Nairobi" → neighbourhood "Westlands", city "Nairobi" (unchanged from list.html). */
+/** The wizard's steps: Basics, Location, The space, Photos, Price & terms, Review. */
+export const REVIEW_STEP = 6;
+
+/** The two location boxes; older drafts and listings have only location_text ("Westlands, Nairobi"). */
+export function listingAreaParts(fields: Fields): { neighbourhood: string; city: string } {
+  const own = (id: string) => (typeof fields[id] === 'string' ? (fields[id] as string) : null);
+  const split = splitListingArea(typeof fields['location-text'] === 'string' ? (fields['location-text'] as string) : '');
+  return { neighbourhood: own('location-neighbourhood') ?? split.neighborhood, city: own('location-city') ?? split.city };
+}
+
+/** location_text from the two boxes. */
+export const joinListingArea = (neighbourhood: string, city: string): string => [neighbourhood.trim(), city.trim()].filter(Boolean).join(', ');
+
 export function splitListingArea(value: string): { neighborhood: string; city: string } {
   const parts = String(value || '').split(',').map((part) => part.trim()).filter(Boolean);
   return { neighborhood: parts[0] || '', city: parts.length > 1 ? parts.slice(1).join(', ') : '' };

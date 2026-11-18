@@ -9,7 +9,7 @@ export interface SaveStatus { message: string; state: 'saving' | 'saved' | 'erro
 export const INITIAL_SAVE_STATUS: SaveStatus = { message: 'Changes save automatically.', state: null };
 
 /** The steps, in order, as the progress bar names them. */
-export const STEP_LABELS = ['Basics', 'Location', 'Photos & amenities', 'Price & booking', 'Review'] as const;
+export const STEP_LABELS = ['Basics', 'Location', 'The space', 'Photos', 'Price & terms', 'Review'] as const;
 
 /**
  * Where the host is: "Step 2 of 5 · Location", the save status, and a bar of
@@ -63,10 +63,10 @@ export function StepFrame({ step, active, children, photo }: {
 }
 
 /** A step's photo panel with its badge and caption. */
-export const StepPhoto = React.forwardRef<HTMLDivElement, { step: number; badge: string; title: string; text: string; children?: React.ReactNode }>(
-  function StepPhoto({ step, badge, title, text, children }, ref) {
+export const StepPhoto = React.forwardRef<HTMLDivElement, { image: number; badge: string; title: string; text: string; children?: React.ReactNode }>(
+  function StepPhoto({ image, badge, title, text, children }, ref) {
     return (
-      <div className="step-photo" ref={ref} style={{ backgroundImage: `url('/assets/listing-wizard/step-${step}.jpg')` }}>
+      <div className="step-photo" ref={ref} style={{ backgroundImage: `url('/assets/listing-wizard/step-${image}.jpg')` }}>
         {children}
         <div className="step-photo-badge"><span className="check">✓</span> {badge}</div>
         <div className="step-photo-caption">

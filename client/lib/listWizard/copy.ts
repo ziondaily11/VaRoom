@@ -72,8 +72,8 @@ export interface WizardCopy {
   descriptionPlaceholder: string;
   locationTitle: string;
   locationSub: string;
-  locationLabel: string;
-  locationPlaceholder: string;
+  spaceTitle: string;
+  spaceSub: string;
   mediaTitle: string;
   mediaSub: string;
   photoHint: string;
@@ -104,8 +104,8 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     descriptionPlaceholder: 'Describe the accommodation, rooms, amenities, atmosphere, location, and what makes the stay special.',
     locationTitle: 'Where is your space?',
     locationSub: DEFAULT_LOCATION_SUB,
-    locationLabel: 'Neighbourhood, city',
-    locationPlaceholder: 'eg Westlands, Nairobi',
+    spaceTitle: 'What is it like?',
+    spaceSub: 'The details people compare before they choose.',
     mediaTitle: 'Showcase the property.',
     mediaSub: 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.',
     photoHint: DEFAULT_PHOTO_HINT,
@@ -170,7 +170,6 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       descriptionPlaceholder: 'Tell buyers or tenants what they should know — available units, property/unit sizes, bedrooms and bathrooms, layout, notable compound features, location access, and terms before deciding to rent or buy.',
       locationTitle: 'Where is your property?',
       locationSub: 'Add the neighbourhood and town. You can add the exact location later.',
-      locationLabel: 'Neighbourhood, county or city',
       mediaSub: 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.',
       photoHint: DEFAULT_PHOTO_HINT,
       amenitiesLabel: 'Property features & amenities',
@@ -188,10 +187,10 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       aboutSub: DEFAULT_ABOUT_SUB,
       locationTitle: 'Where is your space?',
       locationSub: 'Add the neighbourhood and city, separated by a comma. You can add the exact location later.',
-      locationLabel: 'Neighbourhood, city',
-      locationPlaceholder: 'eg Westlands, Nairobi',
       mediaTitle: 'Show the actual space.',
-      mediaSub: 'Add at least one photo or video of the unit, then specify its work-ready features.',
+      mediaSub: 'Add at least one photo or video of the actual unit. The first one is the cover.',
+      spaceTitle: 'About the space.',
+      spaceSub: 'Size, fit-out, amenities, opening hours and parking.',
       photoHint: 'At least one photo or video of the actual unit is required. Up to 6 files · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.',
       pricingHeading: 'Set the commercial terms.',
       bookingSub: 'Choose the pricing basis, then add costs and availability clearly.',

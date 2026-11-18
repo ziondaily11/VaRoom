@@ -72,10 +72,18 @@ export function categoryLabel(category: string | null | undefined): string {
 
 export interface CardPrice { amount: number; unit: string; isSale?: boolean; isStarting?: boolean }
 
-export function formatPrice(details: MarketplaceListing['listing_booking_details'], category: string | null): CardPrice | null {
+/**
+ * The card price. A property for sale shows its sale price. The purpose is on
+ * the listing (listings.listing_purpose); older readers only have the details
+ * row, so a sale-only property is also recognised by its price matching the
+ * sale price (the wizard stores the sale price as price_amount for those).
+ */
+export function formatPrice(details: MarketplaceListing['listing_booking_details'], category: string | null, listingPurpose?: string | null): CardPrice | null {
   const d = first(details);
   if (!d) return null;
-  if (category === 'property' && d.listing_purpose === 'sale' && d.sale_price_amount != null) {
+  const purpose = listingPurpose || d.listing_purpose
+    || (d.sale_price_amount != null && d.price_amount != null && Number(d.price_amount) === Number(d.sale_price_amount) ? 'sale' : null);
+  if (category === 'property' && purpose === 'sale' && d.sale_price_amount != null) {
     return { amount: Number(d.sale_price_amount), unit: '', isSale: true, isStarting: d.sale_price_mode === 'starting' };
   }
   if (d.price_amount == null) return null;
