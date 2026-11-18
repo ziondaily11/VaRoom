@@ -116,3 +116,18 @@ test('SignupForm role button min-h increased to accommodate wrapped description 
     'role button min-h must be at least 68px to accommodate wrapped description lines',
   );
 });
+
+test('forgot-password and code panels keep only the words they need', () => {
+  const recovery = read('components/landing/PasswordRecovery.tsx');
+  const signup = read('components/landing/SignupForm.tsx');
+  // No badges, security notes or hints that repeat the heading.
+  for (const extra of ['PASSWORD RECOVERY', 'Step 2 of 3', 'Step 3 of 3', 'Authenticated', 'We protect your security', 'Check spam', 'Send OTP', 'Email verified.', 'Cancel and return to Log in']) {
+    assert.doesNotMatch(recovery, new RegExp(extra), `recovery still says "${extra}"`);
+  }
+  assert.match(recovery, /'Forgot your password\?' : step === 'otp' \? 'Check your email\.' : 'New password\.'/);
+  assert.match(recovery, /'We’ll email you a code\.'/);
+  // The email is named once, in the subtitle.
+  assert.doesNotMatch(signup, /We sent a verification code to/);
+  assert.match(signup, /Enter the code sent to <strong[^>]*>\{verificationEmail\}<\/strong>\./);
+  assert.match(signup, /`Resend code in \$\{resendSeconds\}s`/);
+});

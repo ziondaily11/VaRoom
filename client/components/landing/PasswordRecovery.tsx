@@ -43,20 +43,18 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     const verifyRecoverySession = async () => {
       try {
         const client = window.supabaseClient;
-        if (!client) throw new Error('Authentication is unavailable right now. Please try again.');
+        if (!client) throw new Error('Sign-in is unavailable. Try again.');
         const { data, error } = await client.auth.getSession();
         if (error) throw error;
         if (!data.session) {
           if (!active) return;
           setStep('email');
-          setAlert({ type: 'error', message: 'Your password reset session has expired. Please request a new verification code.' });
-        } else if (active) {
-          setAlert({ type: 'success', message: 'Email verified. Enter your new password below.' });
+          setAlert({ type: 'error', message: 'Your reset has expired. Request a new code.' });
         }
       } catch (error) {
         if (!active) return;
         setStep('email');
-        setAlert({ type: 'error', message: errorMessage(error) || 'Could not verify your password reset session. Please request a new verification code.' });
+        setAlert({ type: 'error', message: errorMessage(error) || 'Your reset could not be checked. Request a new code.' });
       } finally {
         if (active) setIsCheckingRecovery(false);
       }
@@ -102,7 +100,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       body: JSON.stringify({ email: targetEmail }),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || 'Could not send the verification code. Please try again in a few moments.');
+    if (!response.ok) throw new Error(result.error || 'The code could not be sent. Try again.');
   };
 
   const handleSendCode = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -110,7 +108,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     clearAlert();
     const normalizedEmail = email.trim();
     if (!emailPattern.test(normalizedEmail)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError('Enter a valid email.');
       return;
     }
     setEmailError('');
@@ -122,9 +120,8 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setFailedAttempts(0);
       setResendSeconds(60);
       changeStep('otp');
-      setAlert({ type: 'success', message: "If an account exists for this email, we've sent you a verification code." });
     } catch (error) {
-      setAlert({ type: 'error', message: errorMessage(error) || 'Could not send verification code. Please try again in a few moments.' });
+      setAlert({ type: 'error', message: errorMessage(error) || 'The code could not be sent. Try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -133,17 +130,17 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
   const verifyCode = async (token: string) => verificationGate.run(async () => {
     clearAlert();
     if (token.length !== 6) {
-      setAlert({ type: 'error', message: 'Please enter the complete 6-digit verification code.' });
+      setAlert({ type: 'error', message: 'Enter all 6 digits.' });
       otpInputRef.current?.focusFirst();
       return;
     }
     if (failedAttempts >= 5) {
-      setAlert({ type: 'error', message: 'Too many failed attempts. Please request a new verification code.' });
+      setAlert({ type: 'error', message: 'Too many tries. Request a new code.' });
       return;
     }
     const client = window.supabaseClient;
     if (!client) {
-      setAlert({ type: 'error', message: 'Authentication is unavailable right now. Please try again.' });
+      setAlert({ type: 'error', message: 'Sign-in is unavailable. Try again.' });
       return;
     }
     setIsLoading(true);
@@ -154,27 +151,27 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
         setFailedAttempts(nextAttempts);
         otpInputRef.current?.clearAndFocus();
         if (/expired/i.test(error.message || '')) {
-          setAlert({ type: 'error', message: 'This verification code has expired. Please click "Resend code" to get a fresh one.' });
+          setAlert({ type: 'error', message: 'This code has expired. Resend a new one.' });
         } else if (/invalid|token/i.test(error.message || '')) {
           const remaining = 5 - nextAttempts;
           setAlert({
             type: 'error',
             message: remaining > 0
-              ? `Incorrect verification code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
-              : 'Too many failed attempts. Please request a new verification code.',
+              ? `Wrong code. ${remaining} ${remaining === 1 ? 'try' : 'tries'} left.`
+              : 'Too many tries. Request a new code.',
           });
         } else {
-          setAlert({ type: 'error', message: `Verification failed: ${error.message || 'Please try again.'}` });
+          setAlert({ type: 'error', message: error.message || 'The code could not be checked. Try again.' });
         }
         return;
       }
       setPassword('');
       setConfirmPassword('');
       changeStep('password');
-      setAlert({ type: 'success', message: 'Email verified. Now create your new password.' });
+      setAlert(null);
     } catch (error) {
       otpInputRef.current?.clearAndFocus();
-      setAlert({ type: 'error', message: errorMessage(error) || 'Could not verify code. Please check your connection and try again.' });
+      setAlert({ type: 'error', message: errorMessage(error) || 'The code could not be checked. Try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -195,9 +192,9 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       await sendCode(email);
       setFailedAttempts(0);
       setResendSeconds(60);
-      setAlert({ type: 'success', message: "If an account exists for this email, we've sent you a verification code." });
+      setAlert({ type: 'success', message: 'If this email has an account, a new code is on its way.' });
     } catch (error) {
-      setAlert({ type: 'error', message: errorMessage(error) || 'Could not resend the verification code. Please try again.' });
+      setAlert({ type: 'error', message: errorMessage(error) || 'The code could not be sent. Try again.' });
     } finally {
       setIsLoading(false);
       window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());
@@ -215,15 +212,15 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     clearAlert();
-    const nextPasswordError = password.length < 8 ? 'Password must be at least 8 characters' : '';
-    const nextConfirmError = !confirmPassword || password !== confirmPassword ? 'Passwords do not match' : '';
+    const nextPasswordError = password.length < 8 ? 'Use at least 8 characters.' : '';
+    const nextConfirmError = !confirmPassword || password !== confirmPassword ? 'Passwords do not match.' : '';
     setPasswordError(nextPasswordError);
     setConfirmPasswordError(nextConfirmError);
     if (nextPasswordError || nextConfirmError) return;
 
     const client = window.supabaseClient;
     if (!client) {
-      setAlert({ type: 'error', message: 'Authentication is unavailable right now. Please try again.' });
+      setAlert({ type: 'error', message: 'Sign-in is unavailable. Try again.' });
       return;
     }
     setIsLoading(true);
@@ -231,7 +228,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session) {
-        setAlert({ type: 'error', message: 'Your password reset session has expired. Please request a new verification code.' });
+        setAlert({ type: 'error', message: 'Your reset has expired. Request a new code.' });
         changeStep('email');
         return;
       }
@@ -244,7 +241,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setAlert(null);
       changeStep('success');
     } catch (error) {
-      setAlert({ type: 'error', message: errorMessage(error) || 'Could not update password. Please try again.' });
+      setAlert({ type: 'error', message: errorMessage(error) || 'Your password could not be saved. Try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -277,18 +274,14 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     <div className={`w-full recovery-content recovery-content-${animation}`}>
       {step !== 'success' && (
         <div className="mb-8">
-          <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
-            <Lock size={12} />
-            {step === 'email' ? 'PASSWORD RECOVERY' : step === 'otp' ? 'Step 2 of 3' : 'Step 3 of 3'}
-          </p>
           <h2 id="auth-panel-recovery-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
-            {step === 'email' ? 'Forgot your password?' : step === 'otp' ? 'Enter 6-digit code' : 'Create a new password'}
+            {step === 'email' ? 'Forgot your password?' : step === 'otp' ? 'Check your email.' : 'New password.'}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#d9d2c9]/80">
-            {step === 'email' && "Enter the email address associated with your VaRoom account and we'll send you a verification code."}
-            {step === 'otp' && <>We sent a verification code to <strong className="font-semibold text-[#f5efe7]">{email}</strong>.</>}
-            {step === 'password' && 'Choose a strong password for your VaRoom account.'}
-          </p>
+          {step !== 'password' && (
+            <p className="mt-2 text-sm leading-6 text-[#d9d2c9]/80">
+              {step === 'email' ? 'We’ll email you a code.' : <>Enter the code sent to <strong className="font-semibold text-[#f5efe7]">{email}</strong>.</>}
+            </p>
+          )}
         </div>
       )}
 
@@ -310,7 +303,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
           <form className="space-y-4" onSubmit={handleSendCode} noValidate>
             <div>
               <label htmlFor="recovery-email" className="mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-[#d4cdbd]/70">
-                Email address
+                Email
               </label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
@@ -323,7 +316,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
                     setEmail(event.target.value);
                     if (emailError) setEmailError('');
                   }}
-                  onBlur={() => setEmailError(email && !emailPattern.test(email.trim()) ? 'Please enter a valid email address' : '')}
+                  onBlur={() => setEmailError(email && !emailPattern.test(email.trim()) ? 'Enter a valid email.' : '')}
                   placeholder="you@example.com"
                   autoComplete="email"
                   className={`auth-control h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-3 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${emailError ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
@@ -338,13 +331,10 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
               disabled={isLoading}
               className="va-button va-button-primary mt-2 flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed"
             >
-              {isLoading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Sending code...</> : 'Send OTP'}
+              {isLoading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Sending...</> : 'Send code'}
             </button>
           </form>
-          <p className="mt-5 text-xs leading-5 text-[#d9d2c9]/65">
-            We protect your security. Codes can be resent after 60 seconds and can only be used once.
-          </p>
-          <p className="mt-5 text-center text-sm text-[#e2d9d1]/80">
+          <p className="mt-6 text-center text-sm text-[#e2d9d1]/80">
             Remember your password?{' '}
             <button type="button" onClick={onSwitchToLogin} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
               Log in
@@ -368,8 +358,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
                 onComplete={(token) => { void verifyCode(token); }}
                 disabled={isLoading || failedAttempts >= 5}
               />
-              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[#d9d2c9]/65">
-                <span>Didn't receive it? Check spam</span>
+              <div className="mt-3 flex justify-end text-xs">
                 <button type="button" onClick={handleChangeEmail} className="border-0 bg-transparent p-0 text-xs font-medium text-[#f0e7df] hover:underline">
                   Change email
                 </button>
@@ -393,7 +382,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
           </button>
           <p className="mt-5 text-center text-sm text-[#e2d9d1]/80">
             <button type="button" onClick={onSwitchToLogin} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
-              Cancel and return to Log in
+              Back to log in
             </button>
           </p>
         </>
@@ -403,7 +392,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
         <form className="space-y-4" onSubmit={handleUpdatePassword} noValidate>
           <div>
             <label htmlFor="recovery-new-password" className="mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-[#d4cdbd]/70">
-              New password
+              Password
             </label>
             <div className="relative">
               <Lock className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
@@ -436,7 +425,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
 
           <div>
             <label htmlFor="recovery-confirm-password" className="mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-[#d4cdbd]/70">
-              Confirm new password
+              Confirm password
             </label>
             <div className="relative">
               <Lock className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
@@ -449,7 +438,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
                   if (confirmPasswordError) setConfirmPasswordError('');
                 }}
                 autoComplete="new-password"
-                placeholder="Confirm your new password"
+                placeholder="Repeat password"
                 className={`auth-control auth-control--trailing-icon h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe7] placeholder:text-[#d3c7ba]/55 outline-none transition ${confirmPasswordError ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
                 aria-invalid={Boolean(confirmPasswordError)}
                 aria-describedby={confirmPasswordError ? 'recovery-confirm-password-error' : undefined}
@@ -468,10 +457,10 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
 
           <div className="space-y-2 text-xs text-[#d9d2c9]/70">
             <p className={`flex items-center gap-2 ${passwordMeetsLength ? 'text-[#b6e1c8]' : ''}`}>
-              <Check size={14} aria-hidden="true" /> At least 8 characters long
+              <Check size={14} aria-hidden="true" /> At least 8 characters
             </p>
             <p className={`flex items-center gap-2 ${passwordsMatch ? 'text-[#b6e1c8]' : ''}`}>
-              <Check size={14} aria-hidden="true" /> Both passwords match
+              <Check size={14} aria-hidden="true" /> Passwords match
             </p>
           </div>
 
@@ -480,7 +469,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
             disabled={isLoading}
             className="va-button va-button-primary mt-2 flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Updating password...' : 'Update password'}
+            {isLoading ? 'Saving...' : 'Save password'}
           </button>
           <p className="text-center text-sm text-[#e2d9d1]/80">
             <button type="button" onClick={onSwitchToLogin} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
@@ -495,21 +484,18 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#7ac7a3]/30 bg-[#1d4737]/40 text-[#b6e1c8]" aria-hidden="true">
             <Check size={26} strokeWidth={2.5} />
           </div>
-          <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
-            Authenticated
-          </p>
-          <h2 id="auth-panel-recovery-title" className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
-            Password updated successfully.
+          <h2 id="auth-panel-recovery-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
+            Password updated.
           </h2>
           <p className="mt-3 text-sm leading-6 text-[#d9d2c9]/80">
-            You can now log in with your new password.
+            Log in with your new password.
           </p>
           <button
             type="button"
             onClick={handleReturnToLogin}
             className="va-button va-button-primary mt-7 flex w-full items-center justify-center px-4 text-sm font-semibold"
           >
-            Return to Login
+            Log in
           </button>
         </div>
       )}
