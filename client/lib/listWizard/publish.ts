@@ -56,6 +56,47 @@ export function shellPayload(category: Category, form: WizardForm): Record<strin
 }
 
 const int = (value: string) => (value ? parseInt(value, 10) : null);
+
+/** "Studio", "1 bedroom", "3 bedrooms". */
+export const bedroomLabel = (count: number | null) => (count === null ? null : count === 0 ? 'Studio' : `${count} bedroom${count === 1 ? '' : 's'}`);
+
+/** "Seats 80 · 150 standing", "Seats 80" or "150 standing". */
+export function venueCapacityLabel(seated: number | null, standing: number | null): string | null {
+  const parts = [seated ? `Seats ${seated}` : null, standing ? `${standing} standing` : null].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+/**
+ * "The space" for stays and venues. Airbnbs: bedrooms, beds, bathrooms;
+ * hotel rooms: beds and how many rooms of this type; venues: seated and
+ * standing guests. size_or_type and max_guests (read by cards, chats and the
+ * guest filter) follow from these numbers; an older free-text value stays
+ * until the numbers are given.
+ */
+export function spaceDetails(category: Category, fields: Fields, sizeOrType: string | null, editMode: boolean): Record<string, unknown> {
+  if (category === 'airbnb') {
+    const bedrooms = int(text(fields, 'stay-bedrooms'));
+    return {
+      bedrooms, beds: int(text(fields, 'stay-beds')), bathrooms: int(text(fields, 'stay-bathrooms')),
+      size_or_type: bedroomLabel(bedrooms) || sizeOrType,
+    };
+  }
+  if (category === 'hotel') {
+    const rooms = text(fields, 'hotel-rooms-available');
+    return { beds: int(text(fields, 'stay-beds')), ...(rooms || editMode ? { units_available: int(rooms) } : {}) };
+  }
+  if (category === 'venue') {
+    const seated = int(text(fields, 'venue-seated'));
+    const standing = int(text(fields, 'venue-standing'));
+    const largest = Math.max(seated || 0, standing || 0);
+    return {
+      seated_capacity: seated, standing_capacity: standing,
+      ...(largest ? { max_guests: largest } : {}),
+      size_or_type: venueCapacityLabel(seated, standing) || sizeOrType,
+    };
+  }
+  return {};
+}
 const float = (value: string) => (value ? parseFloat(value) : null);
 
 /** The office/shop details with the uploaded documents' ids merged in (uploadOfficeShopMedia). */
@@ -119,6 +160,7 @@ export function bookingDetailsFor(category: Category, form: WizardForm, editMode
     }
   } else if (hasStayDetails(category, form)) {
     details.max_guests = int(text(fields, 'max-guests'));
+    Object.assign(details, spaceDetails(category, fields, details.size_or_type as string | null, editMode));
     details.min_stay_nights = int(text(fields, 'min-stay'));
     details.checkin_time = text(fields, 'checkin-time') || null;
     details.checkout_time = text(fields, 'checkout-time') || null;
@@ -230,6 +272,9 @@ export function editForm(base: WizardForm, category: Category, listing: EditList
   set('price-amount', details.price_amount); set('price-unit', details.price_unit); set('size-or-type', details.size_or_type);
   if (category === 'property' && details.size_or_type) set('property-bedroom-type', details.size_or_type);
   set('property-bathrooms', details.bathrooms); set('max-guests', details.max_guests); set('min-stay', details.min_stay_nights);
+  set('stay-bedrooms', details.bedrooms); set('stay-beds', details.beds); set('stay-bathrooms', details.bathrooms);
+  if (category === 'hotel') set('hotel-rooms-available', details.units_available);
+  set('venue-seated', details.seated_capacity); set('venue-standing', details.standing_capacity);
   set('checkin-time', details.checkin_time); set('checkout-time', details.checkout_time); set('cleaning-fee', details.cleaning_fee);
   set('cancellation-policy', details.cancellation_policy || 'moderate'); set('available-from', details.available_from);
   set('min-lease', details.min_lease_months); set('deposit-amount', details.deposit_amount);

@@ -20,6 +20,13 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Which listing types each structured detail is for (see listing_booking_details).
+const DETAIL_CATEGORIES = {
+  units_available: ['property', 'hotel'],
+  rooms: ['airbnb', 'hotel'],
+  bathrooms: ['property', 'airbnb', 'hotel'],
+};
+
 function canUseListingCategory(hostNiche, category) {
   return hostNiche === category || (OFFICE_SHOP_CATEGORIES.has(hostNiche) && OFFICE_SHOP_CATEGORIES.has(category));
 }
@@ -701,6 +708,7 @@ router.patch('/listings/:id', async (req, res) => {
         'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
         'sale_price_mode', 'units_available', 'bathrooms', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
         'instant_book', 'min_notice_days', 'max_advance_days', 'max_stay_nights',
+        'bedrooms', 'beds', 'seated_capacity', 'standing_capacity',
       ]);
     }
   } catch (error) {
@@ -775,6 +783,12 @@ router.patch('/listings/:id', async (req, res) => {
         detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
       } else if (key === 'bathrooms') {
         detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 1000 });
+      } else if (key === 'bedrooms') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 0, max: 100 });
+      } else if (key === 'beds') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 500 });
+      } else if (key === 'seated_capacity' || key === 'standing_capacity') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
       } else if (key === 'price_unit') {
         detailUpdate[key] = enumValue(value, key, ['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover']);
       } else if (key === 'cancellation_policy') {
@@ -826,8 +840,22 @@ router.patch('/listings/:id', async (req, res) => {
     if (detailUpdate.min_stay_nights != null && detailUpdate.max_stay_nights != null && detailUpdate.min_stay_nights > detailUpdate.max_stay_nights) {
       throw new ValidationError('The maximum stay must be at least the minimum stay');
     }
-    if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available', 'bathrooms'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {
+    // Each structured detail belongs to some listing types only.
+    const has = (key) => Object.prototype.hasOwnProperty.call(detailUpdate, key) && detailUpdate[key] !== null;
+    if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode'].some(has)) {
       throw new ValidationError('Property details are only valid for property listings');
+    }
+    if (!DETAIL_CATEGORIES.units_available.includes(listing.category) && has('units_available')) {
+      throw new ValidationError('Units available is only valid for property and hotel listings');
+    }
+    if (!DETAIL_CATEGORIES.rooms.includes(listing.category) && ['bedrooms', 'beds'].some(has)) {
+      throw new ValidationError('Bedrooms and beds are only valid for Airbnb and hotel listings');
+    }
+    if (!DETAIL_CATEGORIES.bathrooms.includes(listing.category) && has('bathrooms')) {
+      throw new ValidationError('Bathrooms are only valid for property, Airbnb and hotel listings');
+    }
+    if (listing.category !== 'venue' && ['seated_capacity', 'standing_capacity'].some(has)) {
+      throw new ValidationError('Seated and standing capacity are only valid for venue listings');
     }
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message || 'Invalid listing details', code: 'INVALID_LISTING_DETAILS' });

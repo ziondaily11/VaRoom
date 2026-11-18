@@ -12,14 +12,6 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   office: 'Office', shop: 'Shop', property: 'Property to let or buy',
 };
 
-const SIZE_LABELS: Record<Category, string> = {
-  airbnb: 'Size (e.g. 2 bedrooms)', hotel: 'Room type & bed setup', venue: 'Capacity (e.g. seats 50)',
-  office: 'Size (e.g. 10 x 10m)', shop: 'Size (e.g. 10 x 10m)', property: 'Type (e.g. bedsitter, 1 bedroom)',
-};
-const SIZE_PLACEHOLDERS: Record<Category, string> = {
-  airbnb: 'e.g. 2 bedrooms, 1 bath', hotel: 'e.g. Deluxe King · 1 king bed', venue: 'e.g. Seats up to 50',
-  office: 'e.g. 10 x 10m, open plan', shop: 'e.g. 10 x 10m, street-facing', property: 'e.g. Bedsitter, 1 bedroom',
-};
 const PRICING_HEADINGS: Record<Category, string> = {
   airbnb: 'Make every night clear.', hotel: 'Set your room rate and stay rules.', venue: 'Make every booking clear.',
   office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.',
@@ -111,8 +103,9 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     photoHint: DEFAULT_PHOTO_HINT,
     amenitiesLabel: 'Amenities',
     amenitiesHint: 'Select everything this space offers. Shown to guests on the booking page.',
-    sizeLabel: SIZE_LABELS[category] || 'Size / Type',
-    sizePlaceholder: SIZE_PLACEHOLDERS[category] || '',
+    // Hotels only: Airbnbs and venues give numbers instead (bedrooms, beds; seated, standing).
+    sizeLabel: 'Room type',
+    sizePlaceholder: 'e.g. Deluxe King room',
     pricingHeading: PRICING_HEADINGS[category] || 'Make every booking clear.',
     bookingSub: 'Choose a category on step 1 to continue.',
     maxGuestsLabel: 'Max guests',

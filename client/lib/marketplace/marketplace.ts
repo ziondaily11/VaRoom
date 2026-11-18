@@ -27,6 +27,8 @@ export interface BookingDetails {
   /** Property: the bedroom type ('Studio', '2 bedrooms', ...). */
   size_or_type?: string | null;
   bathrooms?: number | null;
+  /** Airbnb: bedroom count (0 = studio). */
+  bedrooms?: number | null;
 }
 
 export interface MarketplaceListing {
@@ -111,12 +113,17 @@ export function cardLocation(listing: MarketplaceListing): string {
 }
 
 /**
- * A property's beds and baths for its card: the bedroom count ('2 bedrooms'
- * → '2'; 'Studio' and 'Bedsitter' as named), and the bathroom count.
+ * Bedrooms and baths for a card. Property: from its type ('2 bedrooms' → '2';
+ * 'Studio' and 'Bedsitter' as named). Airbnb: from the bedroom count (0 is a
+ * studio). Both with the bathroom count.
  */
 export function propertyRooms(listing: MarketplaceListing): { beds: string | null; baths: number | null } {
-  if (listing.category !== 'property') return { beds: null, baths: null };
   const d = first(listing.listing_booking_details) || {};
+  if (listing.category === 'airbnb') {
+    const count = d.bedrooms != null && Number(d.bedrooms) >= 0 ? Number(d.bedrooms) : null;
+    return { beds: count === null ? null : count === 0 ? 'Studio' : String(count), baths: d.bathrooms != null && Number(d.bathrooms) > 0 ? Number(d.bathrooms) : null };
+  }
+  if (listing.category !== 'property') return { beds: null, baths: null };
   const type = String(d.size_or_type || '').trim();
   const count = type.match(/^(\d+)\s*bed/i);
   const beds = count ? count[1] : /^(studio|bedsitter)$/i.test(type) ? type : null;

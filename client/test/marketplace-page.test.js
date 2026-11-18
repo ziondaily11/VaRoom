@@ -77,7 +77,9 @@ test('card rules: price, sale price, title and location clean-up, category tag',
   assert.deepEqual(rooms('property', { size_or_type: '3 bedrooms', bathrooms: 2 }), { beds: '3', baths: 2 });
   assert.deepEqual(rooms('property', { size_or_type: 'Studio', bathrooms: 0 }), { beds: 'Studio', baths: null });
   assert.deepEqual(rooms('property', { size_or_type: 'Penthouse' }), { beds: null, baths: null });
-  assert.deepEqual(rooms('airbnb', { size_or_type: '2 bedrooms', bathrooms: 1 }), { beds: null, baths: null }, 'property cards only');
+  assert.deepEqual(rooms('airbnb', { size_or_type: '2 bedrooms', bathrooms: 1 }), { beds: null, baths: 1 }, 'Airbnb cards use the bedroom count, not the text');
+  assert.deepEqual(rooms('airbnb', { bedrooms: 2, bathrooms: 1 }), { beds: '2', baths: 1 });
+  assert.deepEqual(rooms('hotel', { bedrooms: 1, bathrooms: 1 }), { beds: null, baths: null }, 'property and Airbnb cards only');
 });
 
 test('newest first; a looking-soon client sees their categories first only in the default view', () => {
