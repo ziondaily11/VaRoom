@@ -284,8 +284,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
                 src="/assets/landing.jpg"
                 alt="VaRoom Nairobi Skyline"
                 className="hero-background-image w-full h-full object-cover object-top"
-                // @ts-expect-error fetchpriority is a modern HTML attribute
-                fetchpriority="high"
+                fetchPriority="high"
               />
             </picture>
             {/* Darkens the bottom-left, where the white hero and auth copy sit */}

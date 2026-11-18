@@ -43,10 +43,10 @@ export function isSlideNear(index: number, active: number): boolean {
 /**
  * Loading hints for a feed photo. The first card's first photo is the
  * likely largest paint, so it is fetched eagerly at high priority; the rest
- * are lazy. (`fetchpriority` is lowercase: React 18 passes it through as is.)
+ * are lazy. React renders `fetchPriority` as the `fetchpriority` attribute.
  */
-export function feedImageHints(priority: boolean): { loading: 'eager' | 'lazy'; decoding: 'async'; fetchpriority?: 'high' } {
+export function feedImageHints(priority: boolean): { loading: 'eager' | 'lazy'; decoding: 'async'; fetchPriority?: 'high' } {
   return priority
-    ? { loading: 'eager', decoding: 'async', fetchpriority: 'high' }
+    ? { loading: 'eager', decoding: 'async', fetchPriority: 'high' }
     : { loading: 'lazy', decoding: 'async' };
 }
