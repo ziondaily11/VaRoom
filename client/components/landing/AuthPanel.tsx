@@ -269,7 +269,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
       <button
         type="button"
         aria-label="Close sign-in panel"
-        className="absolute inset-0 bg-transparent"
+        className="absolute inset-0 m-0 border-0 bg-transparent p-0"
         onClick={closePanel}
         style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       />
