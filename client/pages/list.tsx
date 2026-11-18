@@ -29,8 +29,7 @@ import { INITIAL_FLAGS, startWizard } from '../lib/listWizard/startup';
 import type { Flags, Message } from '../lib/listWizard/startup';
 import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../lib/listWizard/amenities';
 import { LIST_WIZARD_STYLES } from '../components/listWizard/listWizardStyles';
-import { WizardSidebar, WizardTopNav } from '../components/listWizard/WizardChrome';
-import { INITIAL_SAVE_STATUS, PanelActions, StepFrame, StepPhoto } from '../components/listWizard/StepFrame';
+import { INITIAL_SAVE_STATUS, PanelActions, StepAlert, StepFrame, StepPhoto, WizardProgress } from '../components/listWizard/StepFrame';
 import type { SaveStatus } from '../components/listWizard/StepFrame';
 import { BookingFields, HotelModeChoice, IntroFields, OfficeShopTypeChoice, PropertyPurposeChoice } from '../components/listWizard/WizardFields';
 import { MediaPicker, PhotoLightbox, useObjectUrls } from '../components/listWizard/MediaPicker';
@@ -60,6 +59,32 @@ const EMPTY_FILES: OfficeShopFiles = { floorPlan: null, policy: null, documents:
 const errorMessage = (error: unknown, fallback: string) => (error instanceof Error && error.message) || fallback;
 
 const browserStorage = (): Storage | null => { try { return window.localStorage; } catch (_) { return null; } };
+
+/** A field's label as the host sees it ("Title"), without "(optional)" notes. */
+function fieldName(field: HTMLElement | null): string {
+  if (!field) return 'this field';
+  const label = field.id ? document.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(field.id)}"]`) : null;
+  const text = (label?.textContent || field.getAttribute('aria-label') || field.getAttribute('placeholder') || 'this field')
+    .replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+  return text || 'this field';
+}
+
+/** Plain words for why a required field fails. */
+function invalidMessage(field: HTMLInputElement): string {
+  const name = fieldName(field);
+  const { validity } = field;
+  if (validity.customError) return field.validationMessage;
+  if (validity.valueMissing) {
+    if (field.type === 'checkbox') return `Tick “${name}” to continue.`;
+    if (field.tagName === 'SELECT' || field.type === 'radio') return `Choose ${name}.`;
+    return `Fill in ${name}.`;
+  }
+  if (validity.tooShort) return `${name}: use at least ${field.minLength} characters.`;
+  if (validity.tooLong) return `${name}: use at most ${field.maxLength} characters.`;
+  if (validity.rangeUnderflow) return `${name}: the lowest allowed is ${field.min}.`;
+  if (validity.rangeOverflow) return `${name}: the highest allowed is ${field.max}.`;
+  return `${name}: ${field.validationMessage}`;
+}
 
 export default function ListPage() {
   const router = useRouter();
@@ -95,7 +120,10 @@ export default function ListPage() {
   const [publishLabel, setPublishLabel] = useState<string | null>(null);
   const [payBusy, setPayBusy] = useState<'pay' | 'pro' | null>(null);
   const [payLabelText, setPayLabelText] = useState<string | null>(null);
-  const [correctionChoice, setCorrectionChoice] = useState(1);
+  // What stops the host moving on, shown under the step (not a browser pop-up).
+  const [stepError, setStepError] = useState<{ step: number; text: string } | null>(null);
+  // Which way the last step change went, for the slide (none on first paint).
+  const [direction, setDirection] = useState<'forward' | 'back' | null>(null);
   const [stepPhoto3, setStepPhoto3] = useState<HTMLDivElement | null>(null);
 
   const messageRef = useRef<HTMLDivElement>(null);
@@ -207,8 +235,8 @@ export default function ListPage() {
 
   const goToStep = useCallback((target: number) => {
     const step = Math.max(1, Math.min(TOTAL_STEPS, target));
+    setDirection((previous) => (step === latest.current.form.currentStep ? previous : step > latest.current.form.currentStep ? 'forward' : 'back'));
     setForm((previous) => ({ ...previous, currentStep: step, furthestStep: Math.max(previous.furthestStep, step) }));
-    setCorrectionChoice(step);
     if (sessionRef.current && !sessionRef.current.restoring) queueSave();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [queueSave]);
@@ -229,15 +257,22 @@ export default function ListPage() {
   const saleAmount = text(form.fields, 'property-sale-price');
   const preview = pricePreview(category, form.propertyPurpose, form.propertySalePriceMode, amount, saleAmount, priceUnit);
 
-  // ---------- Validation (the browser's own messages, as before) ----------
+  // ---------- Validation (messages in the page, under the step) ----------
   const frame = (step: number) => formRef.current?.querySelector<HTMLElement>(`.step-frame[data-step="${step}"]`) || null;
   const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
-  const report = (input: HTMLInputElement | null, messageText: string) => {
-    if (!input) return;
-    input.setCustomValidity(messageText);
-    input.reportValidity();
-    input.addEventListener('input', () => input.setCustomValidity(''), { once: true });
-    input.focus();
+  /** Show why the step can't continue, mark and bring the field into view. */
+  const report = (step: number, field: HTMLElement | null, messageText: string) => {
+    setStepError({ step, text: messageText });
+    if (!field) return;
+    field.setAttribute('aria-invalid', 'true');
+    const clear = () => { field.removeAttribute('aria-invalid'); if (field instanceof HTMLInputElement) field.setCustomValidity(''); };
+    field.addEventListener('input', clear, { once: true });
+    field.addEventListener('change', clear, { once: true });
+    // After the step (possibly another one) has been shown and the page scrolled to its top.
+    window.setTimeout(() => {
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field.focus({ preventScroll: true });
+    }, 80);
   };
 
   const validateStep = (step: number): boolean => {
@@ -247,18 +282,16 @@ export default function ListPage() {
     if (step === 2 && isOfficeShop(cat)) {
       const area = splitListingArea(text(fields, 'location-text'));
       if (!area.neighborhood || !area.city) {
-        report(byId<HTMLInputElement>('location-text'), 'Enter the neighbourhood and city separated by a comma, for example Westlands, Nairobi.');
+        report(2, byId<HTMLInputElement>('location-text'), 'Enter the neighbourhood and city separated by a comma, for example Westlands, Nairobi.');
         return false;
       }
     }
     if (step === 1 && isOfficeShop(cat) && !officeShopTypeSelected) {
-      formRef.current?.querySelector<HTMLButtonElement>('[data-office-shop-type]')?.focus();
-      window.alert('Choose whether you are listing an Office or a Shop.');
+      report(1, formRef.current?.querySelector<HTMLButtonElement>('[data-office-shop-type]') || null, 'Choose whether you are listing an Office or a Shop.');
       return false;
     }
     if (step === 1 && cat === 'hotel' && !state.form.hotelListingMode) {
-      formRef.current?.querySelector<HTMLButtonElement>('[data-hotel-mode]')?.focus();
-      window.alert('Choose whether this hotel offers stays, table reservations, or both.');
+      report(1, formRef.current?.querySelector<HTMLButtonElement>('[data-hotel-mode]') || null, 'Choose whether this hotel offers stays, table reservations, or both.');
       return false;
     }
     if (step === 4 && cat === 'property') {
@@ -267,17 +300,15 @@ export default function ListPage() {
       for (const id of checks) {
         const value = text(fields, id);
         if (!value || Number(value) <= 0) {
-          const input = byId<HTMLInputElement>(id);
-          // An empty field gets the browser's "required" message; 0 used to pass silently.
-          if (value) report(input, 'Enter a price greater than 0.');
-          else if (input) { input.focus(); input.reportValidity(); }
+          // 0 used to pass silently.
+          report(4, byId<HTMLInputElement>(id), value ? 'Enter a price greater than 0.' : `Fill in ${fieldName(byId(id))}.`);
           return false;
         }
       }
     }
     if (step === 3 && isOfficeShop(cat)) {
       const hoursError = officeShopBusinessHoursError(fields, cat as OfficeShopKind);
-      if (hoursError) { report(byId<HTMLInputElement>('os-operating-hours-to'), hoursError); return false; }
+      if (hoursError) { report(3, byId<HTMLInputElement>('os-operating-hours-to'), hoursError); return false; }
       if (state.media.mediaFiles.length === 0 && existingPhotos.length === 0) {
         setPhotoError('Add at least one photo or video of the actual unit before continuing.');
         dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -285,21 +316,21 @@ export default function ListPage() {
       }
     }
     if (step === 5 && isOfficeShop(cat) && !checked(fields, 'os-accuracy-confirmed')) {
-      const accuracy = byId<HTMLInputElement>('os-accuracy-confirmed');
-      if (accuracy) { accuracy.focus(); accuracy.reportValidity(); }
-      window.alert('Confirm that availability and pricing are accurate today before publishing.');
+      report(5, byId<HTMLInputElement>('os-accuracy-confirmed'), 'Confirm that availability and pricing are accurate today before publishing.');
       return false;
     }
     const element = frame(step);
     if (!element) return true;
     for (const field of Array.from(element.querySelectorAll<HTMLInputElement>('[required]'))) {
-      if (!field.checkValidity()) { field.reportValidity(); return false; }
+      if (!field.checkValidity()) { report(step, field, invalidMessage(field)); return false; }
     }
+    setStepError(null);
     return true;
   };
 
   const next = () => { if (validateStep(form.currentStep)) goToStep(form.currentStep + 1); };
-  const back = () => goToStep(form.currentStep - 1);
+  const back = () => { setStepError(null); goToStep(form.currentStep - 1); };
+  const jumpTo = (target: number) => { setStepError(null); goToStep(target); };
 
   // ---------- Documents ----------
 
@@ -374,7 +405,6 @@ export default function ListPage() {
       if (outcome.form) {
         latest.current = { ...latest.current, form: outcome.form };
         setForm(outcome.form);
-        setCorrectionChoice(outcome.form.currentStep);
       }
       if (outcome.edit) {
         setExistingPhotos(outcome.edit.existingPhotos);
@@ -481,11 +511,34 @@ export default function ListPage() {
   };
 
   // ---------- Leaving ----------
-  const onLeave = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (editMode || !userId || !ready) return;
-    event.preventDefault();
-    setLeave({ open: true, stage: 'choose', destination: href, busy: null });
-  };
+  // Going Home (the app's sidebar: the logo, Home, My Listings) first asks to
+  // save or discard the listing. The click is caught before the sidebar's own
+  // handler, on the way down. Other links leave directly (the draft autosaves).
+  const leaveGuard = useRef<{ active: boolean }>({ active: false });
+  leaveGuard.current.active = !editMode && Boolean(userId) && ready;
+  useEffect(() => {
+    const guard = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const home = target?.closest<HTMLElement>('a[href="/host-home"], a[href^="/host-home?"], [data-nav="home"], [data-nav="my-listings"]');
+      if (!home || home.closest('#listing-page')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const href = home.getAttribute('data-nav') === 'my-listings' ? '/host-home?view=my-listings' : home.getAttribute('href') || '/host-home';
+      setLeave({ open: true, stage: 'choose', destination: href, busy: null });
+    };
+    const onClick = (event: MouseEvent) => {
+      if (!leaveGuard.current.active || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      guard(event);
+    };
+    // My Listings is a button-like row that opens on Enter without a click.
+    const onKey = (event: KeyboardEvent) => {
+      if (!leaveGuard.current.active || event.key !== 'Enter' || !(event.target instanceof Element) || event.target.closest('a')) return;
+      guard(event);
+    };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('click', onClick, true); document.removeEventListener('keydown', onKey, true); };
+  }, []);
   const closeLeave = () => setLeave((previous) => ({ ...previous, open: false, stage: 'choose', busy: null }));
 
   const saveAndLeave = async () => {
@@ -756,33 +809,21 @@ export default function ListPage() {
         <title>List your space — VaRoom</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
       <style dangerouslySetInnerHTML={{ __html: LIST_WIZARD_STYLES }} />
-      {/* The dark theme came after these styles in list.html and wins ties (inputs, selects); keep that order. Same cached file as _app's. */}
+      {/* The app's dark theme (as on the other migrated pages); the wizard's own dark colours are in its styles. */}
       <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
-      <div className="checking-msg" id="checking-auth" aria-live="polite" style={ready ? { display: 'none' } : undefined}>{checkingText}</div>
+      <div className="checking-msg lw-checking" id="checking-auth" aria-live="polite" style={ready ? { display: 'none' } : undefined}>{checkingText}</div>
 
-      <div className="wizard" id="listing-page" data-listing-niche={ready ? category : undefined} style={{ display: ready ? 'block' : 'none' }}>
-        <WizardSidebar onLeave={onLeave} />
-        <WizardTopNav onLeave={onLeave} />
+      <div className={`wizard${direction ? ` nav-${direction}` : ''}`} id="listing-page" data-listing-niche={ready ? category : undefined} style={{ display: ready ? 'block' : 'none' }}>
         <form id="list-form" ref={formRef} onSubmit={(event) => { void publish(event); }}>
           <div className="wizard-shell">
-            <div className="wizard-correction-nav" aria-label="Edit an earlier step">
-              <label htmlFor="correction-step">Need to correct something?</label>
-              <select id="correction-step" value={String(Math.min(correctionChoice, form.furthestStep))} onChange={(event) => setCorrectionChoice(Number(event.target.value))}>
-                {['1. Listing details', '2. Location', '3. Media & amenities', '4. Pricing & booking', '5. Review'].map((label, index) => (
-                  <option key={label} value={index + 1} disabled={index + 1 > form.furthestStep}>{label}</option>
-                ))}
-              </select>
-              <button type="button" id="correction-step-go" onClick={() => { if (correctionChoice <= form.furthestStep) goToStep(correctionChoice); }}>Edit</button>
-            </div>
+            <WizardProgress step={step} furthest={form.furthestStep} saveStatus={saveStatus} onGo={jumpTo} />
 
             {/* STEP 1 — About the property */}
-            <StepFrame step={1} tone="tone-dark" active={step === 1} pct={20} saveStatus={saveStatus}
-              progress={<><span className="step-count">01/5</span><br /><span id="progress-step-label">Listing Introduction</span></>}
+            <StepFrame step={1} active={step === 1}
               photo={<StepPhoto step={1} badge="Your listing, coming to life" title="Every space has a story." text="Introduce your space and show people what makes it worth discovering." />}>
-              <p className="step-eyebrow" id="about-eyebrow">{copy.aboutEyebrow}</p>
               <h1 className="step-title" id="listing-headline">{copy.headline}</h1>
               <p className="step-sub" id="about-sub">{copy.aboutSub}</p>
               <OfficeShopTypeChoice category={category} onChoose={(choice) => { setOfficeShopTypeSelected(true); setCategory(choice); queueSave(); }} />
@@ -790,14 +831,12 @@ export default function ListPage() {
               <HotelModeChoice category={category} mode={form.hotelListingMode} onChoose={(mode: HotelMode) => update({ hotelListingMode: mode })} />
               <PropertyPurposeChoice category={category} purpose={form.propertyPurpose} onChoose={(purpose: PropertyPurpose) => update({ propertyPurpose: purpose })} />
               <IntroFields binding={binding} copy={copy} tableOnly={tableOnly} />
-              <PanelActions next="Continue to location →" onNext={next} />
+              <PanelActions next="Continue to location" onNext={next} alert={stepError && stepError.step === 1 ? stepError.text : null} />
             </StepFrame>
 
             {/* STEP 2 — Location */}
-            <StepFrame step={2} tone="tone-dark" active={step === 2} pct={40} saveStatus={saveStatus}
-              progress={<><span className="step-count">02/05</span><br />Location</>}
+            <StepFrame step={2} active={step === 2}
               photo={<StepPhoto step={2} badge="Location details added" title="Put your space on the map." text="Help people find your space with clear, accurate location details." />}>
-              <p className="step-eyebrow">02 — Location</p>
               <h1 className="step-title" id="location-title">{copy.locationTitle}</h1>
               <p className="step-sub" id="location-sub">{copy.locationSub}</p>
               <div className="step-fields">
@@ -808,12 +847,11 @@ export default function ListPage() {
                 </div>
                 {officeShop ? <OfficeShopLocation {...officeProps} /> : <div className="office-shop-section" id="office-shop-location-fields" />}
               </div>
-              <PanelActions onBack={back} next="continue to media & amenities →" onNext={next} />
+              <PanelActions onBack={back} next="Continue to photos" onNext={next} alert={stepError && stepError.step === 2 ? stepError.text : null} />
             </StepFrame>
 
             {/* STEP 3 — Photos & gallery */}
-            <StepFrame step={3} tone="tone-dark" active={step === 3} pct={60} saveStatus={saveStatus}
-              progress={<><span className="step-count">03/05</span><br />media &amp; amenities</>}
+            <StepFrame step={3} active={step === 3}
               photo={(
                 <StepPhoto step={3} badge="Gallery ready" title="Show what makes it special." text="Bring your space to life with photos, videos, and the details that matter." ref={setStepPhoto3}>
                   <AmenitiesLibrary open={library.open} trigger={library.trigger} category={category} amenities={form.amenities} officeShopSelections={form.officeShopAmenitySelections}
@@ -821,7 +859,6 @@ export default function ListPage() {
                   <PolicyPreviewOverlay preview={policyPreview} onClose={closePolicyPreview} />
                 </StepPhoto>
               )}>
-              <p className="step-eyebrow">03 — Photos</p>
               <h1 className="step-title" id="media-title">{copy.mediaTitle}</h1>
               <p className="step-sub" id="media-sub">{copy.mediaSub}</p>
               <div className="step-fields" ref={dropzoneRef}>
@@ -835,14 +872,12 @@ export default function ListPage() {
                 ) : <div className="office-shop-section" id="office-shop-media-fields" />}
                 <PolicyField hidden={category !== 'property'} filename={policyName} removing={policyRemoving} onChoose={choosePolicy} onPreview={() => { void previewPolicy(); }} onRemove={() => { void removePolicy(); }} />
               </div>
-              <PanelActions onBack={back} next="Continue to pricing →" onNext={next} />
+              <PanelActions onBack={back} next="Continue to price" onNext={next} alert={stepError && stepError.step === 3 ? stepError.text : null} />
             </StepFrame>
 
             {/* STEP 4 — Pricing & booking */}
-            <StepFrame step={4} tone="tone-red" active={step === 4} pct={80} saveStatus={saveStatus}
-              progress={<><span className="step-count">04 / 05</span><br />Set the terms</>}
+            <StepFrame step={4} active={step === 4}
               photo={<StepPhoto step={4} badge="Pricing set" title="Make every detail count." text="Set clear terms so people know what to expect when booking or renting your space." />}>
-              <p className="step-eyebrow">04 — Pricing &amp; booking</p>
               <h1 className="step-title" id="pricing-heading">{copy.pricingHeading}</h1>
               <p className="step-sub" id="booking-heading-sub">{copy.bookingSub}</p>
               <div className="price-preview">
@@ -855,14 +890,12 @@ export default function ListPage() {
                   priceUnit={priceUnit} onSaleMode={(mode: SaleMode) => update({ propertySalePriceMode: mode })} onPriceEdit={(event) => (event.target as HTMLInputElement).setCustomValidity('')}
                   calendar={<AvailabilityCalendar hint={copy.availabilityHint} openDates={form.availableDates} onChange={(dates) => update({ availableDates: dates })} />} />
               </div>
-              <PanelActions onBack={back} next="Continue to review →" onNext={next} />
+              <PanelActions onBack={back} next="Continue to review" onNext={next} alert={stepError && stepError.step === 4 ? stepError.text : null} />
             </StepFrame>
 
             {/* STEP 5 — Review & publish */}
-            <StepFrame step={5} tone="tone-cream" active={step === 5} pct={100} saveStatus={saveStatus}
-              progress={<><span className="step-count">05 / 05</span><br />Last look, then live</>}
+            <StepFrame step={5} active={step === 5}
               photo={<ReviewHero media={reviewMedia} />}>
-              <p className="step-eyebrow">05 — Review &amp; publish</p>
               <h1 className="step-title">Ready when you are.</h1>
               <p className="step-sub">One last look, then it&apos;s live for people to see.</p>
               <div className="step-fields">
@@ -872,6 +905,7 @@ export default function ListPage() {
                   cover={reviewMedia[0] || null} location={locationLine} amenities={amenitiesLine} policy={policyLine} />
                 {officeShop ? <OfficeShopReview form={form} setField={setField} summary={officeShopSummary} /> : <div className="office-shop-section" id="office-shop-review-fields" />}
               </div>
+              <StepAlert text={stepError && stepError.step === 5 ? stepError.text : null} />
               <div className="submit-row">
                 <button type="button" className="pay-to-list-btn" id="pay-to-list-btn" hidden={!showPay} disabled={payDisabled} onClick={(event) => { event.preventDefault(); void payToList(); }}>
                   {payBusy === 'pay' && payLabelText ? payLabelText : payLabel()}
@@ -892,18 +926,6 @@ export default function ListPage() {
             </StepFrame>
           </div>
         </form>
-
-        <div className="step-tracker" id="step-tracker">
-          {['About the property', 'Location & verification', 'Photos & gallery', 'Pricing & booking', 'Review & publish'].map((label, index) => {
-            const target = index + 1;
-            return (
-              <div key={label} className={`tracker-item${target === step ? ' active' : ''}${target < form.furthestStep || target < step ? ' completed' : ''}`} data-step-link={target}
-                onClick={() => { if (target <= form.furthestStep) goToStep(target); }}>
-                <span className="t-num">0{target}</span><span className="t-label">{label}</span>
-              </div>
-            );
-          })}
-        </div>
 
         <div className={`success-msg${message ? ' show' : ''}${message && message.error ? ' error' : ''}`} id="success-msg" role="status" aria-live="polite" ref={messageRef}>
           <div className="inner">

@@ -1,34 +1,62 @@
 import React from 'react';
 
-// One step of the listing wizard: the panel (brand, progress ring, save
-// status, the step's own content) beside its photo. Unchanged markup from
-// legacy-pages/list.html; every step stays mounted and CSS shows the active one.
+// The listing wizard's frame: one progress bar above the steps, then each
+// step's panel (its content) beside its photo. Every step stays mounted and
+// CSS shows the active one.
 
 export interface SaveStatus { message: string; state: 'saving' | 'saved' | 'error' | null }
 
 export const INITIAL_SAVE_STATUS: SaveStatus = { message: 'Changes save automatically.', state: null };
 
-export function StepFrame({ step, tone, active, pct, progress, saveStatus, children, photo }: {
+/** The steps, in order, as the progress bar names them. */
+export const STEP_LABELS = ['Basics', 'Location', 'Photos & amenities', 'Price & booking', 'Review'] as const;
+
+/**
+ * Where the host is: "Step 2 of 5 · Location", the save status, and a bar of
+ * segments. A segment already reached opens its step; later ones wait.
+ */
+export function WizardProgress({ step, furthest, saveStatus, onGo }: {
   step: number;
-  tone: 'tone-dark' | 'tone-red' | 'tone-cream';
-  active: boolean;
-  pct: number;
-  progress: React.ReactNode;
+  furthest: number;
   saveStatus: SaveStatus;
+  onGo: (step: number) => void;
+}) {
+  const total = STEP_LABELS.length;
+  return (
+    <nav className="wz-progress" aria-label="Listing steps">
+      <div className="wz-progress-head">
+        <p className="wz-progress-label"><span>Step {step} of {total}</span> · {STEP_LABELS[step - 1]}</p>
+        <span className="listing-save-status" role="status" aria-live="polite" data-state={saveStatus.state || undefined}>{saveStatus.message}</span>
+      </div>
+      <ol className="wz-progress-bar">
+        {STEP_LABELS.map((label, index) => {
+          const target = index + 1;
+          const reached = target <= furthest;
+          const state = target === step ? 'current' : target < step || reached ? 'done' : 'next';
+          return (
+            <li key={label} className={`wz-progress-seg is-${state}`}>
+              <button type="button" disabled={!reached || target === step} aria-current={target === step ? 'step' : undefined}
+                aria-label={`Step ${target}: ${label}${reached ? '' : ' (not reached yet)'}`} onClick={() => onGo(target)}>
+                <span className="wz-progress-fill" aria-hidden="true" />
+                <span className="wz-progress-name">{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+export function StepFrame({ step, active, children, photo }: {
+  step: number;
+  active: boolean;
   children: React.ReactNode;
   photo: React.ReactNode;
 }) {
   return (
-    <section className={`step-frame${active ? ' active' : ''} ${tone}`} data-step={step}>
-      <div className="step-panel">
-        <div className="panel-brand"><span className="roof" /> VaRoom</div>
-        <div className="progress-row">
-          <div className="progress-ring" style={{ '--pct': pct } as React.CSSProperties}><span>{pct}%</span></div>
-          <div className="progress-text">{progress}</div>
-        </div>
-        <span className="listing-save-status" role="status" aria-live="polite" data-state={saveStatus.state || undefined}>{saveStatus.message}</span>
-        {children}
-      </div>
+    <section className={`step-frame${active ? ' active' : ''}`} data-step={step}>
+      <div className="step-panel">{children}</div>
       {photo}
     </section>
   );
@@ -50,11 +78,20 @@ export const StepPhoto = React.forwardRef<HTMLDivElement, { step: number; badge:
   },
 );
 
-export function PanelActions({ onBack, next, onNext, style }: { onBack?: () => void; next?: string; onNext?: () => void; style?: React.CSSProperties }) {
+/** What stops the host moving on, shown in the page (not a browser pop-up). */
+export function StepAlert({ text }: { text: string | null }) {
+  return <p className={`wz-step-alert${text ? ' show' : ''}`} role="alert">{text || ''}</p>;
+}
+
+/** Back and Continue, kept in view at the bottom of the step, with what stops the host moving on just above. */
+export function PanelActions({ onBack, next, onNext, alert = null, style }: { onBack?: () => void; next?: string; onNext?: () => void; alert?: string | null; style?: React.CSSProperties }) {
   return (
     <div className="panel-actions" style={style}>
-      {onBack && <button type="button" className="step-btn back" data-back onClick={onBack}>← Back</button>}
-      {next && onNext && <button type="button" className="step-btn next" data-next onClick={onNext}>{next}</button>}
+      <StepAlert text={alert} />
+      <div className="panel-actions-row">
+        {onBack && <button type="button" className="step-btn back" data-back onClick={onBack}>← Back</button>}
+        {next && onNext && <button type="button" className="step-btn next" data-next onClick={onNext}>{next}</button>}
+      </div>
     </div>
   );
 }

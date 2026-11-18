@@ -33,7 +33,8 @@ export function activeMobileKey(pathname: string): NavKey | null {
 
 /** Pages that own their bottom area: focused workspaces, and Client Home's own bar. */
 export function hidesMobileNav(pathname: string): boolean {
-  return ['/booking', '/chat-settings', '/pricing', '/list', '/properties', '/client-home'].includes(pathname);
+  // The listing wizard keeps the bar (as Marketplace does): it is the way back on phones.
+  return ['/booking', '/chat-settings', '/pricing', '/client-home'].includes(pathname);
 }
 
 export function scrollHides(pathname: string): boolean {
