@@ -11,14 +11,14 @@ import {
   phoneForInput, phoneValid, readListingDraft, roleHome, saveAvatar, writeListingDraft,
   type Category, type HostExtras, type Interest,
 } from '../lib/onboarding/onboarding';
-import { OnboardingLayout, type PhotoState, type StepDirection, type StepInfo } from '../components/onboarding/OnboardingParts';
+import { OnboardingLayout, type PhotoState, type StepDirection } from '../components/onboarding/OnboardingParts';
 import {
-  ClientStep, HostListingStep, HostPreview, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
+  ClientStep, HostListingStep, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
 } from '../components/onboarding/OnboardingSteps';
 import { ONBOARDING_STYLES } from '../components/onboarding/onboardingStyles';
 
-// Onboarding (migrated from legacy-pages/onboarding.html, redesigned in the
-// Split style): hosts set up their profile, then pick what they list from
+// Onboarding (migrated from legacy-pages/onboarding.html; one centred column,
+// no side panel): hosts set up their profile, then pick what they list from
 // picture tiles; clients only pick what they're looking for. The account and
 // profile come from AuthProvider; hosts' phone, city and listing category are
 // read once. When done, people go back to the link they signed in from (if
@@ -200,31 +200,10 @@ export default function OnboardingPage() {
   const profileFilled = (profileDraft.username || '').length >= 3 && phoneValid(profileDraft.phone) && locationValid(profileDraft.city);
   const listingFilled = Boolean(listingDraft && listingDraft.niche && discoverNameValid(listingDraft.name));
   const hostProgress = step === 1 ? (1 + (profileFilled ? 1 : 0)) / 3 : (2 + (listingFilled ? 1 : 0)) / 3;
-  const steps: StepInfo[] = [
-    { label: 'Your profile', state: step === 1 ? 'current' : 'done' },
-    { label: "What you'll list", state: step === 2 ? 'current' : 'next' },
-  ];
   return (
     <>
       {head}{styles}
       <OnboardingLayout
-        panel={{
-          steps,
-          mobileStep: `Step ${step} of 2`,
-          mobileTitle: step === 1 ? 'A little more you.' : 'What will you be listing?',
-          preview: (
-            <HostPreview
-              name={step === 2 && listingDraft ? listingDraft.name : (profile.full_name || '')}
-              username={profileDraft.username || profile.username || ''}
-              city={profileDraft.city || hostExtras.city || ''}
-              niche={step === 2 && listingDraft ? listingDraft.niche : null}
-              photo={profileDraft.photo}
-              existingAvatar={existingAvatar}
-              upload={upload}
-            />
-          ),
-          note: 'You can change any of this later in your profile.',
-        }}
         progress={hostProgress}
         onBack={step === 2 ? () => goToStep(1) : undefined}
         backLabel="Back to profile setup"

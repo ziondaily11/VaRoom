@@ -123,7 +123,7 @@ test('where people go: the safe link they came from, else Host Home or Marketpla
   assert.equal(ob.initialHostStep(null, { username: 'a', phone: '1', city: 'x' }), 1);
 });
 
-test('page: AuthProvider profile, safe redirect, Split layout, legacy page and preview retired', () => {
+test('page: AuthProvider profile, safe redirect, centred layout, legacy page and preview retired', () => {
   const page = read('pages', 'onboarding.tsx');
   // Page wiring (no DOM renderer here); the redirect rule itself is tested below.
   assert.match(page, /useAuth\(\)/);
@@ -214,13 +214,14 @@ test('motion: step slides, progress bar, tile press and check, all near-instant 
   for (const selector of ['.onb-stage.is-forward', '.onb-progress-fill', '.onb-tile-check svg', '.onb-tile:active']) assert.ok(reduced.includes(selector), selector);
 });
 
-test('clients: no side panel, the tile step stands alone and centred; hosts keep the panel', () => {
+test('no side panel on any step: one centred column for hosts and clients', () => {
   const page = read('pages', 'onboarding.tsx');
   const parts = read('components', 'onboarding', 'OnboardingParts.tsx');
-  const client = page.slice(page.indexOf("if (role === 'client')"), page.indexOf('const hostExtras'));
-  assert.doesNotMatch(client, /panel=|ClientPreview/, 'the client step has no panel');
-  assert.match(page.slice(page.indexOf('const hostExtras')), /panel=\{\{/, 'hosts keep the panel');
-  assert.match(parts, /className=\{`onb\$\{panel \? '' : ' is-solo'\}`\}/);
-  assert.match(parts, /\{panel && \(/);
-  assert.doesNotMatch(read('components', 'onboarding', 'OnboardingSteps.tsx'), /ClientPreview/);
+  const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
+  const styles = read('components', 'onboarding', 'onboardingStyles.ts');
+  assert.doesNotMatch(page, /panel=|HostPreview|ClientPreview|StepInfo/);
+  assert.doesNotMatch(parts, /onb-panel|PanelInfo|StepInfo|is-placeholder/);
+  assert.doesNotMatch(steps, /HostPreview|ClientPreview/);
+  assert.doesNotMatch(styles, /onb-panel|onb-card-|onb-mobile-title|onb-steps|is-solo/);
+  assert.match(styles, /\.onb-main\{ flex:1; min-width:0; min-height:100vh; min-height:100dvh; display:flex; justify-content:center; align-items:center;/);
 });

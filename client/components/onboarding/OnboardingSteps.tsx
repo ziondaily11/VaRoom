@@ -5,42 +5,13 @@ import {
   saveClientPreferences, saveHostListing, saveHostProfile, takenMessage, USERNAME_HELP, usernameFormatError, usernameTaken,
   type Category, type Interest,
 } from '../../lib/onboarding/onboarding';
-import { CheckIcon, CroppedImage, LockIcon, PersonIcon, PhotoPicker, PinIcon, TileGrid, type PhotoPickerHandle, type PhotoState } from './OnboardingParts';
+import { CheckIcon, LockIcon, PhotoPicker, TileGrid, type PhotoPickerHandle, type PhotoState } from './OnboardingParts';
 
 // The onboarding steps (hosts: profile, then what they list; clients: only
-// what they're looking for) and the live previews shown in the brand panel.
+// what they're looking for).
 
-const categoryTitle = (value: Category | null) => (value ? (CATEGORIES.find((option) => option.value === value) || { title: value }).title : null);
-
-// ---------- Previews ----------
-
+/** The host's photo, uploading behind the scenes during step 2. */
 export type PhotoUpload = 'idle' | 'uploading' | 'done' | 'failed';
-
-export function HostPreview({ name, username, city, niche, photo, existingAvatar, upload = 'idle' }: {
-  name: string; username: string; city: string; niche: Category | null; photo: PhotoState | null; existingAvatar: string | null; upload?: PhotoUpload;
-}) {
-  return (
-    <>
-      <p className="onb-eyebrow">Live preview · how guests see you</p>
-      <div className="onb-card">
-        <div className="onb-card-cover" />
-        <div className="onb-card-body">
-          <div className={`onb-card-avatar${upload === 'uploading' ? ' is-uploading' : ''}`} aria-busy={upload === 'uploading'}>
-            {photo ? <CroppedImage photo={photo} size={68} /> : existingAvatar ? <img className="is-whole" src={existingAvatar} alt="" /> : <PersonIcon />}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span className="onb-card-name">{name || 'Your name'}</span>
-            <span className="onb-card-handle">{username ? `@${username}` : '@username'}</span>
-          </div>
-          <div className="onb-chips">
-            <span className={`onb-chip${city.trim() ? '' : ' is-empty'}`}>{city.trim() && <PinIcon />}{city.trim() || 'Your location'}</span>
-            <span className={`onb-chip${niche ? '' : ' is-empty'}`}>{categoryTitle(niche) || 'Category · next step'}</span>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // ---------- Host step 1: profile ----------
 
