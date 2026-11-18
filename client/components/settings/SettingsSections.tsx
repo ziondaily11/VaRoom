@@ -9,6 +9,7 @@ import {
   THEME_KEY, type NotificationKey, type Preferences, type ThemeChoice,
 } from '../../lib/settings/settings';
 import { searchSettings, SECTION_TITLES, type SearchEntry } from '../../lib/settings/settingsSearch';
+import { newTabProps } from '../../lib/navigation/newTab';
 import ChatSettings from '../chat/ChatSettings';
 import { CAT_ICONS, ChevronRight, DetailHead, INFO_ICONS, SearchIcon, THEME_ICONS } from './SettingsIcons';
 import SettingsBox from './SettingsBox';
@@ -88,7 +89,7 @@ export function CategoryList({ active, onOpen, onPick, isHost = false, showPlans
                 <span className="cat-chevron"><ChevronRight /></span>
               </>
             );
-            if (cat.href) return <Link key={cat.key} href={cat.href} className="cat-row">{inner}</Link>;
+            if (cat.href) return <Link key={cat.key} href={cat.href} className="cat-row" {...newTabProps(cat.href)}>{inner}</Link>;
             return <button key={cat.key} type="button" className={`cat-row${active === cat.key ? ' active' : ''}`} onClick={() => onOpen(cat.key)}>{inner}</button>;
           })}
           <div className="soon-divider">Coming soon</div>
