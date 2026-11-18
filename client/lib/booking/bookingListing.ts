@@ -274,6 +274,21 @@ export function bookingPageError(bundle: ListingBundle | null): string | null {
 /** The signed-in account owns this listing: it can look, not book or contact itself. */
 export const isOwnListing = (listing: Pick<BookingListing, 'host_id'>, userId: string | null): boolean => Boolean(userId && listing.host_id === userId);
 
+// ---------- Reviews ----------
+
+/**
+ * Properties, offices and shops are not stayed in, so reviews are not part
+ * of them: the page shows nothing about reviews until one exists. Every
+ * other listing shows its reviews, or an invitation to write the first one.
+ */
+export const reviewsOptional = (kind: Pick<BookingKind, 'isProperty' | 'isOfficeShop'>): boolean => kind.isProperty || kind.isOfficeShop;
+
+/** How many reviews the listing has (0 while loading or when they could not be read). */
+export function reviewCount(reviews: ReviewsResult | null): number {
+  if (!reviews || reviews.error) return 0;
+  return Number(reviews.summary.review_count || reviews.reviews.length) || 0;
+}
+
 // ---------- Property: sale and rent ----------
 
 export type PropertyOption = 'sale' | 'rent';

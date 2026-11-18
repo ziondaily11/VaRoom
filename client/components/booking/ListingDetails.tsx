@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MESSAGES, type BookingKind, type BookingListing, type ReviewsResult } from '../../lib/booking/bookingListing';
+import { MESSAGES, reviewCount, reviewsOptional, type BookingKind, type BookingListing, type ReviewsResult } from '../../lib/booking/bookingListing';
 import { listingUrl, mailtoHref, telHref, whatsappHref, type ListingContact } from '../../lib/reachOut/reachOut';
 import { recordListingEvent, type ListingEventType } from '../../lib/analytics/listingEvents';
 import { getSupabaseClient } from '../../lib/supabase/client';
@@ -14,12 +14,14 @@ import {
 import CommercialSections from './CommercialSections';
 import Svg from './Svg';
 
-// The booking page's main column under the gallery: title and Share, rating,
-// location, host phone, badges and chips, the host card, the description,
-// amenities (or the commercial sections) and reviews. Markup unchanged from
-// legacy-pages/booking.html. `reviews` is null while they load. The phone line
-// and the WhatsApp / email / phone controls follow the host's Reach Out
-// settings: a channel that is off or has no value isn't shown.
+// The booking page's main column under the gallery: title and Share, rating
+// (only once there are reviews), location, badges and chips, the host card
+// (photo and name open the host's profile), the description, amenities (or
+// the commercial sections) and reviews. `reviews` is null while they load.
+// Properties, offices and shops show nothing about reviews until one exists;
+// other listings invite the first review. The WhatsApp / email / phone
+// controls follow the host's Reach Out settings: a channel that is off or has
+// no value isn't shown (the phone number itself is the Call button).
 
 export interface RatingInfo { count: number; text: string; countText: string }
 
@@ -39,6 +41,39 @@ const initialsOf = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w
 function Stars({ rating }: { rating: number }) {
   const rounded = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
   return <>{Array.from({ length: rounded }, (_, index) => <Svg key={index} markup={ICON_STAR} />)}</>;
+}
+
+/**
+ * No reviews yet on a listing guests stay in: an invitation instead of a
+ * bare "No reviews yet". Five outlined stars take a soft tint one after
+ * another (30 ms apart, once) when the card first comes into view; with
+ * reduced motion they are simply tinted.
+ */
+function ReviewsEmpty({ isHotel }: { isHotel: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') { setSeen(true); return undefined; }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) { setSeen(true); observer.disconnect(); }
+    }, { threshold: 0.4 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div className={`reviews-empty${seen ? ' is-seen' : ''}`} ref={ref} role="status">
+      <div className="reviews-empty-stars" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((index) => (
+          <svg key={index} viewBox="0 0 24 24" style={{ '--i': index } as React.CSSProperties}>
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        ))}
+      </div>
+      <p className="reviews-empty-title">{isHotel ? 'Be the first to review this hotel' : 'Be the first to review this place'}</p>
+      <p className="reviews-empty-text">Guests can leave a review after their stay. Every great place starts with a first one.</p>
+    </div>
+  );
 }
 
 function Description({ text, isHotel }: { text: string; isHotel: boolean }) {
@@ -97,6 +132,9 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
   const { details, isHotel, isOfficeShop, officeShop, propertyPurpose } = kind;
   const [copied, setCopied] = useState(false);
   const rating = ratingInfo(reviews);
+  const count = reviewCount(reviews);
+  // Properties, offices and shops: the reviews section only once a review exists.
+  const showReviews = !reviewsOptional(kind) || count > 0;
 
   const badges: string[] = [];
   if (listing.verified) badges.push('GPS verified');
@@ -114,6 +152,7 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
 
   const hostName = listing.host.full_name || 'Host';
   const hostPhone = String(contact.phone || '').trim();
+  const hostProfile = hostProfilePath(listing.host_id, listing.host && listing.host.username);
   const enquiry = { title: listing.title, url: listingUrl(typeof window === 'undefined' ? '' : window.location.origin, listing.id), forSale: propertyPurpose === 'sale' };
   const locationText = (isOfficeShop ? [listing.neighborhood, listing.city].filter(Boolean).join(', ') : '') || listing.location_text || '';
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationText || listing.title)}`;
@@ -143,19 +182,18 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
           </button>
         </div>
       </div>
-      <div className="rating-row">
-        {!rating ? <span>Loading reviews…</span> : rating.count ? <><Svg markup={ICON_STAR} /><span>{rating.text}</span><span>{rating.countText}</span></> : <span>{rating.text}</span>}
-      </div>
+      {/* The rating shows once there are reviews; nothing while there are none. */}
+      {rating && count > 0 && <div className="rating-row"><Svg markup={ICON_STAR} /><span>{rating.text}</span><span>{rating.countText}</span></div>}
       <p className="listing-loc"><Svg markup={ICON_LOCATION} /><span>{locationText}</span><a className="map-link-inline" href={mapUrl} target="_blank" rel="noopener">View on map</a></p>
-      {hostPhone && <p className="host-phone"><Svg markup={ICON_PHONE} />{isOwner ? <span>{hostPhone}</span> : <a href={telHref(hostPhone)} onClick={() => track('contact_phone')}>{hostPhone}</a>}</p>}
       {badges.length > 0 && <div className="badge-row">{badges.map((badge) => <span className="mini-badge" key={badge}><Svg markup={ICON_VERIFIED} />{badge}</span>)}</div>}
       {chips.length > 0 && <div className="info-chip-row">{chips.map((chip, index) => <span className="info-chip" key={index}>{chip}</span>)}</div>}
       <hr className="divider" />
       <div className="host-about-row">
         <div className="host-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '.8rem' }}>
-            <div className="host-avatar">{hostAvatarUrl ? <img src={hostAvatarUrl} alt="" /> : initialsOf(hostName)}</div>
-            <Link className="host-name" href={hostProfilePath(listing.host_id, listing.host && listing.host.username)}>
+            {/* The photo opens the profile too; one tab stop (the name) is enough for keyboards and screen readers. */}
+            <Link className="host-avatar host-avatar-link" href={hostProfile} tabIndex={-1} aria-hidden="true">{hostAvatarUrl ? <img src={hostAvatarUrl} alt="" /> : initialsOf(hostName)}</Link>
+            <Link className="host-name" href={hostProfile}>
               {isHotel ? 'Managed by ' : 'Hosted by '}{hostName}{listing.host.verified && <Svg markup={ICON_VERIFIED} />}
             </Link>
           </div>
@@ -199,33 +237,36 @@ export default function ListingDetails({ listing, kind, reviews, hostAvatarUrl, 
             )}
         </div>
       </div>
-      <hr className="divider" />
-      <div className="reviews-header">
-        <h2 className="section-title">
-          What guests say
-          {rating && !reviews?.error && (rating.count ? <>{' · '}<Svg markup={ICON_STAR} />{` ${rating.text} ${rating.countText}`}</> : ' · No reviews yet')}
-        </h2>
-        <a href="#" className="see-all-link">See all reviews</a>
-      </div>
-      <div className="review-strip">
-        {!reviews ? <p className="reviews-state">Loading reviews…</p>
-          : reviews.error ? <p className="reviews-state" role="alert">{reviews.error}</p>
-          : reviews.reviews.length ? reviews.reviews.map((review, index) => {
-            const client = review.client || {};
-            const name = client.full_name || 'Anonymous guest';
-            const avatar = resolveAvatar(client.avatar_url);
-            return (
-              <div className="review-card" key={review.id || index}>
-                <div className="review-top">
-                  <span className="review-avatar">{avatar ? <img src={avatar} alt="" /> : (name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?')}</span>
-                  <div><div className="review-name">{name}</div><div className="review-time">{(() => { const date = new Date(review.created_at); return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(); })()}</div></div>
-                </div>
-                <div className="review-stars"><Stars rating={review.rating} /></div>
-                <div className="review-text">{review.comment}</div>
-              </div>
-            );
-          }) : <p className="reviews-state">No reviews yet for this listing.</p>}
-      </div>
+      {showReviews && (
+        <>
+          <hr className="divider" />
+          <div className="reviews-header">
+            <h2 className="section-title">
+              What guests say
+              {rating && count > 0 && <>{' · '}<Svg markup={ICON_STAR} />{` ${rating.text} ${rating.countText}`}</>}
+            </h2>
+          </div>
+          <div className="review-strip">
+            {!reviews ? <p className="reviews-state">Loading reviews…</p>
+              : reviews.error ? <p className="reviews-state" role="alert">{reviews.error}</p>
+              : reviews.reviews.length ? reviews.reviews.map((review, index) => {
+                const client = review.client || {};
+                const name = client.full_name || 'Anonymous guest';
+                const avatar = resolveAvatar(client.avatar_url);
+                return (
+                  <div className="review-card" key={review.id || index}>
+                    <div className="review-top">
+                      <span className="review-avatar">{avatar ? <img src={avatar} alt="" /> : (name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?')}</span>
+                      <div><div className="review-name">{name}</div><div className="review-time">{(() => { const date = new Date(review.created_at); return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(); })()}</div></div>
+                    </div>
+                    <div className="review-stars"><Stars rating={review.rating} /></div>
+                    <div className="review-text">{review.comment}</div>
+                  </div>
+                );
+              }) : <ReviewsEmpty isHotel={isHotel} />}
+          </div>
+        </>
+      )}
     </>
   );
 }

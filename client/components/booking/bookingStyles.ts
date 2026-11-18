@@ -192,7 +192,6 @@ export const BOOKING_STYLES = `
   .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; flex-wrap:wrap; gap:.5rem; }
   .reviews-header .section-title{ margin-bottom:0; display:flex; align-items:center; gap:.35rem; }
   .reviews-header .icon-star{ width:13px; height:13px; color:var(--red); }
-  .see-all-link{ font-size:.78rem; font-weight:700; color:var(--red); }
   .review-strip{ display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:.6rem; }
   .review-card{ background:var(--white); border:1px solid var(--line-strong); border-radius:12px; padding:.6rem .7rem; }
   .review-top{ display:flex; align-items:center; gap:.45rem; margin-bottom:.3rem; }
@@ -203,6 +202,23 @@ export const BOOKING_STYLES = `
   .review-stars svg{ width:11px; height:11px; }
   .review-text{ font-size:.74rem; line-height:1.3; color:var(--muted); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .reviews-state{ grid-column:1 / -1; color:var(--muted); font-size:.8rem; padding:.8rem 0; }
+  /* No reviews yet (animation.md: once, on first view, 30 ms apart; still with reduced motion). */
+  .reviews-empty{ grid-column:1 / -1; display:flex; flex-direction:column; align-items:center; gap:.3rem; padding:1.4rem 1rem; border:1px dashed var(--line-strong); border-radius:18px; text-align:center; }
+  .reviews-empty-stars{ display:flex; gap:.3rem; margin-bottom:.35rem; }
+  .reviews-empty-stars svg{ width:22px; height:22px; fill:transparent; stroke:var(--line-strong); stroke-width:1.6; stroke-linejoin:round;
+    transition:fill var(--motion-emphasis, 300ms) var(--ease-out, ease), stroke var(--motion-emphasis, 300ms) var(--ease-out, ease), transform var(--motion-emphasis, 300ms) var(--ease-out, ease);
+    transition-delay:calc(var(--i, 0) * 30ms); }
+  .reviews-empty.is-seen .reviews-empty-stars svg{ fill:rgba(196,30,58,.18); stroke:var(--red); transform:scale(1.08); }
+  .reviews-empty-title{ font-size:.92rem; font-weight:700; color:var(--ink); }
+  .reviews-empty-text{ max-width:340px; font-size:.78rem; line-height:1.45; color:var(--muted); }
+  .new-badge{ display:inline-flex; align-items:center; padding:.15rem .55rem; border-radius:999px; background:var(--nav-active-bg); color:var(--ink); font-size:.7rem; font-weight:700; }
+  .host-avatar-link{ text-decoration:none; transition:transform var(--motion-press, 120ms) var(--ease-out, ease); }
+  .host-avatar-link:active{ transform:scale(var(--press-scale, .97)); }
+  @media (prefers-reduced-motion:reduce){
+    .reviews-empty-stars svg, .host-avatar-link{ transition:none; }
+    .reviews-empty.is-seen .reviews-empty-stars svg{ transform:none; }
+    .host-avatar-link:active{ transform:none; }
+  }
   .review-avatar img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
 
   /* ---------- Sidebar booking widget ---------- */
@@ -538,17 +554,10 @@ export const BOOKING_STYLES = `
     .title-actions .action-btn{ width:32px; height:32px; padding:0; justify-content:center; border-radius:50%; border:1px solid var(--line); }
     .title-actions .action-btn span{ display:none; }
 
-    /* --- Metadata row: rating, location inline; phone on its own separate row --- */
+    /* --- Metadata row: rating (when there are reviews) and location inline --- */
     .rating-row,.listing-loc,.badge-row,.info-chip-row{
       display:inline-flex; align-items:center; vertical-align:middle; margin:0 .55rem .35rem 0;
     }
-    /* Phone gets its own block row so it appears beneath the inline metadata */
-    .host-phone{
-      display:flex; align-items:center; gap:.35rem;
-      font-size:.8rem; color:var(--muted); margin-bottom:.5rem; margin-right:0;
-    }
-    .host-phone a{ color:var(--ink); font-weight:600; }
-    .host-phone a:hover{ color:var(--red); }
 
     .listing-loc{ gap:.28rem; font-size:.78rem; }
     .listing-loc .map-link-inline{

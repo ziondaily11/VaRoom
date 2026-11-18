@@ -140,7 +140,7 @@ test('host page addresses use the username (unique, any case); id addresses keep
   assert.equal(hp.isPrivateProfileError(new Error('x')), false);
   // Every profile link is built in one place.
   assert.match(read('pages', 'client-home.tsx'), /href=\{hostProfilePath\(listing\.host_id, host\.username\)\}/);
-  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /href=\{hostProfilePath\(listing\.host_id, listing\.host && listing\.host\.username\)\}/);
+  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /const hostProfile = hostProfilePath\(listing\.host_id, listing\.host && listing\.host\.username\);/);
   assert.match(read('components', 'hostHome', 'FeedCard.tsx'), /hostProfilePath\(listing\.host_id, host\.username\)/);
 });
 

@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, stayProblem, windowedCalendar,
+  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, reviewsOptional, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -298,7 +298,8 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         <div className="widget-rating">
           {rating && rating.count
             ? <><Svg markup={ICON_STAR} /> {rating.text} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({rating.count})</span></>
-            : <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{rating ? 'No reviews yet' : ''}</span>}
+            // No reviews: offices and shops show nothing; places guests stay in are new.
+            : rating && !reviewsOptional(kind) && <span className="new-badge">✦ New on VaRoom</span>}
         </div>
       </div>
       {picker}
