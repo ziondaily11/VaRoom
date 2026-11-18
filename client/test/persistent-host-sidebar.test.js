@@ -264,11 +264,12 @@ test('Video player treats pause-interrupted play requests separately from playba
 test('one mobile navigation: client items have no host tools and Client Home keeps its own bar', () => {
   assert.deepEqual(mobileNav.CLIENT_MOBILE_ITEMS.map((item) => item.href), ['/client-home', '/marketplace', '/chats', '/bookings', '/notifications']);
   assert.deepEqual(mobileNav.HOST_MOBILE_ITEMS.map((item) => [item.key, item.href]), [['home', '/host-home'], ['marketplace', '/marketplace'], ['create', '/list'], ['chats', '/chats'], ['bookings', '/bookings']]);
-  for (const route of ['/booking', '/chat-settings', '/pricing', '/client-home']) assert.equal(mobileNav.hidesMobileNav(route), true, route);
+  for (const route of ['/booking', '/chat-settings', '/pricing']) assert.equal(mobileNav.hidesMobileNav(route), true, route);
+  assert.equal(mobileNav.hidesMobileNav('/client-home'), false, 'Client Home uses the shared bar');
   for (const route of ['/list', '/properties']) assert.equal(mobileNav.hidesMobileNav(route), false, `${route}: the bar is the way back on phones`);
   assert.equal(mobileNav.hidesMobileNav('/bookings'), false);
   assert.equal(mobileNav.showsMobileNav(true, 'host', true, '/bookings'), true);
-  assert.equal(mobileNav.showsMobileNav(true, 'client', true, '/client-home'), false, 'Client Home keeps its own bar');
+  assert.equal(mobileNav.showsMobileNav(true, 'client', true, '/client-home'), true, 'Client Home shows the shared bar');
   assert.equal(mobileNav.showsMobileNav(true, 'client', false, '/bookings'), false, 'not during onboarding');
   assert.equal(mobileNav.showsMobileNav(true, null, true, '/bookings'), false, 'not signed out');
   assert.equal(mobileNav.showsMobileNav(false, 'host', true, '/bookings'), false, 'not outside app pages');

@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { hostProfilePath } from '../lib/profile/hostProfile';
@@ -12,6 +13,8 @@ import { completedClientProfile } from '../lib/types/profile';
 import Svg from '../components/booking/Svg';
 import { SOCIAL_ICONS, SOCIAL_LINKS } from '../components/shell/socialIcons';
 import AppShell from '../components/shell/AppShell';
+import SegmentedTabs from '../components/ui/SegmentedTabs';
+import { searchTerm } from '../lib/marketplace/marketplace';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
 import { getCachedNewsPreview } from '../lib/propertyNewsCache';
@@ -538,29 +541,46 @@ function ListingCard({
   const ownListing = listing.host_id === userId;
   const unavailable = listing.availability_status && listing.availability_status !== 'available';
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // The ⋮ menu closes on a tap outside it or Escape (focus returns to its button).
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointer = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   return (
     <article className={`${styles.card} ${firstCard ? styles.firstCard : ''}`} data-listing-id={listing.id}>
-      <a className={styles.avatar} href={hostProfilePath(listing.host_id, host.username)} aria-label={`View ${hostName}'s profile`}>
+      <Link className={styles.avatar} href={hostProfilePath(listing.host_id, host.username)} aria-label={`View ${hostName}'s profile`}>
         {hostAvatar
           ? <img src={hostAvatar} alt="" />
           : (hostName.charAt(0).toUpperCase() || '?')}
-      </a>
+      </Link>
       <div className={styles.cardBody}>
         <div className={styles.cardHead}>
           <div className={styles.hostDetails}>
-            <a className={styles.hostName} href={hostProfilePath(listing.host_id, host.username)}>
+            <Link className={styles.hostName} href={hostProfilePath(listing.host_id, host.username)}>
               {hostName}{host.verified && <span className={styles.verified} aria-label="Verified host">✔</span>}
-            </a>
+            </Link>
             <div className={styles.location}>
               {host.username ? `@${host.username} · ` : ''}{listing.location_text || ''}
               {' · '}
-              <a href={`/map?listing=${encodeURIComponent(listing.id)}`} className={styles.mapLink}>View on Map</a>
+              <Link href={`/map?listing=${encodeURIComponent(listing.id)}`} className={styles.mapLink}>View on Map</Link>
             </div>
           </div>
           <time className={styles.time}>{timeAgo(listing.created_at)}</time>
           {!ownListing && (
-            <div className={styles.menuWrap}>
+            <div className={styles.menuWrap} ref={menuRef}>
               <button
                 type="button"
                 className={styles.menuButton}
@@ -587,7 +607,7 @@ function ListingCard({
         <div className={styles.actions}>
           {ownListing || unavailable
             ? <span className={`${styles.action} ${styles.disabledAction}`} title={ownListing ? 'This is your listing' : 'This listing is not available'}><CalendarIcon />Book</span>
-            : <a className={styles.action} href={`/booking?listing=${encodeURIComponent(listing.id)}`}><CalendarIcon />Book</a>}
+            : <Link className={styles.action} href={`/booking?listing=${encodeURIComponent(listing.id)}`}><CalendarIcon />Book</Link>}
           {ownListing
             ? <span className={`${styles.action} ${styles.disabledAction}`} title="This is your listing"><ChatIcon />Chat</span>
             : <button type="button" className={styles.action} onClick={onChat}><ChatIcon />Chat</button>}
@@ -682,7 +702,7 @@ function PropertyNewsList({ items, loading, failed }: { items: News[]; loading: 
             : 'Recently';
           return (
             <article className={styles.newsItem} key={news.id}>
-              <a href={`/property-news?id=${encodeURIComponent(news.id)}`} className={styles.newsTitle}>{news.title || 'Property update'}</a>
+              <Link href={`/property-news?id=${encodeURIComponent(news.id)}`} className={styles.newsTitle}>{news.title || 'Property update'}</Link>
               <div className={styles.newsMeta}><span>{news.source?.name || 'VaRoom'}</span><span>•</span><span>{date}</span></div>
             </article>
           );
@@ -954,10 +974,12 @@ export default function ClientHome() {
     }
     if (offset > 0) return { data: [], hasMore: false };
 
+    // Name or area (one filter; characters that would break it are removed), or a host's @username.
+    const safeTerm = searchTerm(term.replace(/^@/, ''));
     const [locationResult, hostsResult] = await Promise.all([
-      listingQuery().ilike('location_text', `%${term}%`)
+      (safeTerm ? listingQuery().or(`title.ilike.%${safeTerm}%,location_text.ilike.%${safeTerm}%`) : listingQuery())
         .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(limit),
-      client.from('profiles').select('id').ilike('username', `%${term}%`).limit(100),
+      client.from('profiles').select('id').ilike('username', `%${safeTerm || term}%`).limit(100),
     ]);
     if (locationResult.error) return { error: locationResult.error };
     if (hostsResult.error) return { error: hostsResult.error };
@@ -1354,7 +1376,7 @@ export default function ClientHome() {
       const reconcile = await client.rpc('get_listing_like_summaries', { p_listing_ids: [listingId] });
       summary = reconcile.data?.[0];
       if (reconcile.error) console.error('Listing like state could not be reconciled:', reconcile.error);
-      setError('That like could not be updated. Please try again.');
+      showToast('That like could not be saved. Please try again.');
     }
     setLikes((current) => {
       if (current[listingId]?.version !== version) return current;
@@ -1393,7 +1415,7 @@ export default function ClientHome() {
         else next.delete(listingId);
         return next;
       });
-      setError('That listing could not be saved. Please try again.');
+      showToast('That listing could not be saved. Please try again.');
     }
   };
 
@@ -1404,7 +1426,8 @@ export default function ClientHome() {
     try {
       path = await startListingChat(listing.id);
     } catch (error) {
-      setError(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Client Home: the chat could not start:', error);
+      showToast("We couldn't open the chat. Please try again.");
       return;
     }
     await router.push(path);
@@ -1478,9 +1501,6 @@ export default function ClientHome() {
     <>
       <Head>
         <title>Home · VaRoom</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&display=swap" rel="stylesheet" />
       </Head>
       <section className={styles.home}>
         <header className={styles.topbar}>
@@ -1493,7 +1513,7 @@ export default function ClientHome() {
           </button>
           <div className={styles.searchWrap}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by location or @username" aria-label="Search by location or username" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, area or @username" aria-label="Search by listing name, area or host username" />
           </div>
         </header>
         <div className={styles.columnDivider} aria-hidden="true" />
@@ -1502,25 +1522,28 @@ export default function ClientHome() {
             <h1 className={styles.feedTitle}>
               {view === 'marketplace' ? 'Marketplace' : interests.length > 0 ? 'For you' : 'Find the perfect space'}
             </h1>
-            {(view === 'marketplace' || term) && <a className={styles.marketplaceSwitch} href={marketplaceHref}>Browse as Marketplace →</a>}
+            {(view === 'marketplace' || term) && <Link className={styles.marketplaceSwitch} href={marketplaceHref}>Browse as Marketplace →</Link>}
           </div>
-          <nav className={styles.tabs} aria-label="Listing categories">
-            {categories.map(([id, label]) => (
-              <button
-                type="button"
-                key={id}
-                className={`${styles.tab} ${category === id ? styles.activeTab : ''}`}
-                aria-pressed={category === id}
-                onClick={() => setCategory(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
+          <div className={styles.tabsRow}>
+            <SegmentedTabs label="Listing categories" activeKey={category}>
+              {categories.map(([id, label]) => (
+                <button
+                  type="button"
+                  key={id}
+                  role="tab"
+                  aria-selected={category === id}
+                  data-category={id}
+                  onClick={() => setCategory(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </SegmentedTabs>
+          </div>
 
           {showWidgets && (
             <section className={styles.mobileDestinations}>
-              <div className={styles.mobileWidgetHeading}><h2>Popular destinations</h2><button type="button" onClick={() => showToast('Browsing all destinations is coming soon.')}>View all</button></div>
+              <div className={styles.mobileWidgetHeading}><h2>Popular destinations</h2><Link href="/marketplace">View all</Link></div>
               <div className={styles.mobileDestinationRow} data-loading={destinationsLoading}>
                 {destinationsLoading
                   ? <WidgetLoader label="Loading popular destinations" />
@@ -1589,7 +1612,7 @@ export default function ClientHome() {
                 <button type="button" onClick={() => { void loadNews(true); }}>Refresh</button>
               </div>
               <PropertyNewsList items={news} loading={newsLoading} failed={newsFailed} />
-              <a className={styles.viewAllNews} href="/property-news">View all news →</a>
+              <Link className={styles.viewAllNews} href="/property-news">View all news →</Link>
             </section>
           )}
         </main>
@@ -1609,14 +1632,13 @@ export default function ClientHome() {
               <button type="button" onClick={() => { void loadNews(true); }}>Refresh</button>
             </div>
             <PropertyNewsList items={news} loading={newsLoading} failed={newsFailed} />
-            <a className={styles.viewAllNews} href="/property-news">View all news →</a>
+            <Link className={styles.viewAllNews} href="/property-news">View all news →</Link>
           </section>
           <footer className={styles.railFooter} aria-label="Sidebar footer">
             <div className={styles.socialLinks} aria-label="Social media">
               <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Svg markup={SOCIAL_ICONS.instagram} /></a>
               <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Svg markup={SOCIAL_ICONS.tiktok} /></a>
-              <a href="#" aria-label="X (formerly Twitter)" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.x} /></a>
-              <a href="#" aria-label="Facebook" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.facebook} /></a>
+
             </div>
             <div className={styles.legalLinks}>
               <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
@@ -1626,24 +1648,6 @@ export default function ClientHome() {
           </footer>
         </aside>
 
-        <nav className={styles.bottomBar} aria-label="Mobile navigation">
-          <a className={view === 'home' ? styles.bottomActive : ''} href="/client-home">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9" /></svg>
-            Home
-          </a>
-          <a href="/marketplace">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15 9-2 6-6 2 2-6 6-2Z" /></svg>
-            Marketplace
-          </a>
-          <a href="/chats">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
-            Inbox
-          </a>
-          <a href="/profile?tab=saved">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" /></svg>
-            Saved
-          </a>
-        </nav>
         <div className={`${styles.toast} ${toastMessage ? styles.toastVisible : ''}`} role="status" aria-live="polite">{toastMessage}</div>
       </section>
 

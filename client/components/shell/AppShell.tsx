@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import Head from 'next/head';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import HostSidebar from './HostSidebar';
@@ -9,6 +10,13 @@ import { isShellSettled, shellFrame, shellState, type ShellVariant } from '../..
 import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES, RAIL_STYLES, SIDEBAR_EXTRA_STYLES } from './shellStyles';
 
 export type { ShellVariant };
+
+/**
+ * The sidebar's "VaRoom" logo is set in Fraunces. The shell loads that one
+ * face once for every page it holds (the link stays while the shell does), so
+ * the logo looks the same everywhere and pages need not load it themselves.
+ */
+export const BRAND_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap';
 
 /**
  * True once the account's role is known (or known to be absent): signed out,
@@ -63,6 +71,11 @@ export default function AppShell({ variant, className = '', rail = false, childr
 
   return (
     <div className={shellClass} data-app-shell={key} data-shell-state={shellState(variant, settled)}>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" key="brand-font-preconnect" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" key="brand-font-preconnect-static" />
+        <link rel="stylesheet" href={BRAND_FONT_HREF} key="brand-font" />
+      </Head>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       {variant === 'host' ? <HostSidebar rail={isRail} /> : variant === 'client' ? <ClientSidebar rail={isRail} /> : null}
       <main className={content.className} id={content.id}>

@@ -31,10 +31,11 @@ export function activeMobileKey(pathname: string): NavKey | null {
   return null;
 }
 
-/** Pages that own their bottom area: focused workspaces, and Client Home's own bar. */
+/** Pages that own their bottom area: focused workspaces. */
 export function hidesMobileNav(pathname: string): boolean {
-  // The listing wizard keeps the bar (as Marketplace does): it is the way back on phones.
-  return ['/booking', '/chat-settings', '/pricing', '/client-home'].includes(pathname);
+  // The listing wizard keeps the bar (as Marketplace does): it is the way back on
+  // phones. Client Home uses the shared bar too (it had its own, with other tabs).
+  return ['/booking', '/chat-settings', '/pricing'].includes(pathname);
 }
 
 export function scrollHides(pathname: string): boolean {
