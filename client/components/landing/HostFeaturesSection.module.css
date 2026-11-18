@@ -1,9 +1,19 @@
-/* Page 3 of the landing page: what VaRoom does for hosts, as six cards. */
+/*
+ * Page 3 of the landing page: what VaRoom does for hosts, as six cards.
+ *
+ * On laptops and desktops the whole section fits one screen: the heading,
+ * spacing and buttons size from the screen height, the two rows of cards
+ * share what is left, and each card's picture takes the rest of its card.
+ * The pictures are size containers: when one gets short it drops its least
+ * important detail first. Phones and portrait tablets scroll as usual.
+ */
 
 .section {
   position: relative;
   z-index: 10;
-  padding: clamp(48px, 8vh, 88px) clamp(20px, 4.5vw, 72px) clamp(40px, 7vh, 80px);
+  display: flex;
+  flex-direction: column;
+  padding: clamp(40px, 7vh, 80px) clamp(20px, 4.5vw, 72px);
   background: #f7f3ec;
   color: #181513;
   box-sizing: border-box;
@@ -16,13 +26,14 @@
 }
 
 .head {
+  flex: none;
   max-width: 820px;
-  margin: 0 auto clamp(32px, 5vh, 52px);
+  margin: 0 auto clamp(28px, 4vh, 48px);
   text-align: center;
 }
 
 .section .eyebrow {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important;
   font-size: 0.75rem;
   font-weight: 600;
@@ -46,22 +57,24 @@
 }
 
 .sub {
-  margin: 16px 0 0;
+  margin: 14px 0 0;
   font-size: clamp(1rem, 1.4vw, 1.1875rem);
   color: #5f574f;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(14px, 1.6vw, 24px);
-  max-width: 1240px;
+  width: 100%;
+  max-width: 1320px;
   margin: 0 auto;
 }
 
 .card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   padding: clamp(18px, 1.8vw, 26px);
   border-radius: 22px;
 }
@@ -78,10 +91,11 @@
   height: 230px;
   overflow: hidden;
   border-radius: 16px;
+  container-type: size;
 }
 
 .cardTitle {
-  margin: 22px 0 8px;
+  margin: 20px 0 6px;
   font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -98,6 +112,16 @@
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 12px 28px -18px rgba(0, 0, 0, 0.25);
+}
+
+/* A picture's content: fills the picture, laid out top to bottom. */
+.fill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
 }
 
 .label {
@@ -129,21 +153,14 @@
 }
 
 /* 1. Listing */
-.listingPanel {
-  position: absolute;
-  inset: 0;
-  padding: 16px;
-}
-
 .niches {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
 }
 
 .niches span {
-  padding: 7px 11px;
+  padding: 6px 10px;
   border: 1px solid #e3ddd3;
   border-radius: 999px;
   background: #fff;
@@ -159,11 +176,11 @@
 }
 
 .tiles {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 1.3fr 1fr 1fr;
   gap: 6px;
-  height: 96px;
-  margin-top: 12px;
+  min-height: 44px;
 }
 
 .tile {
@@ -190,8 +207,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   margin: auto;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
@@ -214,9 +231,9 @@
 .halo {
   position: absolute;
   left: 50%;
-  top: 44%;
-  width: 120px;
-  height: 120px;
+  top: 42%;
+  width: min(120px, 52cqh);
+  height: min(120px, 52cqh);
   transform: translate(-50%, -50%);
   border: 1px solid rgba(189, 35, 55, 0.25);
   border-radius: 50%;
@@ -225,10 +242,10 @@
 
 .pin {
   position: absolute;
-  left: calc(50% - 17px);
-  top: calc(44% - 40px);
-  width: 34px;
-  height: 34px;
+  left: calc(50% - 15px);
+  top: calc(42% - 36px);
+  width: 30px;
+  height: 30px;
   transform: rotate(-45deg);
   border-radius: 50% 50% 50% 0;
   background: #bd2337;
@@ -238,19 +255,19 @@
 .pin::after {
   content: '';
   position: absolute;
-  inset: 10px;
+  inset: 9px;
   border-radius: 50%;
   background: #fff;
 }
 
 .badge {
   position: absolute;
-  left: 14px;
-  bottom: 14px;
+  left: 12px;
+  bottom: 12px;
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 10px 12px;
+  padding: 8px 11px;
 }
 
 .tick {
@@ -270,13 +287,12 @@
 .badgeNote { font-size: 0.6875rem; color: #8a8278; }
 
 /* 3. Booking */
-.request {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 14px;
-  padding: 14px;
+.bookingStack {
+  justify-content: space-between;
+  padding: 12px;
 }
+
+.request { padding: 12px 14px; }
 
 .requestTitle { font-size: 0.8125rem; font-weight: 700; }
 .requestNote { font-size: 0.7188rem; color: #8a8278; }
@@ -293,12 +309,12 @@
 .choices {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .choices span {
   flex: 1;
-  padding: 9px 0;
+  padding: 8px 0;
   border: 1px solid #e3ddd3;
   border-radius: 10px;
   text-align: center;
@@ -314,14 +330,10 @@
 }
 
 .calendar {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   text-align: center;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -335,17 +347,14 @@
 
 /* 4. Chat */
 .chat {
-  position: absolute;
-  inset: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  inset: 12px;
+  gap: 7px;
   padding: 12px;
 }
 
 .away {
   align-self: center;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: #f3eee6;
   font-size: 0.6875rem;
@@ -354,8 +363,8 @@
 }
 
 .bubble {
-  max-width: 78%;
-  padding: 8px 11px;
+  max-width: 80%;
+  padding: 7px 11px;
   border-radius: 14px;
   font-size: 0.7812rem;
   line-height: 1.4;
@@ -382,7 +391,7 @@
 }
 
 .quickReplies span {
-  padding: 6px 10px;
+  padding: 5px 10px;
   border: 1px solid #e3ddd3;
   border-radius: 999px;
   background: #fff;
@@ -392,9 +401,8 @@
 
 /* 5. Analytics */
 .analytics {
-  position: absolute;
-  inset: 14px;
-  padding: 14px;
+  inset: 12px;
+  padding: 12px 14px;
 }
 
 .analyticsTop { justify-content: space-between; }
@@ -423,11 +431,12 @@
 .ranges .rangeOn { background: #3f4a37; color: #fff; }
 
 .bars {
+  flex: 1 1 auto;
   display: flex;
   align-items: flex-end;
   gap: 7px;
-  height: 96px;
-  margin-top: 16px;
+  min-height: 24px;
+  margin-top: 4px;
 }
 
 .bars span { flex: 1; border-radius: 6px 6px 3px 3px; background: #c9d0bf; }
@@ -436,7 +445,6 @@
 .legend {
   display: flex;
   gap: 14px;
-  margin-top: 10px;
   font-size: 0.6875rem;
   font-weight: 600;
   color: #6f675e;
@@ -455,20 +463,21 @@
 
 /* 6. Team */
 .team {
-  position: absolute;
-  inset: 14px;
-  padding: 6px 14px;
+  inset: 12px;
+  justify-content: center;
+  gap: 0;
+  padding: 4px 14px;
 }
 
 .member {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 0;
+  padding: 9px 0;
   border-bottom: 1px solid #f0ebe3;
 }
 
-.memberName { flex: 1; font-size: 0.8125rem; font-weight: 600; }
+.memberName { flex: 1; min-width: 0; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .role { padding: 4px 9px; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; }
 .roleManager { background: #e8edf6; color: #2e4a7a; }
@@ -477,8 +486,42 @@
 
 .invite { margin-top: 8px; font-size: 0.75rem; font-weight: 700; color: #bd2337; }
 
+/* A short picture keeps what matters most. */
+@container (max-height: 200px) {
+  .away { display: none; }
+  .invite { display: none; }
+}
+
+@container (max-height: 170px) {
+  .calendar { display: none; }
+  .bookingStack { justify-content: center; }
+  .label { display: none; }
+  .legend { display: none; }
+  .member { padding: 6px 0; }
+}
+
+@container (max-height: 140px) {
+  .bubbleOut { display: none; }
+  .badgeNote { display: none; }
+  .member:nth-of-type(3) { display: none; }
+  .member:nth-of-type(2) { border-bottom: 0; }
+  .niches span:nth-child(n + 4) { display: none; }
+}
+
+@container (max-height: 110px) {
+  .choices { display: none; }
+  .quickReplies { display: none; }
+  .tiles { display: none; }
+}
+
+/* A narrow picture keeps the labels on one row. */
+@container (max-width: 320px) {
+  .metrics .metricExtra { display: none; }
+}
+
 /* Calls to action */
 .cta {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -506,8 +549,57 @@
   text-decoration: none;
 }
 
+/* Laptops and desktops: the whole section on one screen. */
+@media (min-width: 1001px) and (min-height: 600px) {
+  .section {
+    height: 100vh;
+    height: 100dvh;
+    padding: clamp(18px, 3.6vh, 48px) clamp(24px, 4vw, 72px) clamp(16px, 3vh, 40px);
+  }
+
+  .head { margin-bottom: clamp(14px, 2.6vh, 36px); }
+  .section .eyebrow { margin-bottom: clamp(6px, 1.1vh, 12px); }
+  .headline { font-size: clamp(1.9rem, min(4vw, 5.4vh), 3.6rem); }
+  .sub { margin-top: clamp(6px, 1.2vh, 14px); font-size: clamp(0.9375rem, 2vh, 1.1875rem); }
+
+  .grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 1.6vh, 22px) clamp(12px, 1.4vw, 22px);
+  }
+
+  .card {
+    min-height: 0;
+    padding: clamp(12px, 1.9vh, 24px) clamp(14px, 1.4vw, 24px);
+  }
+
+  .visual {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+
+  .cardTitle {
+    margin: clamp(10px, 1.6vh, 18px) 0 clamp(3px, 0.5vh, 6px);
+    font-size: clamp(1.0625rem, 2.2vh, 1.375rem);
+  }
+
+  .cardText {
+    font-size: clamp(0.8125rem, 1.7vh, 1rem);
+    line-height: 1.42;
+  }
+
+  .cta { margin-top: clamp(12px, 2.2vh, 32px); }
+}
+
+/* Short laptop screens: the line under the heading goes, the cards keep their words. */
+@media (min-width: 1001px) and (min-height: 600px) and (max-height: 770px) {
+  .sub { display: none; }
+}
+
 @media (max-width: 1000px) {
-  .grid { grid-template-columns: 1fr 1fr; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -516,7 +608,6 @@
   .cardTitle { font-size: 1.25rem; }
   .niches { gap: 5px; }
   .niches span { padding: 6px 9px; font-size: 0.6875rem; }
-  .tiles { height: 82px; }
   .metrics .metricExtra { display: none; }
 }
 

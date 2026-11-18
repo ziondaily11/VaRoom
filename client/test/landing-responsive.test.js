@@ -165,3 +165,14 @@ test('the sign-in panel backdrop draws no border over the page', () => {
   // Tailwind preflight is off, so a button keeps the browser's border unless it is reset.
   assert.match(read('components/landing/AuthPanel.tsx'), /aria-label="Close sign-in panel"\s+className="absolute inset-0 m-0 border-0 bg-transparent p-0"/);
 });
+
+test('landing page 3 fits one screen on laptops and desktops', () => {
+  const css = read('components/landing/HostFeaturesSection.module.css');
+  const fit = css.slice(css.indexOf('@media (min-width: 1001px) and (min-height: 600px) {'));
+  assert.match(fit, /\.section \{\s*height: 100vh;\s*height: 100dvh;/);
+  assert.match(fit, /\.grid \{\s*flex: 1 1 auto;\s*min-height: 0;\s*grid-template-rows: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(fit, /\.visual \{\s*flex: 1 1 0;\s*height: auto;\s*min-height: 0;/);
+  // Pictures are size containers and drop detail as they get short.
+  assert.match(css, /container-type: size;/);
+  for (const h of [200, 170, 140, 110]) assert.match(css, new RegExp(`@container \\(max-height: ${h}px\\)`));
+});
