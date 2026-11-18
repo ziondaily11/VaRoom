@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import type { HostProfileRow } from '../../lib/profile/hostProfile';
 import {
-  bookingDates, bookingNights, bookingTotal, pastDate, pastStatus, profileEdit, saveProfileEdit, shareLinks, type ProfileBooking, type ProfileEdit,
+  BIO_APPS, bookingDates, bookingNights, bookingTotal, pastDate, pastStatus, profileEdit, saveProfileEdit, shareLinks, type ProfileBooking, type ProfileEdit,
 } from '../../lib/profile/profilePage';
 import { resolveStoredPhotoUrl, PHOTO_WIDTH } from '../resolveStoredPhotoUrl';
-import { ChatIcon, LinkIcon, MailIcon, XIcon } from './ProfileIcons';
+import { ChatIcon, InstagramIcon, LinkIcon, MailIcon, TikTokIcon, XIcon } from './ProfileIcons';
 import { CalendarDays, History } from 'lucide-react';
 import { EmptyState } from './ProfileCards';
 
@@ -72,6 +72,7 @@ export function EditProfileModal({ open, profile, isHost, userId, onClose, onSav
 
 export function SharePanel({ url }: { url: string }) {
   const [label, setLabel] = useState('Copy link');
+  const [bioNote, setBioNote] = useState('');
   const links = shareLinks(url);
   const copy = async () => {
     try {
@@ -81,6 +82,13 @@ export function SharePanel({ url }: { url: string }) {
     } catch {
       setLabel("Couldn't copy");
     }
+  };
+  // Instagram and TikTok: the copy starts in the click, before the app opens in a new tab.
+  const copyForBio = (app: string) => {
+    navigator.clipboard.writeText(url).then(
+      () => setBioNote(`Link copied. Paste it in your ${app} bio.`),
+      () => setBioNote(`Copy the link above, then paste it in your ${app} bio.`),
+    );
   };
   return (
     <div className="share-panel show" id="share-panel">
@@ -93,7 +101,10 @@ export function SharePanel({ url }: { url: string }) {
         <a className="share-icon" id="share-x" href={links.x} target="_blank" rel="noopener noreferrer" aria-label="Share on X"><XIcon /></a>
         <a className="share-icon" id="share-wa" href={links.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Share on WhatsApp"><ChatIcon /></a>
         <a className="share-icon" id="share-email" href={links.email} aria-label="Share via email"><MailIcon /></a>
+        <a className="share-icon" id="share-instagram" href={BIO_APPS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Copy link for your Instagram bio" onClick={() => copyForBio('Instagram')}><InstagramIcon /></a>
+        <a className="share-icon" id="share-tiktok" href={BIO_APPS.tiktok} target="_blank" rel="noopener noreferrer" aria-label="Copy link for your TikTok bio" onClick={() => copyForBio('TikTok')}><TikTokIcon /></a>
       </div>
+      <p className="share-note" role="status">{bioNote}</p>
     </div>
   );
 }

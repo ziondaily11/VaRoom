@@ -366,7 +366,8 @@
 
 .shareTargets {
   display: flex;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 6px;
   margin: 2px 0 4px;
 }
 
@@ -555,6 +556,7 @@
 /* A narrow picture keeps the labels on one row. */
 @container (max-width: 320px) {
   .metrics .metricExtra { display: none; }
+  .shareLabel { display: none; }
 }
 
 /*

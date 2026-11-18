@@ -30,11 +30,14 @@ const CONTACT_LOGOS: Array<{ key: 'contactWhatsapp' | 'contactEmail' | 'contactP
   { key: 'contactChat', logo: <Svg markup={ICON_MESSAGE} /> },
 ];
 
-// Where a host can share their profile, as the profile's share panel offers it.
+// Where a host can share their profile, as the profile's share panel offers
+// it: X, WhatsApp and Email share the link; Instagram and TikTok copy it for the bio.
 const SHARE_TARGETS: Array<{ label: string; icon: React.ReactNode }> = [
   { label: 'X', icon: <Svg markup={SOCIAL_ICONS.x} /> },
   { label: 'WhatsApp', icon: <img src="/assets/whatsapp.svg" alt="" width={24} height={24} /> },
   { label: 'Email', icon: <img src="/assets/gmail.svg" alt="" width={24} height={24} /> },
+  { label: 'Instagram', icon: <Svg markup={SOCIAL_ICONS.instagram} /> },
+  { label: 'TikTok', icon: <Svg markup={SOCIAL_ICONS.tiktok} /> },
 ];
 
 /** The order a detail settles in, inside its card (see the entrance in the CSS). */
@@ -134,11 +137,11 @@ const FEATURES: Feature[] = [
             </span>
           ))}
         </div>
-        <div className={`${styles.linkLabel} ${styles.settle}`} style={at(5)}>Profile link</div>
-        <div className={`${styles.linkField} ${styles.settle}`} style={at(6)}>
+        <div className={`${styles.linkLabel} ${styles.settle}`} style={at(7)}>Profile link</div>
+        <div className={`${styles.linkField} ${styles.settle}`} style={at(8)}>
           <span className={styles.linkText}>varoom.co.ke/[username]</span>
           <span className={styles.copied}>
-            <span className={`${styles.copiedTick} ${styles.settle} ${styles.pop}`} style={at(9)}><Check size={13} strokeWidth={3} /></span>
+            <span className={`${styles.copiedTick} ${styles.settle} ${styles.pop}`} style={at(11)}><Check size={13} strokeWidth={3} /></span>
             <Copy size={15} />
           </span>
         </div>

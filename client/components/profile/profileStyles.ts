@@ -373,15 +373,17 @@ export const PROFILE_STYLES = `
     display:inline-flex; align-items:center; gap:.4rem;
     font-size:.8rem; font-weight:600; padding:.5rem 1rem;
     border-radius:100px; border:1.5px solid var(--red); color:var(--red);
+    flex:none; white-space:nowrap;
   }
   .profile-page .copy-btn:hover{ background:var(--red); color:#fff; }
-  .profile-page .share-icons{ display:flex; gap:.8rem; }
+  .profile-page .share-icons{ display:flex; flex-wrap:wrap; gap:.8rem; }
   .profile-page .share-icon{
     width:42px; height:42px; border-radius:50%; border:1.5px solid var(--red); color:var(--red);
     display:flex; align-items:center; justify-content:center;
   }
   .profile-page .share-icon:hover{ background:var(--red); color:#fff; }
   .profile-page .share-icon svg{ width:17px; height:17px; }
+  .profile-page .share-note{ margin:.75rem 0 0; min-height:1.2em; font-size:.8rem; color:var(--muted); }
   
   /* ============================================================
      TOAST
