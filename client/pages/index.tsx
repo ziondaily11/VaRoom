@@ -11,7 +11,7 @@ import { TrustSection } from '../components/landing/TrustSection';
 import { landingSections } from '../lib/landing/sections';
 import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
-import { fetchFeaturedReview } from '../lib/reviews/varoomReviews';
+import { fetchFeaturedReviews } from '../lib/reviews/varoomReviews';
 import type { FeaturedReview } from '../lib/reviews/varoomReviews';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
@@ -20,11 +20,11 @@ import type { RevealOrigin } from '../lib/landing/useTriggerReveal';
 
 interface LandingPageProps {
   spaces: FeaturedSpace[];
-  /** The approved review of VaRoom the sign-in panel shows, if any. */
-  review: FeaturedReview | null;
+  /** The approved reviews of VaRoom (newest first) the sign-in panel and the last page show in turn. */
+  reviews: FeaturedReview[];
 }
 
-export default function LandingPage({ spaces, review }: LandingPageProps) {
+export default function LandingPage({ spaces, reviews }: LandingPageProps) {
   // The top bar links to the pages below; Spaces only when it has cards.
   const sections = useMemo(() => landingSections(spaces.length > 0), [spaces.length]);
   const router = useRouter();
@@ -375,7 +375,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
         <HostFeaturesSection onListSpace={openHostSignup} />
 
         {/* Page 4: a review, why VaRoom is safe, a last call and the footer */}
-        <TrustSection review={review} onListSpace={openHostSignup} />
+        <TrustSection reviews={reviews} onListSpace={openHostSignup} />
 
         <AuthPanel
           isOpen={isAuthOpen}
@@ -384,7 +384,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
           initialView={initialAuthView}
           initialRole={signupRole}
           initialRecoveryStep={initialRecoveryStep}
-          review={review}
+          reviews={reviews}
         />
       </main>
     </>
@@ -400,13 +400,13 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   // Each loads on its own: one failing does not take the other with it.
-  const [spaces, review] = await Promise.all([
+  const [spaces, reviews] = await Promise.all([
     fetchFeaturedSpaces(client).catch((error: unknown) => {
       console.warn('Landing spaces unavailable at build time', error);
       return null;
     }),
-    fetchFeaturedReview(client).catch(() => null),
+    fetchFeaturedReviews(client).catch(() => []),
   ]);
   // Without cards the section is left out; retry sooner.
-  return { props: { spaces: spaces || [], review }, revalidate: spaces ? SPACES_REVALIDATE_SECONDS : 60 };
+  return { props: { spaces: spaces || [], reviews }, revalidate: spaces ? SPACES_REVALIDATE_SECONDS : 60 };
 };

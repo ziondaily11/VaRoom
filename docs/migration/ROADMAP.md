@@ -101,6 +101,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 ## Backlog (outside the migration; each needs its own decision)
 
+- `client/test/list-wizard-startup.test.js` "a listing payment is verified by the server, then the checkout copy is restored for review" fails on `main` (expected 5, got 6; seen 2026-11-20, Node 24), independent of the landing work.
 - Landing Spaces (`SpacesSection.tsx`): its card deal replays every time the visitor comes back, because the landing page reopens at the top and the row is below the screen again (animation.md §2.3, §14.3). The host section remembers it played in `sessionStorage` (`varoom_landing_hosts_played`); Spaces could do the same.
 - The app's body font is `--font-body: 'Plus Jakarta Sans', …` (`pages/_app.tsx`), but nothing loads Plus Jakarta Sans (its only `@import`, `styles/landing.module.css`, is unused), so every page falls back to Segoe UI / Arial. Only the landing page loads it (since the host section, 2026-11-18). Decide: load it app-wide (one `_document` link or `next/font`), or change `--font-body` to what is really shown.
 - Every page logs Next.js warnings under `next dev`: stylesheets (`/chats-assets/theme/…`, Google Fonts) and an inline `<script>` are added through `next/head`. Next.js asks for `_document` / `next/script` instead (React 18 and 19 alike).

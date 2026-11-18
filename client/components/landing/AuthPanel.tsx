@@ -15,6 +15,7 @@ import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
 import { ACCOUNT_HELP_HREF, saveSupportHandoff } from '../../lib/support/handoff';
 import { authorRoleLabel, reviewAuthorHandle, type FeaturedReview } from '../../lib/reviews/varoomReviews';
 import { ReviewAvatar } from './ReviewAuthor';
+import { ReviewCarousel } from './ReviewCarousel';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -24,8 +25,8 @@ interface AuthPanelProps {
   initialView: AuthView;
   initialRole: 'host' | 'client';
   initialRecoveryStep: 'email' | 'password';
-  /** An approved review of VaRoom, shown on the left half; null keeps only the heading. */
-  review?: FeaturedReview | null;
+  /** The approved reviews of VaRoom, newest first, shown in turn on the left half; none keeps only the heading. */
+  reviews?: FeaturedReview[];
 }
 
 type AuthView = 'login' | 'signup' | 'recovery';
@@ -41,31 +42,39 @@ function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
   return ['Join VaRoom.', 'Every kind of space, one account.'];
 }
 
-// The review on the left half: stars, the words, and who wrote them.
-function ReviewQuote({ review }: { review: FeaturedReview }) {
+// The reviews on the left half, in turn: stars, the words, and who wrote them.
+function ReviewQuotes({ reviews, active }: { reviews: FeaturedReview[]; active: boolean }) {
   return (
-    <figure data-reveal-content className="m-0 mt-10 max-w-[30rem] border-t border-white/15 pt-8">
-      <div className="flex gap-1 text-[#e8394f]" role="img" aria-label={`Rated ${review.rating} out of 5`}>
-        {Array.from({ length: 5 }, (_, i) => (
-          <span key={i} aria-hidden="true" className={`text-lg leading-none ${i < review.rating ? '' : 'text-white/25'}`}>★</span>
-        ))}
-      </div>
-      <blockquote className="m-0 mt-4 font-serif text-[clamp(1.15rem,1.6vw,1.45rem)] leading-[1.45] text-white/95">
-        “{review.comment}”
-      </blockquote>
-      <figcaption className="mt-5 flex items-center gap-3 text-sm text-white/70">
-        <ReviewAvatar review={review} />
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-white/85">{reviewAuthorHandle(review)}</span>
-          <span aria-hidden="true"> · </span>
-          {authorRoleLabel(review.authorRole)}
-        </span>
-      </figcaption>
-    </figure>
+    <div data-reveal-content className="mt-10 max-w-[30rem] border-t border-white/15 pt-8">
+      <ReviewCarousel
+        reviews={reviews}
+        active={active}
+        renderReview={(review, { part, order }) => (
+          <figure className="m-0">
+            <div className={`flex gap-1 text-[#e8394f] ${part}`} style={order(0)} role="img" aria-label={`Rated ${review.rating} out of 5`}>
+              {Array.from({ length: 5 }, (_, i) => (
+                <span key={i} aria-hidden="true" className={`text-lg leading-none ${i < review.rating ? '' : 'text-white/25'}`}>★</span>
+              ))}
+            </div>
+            <blockquote className={`m-0 mt-4 font-serif text-[clamp(1.15rem,1.6vw,1.45rem)] leading-[1.45] text-white/95 ${part}`} style={order(1)}>
+              “{review.comment}”
+            </blockquote>
+            <figcaption className={`mt-5 flex items-center gap-3 text-sm text-white/70 ${part}`} style={order(2)}>
+              <ReviewAvatar review={review} />
+              <span className="min-w-0 truncate">
+                <span className="font-medium text-white/85">{reviewAuthorHandle(review)}</span>
+                <span aria-hidden="true"> · </span>
+                {authorRoleLabel(review.authorRole)}
+              </span>
+            </figcaption>
+          </figure>
+        )}
+      />
+    </div>
   );
 }
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, initialView, initialRole, initialRecoveryStep, review = null }) => {
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, initialView, initialRole, initialRecoveryStep, reviews = [] }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [recoveryStep, setRecoveryStep] = useState(initialRecoveryStep);
@@ -279,7 +288,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
               {sideCopy(authView, signupRole)[1]}
             </p>
           </div>
-          {review && authView !== 'recovery' && <ReviewQuote review={review} />}
+          {reviews.length > 0 && authView !== 'recovery' && <ReviewQuotes reviews={reviews} active={isOpen} />}
         </div>
 
         <div className="relative h-full w-full overflow-hidden bg-[rgba(17,18,18,0.88)] text-[#f5efe7] md:w-1/2 md:border-l md:border-white/10">

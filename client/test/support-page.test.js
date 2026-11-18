@@ -182,7 +182,7 @@ test('support opens in a new tab everywhere, like the legal pages', () => {
 test('sign-in panel: "Get help" carries the typed email to account help in a new tab; the approved review shows on the left', () => {
   const panel = fs.readFileSync(path.join(root, 'components', 'landing', 'AuthPanel.tsx'), 'utf8');
   assert.match(panel, /href=\{ACCOUNT_HELP_HREF\}\s+target="_blank"\s+rel="noopener noreferrer"\s+onClick=\{\(\) => saveSupportHandoff\(email\)\}/);
-  assert.match(panel, /\{review && authView !== 'recovery' && <ReviewQuote review=\{review\} \/>\}/);
+  assert.match(panel, /\{reviews\.length > 0 && authView !== 'recovery' && <ReviewQuotes reviews=\{reviews\} active=\{isOpen\} \/>\}/);
   // Picture and @username, no outline around them.
   assert.match(panel, /<ReviewAvatar review=\{review\} \/>/);
   assert.match(panel, /\{reviewAuthorHandle\(review\)\}/);
@@ -191,20 +191,37 @@ test('sign-in panel: "Get help" carries the typed email to account help in a new
   assert.match(panel, /import \{ ReviewAvatar \} from '\.\/ReviewAuthor';/);
   assert.doesNotMatch(panel, /<figcaption[^>]*border/);
   const landing = fs.readFileSync(path.join(root, 'pages', 'index.tsx'), 'utf8');
-  assert.match(landing, /fetchFeaturedReview\(client\)\.catch\(\(\) => null\)/);
-  assert.match(landing, /review=\{review\}/);
+  assert.match(landing, /fetchFeaturedReviews\(client\)\.catch\(\(\) => \[\]\)/);
+  assert.match(landing, /reviews=\{reviews\}/);
 });
 
 const reviews = loadTs(path.join(root, 'lib', 'reviews', 'varoomReviews.ts'));
 
 test('VaRoom reviews: featured review shape, checks before saving, own review saved under the account', async () => {
-  const rpc = (result) => ({ rpc: async (name) => { assert.equal(name, 'varoom_featured_review'); return result; } });
-  assert.deepEqual(
-    { ...(await reviews.fetchFeaturedReview(rpc({ data: [{ rating: 5, comment: 'Booked a venue in a day.', author_name: 'Susan W.', author_role: 'host' }], error: null }))) },
+  // varoom_featured_reviews (migration 000076) returns several, newest first.
+  const calls = [];
+  const rpc = (answers) => ({ rpc: async (name, args) => { calls.push([name, args]); return answers[name]; } });
+  const listed = await reviews.fetchFeaturedReviews(rpc({ varoom_featured_reviews: { data: [
+    { rating: 5, comment: 'Booked a venue in a day.', author_name: 'Susan W.', author_role: 'host' },
+    { rating: 0, comment: 'Out of range', author_name: 'X', author_role: 'client' },
+    { rating: 4, comment: '', author_name: 'Empty', author_role: 'client' },
+    { rating: 4, comment: 'Second', author_name: 'Ann K.', author_role: 'client' },
+  ], error: null } }));
+  assert.deepEqual(calls[0], ['varoom_featured_reviews', { p_limit: 10 }]);
+  assert.deepEqual(listed.map((r) => ({ ...r })), [
     { rating: 5, comment: 'Booked a venue in a day.', authorName: 'Susan W.', authorRole: 'host', authorUsername: null, authorAvatarUrl: null },
-    'before migration 000072: no username or picture',
-  );
-  const withProfile = await reviews.fetchFeaturedReview({
+    { rating: 4, comment: 'Second', authorName: 'Ann K.', authorRole: 'client', authorUsername: null, authorAvatarUrl: null },
+  ], 'invalid rows are left out; before migration 000072 no username or picture');
+  assert.equal(reviews.FEATURED_REVIEWS_MAX, 10);
+  // Before migration 000076: the single newest review from varoom_featured_review.
+  calls.length = 0;
+  const fallback = await reviews.fetchFeaturedReviews(rpc({
+    varoom_featured_reviews: { data: null, error: { message: 'function does not exist' } },
+    varoom_featured_review: { data: [{ rating: 5, comment: 'Only one', author_name: 'Susan W.', author_role: 'host' }], error: null },
+  }));
+  assert.deepEqual(calls.map(([name]) => name), ['varoom_featured_reviews', 'varoom_featured_review']);
+  assert.deepEqual(fallback.map((r) => r.comment), ['Only one']);
+  const [withProfile] = await reviews.fetchFeaturedReviews({
     rpc: async () => ({ data: [{ rating: 4, comment: 'Great', author_name: 'Susan W.', author_role: 'client', author_username: '@susan', author_avatar_url: 'avatars/production/u1/face.jpg' }], error: null }),
     storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: 'unused' } }) }) },
   });
@@ -212,11 +229,12 @@ test('VaRoom reviews: featured review shape, checks before saving, own review sa
   assert.equal(withProfile.authorAvatarUrl, '/api/photos/avatars/avatars/production/u1/face.jpg?w=192', 'small copy through /api/photos');
   assert.equal(reviews.reviewAuthorHandle(withProfile), '@susan');
   assert.equal(reviews.reviewAuthorHandle({ authorName: 'Susan W.', authorUsername: null }), 'Susan W.', 'private profile: short name');
-  assert.equal(await reviews.fetchFeaturedReview(rpc({ data: [], error: null })), null, 'none approved');
+  assert.deepEqual(await reviews.fetchFeaturedReviews(rpc({ varoom_featured_reviews: { data: [], error: null } })), [], 'none approved');
   const warn = console.warn;
   console.warn = () => {};
   try {
-    assert.equal(await reviews.fetchFeaturedReview(rpc({ data: null, error: { message: 'function does not exist' } })), null, 'before the migration');
+    const failing = { data: null, error: { message: 'function does not exist' } };
+    assert.deepEqual(await reviews.fetchFeaturedReviews(rpc({ varoom_featured_reviews: failing, varoom_featured_review: failing })), [], 'before both migrations');
   } finally {
     console.warn = warn;
   }
