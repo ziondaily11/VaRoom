@@ -572,7 +572,7 @@ Every task follows these seven steps, in this order. Do not skip a step.
 4. **Apply the lethal fix.** Make the fix final. Remove the root cause everywhere it appears: every call site, every related code path and every duplicate. No workaround, temporary patch, placeholder or "TODO" may remain. The problem must not be able to come back.
 5. **Test.** Run the tests, the TypeScript check and the build. Verify the behaviour itself (§11), not only that the code compiles. Fix any failure before moving on. Never claim that something works without verifying it.
 6. **Commit.** Commit the changes with a clear message that says what changed and why. Commit only the files of this task. Never commit secrets or unrelated work.
-7. **Push the branch and open a PR.** Push the task's branch and open a pull request. The PR description lists what changed, why, how it was tested, and any remaining risks (see "After implementation" below). Never push directly to `main`, never force-push a shared branch, and never merge the PR without the user's approval.
+7. **Push the branch and open a PR.** Push the task's branch and open a pull request. The PR description lists what changed, why, how it was tested, and any remaining risks (see "After implementation" below). Never push directly to `main`, never force-push a shared branch, and never merge the PR without the user's approval. In the final reply, always share the SQL of any migration in the change (see item 12 of "After implementation").
 
 ### Before implementation
 
@@ -611,6 +611,7 @@ Provide a report, in the reply and in the PR description, containing:
 9. Build and type-check results.
 10. Remaining issues.
 11. Risks and recommended next steps.
+12. SQL migrations: paste the full SQL of every migration the change adds or edits (for example `server/migrations/*.sql`) in the reply, in a `sql` code block, with what to check before running it. If the change has no migration, say "No SQL migration in this change."
 
 Never claim that something works without actually verifying it.
 
