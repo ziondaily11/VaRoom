@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { bannerFileOk, bannerUrl, removeBanner, uploadBanner } from '../../lib/profile/profilePage';
+import { BannerFadeStyles } from '../profile/BannerFade';
 
 // A host's banner on their public pages; the host can add, change or remove
-// it here. Converted from legacy-pages/ProfileBanner.jsx (same look).
+// it here. Converted from legacy-pages/ProfileBanner.jsx. The photo fades
+// into the page (BannerFade, shared with /profile).
 
 export default function ProfileBanner({ hostId, imageKey, isOwner = false, token = null, viewerId = null, onChange }: {
   hostId: string; imageKey: string | null; isOwner?: boolean; token?: string | null; viewerId?: string | null; onChange?: (key: string | null) => void;
@@ -62,7 +64,8 @@ export default function ProfileBanner({ hostId, imageKey, isOwner = false, token
   const url = bannerUrl(imageKey);
   return (
     <>
-      <header className="profile-banner" style={url ? { backgroundImage: `url("${url}")` } : undefined}>
+      <BannerFadeStyles />
+      <header className="profile-banner vr-banner-fade" style={url ? { backgroundImage: `url("${url}")` } : undefined}>
         {isOwner && (
           <div className="profile-banner-actions">
             <input ref={inputRef} className="profile-banner-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Choose profile banner image" onChange={(event) => { void handleFile(event.target.files?.[0]); }} />
@@ -74,8 +77,8 @@ export default function ProfileBanner({ hostId, imageKey, isOwner = false, token
       </header>
       <style jsx>{`
         .profile-banner { position:relative; height:350px; overflow:hidden; background:var(--host-profile-avatar-fallback,#d9d3ca); background-position:center 45%; background-size:cover; }
-        .profile-banner::after { content:""; position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(to top,rgba(255,255,255,.96) 0%,rgba(255,255,255,.72) 24%,rgba(255,255,255,.16) 62%,transparent 100%); }
-        :global(html[data-theme="dark"]) .profile-banner::after { background:linear-gradient(to top,rgba(0,0,0,.94) 0%,rgba(0,0,0,.68) 27%,rgba(0,0,0,.2) 66%,transparent 100%); }
+        /* The shared fade (BannerFade, as on /profile) ends on this page's own background, in light and dark. */
+        .profile-banner { --vr-banner-fade-to:var(--host-profile-page); --vr-banner-fade-z:1; }
         .profile-banner-actions { position:absolute; z-index:3; right:22px; top:18px; display:flex; gap:8px; }
         .profile-banner-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff88;border-radius:999px;background:#090909b8;color:#fff;font-size:0.75rem;cursor:pointer;backdrop-filter:blur(10px); }

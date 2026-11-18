@@ -149,7 +149,8 @@ export const PROFILE_STYLES = `
   /* ── CENTER COLUMN ── */
   
   .profile-page .profile-main{ position:relative; background:var(--main-bg); padding:0 20px 30px; }
-  html[data-theme="dark"] .profile-page .profile-main{--main-bg:#0c0b0b;--card-bg:#141212;--card-border:rgba(255,255,255,.11)}
+  /* Dark: the shared dark theme paints .profile-main #000 (varoom-dark-theme.css, !important), so --main-bg says the same and the banner fade ends on it. */
+  html[data-theme="dark"] .profile-page .profile-main{--main-bg:#000000;--card-bg:#141212;--card-border:rgba(255,255,255,.11)}
   .profile-page .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; pointer-events:none; }
   .profile-page .profile-topbar .topbar-actions{ pointer-events:auto; }
   .profile-page .topbar-spacer{ flex:1; }
@@ -185,10 +186,8 @@ export const PROFILE_STYLES = `
   .profile-page .profile-banner{
     height:330px;position:relative;isolation:isolate;margin:0 -20px;border-radius:0;
     background-color:#30251e;background-size:cover;background-position:center 48%;overflow:hidden;
-  }
-  .profile-page .profile-banner::before{
-    content:'';position:absolute;z-index:-1;inset:0;pointer-events:none;
-    background:linear-gradient(180deg,rgba(255,255,255,0) 8%,rgba(255,255,255,.2) 48%,rgba(255,255,255,.94) 100%);
+    /* The shared fade (BannerFade) ends on this page's own background, in light and dark. */
+    --vr-banner-fade-to:var(--main-bg); --vr-banner-fade-z:0;
   }
   .profile-page .profile-banner-actions{position:absolute;z-index:2;left:20px;top:16px;display:flex;gap:8px}
   .profile-page .profile-banner-actions button{
@@ -244,6 +243,8 @@ export const PROFILE_STYLES = `
   .profile-page .profile-meta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:11px; }
   .profile-page .meta-item{ display:flex; align-items:center; gap:6px; color:#514b47; font-size:0.75rem; }
   .profile-page .meta-item svg{ width:14px; height:14px; color:#c41e3a; }
+  /* The host's bio: under the details, at most two lines (as on the public profile). */
+  .profile-page .profile-bio{ display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; max-width:560px; margin-top:8px; color:#3b3632; font-size:0.8125rem; line-height:1.45; }
   .profile-page .content-section{ padding-top:18px; }
   .profile-page .section-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .profile-page .section-header h2{ font-size:1rem; font-weight:700; color:var(--ink); }
@@ -310,12 +311,10 @@ export const PROFILE_STYLES = `
   .profile-page .vr-seg .saved-tab svg{ width:17px; height:17px; }
   .profile-page .profile-review-section{display:none;padding:18px 0}
   .profile-page .profile-review-card{padding:14px 0;border-bottom:1px solid var(--card-border)}
-  html[data-theme="dark"] .profile-page .profile-banner::before{
-    background:linear-gradient(180deg,rgba(0,0,0,.04) 8%,rgba(0,0,0,.28) 48%,rgba(0,0,0,.9) 100%);
-  }
   html[data-theme="dark"] .profile-page .profile-details{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.6)}
   html[data-theme="dark"] .profile-page .profile-details h1{color:#fff}
   html[data-theme="dark"] .profile-page .profile-handle, html[data-theme="dark"] .profile-page .meta-item{color:rgba(255,255,255,.82)}
+  html[data-theme="dark"] .profile-page .profile-bio{color:rgba(255,255,255,.86)}
   html[data-theme="dark"] .profile-page .profile-header-actions .profile-actions .btn-outline{
     background:rgba(12,12,12,.58);color:#fff;border-color:rgba(255,255,255,.5);
   }

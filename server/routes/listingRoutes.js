@@ -8,6 +8,7 @@ const {
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
 const { promoteListingMedia } = require('../lib/listingMediaPromotion');
+const { draftStillKept, UNPUBLISHED_STATES } = require('../lib/draftRetention');
 const { createDestinationCounts } = require('../lib/destinationCounts');
 
 const router = express.Router();
@@ -222,7 +223,22 @@ router.get('/listing-drafts', async (req, res) => {
     console.error('Host listing draft lookup failed:', error.message);
     return res.status(500).json({ error: 'Unable to load your saved listing drafts' });
   }
-  return res.json({ drafts: data || [] });
+  // Unpaid drafts are deleted after 7 days with all their details (Terms):
+  // hide those already discarded, being cleaned up or past the time, even
+  // before the cleanup job removes their rows.
+  const drafts = data || [];
+  const listingIds = [...new Set(drafts.map((draft) => draft.listing_id).filter(Boolean))];
+  const listings = new Map();
+  if (listingIds.length) {
+    const { data: rows, error: listingError } = await supabaseAdmin.from('listings')
+      .select('id,publication_state,created_at').in('id', listingIds).eq('host_id', user.id);
+    if (listingError) {
+      console.error('Host listing draft state lookup failed:', listingError.message);
+      return res.status(500).json({ error: 'Unable to load your saved listing drafts' });
+    }
+    for (const row of rows || []) listings.set(row.id, row);
+  }
+  return res.json({ drafts: drafts.filter((draft) => draftStillKept(draft, draft.listing_id ? listings.get(draft.listing_id) || null : null)) });
 });
 
 router.get('/listing-drafts/:id', async (req, res) => {
@@ -346,12 +362,44 @@ router.put('/listing-drafts/:id', async (req, res) => {
   return res.json({ draft: data });
 });
 
+// Removes a saved draft. With ?discard=1 (Discard draft on the host's
+// profile) its unpublished listing is discarded too, so the draft's media is
+// queued for cleanup; a listing with a payment in progress is never
+// discarded, and a published listing is never touched (only its edit draft goes).
 router.delete('/listing-drafts/:id', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
   let id;
   try { id = uuid(req.params.id, 'draft id'); }
   catch (_) { return res.status(400).json({ error: 'Invalid listing draft id' }); }
+
+  if (req.query.discard === '1') {
+    const { data: draft, error: draftError } = await supabaseAdmin.from('host_listing_drafts')
+      .select('id,listing_id').eq('id', id).eq('host_id', user.id).maybeSingle();
+    if (draftError) return res.status(500).json({ error: 'Unable to discard the saved listing draft' });
+    if (draft && draft.listing_id) {
+      const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
+        .select('id,publication_state').eq('id', draft.listing_id).eq('host_id', user.id).maybeSingle();
+      if (listingError) return res.status(500).json({ error: 'Unable to discard the saved listing draft' });
+      if (listing && listing.publication_state === 'payment_pending') {
+        return res.status(409).json({ error: 'A payment for this listing is still in progress. Try again once it has finished.', code: 'DRAFT_PAYMENT_PENDING' });
+      }
+      if (listing && (UNPUBLISHED_STATES.has(listing.publication_state) || ['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state))) {
+        const { error: discardError } = await supabaseAdmin.rpc('varoom_discard_draft_listing', {
+          p_listing_id: listing.id,
+          p_host_id: user.id,
+        });
+        if (discardError) {
+          if (discardError.code === 'PGRST202' || discardError.code === '42883') {
+            return res.status(503).json({ error: 'Draft cleanup is not enabled yet. Apply the draft media lifecycle migration.' });
+          }
+          console.error('Draft discard failed:', discardError);
+          return res.status(500).json({ error: 'Unable to discard the saved listing draft' });
+        }
+      }
+    }
+  }
+
   const { error } = await supabaseAdmin.from('host_listing_drafts').delete()
     .eq('id', id).eq('host_id', user.id);
   if (error) return res.status(500).json({ error: 'Unable to remove the saved listing draft' });

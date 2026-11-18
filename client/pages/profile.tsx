@@ -184,6 +184,11 @@ export default function ProfilePage() {
     if (userId) { invalidateHostProfile(userId, userId, 'cards:owner'); invalidateHostProfile(userId, userId, 'categories'); }
   }, [userId]);
 
+  const onDraftDiscarded = useCallback((draftId: string) => {
+    setDrafts((current) => current.filter((draft) => draft.id !== draftId));
+    if (userId) invalidateHostProfile(userId, userId, 'drafts');
+  }, [userId]);
+
   const removeCategory = async (category: ProfileCategory) => {
     if (!window.confirm(`Delete “${category.name}”? Its listings will remain on VaRoom.`)) return;
     const client = getSupabaseClient();
@@ -279,6 +284,7 @@ export default function ProfilePage() {
                     notify={notify}
                     onStatus={onStatus}
                     onDeleted={onDeleted}
+                    onDraftDiscarded={onDraftDiscarded}
                     onRetry={() => setListingsReload((value) => value + 1)}
                     onManage={() => setManager({ view: 'home' })}
                     onSelectListings={(categoryId) => setManager({ view: 'select', categoryId, newName: null })}

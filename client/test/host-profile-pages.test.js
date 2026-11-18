@@ -54,9 +54,9 @@ test('signed out: no app sidebar, the profile full screen, a sign-in sheet that 
   assert.match(view, /const signedOut = status === 'signed-out';/);
   assert.doesNotMatch(view, /SignInRail|host-profile-sign-in-rail|is-public/, 'no sign-in rail: the profile uses the whole screen');
   assert.match(view, /const signIn = \(\) => \{ void router\.push\(loginUrl\(here\(\)\)\); \};/);
-  assert.match(view, /if \(!viewerId\) \{ setSignInReason\('message'\); return; \}/, 'Message asks a signed-out visitor to sign in');
-  assert.match(view, /\{signedOut && <SignInDialog open=\{signInReason !== null\}/, 'the sheet stays mounted for its exit');
-  for (const text of ['Sign in to message', 'Sign in to contact', 'Continue with Google', 'Continue with Email']) assert.ok(view.includes(text), text);
+  assert.match(view, /onClick=\{\(\) => \{ if \(signedOut\) onSignIn\(\); else setMenu\(!open\); \}\}/, 'Get in touch asks a signed-out visitor to sign in');
+  assert.match(view, /\{signedOut && <SignInDialog open=\{signInOpen\}/, 'the sheet stays mounted for its exit');
+  for (const text of ['Sign in to contact', 'Continue with Google', 'Continue with Email']) assert.ok(view.includes(text), text);
   // Hosts don't message other hosts from here (as before).
   assert.match(view, /const canMessageHost = Boolean\(host\) && !isOwner && \(signedOut \|\| viewerRole !== 'host'\);/);
 
@@ -144,11 +144,16 @@ test('host page addresses use the username (unique, any case); id addresses keep
   assert.match(read('components', 'hostHome', 'FeedCard.tsx'), /hostProfilePath\(listing\.host_id, host\.username\)/);
 });
 
-test('WhatsApp and email next to Message follow Reach Out, as on the booking page', async () => {
+test('one Get in touch button opens Message, WhatsApp and email (Reach Out), as available to this visitor', async () => {
   const view = read('components', 'hostProfile', 'HostProfile.tsx');
-  assert.match(view, /<ContactButtons[\s\S]*?contact=\{contact\}/);
-  assert.match(view, /contact\.whatsapp && <a className="host-profile-contact" href=\{profileWhatsappHref\(contact\.whatsapp, enquiry\)\}/);
-  assert.match(view, /contact\.email && <a className="host-profile-contact" href=\{profileMailtoHref\(contact\.email, enquiry\)\}/);
+  assert.match(view, /<GetInTouch\s+canMessage=\{canMessageHost\}\s+contact=\{contact\}/);
+  assert.match(view, /<MessagesSquare size=\{16\} aria-hidden="true" \/>\s+Get in touch/);
+  assert.match(view, /if \(canMessage\) \{\s+options\.push\(/, 'Message only where it was offered before (not for other hosts)');
+  assert.match(view, /if \(contact\.whatsapp\) \{\s+options\.push\(<a key="whatsapp" role="menuitem" className="host-profile-touch-option" href=\{profileWhatsappHref\(contact\.whatsapp, enquiry\)\}/);
+  assert.match(view, /if \(contact\.email\) \{\s+options\.push\(<a key="email" role="menuitem" className="host-profile-touch-option" href=\{profileMailtoHref\(contact\.email, enquiry\)\}/);
+  assert.match(view, /if \(!options\.length\) return null;/, 'nothing to offer: no button');
+  assert.doesNotMatch(view, /ContactButtons|host-profile-contact/, 'the separate icon buttons are gone');
+  assert.match(view, /if \(event\.key === 'Escape'\) \{ setMenu\(false\); buttonRef\.current\?\.focus\(\); \}/);
   assert.match(view, /loadHostContact\(viewerId, hostId, token\)/, 'signed-in visitors only, cached with the profile');
   const reach = loadTs(path.join(root, 'lib', 'reachOut', 'reachOut.ts'));
   const wa = reach.profileWhatsappHref('0712 345 678', { name: 'Amina', url: 'https://varoom.co.ke/amina' });

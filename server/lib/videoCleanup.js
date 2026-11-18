@@ -20,6 +20,7 @@ require('dotenv').config();
 const supabaseAdmin = require('./supabaseClient');
 const mediaStorageService = require('./mediaStorageService');
 const { isR2PhotoObjectKey } = require('./photoStorageKeys');
+const { DRAFT_RETENTION_MS } = require('./draftRetention');
 
 const CLEANUP_GRACE_PERIOD_MS = parseInt(process.env.VIDEO_CLEANUP_GRACE_PERIOD_HOURS || '1', 10) * 60 * 60 * 1000;
 const DRY_RUN = process.env.VIDEO_CLEANUP_DRY_RUN === 'true';
@@ -279,7 +280,7 @@ async function cleanupOrphanedR2Objects() {
       }
       privateFailedListingIds = new Set((listings || [])
         .filter((listing) => ['draft', 'payment_pending', 'failed', 'discarded', 'cleanup_pending'].includes(listing.publication_state)
-          && new Date(listing.created_at).getTime() + 5 * 24 * 60 * 60 * 1000 > Date.now())
+          && new Date(listing.created_at).getTime() + DRAFT_RETENTION_MS > Date.now())
         .map((listing) => listing.id));
     }
 

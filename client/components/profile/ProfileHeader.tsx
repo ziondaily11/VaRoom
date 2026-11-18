@@ -5,10 +5,12 @@ import {
   AVATAR_MAX_BYTES, bannerFileOk, bannerUrl, displayName, handleOf, initialOf, memberSince, removeBanner, specialisation, uploadAvatar, uploadBanner,
 } from '../../lib/profile/profilePage';
 import { AvatarCameraIcon, CalendarIcon, CameraIcon, PinIcon } from './ProfileIcons';
+import { BannerFadeStyles } from './BannerFade';
 
 // The profile banner and identity: banner (hosts can add, change or remove
 // it), avatar (with upload), name, handle, city, "Member since",
-// specialisation, and Edit profile / Share profile.
+// specialisation, the host's bio, and Edit profile / Share profile. The
+// banner photo fades into the page (BannerFade, shared with the public profile).
 
 export interface HeaderProps {
   profile: HostProfileRow;
@@ -115,7 +117,8 @@ export default function ProfileHeader({ profile, avatarUrl, token, sessionUserId
 
   return (
     <section className="profile-header">
-      <div className="profile-banner" id="profile-banner" style={banner ? { backgroundImage: `url("${banner}")` } : undefined}>
+      <BannerFadeStyles />
+      <div className="profile-banner vr-banner-fade" id="profile-banner" style={banner ? { backgroundImage: `url("${banner}")` } : undefined}>
         {isHost && (
           <div className="profile-banner-actions" id="profile-banner-actions" ref={actionsRef} style={{ display: 'flex' }}>
             <input ref={bannerInput} type="file" id="banner-input" className="banner-file-input" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Choose profile banner image" onChange={(event) => { void onBannerFile(event); }} />
@@ -157,6 +160,7 @@ export default function ProfileHeader({ profile, avatarUrl, token, sessionUserId
                 <span className="meta-item" id="profile-since"><CalendarIcon /><span id="profile-since-text">{memberSince(profile.created_at)}</span></span>
                 {niche && <span className="meta-item" id="profile-niches">{niche}</span>}
               </div>
+              {isHost && profile.bio && <p className="profile-bio" id="profile-bio">{profile.bio}</p>}
             </div>
           </div>
           <div className="profile-header-actions">
