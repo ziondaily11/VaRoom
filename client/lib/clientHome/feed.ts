@@ -2,15 +2,17 @@
 // without rendering the page. The page owns the state and the effects; these
 // helpers only decide what the state should be.
 
+import { interestCategories } from '../clientInterests';
+
 export type ClientHomeView = 'home' | 'marketplace';
 
-/** The categories a client is "looking soon" for, normalised for the feed filter and key. */
+/** The categories a client is "looking soon" for ('buy' and 'rent' are property), normalised for the feed filter and key. */
 export function clientHomeInterests(profile: {
   looking_timeline?: string | null;
   interested_categories?: string[] | null;
 }): string[] {
   return profile.looking_timeline === 'soon'
-    ? (profile.interested_categories || []).map((value: string) => value.trim().toLowerCase()).filter(Boolean)
+    ? interestCategories(profile.interested_categories)
     : [];
 }
 

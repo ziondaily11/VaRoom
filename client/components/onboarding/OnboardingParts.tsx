@@ -1,9 +1,9 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import type { Category } from '../../lib/onboarding/onboarding';
-import { constrainCrop, cropDraw, MESSAGES, PHOTO_MAX_BYTES, startCrop, type Crop } from '../../lib/onboarding/onboarding';
+import { constrainCrop, cropDraw, MESSAGES, PHOTO_MAX_BYTES, startCrop, type Crop, type Tile } from '../../lib/onboarding/onboarding';
 
-// Onboarding building blocks: icons, the Split layout (brand panel + form),
-// the live preview, and the photo picker with its crop.
+// Onboarding building blocks: icons, the Split layout (brand panel + form,
+// with the back arrow and progress bar above each step), the picture tiles,
+// and the photo picker with its crop.
 
 const svg = (size: number, children: React.ReactNode, stroke = 2) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -19,22 +19,30 @@ export const PinIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z" /></svg>
 );
 export const LockIcon = () => svg(13, <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>);
-
-export const CATEGORY_ICONS: Record<Category, React.ReactNode> = {
-  airbnb: svg(18, <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" /><path d="M9 21v-6h6v6" /></>, 1.8),
-  hotel: svg(18, <><rect x="5" y="3" width="14" height="18" rx="1.5" /><path d="M9 7h1M14 7h1M9 11h1M14 11h1M11 21v-3h2v3" /></>, 1.8),
-  property: svg(18, <><circle cx="8" cy="15" r="4" /><path d="m11 12 8-8M16 4h3v3M15 8l2 2" /></>, 1.8),
-  office: svg(18, <><path d="M4 10 6 4h12l2 6" /><path d="M4 10h16v10H4z" /><path d="M10 20v-5h4v5" /></>, 1.8),
-  venue: svg(18, <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3Z" />, 1.8),
-};
+export const BackIcon = () => svg(20, <path d="M15 5l-7 7 7 7" />, 2.2);
 
 // ---------- Layout ----------
 
 export interface StepInfo { label: string; state: 'done' | 'current' | 'next' }
 
-export function OnboardingLayout({ steps, mobileStep, mobileTitle, preview, note, children }: {
-  steps: StepInfo[]; mobileStep: string; mobileTitle: string; preview: React.ReactNode; note: string; children: React.ReactNode;
+/** How the step got here: forward slides in from the right, back from the left; null on first paint. */
+export type StepDirection = 'forward' | 'back' | null;
+
+export function OnboardingLayout({ steps, mobileStep, mobileTitle, preview, note, progress, onBack, backLabel = 'Back', stageKey, direction, wide = false, children }: {
+  steps: StepInfo[]; mobileStep: string; mobileTitle: string; preview: React.ReactNode; note: string;
+  /** 0–1: the share of onboarding done (the account counts as the first step). */
+  progress: number;
+  /** The step before this one; no arrow when there is none. */
+  onBack?: () => void;
+  backLabel?: string;
+  /** Changes with the step, so the new step slides in. */
+  stageKey: string;
+  direction: StepDirection;
+  /** Picture-tile steps use a wider column. */
+  wide?: boolean;
+  children: React.ReactNode;
 }) {
+  const percent = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   return (
     <div className="onb">
       <aside className="onb-panel" aria-label="Your progress">
@@ -54,7 +62,48 @@ export function OnboardingLayout({ steps, mobileStep, mobileTitle, preview, note
         <div className="onb-preview">{preview}</div>
         <p className="onb-panel-note">{note}</p>
       </aside>
-      <main className="onb-main">{children}</main>
+      <main className="onb-main">
+        <div className={`onb-flow${wide ? ' is-wide' : ''}`}>
+          <div className="onb-topbar">
+            {onBack
+              ? <button type="button" className="onb-back-arrow" onClick={onBack} aria-label={backLabel}><BackIcon /></button>
+              : <span className="onb-back-arrow is-placeholder" aria-hidden="true" />}
+            <div className="onb-progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+              <span className="onb-progress-fill" style={{ transform: `scaleX(${percent / 100})` }} />
+            </div>
+          </div>
+          <div key={stageKey} className={`onb-stage${direction ? ` is-${direction}` : ''}`}>{children}</div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ---------- Picture tiles ----------
+
+/**
+ * Photo tiles with the label under each (one pick for hosts, several for
+ * clients). A picked tile gets a red ring and a check that pops in.
+ */
+export function TileGrid<V extends string>({ tiles, picked, multiple, label, onPick }: {
+  tiles: Array<Tile<V>>; picked: readonly V[]; multiple: boolean; label: string; onPick: (value: V) => void;
+}) {
+  return (
+    <div className={`onb-tiles is-${tiles.length}`} role={multiple ? 'group' : 'radiogroup'} aria-label={label}>
+      {tiles.map((tile, index) => {
+        const on = picked.includes(tile.value);
+        return (
+          <button key={tile.value} type="button" role={multiple ? 'checkbox' : 'radio'} aria-checked={on}
+            className={`onb-tile${on ? ' is-selected' : ''}`} style={{ '--onb-i': index } as React.CSSProperties}
+            onClick={() => onPick(tile.value)}>
+            <span className="onb-tile-media">
+              <img src={tile.image} alt="" width={240} height={300} decoding="async" draggable={false} />
+              <span className="onb-tile-check" aria-hidden="true"><CheckIcon size={14} /></span>
+            </span>
+            <span className="onb-tile-label">{tile.title}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -195,23 +244,26 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
     return (
       <div className={`onb-photo${showing !== 'none' ? ' has-photo' : ''}`}>
         <input ref={inputRef} type="file" accept="image/*" hidden onChange={onFile} aria-label="Choose profile photo" />
-        <div
-          ref={frameRef}
-          className={`onb-photo-frame${photo ? ' is-adjustable' : ''}${adjusting ? ' is-adjusting' : ''}`}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
-          title={photo ? 'Drag to position, scroll or pinch to zoom' : 'Click to choose profile photo'}
-        >
-          {photo && <CroppedImage photo={photo} size={frameWidth} />}
-          {!photo && existingUrl && <img className="is-whole" src={existingUrl} alt="" />}
-          {showing === 'none' && <CameraIcon />}
+        <div className="onb-photo-ring">
+          <div
+            ref={frameRef}
+            className={`onb-photo-frame${photo ? ' is-adjustable' : ''}${adjusting ? ' is-adjusting' : ''}`}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerEnd}
+            onPointerCancel={onPointerEnd}
+            title={photo ? 'Drag to position, scroll or pinch to zoom' : 'Click to choose profile photo'}
+          >
+            {photo && <CroppedImage photo={photo} size={frameWidth} />}
+            {!photo && existingUrl && <img className="is-whole" src={existingUrl} alt="" />}
+            {showing === 'none' && <PersonIcon size={40} />}
+          </div>
+          <button type="button" className="onb-photo-badge" onClick={choose} aria-label={showing === 'none' ? 'Choose a photo' : 'Change photo'}><CameraIcon /></button>
         </div>
         <div className="onb-photo-copy">
-          <span className="onb-photo-title">{showing === 'none' ? 'Add a profile photo' : 'Profile photo'}</span>
+          <span className="onb-photo-title">{showing === 'none' ? 'Add a profile photo' : 'Profile photo'}<span className="onb-optional">{showing === 'none' ? ' · Optional' : ''}</span></span>
           <span className={`onb-help${hint || error ? ' is-error' : ''}`}>
-            {hint || error || (photo ? 'Drag to position it; scroll or pinch to zoom.' : 'Optional. Helps people put a face to your name.')}
+            {hint || error || (photo ? 'Drag to position it; scroll or pinch to zoom.' : 'Helps people put a face to your name.')}
           </span>
           <div className="onb-photo-actions">
             <button type="button" className="onb-link-btn" onClick={choose}>{showing === 'none' ? 'Choose a photo' : 'Change photo'}</button>

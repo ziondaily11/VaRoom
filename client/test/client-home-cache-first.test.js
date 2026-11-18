@@ -120,6 +120,7 @@ test('profile interests become normalised feed filters only for clients looking 
   assert.deepEqual(feed.clientHomeInterests({ looking_timeline: 'soon', interested_categories: [' Hotel ', 'AIRBNB', '  '] }), ['hotel', 'airbnb']);
   assert.deepEqual(feed.clientHomeInterests({ looking_timeline: 'later', interested_categories: ['hotel'] }), []);
   assert.deepEqual(feed.clientHomeInterests({ looking_timeline: 'soon', interested_categories: null }), []);
+  assert.deepEqual(feed.clientHomeInterests({ looking_timeline: 'soon', interested_categories: ['buy', 'rent', 'hotel'] }), ['property', 'hotel'], 'buy and rent filter property once');
 });
 
 // Wiring kept as source checks: effect ordering inside resolveSession and the

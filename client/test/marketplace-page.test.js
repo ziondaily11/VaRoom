@@ -91,6 +91,20 @@ test('newest first; a looking-soon client sees their categories first only in th
   assert.deepEqual(mkt.orderListings(items, { q: '', category: 'all', guests: '' }, preferred).map((l) => l.id), ['old-hotel', 'new-office'], 'deduplicated, preferred first');
   assert.deepEqual(mkt.orderListings(items, { q: 'x', category: 'all', guests: '' }, preferred).map((l) => l.id), ['new-office', 'old-hotel'], 'a search ranks by date');
   assert.deepEqual(mkt.preferredCategories({ role: 'host', looking_timeline: 'soon', interested_categories: ['hotel'] }), []);
+  // Buy and rent: property for sale ranks first for buyers, to let for renters ('both' suits either).
+  const homes = [
+    listing({ id: 'rent', category: 'property', listing_purpose: 'rent', created_at: '2026-10-03T00:00:00Z' }),
+    listing({ id: 'sale', category: 'property', listing_purpose: 'sale', created_at: '2026-01-01T00:00:00Z' }),
+    listing({ id: 'both', category: 'property', listing_purpose: 'both', created_at: '2026-01-02T00:00:00Z' }),
+    listing({ id: 'hotel', category: 'hotel', created_at: '2026-10-04T00:00:00Z' }),
+  ];
+  const all = { q: '', category: 'all', guests: '' };
+  const buyer = mkt.preferredCategories({ role: 'client', looking_timeline: 'soon', interested_categories: ['buy'] });
+  assert.deepEqual(buyer, ['buy']);
+  assert.deepEqual(mkt.orderListings(homes, all, buyer).map((l) => l.id), ['both', 'sale', 'hotel', 'rent']);
+  assert.deepEqual(mkt.orderListings(homes, all, ['rent']).map((l) => l.id), ['rent', 'both', 'hotel', 'sale']);
+  assert.deepEqual(mkt.orderListings(homes, all, ['property']).map((l) => l.id), ['rent', 'both', 'sale', 'hotel'], 'an older property pick matches all property');
+  assert.match(mkt.MARKETPLACE_SELECT, /,listing_purpose,/);
 });
 
 test('recent pages are reused for two minutes', () => {

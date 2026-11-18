@@ -1,26 +1,46 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSafeRedirect } from '../safeRedirect';
 import { isReservedUsername, normalizeUsername, RESERVED_USERNAME_MESSAGE } from '../profile/usernames';
+import { normalizeInterests } from '../clientInterests';
 
 // Onboarding (migrated from legacy-pages/onboarding.html): the choices, the
 // field rules and wording, the saves, and where each role goes when done.
 // Hosts: profile (photo, username, phone, location), then what they list and
-// their Discover name. Clients: what they're looking for and when.
+// their Discover name. Clients: only what they're looking for, then Marketplace.
 
 export type Category = 'airbnb' | 'hotel' | 'property' | 'office' | 'venue';
-export type Timeline = 'soon' | 'browsing';
+/** A client's picks: the categories, with property split into buying and renting. */
+export type Interest = 'airbnb' | 'hotel' | 'buy' | 'rent' | 'office' | 'venue';
 
-export const CATEGORIES: Array<{ value: Category; title: string; description: string }> = [
-  { value: 'airbnb', title: 'Airbnbs', description: 'Unique stays that feel like home' },
-  { value: 'hotel', title: 'Hotels', description: 'Comfort, service and easy booking' },
-  { value: 'property', title: 'Property to let / buy', description: 'Your next home or investment' },
-  { value: 'office', title: 'Shops & offices', description: 'Spaces for work and business' },
-  { value: 'venue', title: 'Event venues', description: 'The right setting for your occasion' },
+/** A picture tile: its saved value, label and photo (public/assets). */
+export interface Tile<V extends string> { value: V; title: string; image: string }
+
+const IMAGES = {
+  airbnb: '/assets/bnb.jpg',
+  hotel: '/assets/hote.jpg',
+  office: '/assets/officea.jpg',
+  venue: '/assets/event.jpg',
+  home: '/assets/property-home.jpg',
+  apartment: '/assets/property-apartment.jpg',
+} as const;
+
+/** What hosts list: five tiles, one picked. */
+export const CATEGORIES: Array<Tile<Category>> = [
+  { value: 'airbnb', title: 'Airbnbs', image: IMAGES.airbnb },
+  { value: 'hotel', title: 'Hotels', image: IMAGES.hotel },
+  { value: 'property', title: 'Property', image: IMAGES.home },
+  { value: 'office', title: 'Shops & offices', image: IMAGES.office },
+  { value: 'venue', title: 'Event venues', image: IMAGES.venue },
 ];
 
-export const TIMELINES: Array<{ value: Timeline; title: string; description: string }> = [
-  { value: 'soon', title: 'Looking soon', description: "I'm ready to find it" },
-  { value: 'browsing', title: 'Just browsing', description: "I'm exploring for now" },
+/** What clients look for: six tiles (buy and rent apart), one or more picked. */
+export const INTERESTS: Array<Tile<Interest>> = [
+  { value: 'airbnb', title: 'Airbnbs', image: IMAGES.airbnb },
+  { value: 'hotel', title: 'Hotels', image: IMAGES.hotel },
+  { value: 'buy', title: 'Buy a property', image: IMAGES.home },
+  { value: 'rent', title: 'Rent a property', image: IMAGES.apartment },
+  { value: 'office', title: 'Shops & offices', image: IMAGES.office },
+  { value: 'venue', title: 'Event venues', image: IMAGES.venue },
 ];
 
 export const CITY_SUGGESTIONS = ['Nairobi', 'Mombasa', 'Diani', 'Kisumu', 'Nakuru', 'Naivasha', 'Eldoret', 'Malindi', 'Kilifi', 'Nanyuki', 'Kiambu'].map((city) => `${city}, Kenya`);
@@ -88,7 +108,6 @@ export const MESSAGES = {
   niche: 'Please select exactly one listing category.',
   discoverName: 'Please enter a name between 2 and 40 characters.',
   categories: 'Please choose at least one category to continue.',
-  timeline: 'Please select when you are looking.',
   saveClient: 'Could not save your preferences. Please try again.',
   saveProfile: 'Could not save profile. Please check your inputs and try again.',
   finish: 'Could not finish onboarding. Please try again.',
@@ -148,8 +167,12 @@ async function update(client: SupabaseClient, userId: string, patch: Record<stri
   if (error) throw new Error(error.message);
 }
 
-export const saveClientPreferences = (client: SupabaseClient, userId: string, categories: Category[], timeline: Timeline) =>
-  update(client, userId, { interested_categories: categories, looking_timeline: timeline, onboarding_completed: true });
+/**
+ * Clients are no longer asked when they are looking: every new client is
+ * "looking soon", so Marketplace and Client Home rank their interests first.
+ */
+export const saveClientPreferences = (client: SupabaseClient, userId: string, interests: Interest[]) =>
+  update(client, userId, { interested_categories: interests, looking_timeline: 'soon', onboarding_completed: true });
 
 export const saveHostProfile = (client: SupabaseClient, userId: string, values: { username: string; phone: string; city: string }) =>
   update(client, userId, { username: values.username, phone: normalisePhone(values.phone), city: values.city.trim() });
@@ -167,11 +190,10 @@ export async function saveAvatar(client: SupabaseClient, userId: string, photo: 
 
 // ---------- Where to go next ----------
 
-/** After onboarding: the safe link they came from, else their role's home. */
-export function destination(role: 'host' | 'client', timeline: Timeline | null, safeRedirect: string | null): string {
+/** After onboarding: the safe link they came from, else Host Home for hosts and Marketplace for clients. */
+export function destination(role: 'host' | 'client', safeRedirect: string | null): string {
   if (safeRedirect) return safeRedirect;
-  if (role === 'host') return '/host-home';
-  return timeline === 'soon' ? '/marketplace' : '/client-home';
+  return role === 'host' ? '/host-home' : '/marketplace';
 }
 
 export const roleHome = (role: 'host' | 'client') => (role === 'host' ? '/host-home' : '/client-home');
@@ -195,15 +217,19 @@ export async function photoAllowsFinish<R extends { done: Promise<string> }>(get
   return true;
 }
 
-export function initialCategories(saved: unknown): Category[] {
-  return Array.isArray(saved) ? saved.filter(isCategory) : [];
+/** A client's saved picks, in tile order; an older 'property' pick becomes both buy and rent. */
+export function initialInterests(saved: unknown): Interest[] {
+  const keys = normalizeInterests(Array.isArray(saved) ? saved : []);
+  const picked = new Set(keys.flatMap((key) => (key === 'property' ? ['buy', 'rent'] : [key])));
+  return INTERESTS.map((tile) => tile.value).filter((value) => picked.has(value));
 }
+
+/** Picks in tile order (as saved). */
+export const orderedInterests = (picked: readonly Interest[]): Interest[] => INTERESTS.map((tile) => tile.value).filter((value) => picked.includes(value));
 
 export function initialNiche(saved: string[] | null | undefined): Category | null {
   return Array.isArray(saved) && saved.length === 1 && isCategory(saved[0]) ? saved[0] : null;
 }
-
-export const initialTimeline = (saved: unknown): Timeline | null => (saved === 'soon' || saved === 'browsing' ? saved : null);
 
 // ---------- Photo crop ----------
 
