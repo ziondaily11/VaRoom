@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy } from 'lucide-react';
 import { isBelowScreen, playedThisTab, rememberPlayed, type Reveal } from '../../lib/landing/entrance';
 import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
 import { ICON_MESSAGE, ICON_PHONE } from '../../lib/booking/bookingIcons';
 import Svg from '../booking/Svg';
+import { SOCIAL_ICONS } from '../shell/socialIcons';
 import styles from './HostFeaturesSection.module.css';
 
 interface HostFeaturesSectionProps {
@@ -27,6 +28,13 @@ const CONTACT_LOGOS: Array<{ key: 'contactWhatsapp' | 'contactEmail' | 'contactP
   { key: 'contactEmail', logo: <img src="/assets/gmail.svg" alt="" width={27} height={27} /> },
   { key: 'contactPhone', logo: <Svg markup={ICON_PHONE} /> },
   { key: 'contactChat', logo: <Svg markup={ICON_MESSAGE} /> },
+];
+
+// Where a host can share their profile, as the profile's share panel offers it.
+const SHARE_TARGETS: Array<{ label: string; icon: React.ReactNode }> = [
+  { label: 'X', icon: <Svg markup={SOCIAL_ICONS.x} /> },
+  { label: 'WhatsApp', icon: <img src="/assets/whatsapp.svg" alt="" width={24} height={24} /> },
+  { label: 'Email', icon: <img src="/assets/gmail.svg" alt="" width={24} height={24} /> },
 ];
 
 /** The order a detail settles in, inside its card (see the entrance in the CSS). */
@@ -111,16 +119,28 @@ const FEATURES: Feature[] = [
   },
   {
     tone: styles.tone4,
-    title: 'Reply, even when you’re busy',
-    text: 'Quick replies, business hours and an away message.',
+    title: 'Your profile is your website',
+    text: 'Copy your link, share it anywhere, or use it as your website.',
     visual: (
-      <div className={`${styles.panel} ${styles.fill} ${styles.chat}`}>
-        <span className={`${styles.away} ${styles.settle}`} style={at(0)}>Away · replies after business hours</span>
-        <div className={`${styles.bubble} ${styles.bubbleIn} ${styles.settle} ${styles.fromLeft}`} style={at(1)}>Is it free this weekend?</div>
-        <div className={`${styles.bubble} ${styles.bubbleOut} ${styles.settle} ${styles.fromRight}`} style={at(4)}>Yes, it is. Send a request and I’ll approve it.</div>
-        <div className={styles.quickReplies}>
-          <span className={styles.settle} style={at(6)}>Yes, it’s available</span>
-          <span className={styles.settle} style={at(7)}>Send me the price</span>
+      // The profile's "Share profile" panel (components/profile/ProfileSections.tsx):
+      // X, WhatsApp, Email, and the profile's own address to copy.
+      <div className={`${styles.panel} ${styles.fill} ${styles.share}`}>
+        <div className={`${styles.shareTitle} ${styles.settle}`} style={at(0)}>Share your profile</div>
+        <div className={styles.shareTargets}>
+          {SHARE_TARGETS.map(({ label, icon }, i) => (
+            <span key={label} className={`${styles.shareTarget} ${styles.settle} ${styles.pop}`} style={at(1 + i)}>
+              <span className={styles.shareIcon}>{icon}</span>
+              <span className={styles.shareLabel}>{label}</span>
+            </span>
+          ))}
+        </div>
+        <div className={`${styles.linkLabel} ${styles.settle}`} style={at(5)}>Profile link</div>
+        <div className={`${styles.linkField} ${styles.settle}`} style={at(6)}>
+          <span className={styles.linkText}>varoom.co.ke/[username]</span>
+          <span className={styles.copied}>
+            <span className={`${styles.copiedTick} ${styles.settle} ${styles.pop}`} style={at(9)}><Check size={13} strokeWidth={3} /></span>
+            <Copy size={15} />
+          </span>
         </div>
       </div>
     ),
