@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
+import { HostFeaturesSection } from '../components/landing/HostFeaturesSection';
 import { SpacesSection } from '../components/landing/SpacesSection';
 import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
@@ -40,13 +41,14 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
     setSignupRole('client');
     setAuthOpen(true);
   }, []);
-  const openSignup = useCallback((trigger?: HTMLElement) => {
+  const openSignup = useCallback((trigger?: HTMLElement, role: 'host' | 'client' = 'client') => {
     setAuthOrigin(originOf(trigger));
     setInitialAuthView('signup');
     setInitialRecoveryStep('email');
-    setSignupRole('client');
+    setSignupRole(role);
     setAuthOpen(true);
   }, []);
+  const openHostSignup = useCallback((trigger: HTMLElement) => openSignup(trigger, 'host'), [openSignup]);
 
   // Landing page must strictly remain in light mode
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,200..900;1,200..900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,200..900;1,200..900&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
           rel="stylesheet"
         />
         <style>{`
@@ -307,6 +309,9 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
 
         {/* Page 2: one card per niche */}
         <SpacesSection spaces={spaces} />
+
+        {/* Page 3: what hosts get */}
+        <HostFeaturesSection onListSpace={openHostSignup} />
 
         <AuthPanel
           isOpen={isAuthOpen}

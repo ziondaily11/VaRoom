@@ -145,3 +145,23 @@ test('a code can be resent only when the server allows it, starting with the fir
   // Sign-up starts the wait when the first code is sent, before the code step shows.
   assert.match(signup, /setResendSeconds\(CODE_RESEND_SECONDS\);\s*setIsVerifying\(true\);/);
 });
+
+test('landing page 3: the host section, after Spaces, opens sign-up as a host', () => {
+  const page = read('pages/index.tsx');
+  const section = read('components/landing/HostFeaturesSection.tsx');
+  assert.ok(page.indexOf('<SpacesSection') < page.indexOf('<HostFeaturesSection'), 'Spaces first, then hosts');
+  assert.match(page, /<HostFeaturesSection onListSpace=\{openHostSignup\} \/>/);
+  assert.match(page, /openSignup\(trigger, 'host'\)/);
+  assert.match(page, /const openSignup = useCallback\(\(trigger\?: HTMLElement, role: 'host' \| 'client' = 'client'\)/);
+  // Six cards; their product pictures are hidden from screen readers, the titles carry the meaning.
+  assert.equal((section.match(/^\s{4}title: '/gm) || []).length, 6);
+  assert.match(section, /aria-hidden="true"/);
+  assert.match(section, /<Link href="\/pricing"/);
+  // The interface font is loaded with the serif, in one request.
+  assert.match(page, /family=Source\+Serif\+4[^"]*&family=Plus\+Jakarta\+Sans:wght@500;600;700&display=swap/);
+});
+
+test('the sign-in panel backdrop draws no border over the page', () => {
+  // Tailwind preflight is off, so a button keeps the browser's border unless it is reset.
+  assert.match(read('components/landing/AuthPanel.tsx'), /aria-label="Close sign-in panel"\s+className="absolute inset-0 m-0 border-0 bg-transparent p-0"/);
+});
