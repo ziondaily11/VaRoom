@@ -82,6 +82,9 @@ export const text = (fields: Fields, id: string): string => {
 export const checked = (fields: Fields, id: string): boolean => fields[id] === true;
 
 /** "Westlands, Nairobi" → neighbourhood "Westlands", city "Nairobi" (unchanged from list.html). */
+/** Minimum and maximum nights: nightly Airbnb and hotel stays only (not venues, not hourly prices). */
+export const nightlyStayRules = (category: Category, priceUnit: string) => category !== 'venue' && priceUnit !== 'hour';
+
 /** The wizard's steps: Basics, Location, The space, Photos, Price & terms, Review. */
 export const REVIEW_STEP = 6;
 

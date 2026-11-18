@@ -1,5 +1,5 @@
 import type { Category, Fields, PropertyPurpose, WizardForm } from './formState';
-import { SHORT_STAY, checked, isOfficeShop, splitListingArea, text } from './formState';
+import { SHORT_STAY, checked, isOfficeShop, nightlyStayRules, splitListingArea, text } from './formState';
 import type { OfficeShopKind, OfficeShopListingDetails } from './officeShop';
 import { collectOfficeShopDetails, hydrateOfficeShopDetails, mergeOfficeShopPatch, officeShopConditions, officeShopPriceUnit } from './officeShop';
 import { selectedAmenityKeys, setAmenityChecked } from './amenities';
@@ -170,6 +170,10 @@ export function bookingDetailsFor(category: Category, form: WizardForm, editMode
     details.min_notice_days = int(text(fields, 'min-notice'));
     details.max_advance_days = int(text(fields, 'max-advance'));
     details.instant_book = checked(fields, 'instant-book');
+    // Rules the wizard no longer asks for this listing are cleared, so an old value cannot apply.
+    if (!nightlyStayRules(category, String(details.price_unit))) { details.min_stay_nights = null; details.max_stay_nights = null; }
+    if (details.price_unit === 'hour') details.instant_book = false;
+    if (category === 'venue') { details.checkin_time = null; details.checkout_time = null; }
   } else {
     details.available_from = text(fields, 'available-from') || null;
     lease();
