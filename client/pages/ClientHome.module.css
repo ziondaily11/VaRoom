@@ -47,16 +47,6 @@
   color: inherit;
 }
 
-.bottomBar svg {
-  width: 1.05rem;
-  height: 1.05rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .topbar {
   grid-column: 1;
   grid-row: 1;
@@ -188,44 +178,6 @@
 }
 
 /* Segmented control: the chosen category is a raised pill inside a soft track. */
-.tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  max-width: 100%;
-  margin: 0 0 1rem;
-  padding: 3px;
-  border-radius: 100px;
-  background: var(--home-fill);
-  box-sizing: border-box;
-}
-
-.tab {
-  padding: 0.42rem 1rem;
-  border: 0;
-  border-radius: 100px;
-  background: transparent;
-  color: var(--muted, #536471);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s var(--home-ease), color 0.2s var(--home-ease), box-shadow 0.2s var(--home-ease), transform 0.15s var(--home-ease);
-}
-
-.tab:hover {
-  color: var(--ink, #0f1419);
-}
-
-.tab:active {
-  transform: scale(0.97);
-}
-
-.activeTab {
-  background: var(--home-raised);
-  color: var(--ink, #0f1419);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
-}
-
 .stateMessage,
 .errorMessage {
   margin: 0;
@@ -298,7 +250,9 @@
 
 .railCardHeading button,
 .newsHeading button,
-.mobileWidgetHeading button {
+.mobileWidgetHeading button,
+.mobileWidgetHeading a {
+  text-decoration: none;
   border: 0;
   background: transparent;
   color: var(--red, #c41e3a);
@@ -309,7 +263,8 @@
 
 .railCardHeading button:hover,
 .newsHeading button:hover,
-.mobileWidgetHeading button:hover {
+.mobileWidgetHeading button:hover,
+.mobileWidgetHeading a:hover {
   text-decoration: underline;
 }
 
@@ -668,6 +623,30 @@
   border-radius: 14px;
   background: var(--home-raised);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  transform-origin: top right;
+  animation: menuIn var(--motion-micro, 150ms) var(--ease-out, ease) both;
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The categories: the shared segmented control (components/ui/SegmentedTabs),
+   one line that scrolls sideways when it is wider than the column. */
+.tabsRow {
+  display: flex;
+  min-width: 0;
+  margin: 0 0 1rem;
+}
+
+.tabsRow :global(.vr-seg) {
+  --seg-accent: var(--red, #c41e3a);
+}
+
+.tabsRow :global(.vr-seg > button) {
+  font-size: 0.85rem;
+  padding: 0.42rem 1rem;
 }
 
 .menuDropdown button {
@@ -1170,8 +1149,7 @@
 }
 
 .mobileDestinations,
-.mobileNews,
-.bottomBar {
+.mobileNews {
   display: none;
 }
 
@@ -1230,28 +1208,6 @@
 
 .viewAllNews {
   text-decoration: none;
-}
-
-.bottomBar a {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 2.85rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.18rem;
-  padding: 0.35rem 0.2rem;
-  border-radius: 999px;
-  color: var(--ink, #0f1419);
-  font-size: 0.62rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.bottomBar .bottomActive {
-  background: var(--client-control-active, #e9e7e2);
-  font-weight: 700;
 }
 
 .toast {
@@ -1621,25 +1577,6 @@
     margin-left: 0;
   }
 
-  .bottomBar {
-    position: fixed;
-    z-index: 150;
-    bottom: 0;
-    left: 50%;
-    display: grid;
-    width: min(calc(100% - 1rem), 32rem);
-    min-height: 3.7rem;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: center;
-    padding: 0.3rem 0.35rem calc(0.3rem + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    margin-bottom: max(0.45rem, env(safe-area-inset-bottom));
-    border: 1px solid var(--line-soft, #dde1e3);
-    border-radius: 999px;
-    background: var(--white, #fff);
-    box-shadow: 0 10px 28px rgba(26, 18, 16, 0.14);
-  }
-
   .lightboxNav {
     width: 38px;
     height: 38px;
@@ -1674,18 +1611,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spinner,
-  .skeleton {
+  .skeleton,
+  .menuDropdown {
     animation: none;
   }
 
-  .tab,
   .action,
   .marketplaceSwitch,
   .destination img {
     transition: none;
   }
 
-  .tab:active,
   .action:active,
   .marketplaceSwitch:active,
   .destination:hover img {
