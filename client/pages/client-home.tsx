@@ -10,7 +10,7 @@ import { errorMessage } from '../lib/errors';
 import { profileStore } from '../lib/auth/session';
 import { completedClientProfile } from '../lib/types/profile';
 import Svg from '../components/booking/Svg';
-import { SOCIAL_ICONS } from '../components/shell/socialIcons';
+import { SOCIAL_ICONS, SOCIAL_LINKS } from '../components/shell/socialIcons';
 import AppShell from '../components/shell/AppShell';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
@@ -1613,8 +1613,8 @@ export default function ClientHome() {
           </section>
           <footer className={styles.railFooter} aria-label="Sidebar footer">
             <div className={styles.socialLinks} aria-label="Social media">
-              <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Svg markup={SOCIAL_ICONS.instagram} /></a>
-              <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Svg markup={SOCIAL_ICONS.tiktok} /></a>
+              <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Svg markup={SOCIAL_ICONS.instagram} /></a>
+              <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Svg markup={SOCIAL_ICONS.tiktok} /></a>
               <a href="#" aria-label="X (formerly Twitter)" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.x} /></a>
               <a href="#" aria-label="Facebook" onClick={(event) => event.preventDefault()}><Svg markup={SOCIAL_ICONS.facebook} /></a>
             </div>

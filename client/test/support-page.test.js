@@ -166,7 +166,9 @@ test('sign-in panel: "Get help" carries the typed email to account help in a new
   // Picture and @username, no outline around them.
   assert.match(panel, /<ReviewAvatar review=\{review\} \/>/);
   assert.match(panel, /\{reviewAuthorHandle\(review\)\}/);
-  assert.match(panel, /className="h-9 w-9 shrink-0 rounded-full object-cover"/);
+  const author = fs.readFileSync(path.join(root, 'components', 'landing', 'ReviewAuthor.tsx'), 'utf8');
+  assert.match(author, /className="h-9 w-9 shrink-0 rounded-full object-cover"/);
+  assert.match(panel, /import \{ ReviewAvatar \} from '\.\/ReviewAuthor';/);
   assert.doesNotMatch(panel, /<figcaption[^>]*border/);
   const landing = fs.readFileSync(path.join(root, 'pages', 'index.tsx'), 'utf8');
   assert.match(landing, /fetchFeaturedReview\(client\)\.catch\(\(\) => null\)/);

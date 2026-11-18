@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { newsDate, newsSource, updatePhotos, type NewsItem, type VaroomUpdate } from '../../lib/hostHome/hostHome';
 import type { AttentionView } from '../../lib/hostHome/attention';
 import { ICONS, Svg } from './hostHomeIcons';
+import { SOCIAL_LINKS } from '../shell/socialIcons';
 import AttentionCard from './AttentionCard';
 
 // Host home's right rail (and the blocks the phone feed repeats), markup
@@ -86,8 +87,8 @@ export default function HostRail({ attention, onNotNow, news, onRefreshNews, new
 
       <footer className="rail-footer" aria-label="Sidebar footer">
         <div className="rail-social-row" aria-label="Social media">
-          <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="Instagram"><Svg markup={ICONS.instagram} /></a>
-          <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="TikTok"><Svg markup={ICONS.tiktok} /></a>
+          <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="Instagram"><Svg markup={ICONS.instagram} /></a>
+          <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="TikTok"><Svg markup={ICONS.tiktok} /></a>
           <a href="#" onClick={(event) => event.preventDefault()} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="X (formerly Twitter)"><Svg markup={ICONS.x} /></a>
           <a href="#" onClick={(event) => event.preventDefault()} target="_blank" rel="noopener noreferrer" className="rail-social-link" aria-label="Facebook"><Svg markup={ICONS.facebook} /></a>
         </div>

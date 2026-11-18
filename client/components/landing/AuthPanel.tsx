@@ -14,6 +14,7 @@ import { useTriggerReveal } from '../../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
 import { ACCOUNT_HELP_HREF, saveSupportHandoff } from '../../lib/support/handoff';
 import { authorRoleLabel, reviewAuthorHandle, type FeaturedReview } from '../../lib/reviews/varoomReviews';
+import { ReviewAvatar } from './ReviewAuthor';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -38,31 +39,6 @@ function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
   if (role === 'host') return ['List your space.', 'Reach guests and take bookings across Kenya.'];
   if (role === 'client') return ['Find your space.', 'Search, save and book spaces across Kenya.'];
   return ['Join VaRoom.', 'Every kind of space, one account.'];
-}
-
-// The author's profile picture, or the first letter of their handle when they have none.
-function ReviewAvatar({ review }: { review: FeaturedReview }) {
-  const [failed, setFailed] = useState(false);
-  if (review.authorAvatarUrl && !failed) {
-    return (
-      <img
-        src={review.authorAvatarUrl}
-        alt=""
-        width={36}
-        height={36}
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-        className="h-9 w-9 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
-  const initial = (review.authorUsername || review.authorName).replace(/^@+/, '').charAt(0).toUpperCase() || 'V';
-  return (
-    <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white">
-      {initial}
-    </span>
-  );
 }
 
 // The review on the left half: stars, the words, and who wrote them.

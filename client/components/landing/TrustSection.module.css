@@ -1,0 +1,225 @@
+/*
+ * The last page of the landing page (approved version A): dark, the newest
+ * approved review, three trust points, a last call, and the footer. One
+ * screen tall; the footer sits at the bottom.
+ */
+
+.section {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #151310;
+  color: #f5efe7;
+  box-sizing: border-box;
+}
+
+.main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(48px, 9vh, 110px) 20px clamp(32px, 5vh, 48px);
+  text-align: center;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The review */
+.review { margin: 0; max-width: 860px; }
+
+.stars {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: #e8394f;
+}
+
+.starOff { color: rgba(245, 239, 231, 0.25); }
+
+.quote {
+  margin: 18px auto 0;
+  font-size: clamp(1.6rem, min(3.2vw, 5vh), 2.6rem);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* Long reviews (up to 600 characters): smaller words in a wider column, shown in full. */
+.review:has(.quoteLong) { max-width: 980px; }
+
+.quoteLong {
+  font-size: clamp(1.0625rem, min(1.7vw, 2.7vh), 1.375rem);
+  line-height: 1.45;
+}
+
+/* Laptops and desktops keep the page on one screen: a safety limit far above a normal review. */
+@media (min-width: 641px) {
+  .quoteLong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 9;
+    overflow: hidden;
+  }
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  font-size: 0.9375rem;
+  color: rgba(245, 239, 231, 0.7);
+}
+
+.handle { font-weight: 600; color: #fff; }
+
+/* Without a review */
+.heading {
+  margin: 0;
+  font-size: clamp(2.2rem, min(5vw, 7vh), 4rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+
+.heading em { font-style: italic; font-weight: 700; }
+
+/* Why it is safe */
+.trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 48px);
+  width: 100%;
+  max-width: 980px;
+  margin: clamp(36px, 7vh, 72px) auto clamp(28px, 5vh, 56px);
+  padding: 28px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  list-style: none;
+  text-align: left;
+}
+
+.trustTitle { display: block; font-size: 1.125rem; font-weight: 600; }
+
+.trustText {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(245, 239, 231, 0.62);
+}
+
+/* The last call */
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.section .ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 26px;
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.section .primary {
+  background: #bd2337 !important;
+  border-color: #bd2337 !important;
+  box-shadow: 0 10px 24px -12px rgba(189, 35, 55, 0.7) !important;
+  color: #fff !important;
+}
+
+.section .primary:hover {
+  background: #a11c2e !important;
+  border-color: #a11c2e !important;
+}
+
+.section .ghost {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  color: #fff !important;
+}
+
+.section .ghost:hover { background: rgba(255, 255, 255, 0.08) !important; }
+
+/* The footer */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding: 22px clamp(20px, 4.2vw, 72px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.875rem;
+  color: rgba(245, 239, 231, 0.6);
+}
+
+.brand { display: flex; align-items: baseline; gap: 16px; }
+.logo { font-size: 1.375rem; font-weight: 700; color: #f5efe7; }
+.logoVa { color: #bd2337; }
+
+.links { display: flex; flex-wrap: wrap; gap: 12px 22px; }
+
+.links a {
+  color: rgba(245, 239, 231, 0.75);
+  text-decoration: none;
+  transition: color var(--motion-micro) var(--ease-out);
+}
+
+.links a:hover,
+.links a:focus-visible { color: #fff; }
+
+.links a:focus-visible,
+.section .ctaButton:focus-visible { outline: 2px solid #e8394f; outline-offset: 3px; }
+
+/*
+ * Entrance (animation.md §8.14), played once like the pages before it: the
+ * review rises first, then the three trust points and the buttons, 90 ms
+ * apart. Only opacity and translate move.
+ */
+@keyframes trustRise {
+  from { opacity: 0; translate: 0 16px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.section[data-entrance='waiting'] .enter { opacity: 0; }
+
+.section[data-entrance='playing'] .enter {
+  animation: trustRise 700ms var(--ease-out) backwards;
+  animation-delay: calc(120ms + var(--i, 0) * 90ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section .enter { animation: none !important; opacity: 1 !important; }
+  .links a { transition: none; }
+}
+
+/* Short laptop screens: a little less space so the footer stays in view. */
+@media (min-width: 641px) and (max-height: 700px) {
+  .main { padding-top: 28px; padding-bottom: 20px; }
+  .trust { margin: 28px auto 24px; padding-top: 20px; }
+}
+
+@media (max-width: 640px) {
+  .trust { grid-template-columns: 1fr; gap: 18px; }
+  .links { gap: 12px 18px; }
+}
