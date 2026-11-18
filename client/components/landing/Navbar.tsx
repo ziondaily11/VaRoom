@@ -142,7 +142,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
           aria-label="Mobile navigation"
           className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-[#1c1b1a] px-5 py-5 text-[#f5efe7] sm:px-8 md:hidden"
         >
-          <div className="flex items-center justify-between">
+          <div data-reveal-content className="flex items-center justify-between">
             <span className="font-serif text-2xl font-bold tracking-tight">
               <span className="text-[#bd2337]">Va</span>Room
             </span>
@@ -156,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup }) => {
             </button>
           </div>
 
-          <div className="mt-auto flex flex-col gap-3 pb-4">
+          <div data-reveal-content className="mt-auto flex flex-col gap-3 pb-4">
             <button type="button" onClick={handleSignInClick} className={`${menuButton} border border-white/20 bg-transparent text-[#f5efe7] hover:bg-white/5`}>
               Sign in
             </button>

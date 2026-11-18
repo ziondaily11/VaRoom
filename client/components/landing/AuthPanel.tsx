@@ -13,7 +13,7 @@ import { errorMessage } from '../../lib/errors';
 import { useTriggerReveal } from '../../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../../lib/landing/useTriggerReveal';
 import { ACCOUNT_HELP_HREF, saveSupportHandoff } from '../../lib/support/handoff';
-import { authorRoleLabel, type FeaturedReview } from '../../lib/reviews/varoomReviews';
+import { authorRoleLabel, reviewAuthorHandle, type FeaturedReview } from '../../lib/reviews/varoomReviews';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -40,10 +40,35 @@ function sideCopy(view: AuthView, role: SignupRole | null): [string, string] {
   return ['Join VaRoom.', 'Every kind of space, one account.'];
 }
 
+// The author's profile picture, or the first letter of their handle when they have none.
+function ReviewAvatar({ review }: { review: FeaturedReview }) {
+  const [failed, setFailed] = useState(false);
+  if (review.authorAvatarUrl && !failed) {
+    return (
+      <img
+        src={review.authorAvatarUrl}
+        alt=""
+        width={36}
+        height={36}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+        className="h-9 w-9 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+  const initial = (review.authorUsername || review.authorName).replace(/^@+/, '').charAt(0).toUpperCase() || 'V';
+  return (
+    <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white">
+      {initial}
+    </span>
+  );
+}
+
 // The review on the left half: stars, the words, and who wrote them.
 function ReviewQuote({ review }: { review: FeaturedReview }) {
   return (
-    <figure className="m-0 mt-10 max-w-[30rem] border-t border-white/15 pt-8">
+    <figure data-reveal-content className="m-0 mt-10 max-w-[30rem] border-t border-white/15 pt-8">
       <div className="flex gap-1 text-[#e8394f]" role="img" aria-label={`Rated ${review.rating} out of 5`}>
         {Array.from({ length: 5 }, (_, i) => (
           <span key={i} aria-hidden="true" className={`text-lg leading-none ${i < review.rating ? '' : 'text-white/25'}`}>★</span>
@@ -52,10 +77,13 @@ function ReviewQuote({ review }: { review: FeaturedReview }) {
       <blockquote className="m-0 mt-4 font-serif text-[clamp(1.15rem,1.6vw,1.45rem)] leading-[1.45] text-white/95">
         “{review.comment}”
       </blockquote>
-      <figcaption className="mt-5 text-sm text-white/70">
-        <span className="font-semibold text-white">{review.authorName}</span>
-        <span aria-hidden="true"> · </span>
-        {authorRoleLabel(review.authorRole)}
+      <figcaption className="mt-5 flex items-center gap-3 text-sm text-white/70">
+        <ReviewAvatar review={review} />
+        <span className="min-w-0 truncate">
+          <span className="font-medium text-white/85">{reviewAuthorHandle(review)}</span>
+          <span aria-hidden="true"> · </span>
+          {authorRoleLabel(review.authorRole)}
+        </span>
       </figcaption>
     </figure>
   );
@@ -267,7 +295,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         <div
           className="auth-card-glass relative hidden w-1/2 flex-col justify-center overflow-hidden px-10 py-12 text-white md:flex lg:px-16"
         >
-          <div aria-hidden="true">
+          <div aria-hidden="true" data-reveal-content>
             <p className="m-0 font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.3)] lg:text-6xl">
               {sideCopy(authView, signupRole)[0]}
             </p>
@@ -282,6 +310,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
           <button
             type="button"
             onClick={closePanel}
+            data-reveal-content
             className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[#f4efe9] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
             aria-label="Close sign in"
           >
@@ -290,11 +319,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
 
           <div
             ref={contentScrollRef}
-            className="h-full w-full overflow-y-auto overscroll-contain"
+            className="auth-scroll h-full w-full overflow-y-auto overscroll-contain"
             data-auth-scroll
-            style={{ pointerEvents: contentAnimation === 'idle' ? 'auto' : 'none' }}
+            data-reveal-content
+            // While closing, the panel shrinks over its trigger: clicks must reach the trigger, not the panel.
+            style={{ pointerEvents: isOpen && contentAnimation === 'idle' ? 'auto' : 'none' }}
           >
-            <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col px-6 py-8 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
+            <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col px-6 py-8 sm:px-8 sm:py-12 lg:px-10 lg:py-8">
               <div
                 className={`auth-content my-auto w-full ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
                 style={{ display: authView === 'login' ? undefined : 'none' }}
@@ -491,6 +522,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
           background: rgba(10, 11, 11, 0.58);
           -webkit-backdrop-filter: blur(18px) saturate(115%);
           backdrop-filter: blur(18px) saturate(115%);
+        }
+
+        /* The panel still scrolls on very short screens, but never shows a scrollbar. */
+        .auth-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .auth-scroll::-webkit-scrollbar {
+          display: none;
         }
 
         .auth-content-exit-left {

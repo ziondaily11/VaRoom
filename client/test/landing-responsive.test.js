@@ -40,13 +40,16 @@ test('AuthPanel has responsive vertical padding (py-8 on mobile)', () => {
   );
 });
 
-test('AuthPanel has comfortable padding on large screens (lg:py-16)', () => {
+test('AuthPanel fits laptop screens without a visible scrollbar', () => {
   const src = read('components/landing/AuthPanel.tsx');
-  assert.match(
-    src,
-    /lg:py-16\b/,
-    'AuthPanel must preserve lg:py-16 for comfortable spacing on large screens',
-  );
+  // The content is centred (my-auto), so tall screens keep their space; the
+  // smaller padding lets the login view fit 1280x720 and 1366x768 laptops.
+  assert.match(src, /lg:px-10 lg:py-8\b/);
+  assert.doesNotMatch(src, /lg:py-16\b/);
+  // Very short screens can still scroll, but no scrollbar is drawn.
+  assert.match(src, /className="auth-scroll h-full w-full overflow-y-auto overscroll-contain"/);
+  assert.match(src, /\.auth-scroll \{\s*scrollbar-width: none;/);
+  assert.match(src, /\.auth-scroll::-webkit-scrollbar \{\s*display: none;/);
 });
 
 test('auth-content divs use my-auto to center when space allows and top-align when overflowing', () => {
