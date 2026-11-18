@@ -140,7 +140,9 @@ test('Landing page is exempted from global dark mode and CTA buttons have high c
   const { resolveTheme, isForcedLight } = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
   assert.equal(isForcedLight('/'), true, 'the landing page must stay light');
   assert.equal(resolveTheme('/', 'dark', true), 'light');
-  assert.equal(resolveTheme('/property-news/abc', 'dark', true), 'light');
+  // Property News follows the theme (it has its own dark newspaper).
+  assert.equal(resolveTheme('/property-news', 'dark', true), 'dark');
+  assert.equal(resolveTheme('/property-news', 'light', true), 'light');
   assert.equal(resolveTheme('/bookings', 'dark', false), 'dark');
   assert.equal(resolveTheme('/bookings', 'system', true), 'dark');
 
