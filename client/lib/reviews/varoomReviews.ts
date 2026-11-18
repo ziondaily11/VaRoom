@@ -3,7 +3,8 @@ import { resolveAvatarUrl } from '../../components/resolveStoredPhotoUrl';
 
 // Reviews of VaRoom itself (table public.varoom_reviews). A signed-in person
 // rates VaRoom from Help & Support; an admin approves reviews before one is
-// shown, and the sign-in panel shows the most recently approved one.
+// shown. The landing page (sign-in panel and last page) shows the approved
+// ones in turn, newest first.
 
 export const COMMENT_MAX = 600;
 
@@ -39,14 +40,12 @@ interface FeaturedRow {
   author_avatar_url?: string | null;
 }
 
-/** The review to show on the sign-in panel, or null when none is approved yet (or on any error). */
-export async function fetchFeaturedReview(client: Pick<SupabaseClient, 'rpc' | 'storage'>): Promise<FeaturedReview | null> {
-  const { data, error } = await client.rpc('varoom_featured_review');
-  if (error) {
-    console.warn('VaRoom review unavailable', error.message);
-    return null;
-  }
-  const row = (Array.isArray(data) ? data[0] : data) as FeaturedRow | null | undefined;
+/** How many approved reviews the landing page takes, newest first. */
+export const FEATURED_REVIEWS_MAX = 10;
+
+type ReviewClient = Pick<SupabaseClient, 'rpc' | 'storage'>;
+
+function toFeaturedReview(row: FeaturedRow | null | undefined, client: ReviewClient): FeaturedReview | null {
   if (!row || !row.comment || !(row.rating >= 1 && row.rating <= 5)) return null;
   return {
     rating: Math.round(row.rating),
@@ -56,6 +55,30 @@ export async function fetchFeaturedReview(client: Pick<SupabaseClient, 'rpc' | '
     authorUsername: row.author_username?.trim().replace(/^@+/, '') || null,
     authorAvatarUrl: resolveAvatarUrl(row.author_avatar_url?.trim() || null, client),
   };
+}
+
+/**
+ * The approved reviews the landing page shows (the sign-in panel and the last
+ * page), newest first: an empty list when none is approved yet, or on any
+ * error. Before migration 000076 adds varoom_featured_reviews, the single
+ * newest review still comes through varoom_featured_review.
+ */
+export async function fetchFeaturedReviews(client: ReviewClient): Promise<FeaturedReview[]> {
+  const many = await client.rpc('varoom_featured_reviews', { p_limit: FEATURED_REVIEWS_MAX });
+  let rows: unknown = many.data;
+  if (many.error) {
+    const one = await client.rpc('varoom_featured_review');
+    if (one.error) {
+      console.warn('VaRoom reviews unavailable', one.error.message);
+      return [];
+    }
+    rows = one.data;
+  }
+  const list = (Array.isArray(rows) ? rows : rows ? [rows] : []) as FeaturedRow[];
+  return list
+    .map((row) => toFeaturedReview(row, client))
+    .filter((review): review is FeaturedReview => review !== null)
+    .slice(0, FEATURED_REVIEWS_MAX);
 }
 
 /** "@susan" when the author has a public username, otherwise their short name ("Susan W."). */

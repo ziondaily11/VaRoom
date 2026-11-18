@@ -1,0 +1,102 @@
+/*
+ * Approved reviews, one at a time, on a dark surface (the sign-in panel and
+ * the landing page's last page). All slides share one grid cell, so the
+ * place keeps the size of the longest review and nothing below it moves.
+ */
+
+.carousel { position: relative; }
+
+.stack { display: grid; }
+
+.slide {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/* Where a shorter review sits in the space kept for the longest one. */
+.alignCenter .slide { align-self: center; }
+
+/* The review that leaves fades up and away (exit ~20% shorter than the entrance). */
+.slide[data-state='hidden'] {
+  opacity: 0;
+  translate: 0 -10px;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 260ms var(--ease-in),
+    translate 260ms var(--ease-in),
+    visibility 0s linear 260ms;
+}
+
+.slide[data-state='current'],
+.slide[data-state='entering'] {
+  opacity: 1;
+  translate: 0 0;
+  /* inherit, not visible: inside a hidden place (the closed sign-in panel) it stays hidden. */
+  visibility: inherit;
+}
+
+/* The new review's stars, words and author come in in turn, overlapping the exit (B6, B16). */
+@keyframes reviewPartIn {
+  from { opacity: 0; translate: 0 12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.slide[data-state='entering'] .part {
+  animation: reviewPartIn 460ms var(--ease-out) backwards;
+  animation-delay: calc(140ms + var(--part, 0) * 90ms);
+}
+
+/* Dots and the pause button. */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.dots { display: flex; align-items: center; gap: 7px; }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition: width 200ms var(--ease-in-out), background-color 150ms var(--ease-out);
+}
+
+.dot:hover { background: rgba(255, 255, 255, 0.5); }
+.dotOn, .dotOn:hover { width: 20px; background: #fff; }
+
+.pause {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-out), scale var(--motion-press) var(--ease-out);
+}
+
+.pause:hover { background: rgba(255, 255, 255, 0.1); }
+.pause:active { scale: var(--press-scale); }
+
+.dot:focus-visible,
+.pause:focus-visible { outline: 2px solid #e8394f; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide[data-state='hidden'] { translate: 0 0; transition: none; }
+  .slide[data-state='entering'] .part { animation: none; }
+  .dot, .pause { transition: none; }
+  .pause:active { scale: 1; }
+}

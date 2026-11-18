@@ -220,7 +220,7 @@ test('landing page 4: review, trust points, last call and footer, after the host
   const section = read('components/landing/TrustSection.tsx');
   const css = read('components/landing/TrustSection.module.css');
   assert.ok(page.indexOf('<HostFeaturesSection') < page.indexOf('<TrustSection'), 'hosts first, then the last page');
-  assert.match(page, /<TrustSection review=\{review\} onListSpace=\{openHostSignup\} \/>/);
+  assert.match(page, /<TrustSection reviews=\{reviews\} onListSpace=\{openHostSignup\} \/>/);
   // The real featured review with picture and handle; a heading when there is none.
   assert.match(section, /<ReviewAvatar review=\{review\} \/>/);
   assert.match(section, /\{reviewAuthorHandle\(review\)\}/);
@@ -349,4 +349,49 @@ test('landing top bar: links jump to the pages below; on phones they are in the 
   const page = read('pages/index.tsx');
   assert.match(page, /const sections = useMemo\(\(\) => landingSections\(spaces\.length > 0\), \[spaces\.length\]\);/);
   assert.match(page, /\.hero-nav-link::after \{\s*transition: none !important;/);
+});
+
+test('approved reviews turn every 6 s in both places, pause when they should, and keep their place', () => {
+  const carousel = read('components/landing/ReviewCarousel.tsx');
+  const css = read('components/landing/ReviewCarousel.module.css');
+  assert.match(carousel, /export const REVIEW_ROTATION_MS = 6000;/);
+  // Turns only when it can be seen and nobody is reading or pausing; reduced motion turns it off.
+  assert.match(carousel, /const turning = count > 1 && active && onScreen && tabVisible && !reduced && !userPaused && !hovered && !focused;/);
+  assert.match(carousel, /window\.setTimeout\(\(\) => show\(index \+ 1\), REVIEW_ROTATION_MS\)/);
+  assert.match(carousel, /aria-label=\{userPaused \? 'Play reviews' : 'Pause reviews'\}/);
+  assert.match(carousel, /aria-label=\{`Show review \$\{i \+ 1\} of \$\{count\}`\}/);
+  assert.match(carousel, /\{count > 1 && \(/, 'one review: no controls');
+  // One grid cell for all, so nothing moves; a closed panel keeps them hidden.
+  assert.match(css, /\.slide \{\s*grid-area: 1 \/ 1;/);
+  assert.match(css, /visibility: inherit;/);
+  assert.doesNotMatch(css, /visibility: visible/);
+  assert.match(css, /\.slide\[data-state='entering'\] \.part \{\s*animation: reviewPartIn 460ms var\(--ease-out\) backwards;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  // Both places use it.
+  assert.match(read('components/landing/AuthPanel.tsx'), /<ReviewCarousel\s+reviews=\{reviews\}\s+active=\{active\}/);
+  assert.match(read('components/landing/TrustSection.tsx'), /<ReviewCarousel\s+reviews=\{reviews\}\s+align="center"/);
+});
+
+test('migration 000076: several approved reviews, same privacy, no account ids, the old function kept', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '..', '..', 'server', 'migrations', '20261120_000076_varoom_featured_reviews.sql'), 'utf8');
+  assert.match(sql, /create or replace function public\.varoom_featured_reviews\(p_limit integer default 10\)/);
+  assert.match(sql, /limit least\(greatest\(coalesce\(p_limit, 10\), 1\), 20\);/);
+  assert.equal((sql.match(/p\.profile_visibility = 'private' or p\.deactivated_at is not null then null/g) || []).length, 2);
+  assert.match(sql, /where r\.status = 'approved' and r\.comment <> ''/);
+  assert.doesNotMatch(sql, /select[^;]*r\.user_id,/);
+  assert.doesNotMatch(sql, /drop function if exists public\.varoom_featured_review\(\)/, 'the old function stays for the deployed site');
+  assert.match(sql, /grant execute on function public\.varoom_featured_reviews\(integer\) to anon, authenticated, service_role;/);
+});
+
+test('footer: Instagram and TikTok as icons at the words\' size; Facebook and X are placeholders, not links', () => {
+  const section = read('components/landing/TrustSection.tsx');
+  const css = read('components/landing/TrustSection.module.css');
+  assert.match(section, /<a href=\{SOCIAL_LINKS\.instagram\} target="_blank" rel="noopener noreferrer" aria-label="Instagram"/);
+  assert.match(section, /<a href=\{SOCIAL_LINKS\.tiktok\} target="_blank" rel="noopener noreferrer" aria-label="TikTok"/);
+  assert.match(section, /<span role="img" aria-label="Facebook \(coming soon\)"/);
+  assert.match(section, /<span role="img" aria-label="X \(coming soon\)"/);
+  assert.doesNotMatch(section, />Instagram<\/a>|>TikTok<\/a>/);
+  assert.match(css, /\.socialIcon svg \{ display: block; width: 1\.15em; height: 1\.15em; \}/);
 });

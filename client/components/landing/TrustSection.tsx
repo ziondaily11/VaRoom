@@ -3,13 +3,15 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { authorRoleLabel, reviewAuthorHandle, type FeaturedReview } from '../../lib/reviews/varoomReviews';
 import { useSectionEntrance } from '../../lib/landing/entrance';
-import { SOCIAL_LINKS } from '../shell/socialIcons';
+import { SOCIAL_ICONS, SOCIAL_LINKS } from '../shell/socialIcons';
+import Svg from '../booking/Svg';
 import { ReviewAvatar } from './ReviewAuthor';
+import { ReviewCarousel } from './ReviewCarousel';
 import styles from './TrustSection.module.css';
 
 interface TrustSectionProps {
-  /** The newest approved review of VaRoom; null shows a heading instead. */
-  review: FeaturedReview | null;
+  /** The approved reviews of VaRoom, newest first; none shows a heading instead. */
+  reviews: FeaturedReview[];
   /** Opens sign-up as a host, growing out of the pressed button. */
   onListSpace: (trigger: HTMLElement) => void;
 }
@@ -27,7 +29,7 @@ const LONG_REVIEW = 180;
 const at = (i: number) => ({ '--i': i }) as React.CSSProperties;
 
 /** Page 4 of the landing page: a review, why VaRoom is safe, a last call, and the footer. */
-export const TrustSection: React.FC<TrustSectionProps> = ({ review, onListSpace }) => {
+export const TrustSection: React.FC<TrustSectionProps> = ({ reviews, onListSpace }) => {
   const sectionRef = useRef<HTMLElement>(null);
   const entrance = useSectionEntrance(sectionRef, 'varoom_landing_trust_played');
 
@@ -40,26 +42,35 @@ export const TrustSection: React.FC<TrustSectionProps> = ({ review, onListSpace 
       data-entrance={entrance === 'none' ? undefined : entrance}
     >
       <div className={styles.main}>
-        {review ? (
-          <figure className={`${styles.review} ${styles.enter}`} style={at(0)}>
+        {reviews.length ? (
+          <div className={`${styles.review} ${styles.enter}`} style={at(0)}>
             <h2 id="trust-heading" className={styles.srOnly}>What people say about VaRoom</h2>
-            <div className={styles.stars} role="img" aria-label={`Rated ${review.rating} out of 5`}>
-              {Array.from({ length: 5 }, (_, i) => (
-                <span key={i} aria-hidden="true" className={i < review.rating ? undefined : styles.starOff}>★</span>
-              ))}
-            </div>
-            <blockquote className={`${styles.quote}${review.comment.length > LONG_REVIEW ? ` ${styles.quoteLong}` : ''}`}>
-              “{review.comment}”
-            </blockquote>
-            <figcaption className={styles.author}>
-              <ReviewAvatar review={review} />
-              <span>
-                <span className={styles.handle}>{reviewAuthorHandle(review)}</span>
-                <span aria-hidden="true"> · </span>
-                {authorRoleLabel(review.authorRole)}
-              </span>
-            </figcaption>
-          </figure>
+            <ReviewCarousel
+              reviews={reviews}
+              align="center"
+              controlsClassName={styles.reviewControls}
+              renderReview={(review, { part, order }) => (
+                <figure className={styles.figure}>
+                  <div className={`${styles.stars} ${part}`} style={order(0)} role="img" aria-label={`Rated ${review.rating} out of 5`}>
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <span key={i} aria-hidden="true" className={i < review.rating ? undefined : styles.starOff}>★</span>
+                    ))}
+                  </div>
+                  <blockquote className={`${styles.quote}${review.comment.length > LONG_REVIEW ? ` ${styles.quoteLong}` : ''} ${part}`} style={order(1)}>
+                    “{review.comment}”
+                  </blockquote>
+                  <figcaption className={`${styles.author} ${part}`} style={order(2)}>
+                    <ReviewAvatar review={review} />
+                    <span>
+                      <span className={styles.handle}>{reviewAuthorHandle(review)}</span>
+                      <span aria-hidden="true"> · </span>
+                      {authorRoleLabel(review.authorRole)}
+                    </span>
+                  </figcaption>
+                </figure>
+              )}
+            />
+          </div>
         ) : (
           <h2 id="trust-heading" className={`${styles.heading} ${styles.enter}`} style={at(0)}>
             Book with <em>confidence.</em>
@@ -99,8 +110,13 @@ export const TrustSection: React.FC<TrustSectionProps> = ({ review, onListSpace 
           <Link href="/support">Help &amp; Support</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
-          <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
-          <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
+          {/* Social: icons at the text's size. Facebook and X are placeholders until VaRoom has those accounts. */}
+          <span className={styles.social}>
+            <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className={styles.socialIcon}><Svg markup={SOCIAL_ICONS.instagram} /></a>
+            <a href={SOCIAL_LINKS.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok" className={styles.socialIcon}><Svg markup={SOCIAL_ICONS.tiktok} /></a>
+            <span role="img" aria-label="Facebook (coming soon)" title="Coming soon" className={`${styles.socialIcon} ${styles.socialSoon}`}><Svg markup={SOCIAL_ICONS.facebook} /></span>
+            <span role="img" aria-label="X (coming soon)" title="Coming soon" className={`${styles.socialIcon} ${styles.socialSoon}`}><Svg markup={SOCIAL_ICONS.x} /></span>
+          </span>
         </nav>
       </footer>
     </section>

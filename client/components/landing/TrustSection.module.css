@@ -35,8 +35,10 @@
   white-space: nowrap;
 }
 
-/* The review */
-.review { margin: 0; max-width: 860px; }
+/* The reviews, in turn (ReviewCarousel) */
+.review { margin: 0; max-width: 860px; width: 100%; }
+.figure { margin: 0; }
+.reviewControls { justify-content: center; }
 
 .stars {
   display: flex;
@@ -190,6 +192,21 @@
 
 .links a:focus-visible,
 .section .ctaButton:focus-visible { outline: 2px solid #e8394f; outline-offset: 3px; }
+
+/* Social icons: the same height as the footer's words, so the footer does not grow. */
+.social { display: inline-flex; align-items: center; gap: 14px; }
+
+.socialIcon {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5em;
+  color: rgba(245, 239, 231, 0.75);
+}
+
+.socialIcon svg { display: block; width: 1.15em; height: 1.15em; }
+
+/* Placeholders: not links yet. */
+.socialSoon { opacity: 0.4; cursor: default; }
 
 /*
  * Entrance (animation.md §8.14), played once like the pages before it: the
