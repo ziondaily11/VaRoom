@@ -157,9 +157,9 @@ The investigation must also identify performance problems in the existing implem
 
 ### 3.4 Do not start implementation prematurely
 
-The workflow is:
+The workflow is the task workflow in §12.1:
 
-**Investigation → Findings → Migration plan → Approval → Implementation → Verification.**
+**Investigation → Plan → Fix → Apply the lethal fix → Test → Commit → Push the branch and open a PR.**
 
 The investigation must be sufficiently detailed to establish what the existing page does and how the React implementation will preserve it.
 
@@ -560,6 +560,20 @@ Do not declare a migration complete until its dependencies and affected routes h
 
 Work must be controlled, traceable and incremental.
 
+### 12.1 The task workflow
+
+Every task follows these seven steps, in this order. Do not skip a step.
+
+**Investigation → Plan → Fix → Apply the lethal fix → Test → Commit → Push the branch and open a PR.**
+
+1. **Investigation.** Find the root cause or fully understand the page (§3). Read the code, trace every dependency and every consumer of shared code. Do not guess.
+2. **Plan.** Write down what will change, which files, why, and the risks. Share the plan with the user before changing code.
+3. **Fix.** Implement the change described in the plan, within its scope.
+4. **Apply the lethal fix.** Make the fix final. Remove the root cause everywhere it appears: every call site, every related code path and every duplicate. No workaround, temporary patch, placeholder or "TODO" may remain. The problem must not be able to come back.
+5. **Test.** Run the tests, the TypeScript check and the build. Verify the behaviour itself (§11), not only that the code compiles. Fix any failure before moving on. Never claim that something works without verifying it.
+6. **Commit.** Commit the changes with a clear message that says what changed and why. Commit only the files of this task. Never commit secrets or unrelated work.
+7. **Push the branch and open a PR.** Push the task's branch and open a pull request. The PR description lists what changed, why, how it was tested, and any remaining risks (see "After implementation" below). Never push directly to `main`, never force-push a shared branch, and never merge the PR without the user's approval.
+
 ### Before implementation
 
 1. Confirm the active Git branch.
@@ -584,7 +598,7 @@ Work must be controlled, traceable and incremental.
 
 ### After implementation
 
-Provide a report containing:
+Provide a report, in the reply and in the PR description, containing:
 
 1. Files created.
 2. Files modified.
@@ -600,7 +614,7 @@ Provide a report containing:
 
 Never claim that something works without actually verifying it.
 
-Do not commit, push or deploy unless explicitly instructed.
+Committing, pushing the task's branch and opening a PR are part of every task (§12.1, steps 6–7). Merging the PR and deploying still need the user's explicit instruction.
 
 ---
 
