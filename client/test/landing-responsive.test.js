@@ -327,3 +327,26 @@ test('profile share panel: Instagram and TikTok copy the link for the bio; the l
   // "Copy link" stays on one line.
   assert.match(read('components/profile/profileStyles.ts'), /\.copy-btn\{[^}]*flex:none; white-space:nowrap;/);
 });
+
+test('landing top bar: links jump to the pages below; on phones they are in the menu', () => {
+  const { loadTs } = require('./helpers/loadTs');
+  const path = require('node:path');
+  const sections = loadTs(path.join(__dirname, '..', 'lib', 'landing', 'sections.ts'));
+  assert.deepEqual(sections.landingSections(true).map((s) => `${s.id}:${s.label}`), ['spaces:Spaces', 'hosts:For hosts', 'trust:Why VaRoom']);
+  assert.deepEqual(sections.landingSections(false).map((s) => s.id), ['hosts', 'trust'], 'no Spaces link when the Spaces page has no cards');
+
+  const ids = (file) => [...read(file).matchAll(/\bid="(spaces|hosts|trust)"/g)].map((m) => m[1]);
+  assert.deepEqual([...ids('components/landing/SpacesSection.tsx'), ...ids('components/landing/HostFeaturesSection.tsx'), ...ids('components/landing/TrustSection.tsx')], ['spaces', 'hosts', 'trust'], 'each link has its page');
+
+  const nav = read('components/landing/Navbar.tsx');
+  assert.match(nav, /<nav className="hero-header-nav hidden md:flex" aria-label="On this page">/);
+  assert.match(nav, /onClick=\{\(event\) => handleSectionClick\(event, section\.id, false\)\}/);
+  assert.match(nav, /onClick=\{\(event\) => handleSectionClick\(event, section\.id, true\)\}/);
+  assert.match(nav, /closeMenu\(\);\s*window\.requestAnimationFrame\(\(\) => \{ jumpToSection\(id\); \}\);/);
+  const lib = read('lib/landing/sections.ts');
+  assert.match(lib, /behavior: prefersReducedMotion\(\) \? 'auto' : 'smooth'/);
+  assert.match(lib, /section\.focus\(\{ preventScroll: true \}\);/);
+  const page = read('pages/index.tsx');
+  assert.match(page, /const sections = useMemo\(\(\) => landingSections\(spaces\.length > 0\), \[spaces\.length\]\);/);
+  assert.match(page, /\.hero-nav-link::after \{\s*transition: none !important;/);
+});

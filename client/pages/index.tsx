@@ -2,12 +2,13 @@ import Head from 'next/head';
 import type { GetStaticProps } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { HeroSection } from '../components/landing/HeroSection';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { HostFeaturesSection } from '../components/landing/HostFeaturesSection';
 import { SpacesSection } from '../components/landing/SpacesSection';
 import { TrustSection } from '../components/landing/TrustSection';
+import { landingSections } from '../lib/landing/sections';
 import { fetchFeaturedSpaces } from '../lib/landing/featuredSpaces';
 import type { FeaturedSpace } from '../lib/landing/featuredSpaces';
 import { fetchFeaturedReview } from '../lib/reviews/varoomReviews';
@@ -24,6 +25,8 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ spaces, review }: LandingPageProps) {
+  // The top bar links to the pages below; Spaces only when it has cards.
+  const sections = useMemo(() => landingSections(spaces.length > 0), [spaces.length]);
   const router = useRouter();
   const [isAuthOpen, setAuthOpen] = useState(false);
   const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
@@ -199,6 +202,58 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
           .hero-header-mobile > * {
             animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
           }
+          /* The links to the pages below: centred in the top bar, the underline grows on hover. */
+          /* Tablets: centred in the space between the logo and the buttons, so it never touches either. */
+          .hero-header-nav {
+            align-items: center;
+            gap: clamp(18px, 2.4vw, 36px);
+            margin: 0 auto;
+            padding: 0 16px;
+          }
+          /* Wider screens: centred on the page. */
+          @media (min-width: 1024px) {
+            .hero-header-nav {
+              position: absolute;
+              left: 50%;
+              top: 50%;
+              translate: -50% -50%;
+              margin: 0;
+              padding: 0;
+            }
+          }
+          .hero-nav-link {
+            position: relative;
+            padding: 6px 0;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #181513;
+            text-decoration: none !important;
+            white-space: nowrap;
+            animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .hero-nav-link:nth-child(1) { animation-delay: 60ms; }
+          .hero-nav-link:nth-child(2) { animation-delay: 100ms; }
+          .hero-nav-link:nth-child(3) { animation-delay: 140ms; }
+          .hero-nav-link::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 1.5px;
+            border-radius: 1px;
+            background: currentColor;
+            scale: 0 1;
+            transform-origin: left center;
+            transition: scale 200ms var(--ease-out);
+          }
+          .hero-nav-link:focus-visible { outline: 2px solid #bd2337; outline-offset: 4px; border-radius: 4px; }
+          @media (hover: hover) and (pointer: fine) {
+            .hero-nav-link:hover::after { scale: 1 1; }
+          }
+          .menu-nav-link:focus-visible { outline: 2px solid #f5efe7; outline-offset: 4px; }
+          /* A page that receives focus after a jump shows no outline. */
+          .snap-page:focus { outline: none; }
           .hero-header-actions > :nth-child(1) { animation-delay: 150ms; }
           .hero-header-actions > :nth-child(2) { animation-delay: 200ms; }
           .hero-header-mobile > :nth-child(1) { animation-delay: 150ms; }
@@ -244,6 +299,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
             }
             .hero-background-image,
             .hero-header-logo,
+            .hero-nav-link,
             .hero-header-actions > *,
             .hero-header-mobile > *,
             .hero-headline,
@@ -255,6 +311,9 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
               transform: none !important;
               opacity: 1 !important;
               will-change: auto;
+            }
+            .hero-nav-link::after {
+              transition: none !important;
             }
             .hero-cta-arrow {
               transition: none !important;
@@ -305,6 +364,7 @@ export default function LandingPage({ spaces, review }: LandingPageProps) {
             isAuthOpen={isAuthOpen}
             onOpenAuth={openSignIn}
             onOpenSignup={openSignup}
+            sections={sections}
           />
         </div>
 

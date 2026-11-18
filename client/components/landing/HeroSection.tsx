@@ -2,20 +2,23 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Navbar } from './Navbar';
+import type { LandingSection } from '../../lib/landing/sections';
 
 interface HeroSectionProps {
   isAuthOpen: boolean;
   onOpenAuth: (trigger: HTMLElement) => void;
   onOpenSignup: (trigger: HTMLElement) => void;
+  /** The pages below the hero, for the top bar's links. */
+  sections: LandingSection[];
 }
 
 // One left-aligned editorial block on every screen size: eyebrow, headline,
 // support line, then the CTA with a line of reassurance beside it.
-export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onOpenSignup }) => (
+export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onOpenSignup, sections }) => (
   <section className="hero-section relative min-h-[100dvh] w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
     {!isAuthOpen && (
       <>
-        <Navbar onOpenAuth={onOpenAuth} onOpenSignup={onOpenSignup} />
+        <Navbar onOpenAuth={onOpenAuth} onOpenSignup={onOpenSignup} sections={sections} />
 
         <div className="hero-animated-content relative z-30 mt-auto w-full max-w-full box-border px-[clamp(20px,4.2vw,72px)] pb-[clamp(36px,8vh,88px)] pt-8 flex flex-col items-start text-left">
           <p className="hero-eyebrow m-0 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/85">
