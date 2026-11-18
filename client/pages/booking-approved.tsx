@@ -12,9 +12,11 @@ import BookingDetail from '../components/bookings/BookingDetail';
 import { useBookingActions, useToast } from '../components/bookings/useBookingActions';
 import { usePhoneLayout, wasOpenedFromList } from '../components/bookings/usePhoneLayout';
 import { BOOKINGS_STYLES } from '../components/bookings/bookingsStyles';
+import { BackIcon } from '../components/bookings/BookingIcons';
 
 // Booking details on phones (migrated from legacy-pages/booking-approved.html):
-// /booking-approved?id=…. Larger screens show the same details in the
+// /booking-approved?id=…. Every status shows the full details (BookingDetail);
+// a top bar leads back to Bookings. Larger screens show the same details in the
 // Bookings right rail, so this page hands over to /bookings?booking=… there,
 // including when the window is widened while it is open.
 
@@ -93,22 +95,21 @@ export default function BookingApprovedPage() {
     }
   };
 
-  const showBackButton = state.kind === 'status' || (state.kind === 'ready' && state.booking.status !== 'approved');
+  // A booking that can't be shown (missing, not yours) offers the way back as a button too.
+  const showBackButton = state.kind === 'status';
 
   return (
     <>
       <Head>
-        <title>Booking Approved — VaRoom</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <title>Booking details · VaRoom</title>
       </Head>
       <style dangerouslySetInnerHTML={{ __html: BOOKINGS_STYLES }} />
       <div className="bookings-page booking-approved-page">
         {toast.element}
         <header className="ba-header">
-          <div className="ba-logo"><span className="va">Va</span><span className="room">Room</span></div>
-          <Link href="/bookings" className="ba-back" onClick={backToList}>‹ Back to bookings</Link>
+          <Link href="/bookings" className="ba-back" aria-label="Back to bookings" onClick={backToList}><BackIcon /></Link>
+          <h1 className="ba-title">Booking details</h1>
+          <span aria-hidden="true" />
         </header>
         <main className="ba-main">
           {state.kind === 'loading' && <p className="ba-checking">Loading your booking…</p>}

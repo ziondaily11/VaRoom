@@ -6,7 +6,7 @@ import { startListingChat } from '../chat/startChat';
 // requests, cancelling, reviews and opening the host conversation. Ported
 // from legacy-pages/bookings.html and booking-approved.html.
 
-export const CLIENT_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,'
+export const CLIENT_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,'
   + 'listing:listings(id,title,location_text,listing_photos(storage_path)),'
   + 'host:profiles!bookings_host_id_fkey(id,full_name,avatar_url,username)';
 

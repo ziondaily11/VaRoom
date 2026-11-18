@@ -50,5 +50,5 @@ test('wiring: Settings → Bookings for hosts, new listings start from the defau
   assert.match(publish, /fields\['instant-book'\] = details\.instant_book === true;/);
   const widget = read('components', 'booking', 'BookingWidget.tsx');
   assert.match(widget, /windowedCalendar\(calendar, bookable\)/);
-  assert.match(widget, /successText=\{instant \? 'Booked' : 'Reservation request sent'\}/);
+  assert.match(widget, /successText=\{instant \? 'Booked' : 'Request sent'\}/);
 });

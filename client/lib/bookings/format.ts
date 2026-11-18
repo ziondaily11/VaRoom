@@ -28,6 +28,8 @@ export interface Booking {
   hours: number | null;
   lease_start_date: string | null;
   lease_months: number | null;
+  /** Stays: how many guests (NULL for leases and older bookings). */
+  guest_count?: number | null;
   total_price: number | string | null;
   price_unit: string | null;
   created_at: string;
@@ -127,21 +129,27 @@ export function formatDetailDate(day: string | null): string {
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export interface DetailRow { label: string; value: string; icon: 'calendar' | 'clock' }
+export interface DetailRow { label: string; value: string; icon: 'calendar' | 'clock' | 'guests' }
 
 /** The "Booking Details" rows of an approved booking. */
 export function detailRows(b: Booking): DetailRow[] {
   const row = (label: string, value: string): DetailRow => ({
-    label, value, icon: label === 'Duration' || label === 'Lease length' ? 'clock' : 'calendar',
+    label, value, icon: label === 'Duration' || label === 'Lease length' ? 'clock' : label === 'Guests' ? 'guests' : 'calendar',
   });
-  if (b.hours) return [row('Date', formatDetailDate(b.start_date)), row('Duration', plural(b.hours, 'hour'))];
+  if (b.hours) {
+    const rows = [row('Date', formatDetailDate(b.start_date)), row('Duration', plural(b.hours, 'hour'))];
+    if (Number(b.guest_count) > 0) rows.push(row('Guests', plural(Number(b.guest_count), 'guest')));
+    return rows;
+  }
   if (b.start_date && b.end_date) {
     const nights = Math.round((new Date(b.end_date).getTime() - new Date(b.start_date).getTime()) / 86400000);
-    return [
+    const rows = [
       row('Check-in', formatDetailDate(b.start_date)),
       row('Check-out', formatDetailDate(b.end_date)),
       row('Duration', plural(nights, 'night')),
     ];
+    if (Number(b.guest_count) > 0) rows.push(row('Guests', plural(Number(b.guest_count), 'guest')));
+    return rows;
   }
   if (b.lease_start_date) {
     return [row('Move-in date', formatDetailDate(b.lease_start_date)), row('Lease length', plural(b.lease_months as number, 'month'))];
@@ -149,15 +157,26 @@ export function detailRows(b: Booking): DetailRow[] {
   return [];
 }
 
-/** Title and text shown instead of the detail for a booking that is not approved. */
-export function statusMessage(status: BookingStatus): [string, string] {
-  const messages: Record<string, [string, string]> = {
-    pending: ['Still awaiting approval', 'Your host hasn’t responded to this booking request yet.'],
-    declined: ['This request was declined', 'Your host wasn’t able to accept this booking request.'],
-    cancelled: ['Booking cancelled', 'This booking request was cancelled.'],
-    expired: ['This request expired', 'The booking window for this request has passed.'],
+export interface StatusHero {
+  /** good: approved or completed; wait: awaiting the host; stop: declined, cancelled or expired. */
+  tone: 'good' | 'wait' | 'stop';
+  title: string;
+  text: string;
+  /** The line under "Hello …," in the details card. */
+  intro: string;
+}
+
+/** The top of a booking's details for each status (every status shows the full details). */
+export function statusHero(status: BookingStatus): StatusHero {
+  const heroes: Record<string, StatusHero> = {
+    approved: { tone: 'good', title: 'Booking approved', text: 'Your host approved this booking.', intro: 'Please check the details below, then pay to confirm your booking.' },
+    completed: { tone: 'good', title: 'Stay complete', text: 'We hope you enjoyed your stay.', intro: 'Here are the details of your stay.' },
+    pending: { tone: 'wait', title: 'Waiting for the host', text: 'Your host hasn’t answered this request yet.', intro: 'You pay only after the host approves. You can still cancel this request.' },
+    declined: { tone: 'stop', title: 'Request declined', text: 'Your host wasn’t able to accept this request.', intro: 'You can choose other dates or another place on Marketplace.' },
+    cancelled: { tone: 'stop', title: 'Booking cancelled', text: 'This booking was cancelled.', intro: 'Here are the details of the cancelled booking.' },
+    expired: { tone: 'stop', title: 'Request expired', text: 'The booking window for this request has passed.', intro: 'You can send a new request for other dates.' },
   };
-  return messages[status] || [`Booking status: ${status}`, ''];
+  return heroes[status] || { tone: 'wait', title: 'Booking', text: `Status: ${status}`, intro: 'Here are the details of this booking.' };
 }
 
 /** Bookings that can still be cancelled by the client. */

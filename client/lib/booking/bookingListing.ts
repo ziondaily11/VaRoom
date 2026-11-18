@@ -332,16 +332,30 @@ export async function fetchCalendar(client: SupabaseClient, listingId: string): 
   return { open, unavailable: bookedDays((bookings.data || []) as Array<{ start_date: string | null; end_date: string | null }>) };
 }
 
+/**
+ * The calendar day after `day` ("2026-11-20" → "2026-11-21"). Worked out in
+ * UTC, so a clock change (summer time) where the guest is can never skip or
+ * repeat a day, as stepping a local Date and reading it back in UTC could.
+ */
+export function nextDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10);
+}
+
+/** Every day from `start` to `end`, both included (date-only strings). */
+function eachDay(start: string, end: string, visit: (day: string) => boolean | void): void {
+  const first = start.slice(0, 10);
+  const last = end.slice(0, 10);
+  for (let day = first, guard = 0; day <= last && guard < 4000; day = nextDay(day), guard += 1) {
+    if (visit(day) === false) return;
+  }
+}
+
 export function bookedDays(bookings: Array<{ start_date: string | null; end_date: string | null }>): Set<string> {
   const days = new Set<string>();
   bookings.forEach((booking) => {
     if (!booking.start_date || !booking.end_date) return;
-    const day = new Date(booking.start_date);
-    const end = new Date(booking.end_date);
-    while (day <= end) {
-      days.add(day.toISOString().slice(0, 10));
-      day.setDate(day.getDate() + 1);
-    }
+    eachDay(booking.start_date, booking.end_date, (day) => { days.add(day); });
   });
   return days;
 }
@@ -350,14 +364,31 @@ export const isOpenDay = (dates: CalendarDates, day: string) => dates.open.has(d
 
 /** Every day from check-in to check-out is open. */
 export function rangeIsOpen(dates: CalendarDates, start: string, end: string): boolean {
-  const day = new Date(start);
-  const last = new Date(end);
-  while (day <= last) {
-    if (!isOpenDay(dates, day.toISOString().slice(0, 10))) return false;
-    day.setDate(day.getDate() + 1);
-  }
-  return true;
+  let open = true;
+  eachDay(start, end, (day) => {
+    if (!isOpenDay(dates, day)) { open = false; return false; }
+    return true;
+  });
+  return open;
 }
+
+const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A calendar day as people read it: "Fri 20 Nov", or "Fri 20 Nov 2026" with
+ * the year. The day is read as that date where the guest is (not UTC).
+ */
+export function dayLabel(day: string, withYear = false): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(day || '');
+  if (!match) return day || '';
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const text = `${SHORT_DAYS[date.getDay()]} ${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
+  return withYear ? `${text} ${date.getFullYear()}` : text;
+}
+
+/** Today as a date-only string, where the guest is. */
+export const todayString = (today: Date = new Date()) => `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -420,7 +451,7 @@ export const isInstantBooking = (kind: BookingKind) => Boolean(kind.isShortStay 
 /** The guest-facing text for a failed booking insert. */
 export const bookingFailureText = (message: string) => (message.startsWith('booking_rule: ') ? message.slice('booking_rule: '.length) : `Something went wrong: ${message}`);
 
-export const nightsBetween = (start: string, end: string) => Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000);
+export const nightsBetween = (start: string, end: string) => Math.round((Date.parse(`${end.slice(0, 10)}T00:00:00Z`) - Date.parse(`${start.slice(0, 10)}T00:00:00Z`)) / 86400000);
 export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /**
@@ -493,7 +524,14 @@ export const ksh = (value: number) => `KSh ${value.toLocaleString()}`;
 
 // ---------- Writes ----------
 
-export interface StayChoice { start: string | null; end: string | null; hours: number; leaseStart: string; leaseMonths: number }
+/** What the guest chose; `guests` is sent for stays and venues only. */
+export interface StayChoice { start: string | null; end: string | null; hours: number; leaseStart: string; leaseMonths: number; guests?: number }
+
+/** The most guests the Guests stepper offers: the listing's maximum, else 20 (the database allows up to 1000). */
+export function guestLimit(details: Pick<BookingDetails, 'max_guests'>): number {
+  const max = Number(details.max_guests);
+  return Number.isInteger(max) && max > 0 ? Math.min(max, 1000) : 20;
+}
 
 export function bookingPayload(listing: BookingListing, kind: BookingKind, clientId: string, total: number, choice: StayChoice): Record<string, unknown> {
   const payload: Record<string, unknown> = {
@@ -503,6 +541,7 @@ export function bookingPayload(listing: BookingListing, kind: BookingKind, clien
     price_unit: kind.details.price_unit,
     total_price: total,
   };
+  if (kind.isShortStay && choice.guests && choice.guests > 0) payload.guest_count = Math.min(Math.round(choice.guests), guestLimit(kind.details));
   if (kind.isShortStay && kind.isHourly) {
     payload.start_date = choice.start;
     payload.hours = choice.hours;

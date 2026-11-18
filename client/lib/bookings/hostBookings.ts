@@ -5,7 +5,7 @@ import { formatDate, type Booking, type BookingPerson } from './format';
 // loading, approve / decline, the month filter, listing videos and table
 // reservations.
 
-export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,'
+export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,client_id,'
   + 'listing:listings(id,title,location_text,listing_photos(storage_path)),'
   + 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)';
 
@@ -86,6 +86,12 @@ export function isBookingInMonth(b: Booking | HostBooking, month: Date): boolean
 export function hostDateText(b: HostBooking): string {
   if (b.start_date) return formatDate(b.start_date) + (b.end_date ? ` → ${formatDate(b.end_date)}` : '');
   return b.lease_start_date ? `From ${formatDate(b.lease_start_date)}` : 'Dates to be confirmed';
+}
+
+/** "2 guests" when the guest gave a count (stays booked since it was saved), else ''. */
+export function guestCountText(b: Pick<Booking, 'guest_count'>): string {
+  const count = Number(b.guest_count);
+  return Number.isInteger(count) && count > 0 ? `${count} guest${count === 1 ? '' : 's'}` : '';
 }
 
 export function hostDurationText(b: HostBooking): string {

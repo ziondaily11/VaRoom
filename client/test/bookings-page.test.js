@@ -69,7 +69,10 @@ test('tabs: pending requests are Upcoming ("Awaiting approval"); declined shows 
   assert.equal(format.statusLabel('declined'), 'cancelled');
   assert.equal(format.isCancellable(booking({ status: 'pending' })), true);
   assert.equal(format.isCancellable(booking({ status: 'expired' })), false);
-  assert.deepEqual(format.statusMessage('pending'), ['Still awaiting approval', 'Your host hasn’t responded to this booking request yet.']);
+  assert.deepEqual(format.statusHero('pending'), { tone: 'wait', title: 'Waiting for the host', text: 'Your host hasn’t answered this request yet.', intro: 'You pay only after the host approves. You can still cancel this request.' });
+  assert.equal(format.statusHero('approved').tone, 'good');
+  assert.equal(format.statusHero('completed').title, 'Stay complete');
+  for (const status of ['declined', 'cancelled', 'expired']) assert.equal(format.statusHero(status).tone, 'stop', status);
   assert.equal(format.stayHasEnded(booking({ end_date: '2026-11-01' }), now), true);
   assert.equal(format.stayHasEnded(booking({ end_date: '2026-11-02' }), now), false, 'the last day counts until 23:59:59');
 });
@@ -158,9 +161,15 @@ test('cache: per account, updated in place, cleared on sign-out', () => {
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearBookingsCache\(\);/);
 });
 
-test('detail: approved layout, Contact Support opens /support in a new tab, cancel asks first, payment is a preview', () => {
+test('detail: every status shows the details, Contact Support opens /support in a new tab, cancel asks first, payment is a preview', () => {
   const detail = read('components', 'bookings', 'BookingDetail.tsx');
-  for (const text of ['Booking <span>Approved!</span>', 'Great news! Your booking request has been approved by the host.', 'View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking?', 'This can’t be undone. The host will be told.', 'Your stay is complete. Share your verified experience with future guests.']) {
+  // One layout for every status; payment and its protection note only once approved; the map once accepted.
+  assert.doesNotMatch(detail, /statusMessage|booking-detail-status"><h2>/);
+  assert.match(detail, /const hero = statusHero\(booking\.status\);/);
+  assert.match(detail, /\{approved && \(\s*<div className="booking-detail-protection">/);
+  assert.match(detail, /\{stayed && <Link className="booking-detail-map"/);
+  assert.match(detail, /const showReview = stayed && \(reviewed \|\| booking\.status === 'completed' \|\| stayHasEnded\(booking\)\);/);
+  for (const text of ['View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking?', 'This can’t be undone. The host will be told.', 'Your stay is complete. Share your verified experience with future guests.']) {
     assert.ok(detail.includes(text), text);
   }
   assert.match(detail, /href="\/support" target="_blank" rel="noopener noreferrer">Contact Support ›/);
@@ -180,7 +189,7 @@ test('phones open the details page; larger screens hand it to the Bookings rail'
   assert.match(layout, /removeEventListener\('change', update\)/);
   const page = read('pages', 'booking-approved.tsx');
   assert.match(page, /router\.replace\(bookingId \? `\/bookings\?booking=\$\{encodeURIComponent\(bookingId\)\}` : '\/bookings'\)/);
-  for (const text of ['No booking specified', "Couldn't load this booking", "This isn't your booking", 'Loading your booking…', '‹ Back to bookings']) {
+  for (const text of ['No booking specified', "Couldn't load this booking", "This isn't your booking", 'Loading your booking…', 'aria-label="Back to bookings"', '<h1 className="ba-title">Booking details</h1>']) {
     assert.ok(page.includes(text), text);
   }
   assert.match(page, /\.appNavigation = true;/);

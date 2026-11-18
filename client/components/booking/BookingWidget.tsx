@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -10,19 +10,21 @@ import {
 } from '../../lib/booking/bookingIcons';
 import BookingCalendar from './BookingCalendar';
 import { CommercialDocuments, PropertyPolicy } from './PolicySections';
-import { ReservationChoice } from './ReservationDialogs';
 import SendingButton, { type SendingHandle } from './SendingButton';
 import Svg from './Svg';
 import type { RatingInfo } from './ListingDetails';
 
-// The booking widget beside the listing, unchanged from legacy-pages/booking.html.
-// Nightly stays pick check-in then check-out on the calendar; hourly spaces a
-// date and hours; rentals a move-in date and months; properties show sale
-// and rent prices (and "Contact host about purchase"); hotels taking only
-// tables show Reserve a Table, and hotels taking both ask which to reserve.
-// The listing's owner sees the same widget with a note in place of the
-// actions. A property offered for sale and for rent shows both until the
-// guest picks Buy or Rent; then only that option's details.
+// The booking widget beside the listing. Nightly stays pick check-in then
+// check-out on the calendar; hourly spaces a date and hours; rentals a move-in
+// date and months; properties show sale and rent prices (and "Contact host
+// about purchase"); hotels taking only tables show Reserve a Table, and hotels
+// taking both show a Room / Table switch at the top. Stays and venues say how
+// many guests (up to the listing's maximum); the count is saved with the
+// booking. The listing's owner sees the same widget with a note in place of
+// the actions. A property offered for sale and for rent shows both until the
+// guest picks Buy or Rent; then only that option's details. The price summary
+// opens smoothly once there is something to price (animation.md C5), and a
+// sent request turns into a confirmation card with a link to Bookings.
 
 interface Props {
   listing: BookingListing;
@@ -40,9 +42,14 @@ interface Props {
   onMessageHost: () => void;
 }
 
-function DetailsBox({ line, isHotel }: { line: PriceLine | null; isHotel: boolean }) {
+function DetailsBox({ line: current, isHotel }: { line: PriceLine | null; isHotel: boolean }) {
+  // The last priced line stays inside while the box closes, so it shrinks with its content.
+  const last = useRef<PriceLine | null>(current);
+  if (current) last.current = current;
+  const line = current || last.current;
   return (
-    <div className="details-box" id="details-box" hidden={!line}>
+    <div className={`details-wrap${current ? ' open' : ''}`} aria-hidden={!current} inert={!current}>
+    <div className="details-box" id="details-box">
       {line && (
         <>
           {line.onRequest ? (
@@ -60,6 +67,37 @@ function DetailsBox({ line, isHotel }: { line: PriceLine | null; isHotel: boolea
         </>
       )}
     </div>
+    </div>
+  );
+}
+
+/** How many guests: a − / + stepper, from 1 to the listing's maximum. */
+function GuestStepper({ value, max, isHotel, onChange }: { value: number; max: number; isHotel: boolean; onChange: (value: number) => void }) {
+  return (
+    <div className="guest-field">
+      <div>
+        <span className="guest-label" id="guests-label">{isHotel ? 'Guests in this room' : 'Guests'}</span>
+        <span className="guest-hint">Up to {plural(max, 'guest')}</span>
+      </div>
+      <div className="stepper" role="group" aria-labelledby="guests-label">
+        <button type="button" aria-label="One guest fewer" disabled={value <= 1} onClick={() => onChange(Math.max(1, value - 1))}>−</button>
+        <output id="guests-input" aria-live="polite" aria-label={plural(value, 'guest')}>{value}</output>
+        <button type="button" aria-label="One more guest" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
+      </div>
+    </div>
+  );
+}
+
+/** A sent request or a confirmed booking: what happens next, and a way to Bookings. */
+function SentCard({ text }: { text: string }) {
+  return (
+    <div className="sent-card" role="status">
+      <span className="sent-check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path pathLength={1} d="m5 12.5 4.5 4.5L19 7" /></svg>
+      </span>
+      <p>{text}</p>
+      <Link href="/bookings" className="sent-link">View my bookings</Link>
+    </div>
   );
 }
 
@@ -74,9 +112,10 @@ function OwnerNote({ listingId }: { listingId: string }) {
 }
 
 const LEGEND = (
-  <div className="cal-legend">
+  <div className="cal-legend" aria-hidden="true">
     <span><span className="dot dot-open" />Open</span>
-    <span><span className="dot dot-selected" />Selected</span>
+    <span><span className="dot dot-selected" />Your dates</span>
+    <span><span className="dot dot-closed" />Not available</span>
   </div>
 );
 
@@ -91,10 +130,14 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   const [end, setEnd] = useState<string | null>(null);
   const [hours, setHours] = useState('1');
   const [leaseStart, setLeaseStart] = useState(minLeaseDate);
-  const [leasePicked, setLeasePicked] = useState(false);
-  const [leaseMonths, setLeaseMonths] = useState(String(details.min_lease_months || 1));
-  const intent = useRef<'stay' | null>(supportsBoth ? null : 'stay');
-  const [choosing, setChoosing] = useState(false);
+  const minMonths = Math.max(1, Number(details.min_lease_months) || 1);
+  const [leaseMonths, setLeaseMonths] = useState(String(minMonths));
+  const maxGuests = guestLimit(details);
+  const [guests, setGuests] = useState(() => Math.min(2, maxGuests));
+  // Hotels taking rooms and tables: which one the guest is reserving.
+  const tablesToo = supportsBoth && Boolean(dining);
+  const [mode, setMode] = useState<'stay' | 'table'>('stay');
+  const [blockedNote, setBlockedNote] = useState(false);
   const [result, setResult] = useState<{ text: string; error: boolean } | null>(null);
   const submitting = useRef(false);
   const confirm = useRef<SendingHandle>(null);
@@ -118,21 +161,17 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       line = priceLine(details.price_amount, nights, plural(nights, 'night'), details.cleaning_fee || null);
     }
   } else if (!kind.isPropertySaleOnly && (!isProperty || showsRent)) {
+    // The move-in date starts filled in (the first day it can be), so a price shows at once.
     const months = parseInt(leaseMonths, 10) || 0;
-    if (leasePicked && months >= 1) line = rentalLine(details, months);
+    if (leaseStart && months >= minMonths) line = rentalLine(details, months);
   }
 
   const book = async () => {
-    if (submitting.current || isOwner) return;
-    if (supportsBoth && !intent.current) { setChoosing(true); return; }
-    if (supportsBoth && intent.current === 'stay' && (!start || (!isHourly && !end))) {
-      intent.current = null;
-      window.alert('Choose your stay dates before reserving a room.');
-      return;
-    }
+    if (submitting.current || isOwner || !line) return;
     submitting.current = true;
+    setResult(null);
     confirm.current?.start();
-    const failure = await onBook({ start, end, hours: parseInt(hours, 10), leaseStart, leaseMonths: parseInt(leaseMonths, 10) }, line ? line.total : 0);
+    const failure = await onBook({ start, end, hours: parseInt(hours, 10), leaseStart, leaseMonths: parseInt(leaseMonths, 10), guests: isShortStay ? guests : undefined }, line.total);
     if (failure) {
       confirm.current?.error();
       submitting.current = false;
@@ -141,14 +180,16 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     }
     await confirm.current?.complete();
     setResult(instant
-      ? { text: 'Booked! Your stay is confirmed — find it in your bookings.', error: false }
-      : { text: 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.', error: false });
+      ? { text: 'Booked! Your stay is confirmed. You can find it in your bookings.', error: false }
+      : { text: 'Request sent. The host has 48 hours to answer, and we will tell you either way.', error: false });
   };
 
+  const problem = start && end ? stayProblem(details, nightsBetween(start, end)) : null;
   const rangeSummary = !calendar ? 'Loading open dates…'
-    : start && end ? `${start} → ${end} (${plural(nightsBetween(start, end), 'night')})${stayProblem(details, nightsBetween(start, end)) ? ` — ${stayProblem(details, nightsBetween(start, end))}` : ''}`
-    : start ? `Check-in: ${start} — now pick a check-out date.`
-    : 'No dates selected yet.';
+    : start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(nightsBetween(start, end), 'night')}`
+    : start ? `Check-in ${dayLabel(start)}. Now pick your check-out day.`
+    : 'Pick your check-in day.';
+  const sent = Boolean(result && !result.error);
 
   let picker: React.ReactNode = null;
   if (isShortStay && isHourly) {
@@ -156,11 +197,12 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       <>
         <p className="picker-title">Pick a date &amp; duration</p>
         <p className="picker-sub">Choose an open date and how many hours you need.</p>
-        <BookingCalendar dates={dates} dayClass={(day) => (day === start ? ' range-end' : '')} onPick={(day) => setStart(day)} />
+        <BookingCalendar dates={dates} start={start} end={null} lastDay={bookable.last} onPick={(day) => setStart(day)} />
         {LEGEND}
+        <p className="range-summary" aria-live="polite">{!calendar ? 'Loading open dates…' : start ? dayLabel(start, true) : 'Pick a date.'}</p>
         <div className="field">
           <label htmlFor="hours-input">Hours</label>
-          <input type="number" id="hours-input" min="1" value={hours} onChange={(event) => setHours(event.target.value)} />
+          <input type="number" id="hours-input" min="1" inputMode="numeric" value={hours} onChange={(event) => setHours(event.target.value)} />
         </div>
       </>
     );
@@ -168,58 +210,55 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     picker = (
       <>
         <p className="picker-title">{isHotel ? 'Choose your stay' : 'Pick your dates'}</p>
-        <p className="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>
+        <p className="picker-sub">Tap your check-in day, then your check-out day.</p>
         <BookingCalendar
           dates={dates}
-          dayClass={(day) => `${day === start || day === end ? ' range-end' : ''}${start && end && day > start && day < end ? ' in-range' : ''}`}
+          start={start}
+          end={end}
+          lastDay={bookable.last}
           onPick={(day) => {
             if (!dates) return;
             const next = pickStayDay(dates, start, end, day);
             setStart(next.start);
-            // A range over closed days restarts at the tapped day (the old
-            // "aren't open" note was overwritten at once, so it never showed).
+            // A range over closed days restarts at the tapped day, and says why.
             setEnd(next.end);
+            setBlockedNote(next.blocked);
           }}
         />
         {LEGEND}
-        <p className="range-summary" id="range-summary">{rangeSummary}</p>
+        <p className="range-summary" id="range-summary" aria-live="polite">{rangeSummary}</p>
+        {blockedNote && <p className="range-note">Some nights in between are not open, so that day is your new check-in.</p>}
+        {problem && <p className="range-note">{problem}</p>}
       </>
     );
   } else if (usesRentalBooking) {
     picker = (
       <>
         <p className="picker-title">Move-in details</p>
-        <p className="picker-sub">{details.available_from ? `Available from ${details.available_from}.` : 'Choose your desired start date.'}</p>
+        <p className="picker-sub">{details.available_from ? `Available from ${dayLabel(details.available_from, true)}.` : 'Choose when you would like to start.'}</p>
         <div className="field">
-          <label htmlFor="lease-start">{isProperty ? 'Desired move-in date' : 'Desired start date'}</label>
-          <input type="date" id="lease-start" min={minLeaseDate} value={leaseStart} onChange={(event) => { setLeaseStart(event.target.value); setLeasePicked(true); }} />
+          <label htmlFor="lease-start">{isProperty ? 'Move-in date' : 'Start date'}</label>
+          <input type="date" id="lease-start" min={minLeaseDate} value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
+          {leaseStart && <span className="field-hint">{dayLabel(leaseStart, true)}</span>}
         </div>
         <div className="field">
           <label htmlFor="lease-months">Lease length (months)</label>
-          <input type="number" id="lease-months" min="1" value={leaseMonths} onChange={(event) => setLeaseMonths(event.target.value)} />
+          <input type="number" id="lease-months" min={minMonths} inputMode="numeric" value={leaseMonths} onChange={(event) => setLeaseMonths(event.target.value)} />
+          {minMonths > 1 && <span className="field-hint">At least {plural(minMonths, 'month')}.</span>}
         </div>
       </>
     );
   }
 
   const confirmButton = (text: string) => (
-    <SendingButton ref={confirm} type="button" className="confirm-btn" id="confirm-btn" disabled={!line} aria-disabled={listingUnavailable ? true : undefined} successText={instant ? 'Booked' : 'Reservation request sent'} onClick={() => { void book(); }}>
+    <SendingButton ref={confirm} type="button" className="confirm-btn" id="confirm-btn" disabled={!line} aria-disabled={listingUnavailable ? true : undefined} successText={instant ? 'Booked' : 'Request sent'} onClick={() => { void book(); }}>
       {text}
     </SendingButton>
   );
-  const successMessage = <div className={`success-msg${result ? ' show' : ''}${result && result.error ? ' error' : ''}`} id="success-msg">{result ? result.text : ''}</div>;
-  const choice = choosing && (
-    <ReservationChoice
-      onClose={() => setChoosing(false)}
-      onTable={() => { setChoosing(false); onOpenTable(); }}
-      onStay={() => {
-        setChoosing(false);
-        intent.current = 'stay';
-        // As before, choosing a stay sends it at once when dates are already picked.
-        if (line) setTimeout(() => { void book(); }, 0);
-      }}
-    />
-  );
+  // A failure says what went wrong; success becomes the confirmation card.
+  const successMessage = result && (result.error
+    ? <div className="success-msg show error" id="success-msg" role="alert">{result.text}</div>
+    : <SentCard text={result.text} />);
 
   if (!kind.supportsStay && kind.supportsTableReservation && dining) {
     return (
@@ -306,43 +345,59 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     );
   }
 
+  const cancellation = details.cancellation_policy ? `${details.cancellation_policy.charAt(0).toUpperCase()}${details.cancellation_policy.slice(1)} cancellation` : null;
+  const reserveTable = !isOwner && (
+    <>
+      <p className="picker-title">Reserve a table</p>
+      <p className="picker-sub">{dining ? `${dining.restaurant_name} · ${dining.opening_hours}` : ''}</p>
+      <button type="button" className="confirm-btn" id="table-reserve-btn" onClick={onOpenTable}>Reserve a table</button>
+      <p className="form-note">Send a reservation request directly to the hotel.</p>
+    </>
+  );
+
   return (
     <div className="booking-widget">
       <div className="widget-price-row">
         <div className="widget-price">KSh {Number(details.price_amount).toLocaleString()} <span>/ {details.price_unit}</span></div>
         <div className="widget-rating">
           {rating && rating.count
-            ? <><Svg markup={ICON_STAR} /> {rating.text} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({rating.count})</span></>
+            ? <><Svg markup={ICON_STAR} /> {rating.text} <span className="widget-rating-count">({rating.count})</span></>
             // No reviews: offices and shops show nothing; places guests stay in are new.
             : rating && !reviewsOptional(kind) && <span className="new-badge">✦ New on VaRoom</span>}
         </div>
       </div>
-      {picker}
-      {isShortStay && (
-        <div className="field">
-          <label htmlFor="guests-input">{isHotel ? 'Guests in this room' : 'Guests'}</label>
-          <select id="guests-input" defaultValue="2 Guests"><option>1 Guest</option><option>2 Guests</option><option>3 Guests</option><option>4 Guests</option><option>5+ Guests</option></select>
+      {tablesToo && (
+        <div className="mode-switch" role="tablist" aria-label="What to reserve" data-mode={mode}>
+          <span className="mode-pill" aria-hidden="true" />
+          <button type="button" role="tab" aria-selected={mode === 'stay'} onClick={() => setMode('stay')}>Room</button>
+          <button type="button" role="tab" aria-selected={mode === 'table'} onClick={() => setMode('table')}>Table</button>
         </div>
       )}
-      {isHotel && (
-        <div className="picker-sub" style={{ margin: '.8rem 0 0', lineHeight: 1.7 }}>
-          {details.checkin_time && <>Check-in from {details.checkin_time}<br /></>}
-          {details.checkout_time && <>Check-out by {details.checkout_time}<br /></>}
-          {details.cancellation_policy && `${details.cancellation_policy.charAt(0).toUpperCase()}${details.cancellation_policy.slice(1)} cancellation policy`}
+      {mode === 'table' && tablesToo ? (
+        <div className="mode-view" key="table">{isOwner ? <OwnerNote listingId={listing.id} /> : reserveTable}</div>
+      ) : (
+        <div className="mode-view" key="stay">
+          {picker}
+          {isShortStay && !sent && <GuestStepper value={guests} max={maxGuests} isHotel={isHotel} onChange={setGuests} />}
+          {isHotel && (details.checkin_time || details.checkout_time || cancellation) && (
+            <ul className="stay-facts">
+              {details.checkin_time && <li><span>Check-in</span><span>from {details.checkin_time}</span></li>}
+              {details.checkout_time && <li><span>Check-out</span><span>by {details.checkout_time}</span></li>}
+              {cancellation && <li><span>Cancellation</span><span>{cancellation.replace(' cancellation', '')}</span></li>}
+            </ul>
+          )}
+          <DetailsBox line={line} isHotel={isHotel} />
+          {policy && <PropertyPolicy policy={policy} loading={!documents} />}
+          <CommercialDocuments documents={extraDocuments} />
+          {isOwner ? <OwnerNote listingId={listing.id} /> : !sent && (
+            <>
+              {confirmButton(isHotel ? 'Reserve room' : 'Book now')}
+              <p className="form-note">{availabilityMessage || (instant ? 'Instant book: your stay is confirmed as soon as you book.' : isHotel ? 'This sends a reservation request to the hotel. You pay only after it is confirmed.' : 'This sends a request. The host approves it before it is confirmed, and you pay only after that.')}</p>
+            </>
+          )}
+          {successMessage}
         </div>
       )}
-      <DetailsBox line={line} isHotel={isHotel} />
-      {policy && <PropertyPolicy policy={policy} loading={!documents} />}
-      <CommercialDocuments documents={extraDocuments} />
-      {isOwner ? <OwnerNote listingId={listing.id} /> : (
-        <>
-      {confirmButton(supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now'))}
-      {supportsBoth && <button type="button" id="choose-reservation-btn" style={{ width: '100%', marginTop: '.65rem', padding: '.78rem', border: '1px solid var(--red)', borderRadius: 8, background: 'transparent', color: 'var(--red)', fontWeight: 700, cursor: 'pointer' }} onClick={() => setChoosing(true)}>Choose reservation type</button>}
-      <p className="form-note">{availabilityMessage || (instant ? 'Instant book: your stay is confirmed as soon as you book.' : isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')}</p>
-        </>
-      )}
-      {successMessage}
-      {choice}
     </div>
   );
 }

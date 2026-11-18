@@ -160,7 +160,7 @@ test('the owner sees the page with notes instead of the actions', () => {
   assert.match(page, /if \(isOwner\) return MESSAGES\.ownListing;/, 'a booking is never sent for the owner');
   const widget = fs.readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
   assert.match(widget, /isOwner \? <OwnerNote listingId=\{listing\.id\} \/>/);
-  assert.match(widget, /if \(submitting\.current \|\| isOwner\) return;/);
+  assert.match(widget, /if \(submitting\.current \|\| isOwner \|\| !line\) return;/);
   const details = fs.readFileSync(path.join(root, 'components', 'booking', 'ListingDetails.tsx'), 'utf8');
   assert.match(details, /\{MESSAGES\.ownContact\}/);
   assert.equal(bl.MESSAGES.ownContact, 'This is your own contact. Guests use these buttons to reach you.');

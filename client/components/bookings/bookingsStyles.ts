@@ -96,7 +96,12 @@ export const BOOKINGS_STYLES = `
   }
   .bookings-page .booking-approved-check svg{ width:21px; height:21px; }
   .bookings-page .booking-approved-hero h2{ font-size:1.38rem; line-height:1.2; margin-bottom:.3rem; }
-  .bookings-page .booking-approved-hero h2 span{ color:var(--green); }
+  /* The header's tone follows the status: approved or complete (green), waiting (amber), declined, cancelled or expired (grey). */
+  .bookings-page .booking-approved-hero.tone-wait .booking-approved-check{ border-color:#E8A23A; color:#E8A23A; }
+  .bookings-page .booking-approved-hero.tone-stop .booking-approved-check{ border-color:#9A918D; color:#C9BDB8; }
+  .bookings-page .booking-approved-check{ animation:ba-pop var(--motion-standard,250ms) var(--ease-out,ease) both; }
+  @keyframes ba-pop{ from{ opacity:0; transform:scale(.8); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion:reduce){ .bookings-page .booking-approved-check{ animation:none; } }
   .bookings-page .booking-approved-hero p{ color:#C9BDB8; font-size:.8rem; line-height:1.4; }
   .bookings-page .booking-detail-card{
     background:var(--white); border:1px solid var(--line); border-top:0;
@@ -110,6 +115,7 @@ export const BOOKINGS_STYLES = `
     border-radius:12px; background:var(--paper); margin-bottom:.9rem; min-width:0;
   }
   .bookings-page .booking-detail-photo{ width:116px; height:98px; flex:0 0 116px; overflow:hidden; border-radius:9px; background:#E4E1DA; }
+  html[data-theme="dark"] .bookings-page .booking-detail-photo{ background:rgba(255,255,255,.08); }
   .bookings-page .booking-detail-photo img{ display:block; width:100%; height:100%; object-fit:cover; }
   .bookings-page .booking-detail-property-info{ display:flex; flex:1; flex-direction:column; min-width:0; }
   .bookings-page .booking-detail-property-title{ font-size:.96rem; line-height:1.25; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -705,13 +711,22 @@ export const BOOKINGS_STYLES = `
   }
 
   /* ---------- Booking details page (phones; /booking-approved) ---------- */
-  .bookings-page.booking-approved-page{ height:auto; min-height:100vh; overflow:visible; }
-  .booking-approved-page .ba-header{ display:flex; align-items:center; justify-content:space-between; padding:1.2rem 1.4rem; }
-  .booking-approved-page .ba-logo{ font-family:var(--font-brand); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
-  .booking-approved-page .ba-logo .va{ color:var(--red); }
-  .booking-approved-page .ba-back{ font-size:.9rem; font-weight:500; color:var(--muted); }
-  .booking-approved-page .ba-back:hover{ color:var(--red); }
-  .booking-approved-page .ba-main{ max-width:560px; margin:0 auto; padding:0 1rem 6rem; }
+  .bookings-page.booking-approved-page{ height:auto; min-height:100vh; min-height:100dvh; overflow:visible; }
+  /* A plain top bar: back to Bookings and the page title (the app's bottom bar does the rest). */
+  .booking-approved-page .ba-header{
+    position:sticky; top:0; z-index:5; display:grid; grid-template-columns:40px 1fr 40px; align-items:center; gap:8px;
+    padding:10px 12px; background:var(--paper); border-bottom:1px solid var(--line);
+  }
+  .booking-approved-page .ba-back{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink);
+    transition:background var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }
+  .booking-approved-page .ba-back:active{ transform:scale(.92); background:var(--nav-active-bg); }
+  .booking-approved-page .ba-back svg{ width:20px; height:20px; }
+  .booking-approved-page .ba-title{ text-align:center; font-size:1rem; font-weight:700; }
+  .booking-approved-page .ba-main{ max-width:560px; margin:0 auto; padding:16px 16px calc(110px + env(safe-area-inset-bottom)); }
+  /* The app keeps 5.1rem free under pages for its bottom bar (body padding, white). This page
+     already leaves that room inside its own background, so it reaches the bottom edge instead. */
+  @media (max-width:860px){ body.has-varoom-mobile-nav .bookings-page.booking-approved-page{ margin-bottom:-5.1rem; } }
+  @media (prefers-reduced-motion:reduce){ .booking-approved-page .ba-back:active{ transform:none; } }
   .booking-approved-page .ba-checking{ text-align:center; padding:5rem 0; color:var(--muted); }
   .booking-approved-page .booking-detail-panel{ display:block; }
   .booking-approved-page .ba-state-actions{ margin-top:1rem; }

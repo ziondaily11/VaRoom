@@ -36,7 +36,7 @@ test('office and shop rentals: totals that follow the price unit, or "the host c
   const format = loadTs(path.join(root, 'lib', 'bookings', 'format.ts'));
   assert.equal(format.bookingAmountText(0), 'Price to confirm');
   assert.equal(format.bookingAmountText('12000'), 'KES 12,000');
-  assert.match(read('components', 'bookings', 'BookingDetail.tsx'), /\{!priceToConfirm\(booking\.total_price\) && <button/, 'nothing to pay before the host confirms');
+  assert.match(read('components', 'bookings', 'BookingDetail.tsx'), /\{approved && !priceToConfirm\(booking\.total_price\) && <button/, 'nothing to pay before the host confirms');
 });
 
 test('booking page: one office/shop type chip, opening hours with times, property deposit and utilities', () => {
