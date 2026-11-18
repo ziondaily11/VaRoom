@@ -213,3 +213,14 @@ test('motion: step slides, progress bar, tile press and check, all near-instant 
   const reduced = styles.slice(styles.indexOf('@media (prefers-reduced-motion: reduce)'));
   for (const selector of ['.onb-stage.is-forward', '.onb-progress-fill', '.onb-tile-check svg', '.onb-tile:active']) assert.ok(reduced.includes(selector), selector);
 });
+
+test('clients: no side panel, the tile step stands alone and centred; hosts keep the panel', () => {
+  const page = read('pages', 'onboarding.tsx');
+  const parts = read('components', 'onboarding', 'OnboardingParts.tsx');
+  const client = page.slice(page.indexOf("if (role === 'client')"), page.indexOf('const hostExtras'));
+  assert.doesNotMatch(client, /panel=|ClientPreview/, 'the client step has no panel');
+  assert.match(page.slice(page.indexOf('const hostExtras')), /panel=\{\{/, 'hosts keep the panel');
+  assert.match(parts, /className=\{`onb\$\{panel \? '' : ' is-solo'\}`\}/);
+  assert.match(parts, /\{panel && \(/);
+  assert.doesNotMatch(read('components', 'onboarding', 'OnboardingSteps.tsx'), /ClientPreview/);
+});

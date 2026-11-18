@@ -11,7 +11,6 @@ import { CheckIcon, CroppedImage, LockIcon, PersonIcon, PhotoPicker, PinIcon, Ti
 // what they're looking for) and the live previews shown in the brand panel.
 
 const categoryTitle = (value: Category | null) => (value ? (CATEGORIES.find((option) => option.value === value) || { title: value }).title : null);
-const interestTitle = (value: Interest) => (INTERESTS.find((option) => option.value === value) || { title: value }).title;
 
 // ---------- Previews ----------
 
@@ -38,24 +37,6 @@ export function HostPreview({ name, username, city, niche, photo, existingAvatar
             <span className={`onb-chip${niche ? '' : ' is-empty'}`}>{categoryTitle(niche) || 'Category · next step'}</span>
           </div>
         </div>
-      </div>
-    </>
-  );
-}
-
-export function ClientPreview({ interests }: { interests: Interest[] }) {
-  const ordered = orderedInterests(interests);
-  return (
-    <>
-      <p className="onb-eyebrow">Your picks</p>
-      <div className="onb-picks">
-        <p className="onb-picks-title">{ordered.length ? `${ordered.length} pick${ordered.length === 1 ? '' : 's'}` : 'Nothing picked yet'}</p>
-        <div className="onb-chips">
-          {ordered.length
-            ? ordered.map((value) => <span className="onb-chip" key={value}>{interestTitle(value)}</span>)
-            : <span className="onb-chip is-empty">Choose what you're looking for</span>}
-        </div>
-        <p className="onb-picks-note">Marketplace shows these first.</p>
       </div>
     </>
   );
