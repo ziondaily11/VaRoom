@@ -11,8 +11,6 @@ export const MAP_STYLES = `
     font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh;
   }
   [data-theme="dark"] .map-page { --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; }
-  body:has(.map-page) { background:#F7F6F3; }
-  [data-theme="dark"] body:has(.map-page) { background:#000000; }
   .map-page, .map-page * { margin:0; padding:0; box-sizing:border-box; }
   .map-page a { color:inherit; text-decoration:none; }
   .map-page button { font-family:inherit; cursor:pointer; border:none; background:none; }
@@ -43,40 +41,18 @@ export const MAP_STYLES = `
   .map-page .map-btn-primary { background:var(--red); border-color:var(--red); color:#fff; }
   .map-page .map-btn[disabled] { opacity:.5; pointer-events:none; }
 
-  .map-page .pending-map { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.1rem; background:linear-gradient(180deg, #f3ede9, #e5ddd8); }
-  [data-theme="dark"] .map-page .pending-map { background:linear-gradient(180deg, #16181c, #000000); }
-
-  .map-page .pending-globe-wrap { position:relative; width:150px; height:150px; }
-  .map-page .pending-globe {
-    width:150px; height:150px; border-radius:50%; overflow:hidden; position:relative;
-    background: radial-gradient(circle at 35% 30%, #e8c9c9, #C41E3A 55%, #6e1020 100%);
-    box-shadow: inset -14px -14px 30px rgba(0,0,0,.45), inset 8px 8px 18px rgba(255,255,255,.25), 0 8px 20px rgba(0,0,0,.2);
-  }
-  .map-page .pending-globe::before {
-    /* Longitude stripes, animated horizontally to read as rotation on a sphere. */
-    content:""; position:absolute; inset:0;
-    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 20px);
-    animation: pending-globe-spin 3.5s linear infinite;
-    mix-blend-mode: overlay;
-  }
-  .map-page .pending-globe::after {
-    /* Latitude lines, static, curved via radial fade for a subtle sphere feel. */
-    content:""; position:absolute; inset:0; border-radius:50%;
-    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.18) 0 1px, transparent 1px 26px);
-    opacity:.6;
-  }
-  @keyframes pending-globe-spin {
-    from { background-position:0 0; }
-    to { background-position:-150px 0; }
-  }
-
-  .map-page .pending-pin-ring { position:absolute; top:58%; left:53%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid #fff; opacity:0; animation:pending-ping 2.2s ease-out infinite; }
-  .map-page .pending-pin-ring.r2 { animation-delay:.7s; }
-  .map-page .pending-pin-dot { position:absolute; top:58%; left:53%; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:#fff; box-shadow:0 0 4px rgba(0,0,0,.4); }
-  .map-page .pending-map-label { font-size:.85rem; color:var(--muted); text-align:center; max-width:220px; line-height:1.5; }
-  @keyframes pending-ping {
-    0% { transform:scale(0.5); opacity:.9; }
-    100% { transform:scale(2.8); opacity:0; }
+  /* Shown instead of the map while loading, when the location can't be shown, or when the map can't load. */
+  .map-page #vrm-map-canvas.is-empty { display:flex; }
+  .map-page .map-fallback { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.9rem; padding:2rem 1.5rem; text-align:center;
+    background:linear-gradient(180deg, #f3ede9, #e5ddd8); color:var(--muted); font-size:.92rem; line-height:1.5; }
+  [data-theme="dark"] .map-page .map-fallback { background:linear-gradient(180deg, #16181c, #000000); }
+  .map-page .map-fallback-icon { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--white); color:var(--red); box-shadow:0 6px 18px rgba(0,0,0,.08); }
+  .map-page .map-fallback p { max-width:280px; }
+  .map-page .map-fallback .map-btn { flex:0 0 auto; }
+  [data-theme="dark"] .map-page #vrm-map-canvas { background:#16181c; }
+  /* Phones: the details stay above the app's bottom bar. */
+  @media (max-width: 859px) {
+    body.has-varoom-mobile-nav .map-page .sheet { padding-bottom:calc(2rem + 4.6rem + env(safe-area-inset-bottom)); }
   }
   @media (min-width: 860px) {
     .map-page .map-layout { flex-direction:row; }
@@ -88,4 +64,5 @@ export const MAP_STYLES = `
   [data-theme="dark"] .map-page .sheet-status { background:#16181c !important; color:var(--ink) !important; }
   [data-theme="dark"] .map-page .sheet-status.unlocked { background:rgba(30, 107, 60, .2) !important; color:#7cc99a !important; }
   [data-theme="dark"] .map-page .map-btn { background:transparent !important; border-color:rgba(255,255,255,.12) !important; color:var(--ink) !important; }
+  [data-theme="dark"] .map-page .map-btn-primary { background:var(--red) !important; border-color:var(--red) !important; color:#fff !important; }
 `;

@@ -1,19 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
-import { describeLocation, fetchLocation, locationEndpoint, type LocationView } from '../lib/maps/maps';
+import { accountRole } from '../lib/types/profile';
+import { describeLocation, fetchLocation, locationEndpoint, LOCATION_PROBLEMS, type LocationView } from '../lib/maps/maps';
 import LocationMap from '../components/maps/LocationMap';
 import { MAP_STYLES } from '../components/maps/mapStyles';
 
 // Property location (migrated from legacy-pages/map.html): /map?listing=… or
 // /map?booking=…. The server decides how much is shown (general area or exact
-// address); directions open in Google Maps once the exact location is unlocked.
+// address); directions open in Google Maps once the exact location is
+// unlocked. A location that can't be shown says why (missing link, not
+// allowed, not found, could not load) and offers the way forward.
 
 type MapState =
   | { kind: 'loading' }
-  | { kind: 'missing' }
-  | { kind: 'pending' }
+  | { kind: 'missing' | 'forbidden' | 'notFound' | 'failed' }
   | { kind: 'ready'; view: LocationView };
 
 function queryValue(value: string | string[] | undefined): string | null {
@@ -22,8 +25,11 @@ function queryValue(value: string | string[] | undefined): string | null {
 
 export default function MapPage() {
   const router = useRouter();
-  const { status, session } = useAuth();
+  const { status, session, profile } = useAuth();
+  const role = accountRole(profile);
+  const homeHref = status === 'signed-in' ? (role === 'host' ? '/host-home' : '/client-home') : '/';
   const [state, setState] = useState<MapState>({ kind: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   const listing = queryValue(router.query.listing);
   const booking = queryValue(router.query.booking);
@@ -38,59 +44,62 @@ export default function MapPage() {
     }
     let cancelled = false;
     setState({ kind: 'loading' });
-    fetchLocation(endpoint, session?.access_token || null).then((result) => {
+    fetchLocation(endpoint, session?.access_token || null).then((outcome) => {
       if (cancelled) return;
-      setState(result ? { kind: 'ready', view: describeLocation(result) } : { kind: 'pending' });
+      if (outcome.kind === 'ok') setState({ kind: 'ready', view: describeLocation(outcome.result) });
+      else setState({ kind: outcome.kind === 'missing' ? 'notFound' : outcome.kind });
     });
     return () => { cancelled = true; };
-  }, [router.isReady, status, listing, booking, session?.access_token]);
+  }, [router.isReady, status, listing, booking, session?.access_token, attempt]);
+
+  // Back: where the person came from (a booking, a listing), else Bookings.
+  const goBack = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    if (window.history.length > 1) router.back();
+    else void router.push('/bookings');
+  }, [router]);
 
   const view = state.kind === 'ready' ? state.view : null;
-  const title = state.kind === 'loading' ? 'Loading location…'
-    : state.kind === 'missing' ? 'No property specified'
-      : state.kind === 'pending' ? 'Map integration in progress'
-        : state.view.title;
-  const sub = state.kind === 'pending'
-    ? "We're still connecting this feature — the map and directions will be available here soon."
-    : view ? view.sub : '';
+  const problem = state.kind === 'ready' || state.kind === 'loading' ? null : LOCATION_PROBLEMS[state.kind];
+  const title = state.kind === 'loading' ? 'Loading location…' : problem ? problem.title : (view as LocationView).title;
+  const sub = problem ? problem.sub : view ? view.sub : '';
 
   return (
     <>
       <Head>
-        <title>Map — VaRoom</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <title>Map · VaRoom</title>
       </Head>
       <style dangerouslySetInnerHTML={{ __html: MAP_STYLES }} />
       <div className="map-page">
         <header>
-          <a className="logo" href="/"><span className="va">Va</span>Room</a>
-          <a className="back-link" id="back-link" href="/">← Back</a>
+          <Link className="logo" href={homeHref}><span className="va">Va</span>Room</Link>
+          <a className="back-link" id="back-link" href="/bookings" onClick={goBack}>← Back</a>
         </header>
 
         <div className="map-layout">
-          <LocationMap view={view} pending={state.kind === 'pending'} />
+          <LocationMap view={view} message={state.kind === 'loading' ? 'Loading the map…' : problem ? problem.title : null} />
           <div className="sheet">
             <div className="sheet-title" id="sheet-title">{title}</div>
-            <div className="sheet-sub" id="sheet-sub">{sub}</div>
-            <div
-              className={`sheet-status${view ? ` ${view.statusKind}` : ''}`}
-              id="sheet-status"
-              style={state.kind === 'pending' ? { display: 'none' } : undefined}
-            >
-              {view ? view.status : ''}
-            </div>
+            {sub && <div className="sheet-sub" id="sheet-sub">{sub}</div>}
+            {view && <div className={`sheet-status ${view.statusKind}`} id="sheet-status">{view.status}</div>}
             <div className="sheet-actions">
-              <button
-                className="map-btn map-btn-primary"
-                id="directions-btn"
-                type="button"
-                disabled={!view || !view.directionsUrl}
-                onClick={() => { if (view && view.directionsUrl) window.open(view.directionsUrl, '_blank'); }}
-              >
-                Get Directions
-              </button>
+              {view && (
+                <button
+                  className="map-btn map-btn-primary"
+                  id="directions-btn"
+                  type="button"
+                  disabled={!view.directionsUrl}
+                  onClick={() => { if (view.directionsUrl) window.open(view.directionsUrl, '_blank', 'noopener'); }}
+                >
+                  Get Directions
+                </button>
+              )}
+              {state.kind === 'failed' && (
+                <button className="map-btn map-btn-primary" type="button" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+              )}
+              {(state.kind === 'missing' || state.kind === 'forbidden' || state.kind === 'notFound') && (
+                <Link className="map-btn" href="/bookings">Go to Bookings</Link>
+              )}
             </div>
           </div>
         </div>
