@@ -1,15 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps, type LocationView } from '../../lib/maps/maps';
+import MapIllustration from './MapIllustration';
 
-// The map canvas for /map: a pin for an exact location, or an approximate
-// circle (never a pin) for the general area. The general area has no
-// coordinates, so the map looks the area up by its name ("Nyali, Mombasa,
-// Kenya") and draws the circle there; if the name can't be found it shows
-// Kenya without a circle rather than a circle in the wrong city. When the
-// map can't load (no API key, script blocked), a card offers Google Maps.
+// The map for a location (the map card and /map): a pin for an exact location,
+// or an approximate circle (never a pin) for the general area. The general
+// area has no coordinates, so the map looks the area up by its name ("Nyali,
+// Mombasa, Kenya") and draws the circle there; if the name can't be found it
+// shows Kenya without a circle rather than a circle in the wrong city.
+//
+// A drawn map sits underneath: it shows while the live map loads, and stays
+// (with "Live map coming soon") when Google Maps is not configured or can't
+// load, so the place is always shown on a map the person can zoom and drag.
 
+interface MapsListener { remove(): void }
+interface GoogleMap {
+  setCenter(c: unknown): void;
+  setZoom(z: number): void;
+  addListener(event: string, handler: () => void): MapsListener;
+}
 interface GoogleMapsSdk {
-  Map: new (element: HTMLElement, options: Record<string, unknown>) => { setCenter(c: unknown): void; setZoom(z: number): void };
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMap;
   Marker: new (options: { position: { lat: number; lng: number }; map: object }) => object;
   Circle: new (options: Record<string, unknown>) => object;
   Geocoder?: new () => { geocode(request: { address: string; region?: string }, callback: (results: Array<{ geometry: { location: unknown } }> | null, status: string) => void): void };
@@ -22,39 +32,38 @@ function mapsSdk(): GoogleMapsSdk | null {
   return (w.google && w.google.maps) || null;
 }
 
-const PinIcon = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" />
-  </svg>
-);
+type LiveState = 'pending' | 'live' | 'unavailable';
 
-/** Shown instead of the map when it can't load (or while the location can't be shown). */
-export function MapFallback({ view, text }: { view: LocationView | null; text: string }) {
-  return (
-    <div className="map-fallback">
-      <span className="map-fallback-icon"><PinIcon /></span>
-      <p>{text}</p>
-      {view && view.mapsUrl && (
-        <a className="map-btn" href={view.mapsUrl} target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
-      )}
-    </div>
-  );
-}
-
-export default function LocationMap({ view, message }: { view: LocationView | null; message?: string | null }) {
+export default function LocationMap({ view, loadingText }: {
+  /** The location to show; null while loading or when it can't be shown. */
+  view: LocationView | null;
+  /** Shown over the drawing while the location loads; null when there is nothing to load. */
+  loadingText: string | null;
+}) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [live, setLive] = useState<LiveState>('pending');
 
   useEffect(() => {
     if (!view) return undefined;
     let cancelled = false;
-    setUnavailable(false);
+    let listener: MapsListener | null = null;
+    setLive('pending');
     loadGoogleMaps().then((ok) => {
       const sdk = mapsSdk();
       const canvas = canvasRef.current;
       if (cancelled || !canvas) return;
-      if (!ok || !sdk) { setUnavailable(true); return; }
-      const map = new sdk.Map(canvas, { center: view.center, zoom: view.zoom, disableDefaultUI: true, zoomControl: true });
+      if (!ok || !sdk) { setLive('unavailable'); return; }
+      const map = new sdk.Map(canvas, {
+        center: view.center,
+        zoom: view.zoom,
+        disableDefaultUI: true,
+        zoomControl: true,
+        fullscreenControl: true,
+        gestureHandling: 'greedy',
+        clickableIcons: false,
+      });
+      // The live map fades in over the drawing once its tiles are drawn.
+      listener = map.addListener('tilesloaded', () => { if (!cancelled) setLive('live'); });
       if (view.exact) {
         new sdk.Marker({ position: view.center, map });
         return;
@@ -75,16 +84,29 @@ export default function LocationMap({ view, message }: { view: LocationView | nu
         });
       });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (listener) listener.remove();
+    };
   }, [view]);
 
-  if (!view) return <div id="vrm-map-canvas" className="is-empty"><MapFallback view={null} text={message || 'Loading the map…'} /></div>;
-  if (unavailable) {
-    return (
-      <div id="vrm-map-canvas" className="is-empty">
-        <MapFallback view={view} text={view.exact ? 'The map preview is not available right now.' : 'The map preview is not available right now. You can still look up the area.'} />
-      </div>
+  let notice: React.ReactNode | null = null;
+  if (!view) notice = loadingText;
+  else if (live === 'unavailable') {
+    notice = (
+      <>
+        <strong>Map preview</strong>
+        <span>The live map is coming soon. This drawing shows {view.exact ? 'the place' : 'the general area'}, not the real streets.</span>
+      </>
     );
   }
-  return <div id="vrm-map-canvas" ref={canvasRef} />;
+
+  return (
+    <div className="vr-loc-map">
+      <MapIllustration exact={Boolean(view && view.exact)} showMarker={Boolean(view)} notice={notice} />
+      {view && live !== 'unavailable' && (
+        <div className={`vr-loc-live${live === 'live' ? ' is-live' : ''}`} ref={canvasRef} />
+      )}
+    </div>
+  );
 }

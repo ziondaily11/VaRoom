@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
@@ -559,12 +559,12 @@ export default function HostHomePage() {
   const startChat = useCallback(async (listing: FeedListing) => {
     if (!client || !userId) return;
     try {
-      void router.push(await openChat(listing.id));
+      void Router.push(await openChat(listing.id));
     } catch (error) {
       console.error('Host Home: the chat could not start:', error);
       notify("We couldn't open the chat. Please try again.");
     }
-  }, [client, userId, router, notify]);
+  }, [client, userId, notify]);
 
   const onSearch = (value: string) => setSearchDraft(value);
   useEffect(() => {

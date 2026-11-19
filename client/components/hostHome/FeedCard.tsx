@@ -8,6 +8,7 @@ import { FEED_PHOTO_SIZES, feedImageHints, feedPhotoSrcSet, isSlideNear } from '
 import type { FeedLikeState } from '../../lib/listings/listingLikes';
 import { hostProfilePath } from '../../lib/profile/usernames';
 import { ICONS, Svg } from './hostHomeIcons';
+import { MapLink } from '../maps/LocationCard';
 
 // One Discover card on Host home, unchanged from legacy-pages/host-home.html:
 // the host (your own listings link to your profile and show the owner menu,
@@ -257,7 +258,7 @@ export default function FeedCard(props: Props) {
           </Link>
           <div className="card-location">
             {host.username ? `@${host.username} · ` : ''}{listing.location_text || ''}
-            {' · '}<Link href={`/map?listing=${listing.id}`} className="card-map-link">View on Map</Link>
+            {' · '}<MapLink target={{ kind: 'listing', id: listing.id }} className="card-map-link">View on Map</MapLink>
           </div>
         </div>
         <div className="card-time">{timeAgo(listing.created_at)}</div>

@@ -167,9 +167,9 @@ test('detail: every status shows the details, Contact Support opens /support in 
   assert.doesNotMatch(detail, /statusMessage|booking-detail-status"><h2>/);
   assert.match(detail, /const hero = statusHero\(booking\.status\);/);
   assert.match(detail, /\{approved && \(\s*<div className="booking-detail-protection">/);
-  assert.match(detail, /\{stayed && <Link className="booking-detail-map"/);
+  assert.match(detail, /\{stayed && <MapLink className="booking-detail-map"/);
   assert.match(detail, /const showReview = stayed && \(reviewed \|\| booking\.status === 'completed' \|\| stayHasEnded\(booking\)\);/);
-  for (const text of ['View map &amp; directions', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking?', 'This can’t be undone. The host will be told.', 'Your stay is complete. Share your verified experience with future guests.']) {
+  for (const text of ['View on map</MapLink>', 'Hosted by', 'Total Amount', 'Your payment is protected by VaRoom.', 'Need help?', 'Contact Support ›', 'Cancel this booking?', 'This can’t be undone. The host will be told.', 'Your stay is complete. Share your verified experience with future guests.']) {
     assert.ok(detail.includes(text), text);
   }
   assert.match(detail, /href="\/support" target="_blank" rel="noopener noreferrer">Contact Support ›/);

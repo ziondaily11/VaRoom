@@ -6,6 +6,7 @@ import Router, { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import AppShell from '../components/shell/AppShell';
 import MobileNav from '../components/shell/MobileNav';
+import LocationCardHost from '../components/maps/LocationCard';
 import LazyAddAccountModal from '../components/LazyAddAccountModal';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
@@ -442,6 +443,8 @@ function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps
     <>
       {layout}
       <MobileNav enabled={isShellRoute || Boolean(Component.appNavigation)} />
+      {/* "View on Map" opens the location over the current page (?map=…). */}
+      <LocationCardHost />
     </>
   );
 }
