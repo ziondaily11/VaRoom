@@ -162,7 +162,8 @@ export const PRICING_STYLES = `
   /* ---------- Billing toggle ---------- */
   
   .pricing-page .billing{ display:flex; align-items:center; justify-content:center; gap:.9em; margin-top:2em; font-size:1.1em; font-weight:500; }
-  .pricing-page .billing-label{ color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; transition:color .2s ease; }
+  .pricing-page .billing-label{ color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; transition:color .2s ease; font:inherit; padding:.2rem .3rem; border-radius:8px; }
+  .pricing-page .billing-label[aria-disabled="true"]{ cursor:default; }
   .pricing-page .billing-label.is-active{ color:var(--ink); }
   .pricing-page .badge-soon{ font-size:.7em; font-weight:600; padding:.15rem .5rem; border-radius:100px; background:var(--pc-chip); color:var(--muted); }
   .pricing-page .switch{ position:relative; width:3.4em; height:1.9em; border-radius:100px; background:var(--pc-chip); border:1px solid var(--pc-line-hover); flex:0 0 auto; transition:background .2s ease, border-color .2s ease; }
@@ -204,7 +205,7 @@ export const PRICING_STYLES = `
     }
     .pricing-page .plans::-webkit-scrollbar{ display:none; }
     .pricing-page .plan{
-      flex:0 0 86vw; min-width:0;
+      flex:0 0 78vw; min-width:0;
       /* Keep the card visually substantial on mobile while letting future
          feature additions increase its height naturally. */
       min-height:70dvh;
@@ -218,5 +219,35 @@ export const PRICING_STYLES = `
     .pricing-page .plan, .pricing-page .plan::before, .pricing-page .plan-cta, .pricing-page .switch, .pricing-page .switch .knob{ transition:none; }
     .pricing-page .plan:hover, .pricing-page .plan--featured:hover{ transform:none; }
     .pricing-page .plan--featured{ transform:none; }
+  }
+
+  /* ---------- One message box under the title ---------- */
+  .pricing-page .pricing-notice{
+    display:flex; align-items:center; justify-content:center; gap:.65rem; flex-wrap:wrap; max-width:640px; margin:0 auto 1.4rem; padding:.8rem 1.1rem;
+    border-radius:14px; font-size:.95em; font-weight:500; text-align:center; position:relative; z-index:2;
+    background:color-mix(in srgb, var(--white) 86%, transparent); border:1px solid var(--pc-line); color:var(--ink);
+    animation:pricing-notice-in var(--motion-quick,200ms) var(--ease-out,ease) both;
+  }
+  .pricing-page .pricing-notice.is-good{ background:rgba(46,155,84,.12); border-color:rgba(46,155,84,.3); color:#1E6B3A; }
+  .pricing-page .pricing-notice.is-bad{ background:rgba(196,30,58,.08); border-color:rgba(196,30,58,.3); color:var(--red-deep); }
+  html[data-theme="dark"] .pricing-page .pricing-notice.is-good{ color:#8AE0AC; }
+  html[data-theme="dark"] .pricing-page .pricing-notice.is-bad{ color:#F08B9A; }
+  .pricing-page .pricing-retry{ padding:.35rem .9rem; border-radius:999px; background:var(--ink); color:var(--paper); font-weight:600; font-size:.9em; }
+  .pricing-page .pricing-spinner{ width:16px; height:16px; border-radius:50%; border:2px solid var(--pc-line); border-top-color:var(--ink); animation:pricing-spin .8s linear infinite; }
+  @keyframes pricing-spin{ to{ transform:rotate(360deg); } }
+  @keyframes pricing-notice-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+
+  /* ---------- Phones: dots under the sideways plans ---------- */
+  .pricing-page .plan-dots{ display:none; }
+  @media (max-width:980px){
+    .pricing-page .plan-dots{ display:flex; justify-content:center; gap:8px; margin-top:.4rem; }
+    .pricing-page .plan-dots button{ width:8px; height:8px; padding:0; border-radius:999px; background:var(--pc-line-hover); transition:width var(--motion-quick,200ms) var(--ease-out,ease), background var(--motion-quick,200ms) var(--ease-out,ease); }
+    .pricing-page .plan-dots button[aria-current="true"]{ width:22px; background:var(--ink); }
+    .pricing-page .plan-dots button::after{ content:''; position:absolute; inset:-10px; }
+    .pricing-page .plan-dots button{ position:relative; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .pricing-page .pricing-notice, .pricing-page .pricing-spinner{ animation:none; }
+    .pricing-page .plan-dots button{ transition:none; }
   }
 `;
