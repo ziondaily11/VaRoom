@@ -543,12 +543,17 @@ export default function HostHomePage() {
     if (activeKey.current) showSnapshot(activeKey.current);
   }, [showSnapshot]);
 
-  // Any click elsewhere closes an open Report menu.
+  // Any click elsewhere, or Escape, closes an open Report menu.
   useEffect(() => {
     if (!openMenu) return undefined;
     const close = () => setOpenMenu(null);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpenMenu(null); };
     document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [openMenu]);
 
   const startChat = useCallback(async (listing: FeedListing) => {
@@ -556,7 +561,8 @@ export default function HostHomePage() {
     try {
       void router.push(await openChat(listing.id));
     } catch (error) {
-      notify(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Host Home: the chat could not start:', error);
+      notify("We couldn't open the chat. Please try again.");
     }
   }, [client, userId, router, notify]);
 
@@ -626,13 +632,11 @@ export default function HostHomePage() {
   return (
     <>
       <Head>
-        <title>VaRoom — Host dashboard</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <title>Home · VaRoom</title>
       </Head>
       <style dangerouslySetInnerHTML={{ __html: HOST_HOME_STYLES }} />
-      <div className={`toast${toast ? ' show' : ''}`} id="toast">{toast}</div>
+      <div className="host-home-page">
+      <div className={`toast${toast ? ' show' : ''}`} id="toast" role="status" aria-live="polite">{toast}</div>
       <ReportDialog
         open={Boolean(reportTarget)}
         onClose={() => setReportTarget(null)}
@@ -652,7 +656,7 @@ export default function HostHomePage() {
             </button>
             <div className="search-wrap">
               <button type="button" className="search-btn" id="search-btn" aria-label="Search"><Svg markup={ICONS.search} /></button>
-              <input type="text" id="search-input" placeholder="Search by location or @username" value={searchDraft} onChange={(event) => onSearch(event.target.value)} />
+              <input type="text" id="search-input" placeholder="Search places or @user" aria-label="Search by listing name, area or host username" value={searchDraft} onChange={(event) => onSearch(event.target.value)} />
             </div>
             <Link href="/list" className="list-btn-primary topbar-list-btn" aria-label="List a new space">
               <Svg markup={ICONS.plus16} /><span className="btn-label">List a new space</span>
@@ -677,6 +681,7 @@ export default function HostHomePage() {
             <HostRail attention={attention} onNotNow={notNow} news={newsRefreshing ? null : news} onRefreshNews={refreshNews} newsRefreshing={newsRefreshing} updates={updates} />
           </div>
         </div>
+      </div>
       </div>
     </>
   );

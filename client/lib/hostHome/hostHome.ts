@@ -1,3 +1,4 @@
+import { searchTerm } from '../marketplace/marketplace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { pageAfter, type FeedCursorRow } from '../discover/feedCursor';
 
@@ -79,10 +80,11 @@ export function feedFetcher(client: SupabaseClient, userId: string, onlyMine: bo
       return error ? { error: new Error(error.message) } : { data: (data || []) as unknown as FeedListing[] };
     }
     if (offset > 0) return { data: [], hasMore: false };
-    const locationQuery = withFilters(listings())
-      .ilike('location_text', `%${term}%`)
+    // Name or area (one filter; characters that would break it are removed), or a host's @username.
+    const safeTerm = searchTerm(term.replace(/^@/, ''));
+    const locationQuery = (safeTerm ? withFilters(listings()).or(`title.ilike.%${safeTerm}%,location_text.ilike.%${safeTerm}%`) : withFilters(listings()))
       .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(limit);
-    const hosts = await client.from('profiles').select('id').ilike('username', `%${term}%`).limit(100);
+    const hosts = await client.from('profiles').select('id').ilike('username', `%${safeTerm || term}%`).limit(100);
     if (hosts.error) return { error: new Error(hosts.error.message) };
     const hostIds = ((hosts.data || []) as Array<{ id: string }>).map((profile) => profile.id);
     const hostQuery = hostIds.length
