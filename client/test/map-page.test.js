@@ -44,16 +44,29 @@ test('general area: area name, no pin and no directions; pending bookings say so
   assert.equal(maps.describeLocation({ level: 2, location: { latitude: 1, longitude: 2 } }).exact, false);
 });
 
-test('fetchLocation: token when signed in; any failure is null (the "integration in progress" state)', async () => {
+test('fetchLocation: token when signed in; says plainly why a location is missing', async () => {
   const calls = [];
   const response = (status, text) => ({ ok: status < 300, status, text: async () => text });
-  assert.deepEqual(await maps.fetchLocation('/x', 'tok', async (url, init) => { calls.push(init); return response(200, '{"level":1}'); }), { level: 1 });
+  assert.deepEqual(await maps.fetchLocation('/x', 'tok', async (url, init) => { calls.push(init); return response(200, '{"level":1}'); }), { kind: 'ok', result: { level: 1 } });
   assert.equal(calls[0].headers.Authorization, 'Bearer tok');
   await maps.fetchLocation('/x', null, async (url, init) => { calls.push(init); return response(200, '{}'); });
   assert.deepEqual(calls[1].headers, {});
-  assert.equal(await maps.fetchLocation('/x', null, async () => response(404, '{"error":"Listing not found"}')), null);
-  assert.equal(await maps.fetchLocation('/x', null, async () => response(200, '<html>')), null);
-  assert.equal(await maps.fetchLocation('/x', null, async () => { throw new TypeError('offline'); }), null);
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => response(404, '{"error":"Listing not found"}')), { kind: 'missing' });
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => response(403, '{}')), { kind: 'forbidden' });
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => response(401, '{}')), { kind: 'forbidden' });
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => response(500, '{}')), { kind: 'failed' });
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => response(200, '<html>')), { kind: 'failed' });
+  assert.deepEqual(await maps.fetchLocation('/x', null, async () => { throw new TypeError('offline'); }), { kind: 'failed' });
+});
+
+test('general area: found by its name only (never an address); Google Maps link', () => {
+  const area = maps.describeLocation({ level: 1, location: { neighborhood: 'Nyali', city: 'Mombasa' } });
+  assert.equal(area.areaQuery, 'Nyali, Mombasa, Kenya');
+  assert.equal(area.mapsUrl, 'https://www.google.com/maps/search/?api=1&query=Nyali%2C%20Mombasa%2C%20Kenya');
+  const exact = maps.describeLocation({ level: 3, location: { latitude: -4, longitude: 39.6, formatted_address: 'x' } });
+  assert.equal(exact.areaQuery, null);
+  assert.equal(exact.mapsUrl, exact.directionsUrl);
+  assert.equal(maps.describeLocation({ level: 1, location: {} }).areaQuery, null);
 });
 
 test('the Maps SDK loads once, only with a configured key', async () => {
@@ -70,14 +83,20 @@ test('the Maps SDK loads once, only with a configured key', async () => {
 });
 
 test('page: legacy states and wording; waits for the query and the session; mobile navigation', () => {
-  for (const text of ['Loading location…', 'No property specified', 'Map integration in progress', "We're still connecting this feature — the map and directions will be available here soon.", 'Get Directions', '← Back']) {
+  for (const text of ['Loading location…', 'Get Directions', '← Back', 'Try again', 'Go to Bookings']) {
     assert.ok(page.includes(text), text);
   }
+  assert.doesNotMatch(page, /Map integration in progress|fonts\.googleapis/);
+  assert.match(page, /if \(window\.history\.length > 1\) router\.back\(\);/);
+  assert.match(fs.readFileSync(path.join(root, 'lib', 'maps', 'maps.ts'), 'utf8'), /This location is shared only with the guest and host of this booking\./);
   assert.match(page, /if \(!router\.isReady \|\| status === 'loading'\) return undefined;/);
   assert.match(page, /\.appNavigation = true;/);
   const map = fs.readFileSync(path.join(root, 'components', 'maps', 'LocationMap.tsx'), 'utf8');
   assert.match(map, /new sdk\.Marker\(/);
   assert.match(map, /radius: 1200/);
+  assert.match(map, /new sdk\.Geocoder\(\)\.geocode\(\{ address: view\.areaQuery, region: 'ke' \}/);
+  assert.doesNotMatch(map, /PendingMap/);
+  assert.match(fs.readFileSync(path.join(root, 'components', 'maps', 'mapStyles.ts'), 'utf8'), /body\.has-varoom-mobile-nav \.map-page \.sheet \{ padding-bottom:/);
 });
 
 test('legacy map.html and varoom-maps.js are retired; old URLs reach the native page', () => {

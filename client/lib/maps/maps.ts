@@ -59,10 +59,19 @@ export interface LocationView {
   status: string;
   statusKind: 'locked' | 'unlocked';
   exact: boolean;
-  /** Where to center the map; the general area uses Nairobi (no coordinates at that level). */
+  /** Where to center the map: the exact point, or Nairobi until the area is found by name. */
   center: { lat: number; lng: number };
   zoom: number;
   directionsUrl: string | null;
+  /** The general area's name for the map to find ("Nyali, Mombasa, Kenya"); never an address. Null when exact. */
+  areaQuery: string | null;
+  /** "Open in Google Maps": the exact point's directions, or a search for the area's name only. */
+  mapsUrl: string | null;
+}
+
+/** A Google Maps search for an area's name (the general area: no address, no coordinates). */
+export function areaSearchUrl(area: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(area)}`;
 }
 
 /** What the sheet and map show for a server answer (legacy renderResult). */
@@ -81,8 +90,11 @@ export function describeLocation(result: LocationResult): LocationView {
       center: { lat, lng },
       zoom: 16,
       directionsUrl: getDirectionsUrl(lat, lng),
+      areaQuery: null,
+      mapsUrl: getDirectionsUrl(lat, lng),
     };
   }
+  const areaName = [loc.neighborhood, loc.city].filter(Boolean).join(', ');
   return {
     title: [loc.neighborhood, loc.city].filter(Boolean).join(', ') || loc.city || 'General area only',
     sub: result.pendingApproval
@@ -94,6 +106,8 @@ export function describeLocation(result: LocationResult): LocationView {
     center: NAIROBI,
     zoom: 12,
     directionsUrl: null,
+    areaQuery: areaName ? `${areaName}, Kenya` : null,
+    mapsUrl: areaName ? areaSearchUrl(`${areaName}, Kenya`) : null,
   };
 }
 
@@ -104,23 +118,34 @@ export function locationEndpoint(params: { listing?: string | null; booking?: st
   return null;
 }
 
-/**
- * Fetch the location. Resolves the server's answer, or null for any failure
- * (non-JSON, error status, network), which the page shows as the "map
- * integration in progress" state, as legacy did.
- */
-export async function fetchLocation(endpoint: string, accessToken: string | null, fetchFn: typeof fetch = fetch): Promise<LocationResult | null> {
+/** The server's answer, or why there is none: not allowed, not found, or it could not be reached. */
+export type LocationOutcome =
+  | { kind: 'ok'; result: LocationResult }
+  | { kind: 'forbidden' }
+  | { kind: 'missing' }
+  | { kind: 'failed' };
+
+/** Fetch the location and say plainly what happened (never throws). */
+export async function fetchLocation(endpoint: string, accessToken: string | null, fetchFn: typeof fetch = fetch): Promise<LocationOutcome> {
   try {
     const response = await fetchFn(endpoint, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} });
-    const raw = await response.text();
-    let result: LocationResult & { error?: string };
+    if (response.status === 401 || response.status === 403) return { kind: 'forbidden' };
+    if (response.status === 404) return { kind: 'missing' };
+    if (!response.ok) return { kind: 'failed' };
     try {
-      result = JSON.parse(raw);
+      return { kind: 'ok', result: JSON.parse(await response.text()) as LocationResult };
     } catch {
-      return null;
+      return { kind: 'failed' };
     }
-    return response.ok ? result : null;
   } catch {
-    return null;
+    return { kind: 'failed' };
   }
 }
+
+/** The page's words for a location that could not be shown. */
+export const LOCATION_PROBLEMS = {
+  missing: { title: 'No property specified', sub: 'Open a map from a listing or one of your bookings.' },
+  forbidden: { title: 'Location not available', sub: 'This location is shared only with the guest and host of this booking.' },
+  notFound: { title: "We couldn't find this property", sub: 'It may have been removed, or the link is no longer valid.' },
+  failed: { title: 'The location could not load', sub: 'Please check your connection and try again.' },
+} as const;
