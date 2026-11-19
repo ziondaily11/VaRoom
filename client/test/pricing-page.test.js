@@ -184,3 +184,19 @@ test('legacy pricing.html is retired; old URLs reach the native page', () => {
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'listing-draft-cache.js')), false);
   assert.ok(fs.existsSync(path.join(root, 'lib', 'listWizard', 'draftCache.ts')));
 });
+
+test('upgrade: one message box, plan names, retry, phone dots, keyboard labels, no extra font', () => {
+  const page = read('pages', 'pricing.tsx');
+  assert.match(page, /setNotice\(\{ tone: 'good', text: `Your \$\{planName\(result\.planId\)\} plan is active\.` \}\)/, 'the plan name, never its code');
+  assert.doesNotMatch(page, /Your \$\{result\.planId\} plan/);
+  assert.match(page, /setNotice\(\{ tone: 'busy', text: RETURN_MESSAGES\.verifying \}\)/);
+  assert.match(page, /'Plans could not load\. Please check your connection and try again\.', retry: true/);
+  assert.match(page, /setPlansAttempt\(\(n\) => n \+ 1\)/);
+  assert.match(page, /<div className="plan-dots" role="group" aria-label="Choose a plan to view">/);
+  assert.match(page, /<button type="button" className=\{`billing-label/);
+  assert.doesNotMatch(page, /<span className=\{`billing-label[^>]*onClick/);
+  assert.doesNotMatch(page, /fonts\.googleapis/);
+  const styles = read('components', 'pricing', 'pricingStyles.ts');
+  assert.match(styles, /\.pricing-page \.pricing-notice\.is-bad/);
+  assert.match(styles, /flex:0 0 78vw/, 'the next plan peeks in on phones');
+});

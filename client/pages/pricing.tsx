@@ -19,6 +19,9 @@ import { clearHostBillingCache } from '../lib/billing/hostBilling';
 
 type Billing = 'monthly' | 'yearly';
 
+/** One message box under the title: busy (with a spinner), done, failed, or plans that could not load. */
+type Notice = { tone: 'busy' | 'good' | 'bad'; text: string; retry?: boolean } | null;
+
 function CheckIcon() {
   return (
     <svg className="check" viewBox="0 0 20 20" aria-hidden="true">
@@ -42,10 +45,18 @@ export default function PricingPage() {
   const [cards, setCards] = useState<PlanCard[] | null>(null);
   const [billing, setBilling] = useState<Billing>('monthly');
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState<Notice>(null);
+  const [plansAttempt, setPlansAttempt] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const plansRef = useRef<HTMLDivElement>(null);
+  const startedAtRef = useRef(false);
+  const cardsRef = useRef<PlanCard[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = session?.access_token || null;
+  cardsRef.current = cards;
+  // A plan's name for messages ("Your Pro plan is active."), never its code.
+  const planName = (id: string) => (cardsRef.current || []).find((card) => card.id === id)?.name || 'new';
 
   const isHost = profile?.role === 'host';
   const userId = user?.id || null;
@@ -79,11 +90,12 @@ export default function PricingPage() {
         const planId = currentPlanId(await fetchEntitlements(token));
         if (!cancelled && planId) setCurrentId(planId);
       } catch (error) {
-        if (!cancelled) setMessage((error as Error).message || 'Unable to load plans');
+        console.warn('Pricing: plans could not load:', error);
+        if (!cancelled) setNotice({ tone: 'bad', text: 'Plans could not load. Please check your connection and try again.', retry: true });
       }
     })();
     return () => { cancelled = true; };
-  }, [isHost, userId, hostNiche]);
+  }, [isHost, userId, hostNiche, plansAttempt]);
 
   // Back from Paystack: poll until the server confirms or rejects the payment.
   useEffect(() => {
@@ -102,7 +114,7 @@ export default function PricingPage() {
         if (result.kind === 'active') {
           // The new plan replaces what Settings and Host Home remembered.
           clearHostBillingCache();
-          setMessage(`Your ${result.planId} plan is active.`);
+          setNotice({ tone: 'good', text: `Your ${planName(result.planId)} plan is active.` });
           setCurrentId(result.planId);
           if (returnToList && reference) {
             try { window.sessionStorage.removeItem(LISTING_AFTER_UPGRADE_KEY); } catch { /* Storage unavailable. */ }
@@ -112,11 +124,11 @@ export default function PricingPage() {
           }
           return;
         }
-        if (result.kind === 'failed') { setMessage(RETURN_MESSAGES.failed); return; }
-        setMessage(RETURN_MESSAGES.verifying);
+        if (result.kind === 'failed') { setNotice({ tone: 'bad', text: RETURN_MESSAGES.failed }); return; }
+        setNotice({ tone: 'busy', text: RETURN_MESSAGES.verifying });
       } catch {
         if (stopped) return;
-        setMessage(RETURN_MESSAGES.error);
+        setNotice({ tone: 'busy', text: RETURN_MESSAGES.error });
       }
       attempts += 1;
       if (attempts < RETURN_MAX_ATTEMPTS) timer = window.setTimeout(check, RETURN_POLL_MS);
@@ -132,7 +144,7 @@ export default function PricingPage() {
 
   const choose = async (card: PlanCard) => {
     setBusyId(card.id);
-    setMessage(`Opening secure checkout for ${card.name}…`);
+    setNotice({ tone: 'busy', text: `Opening secure checkout for ${card.name}…` });
     try {
       const token = tokenRef.current;
       if (!token || !userId) throw new Error('Please log in again to continue.');
@@ -147,9 +159,43 @@ export default function PricingPage() {
       // Paystack's hosted checkout is a separate site.
       window.location.assign(url);
     } catch (error) {
-      setMessage((error as Error).message || 'Unable to start checkout. Please try again.');
+      setNotice({ tone: 'bad', text: (error as Error).message || 'Unable to start checkout. Please try again.' });
       setBusyId(null);
     }
+  };
+
+  // Phones show the plans as a sideways list: the dots follow it, and it opens
+  // on the host's current plan (else the recommended one).
+  useEffect(() => {
+    const list = plansRef.current;
+    if (!list || !cards || !cards.length || startedAtRef.current) return;
+    if (!window.matchMedia('(max-width: 980px)').matches) return;
+    const start = Math.max(0, cards.findIndex((card) => card.id === currentId) >= 0
+      ? cards.findIndex((card) => card.id === currentId)
+      : cards.findIndex((card) => card.featured));
+    const target = list.children[start] as HTMLElement | undefined;
+    if (target) list.scrollTo({ left: target.offsetLeft - list.offsetLeft, behavior: 'auto' });
+    setActiveIndex(start);
+    if (currentId || !cards.some((card) => card.featured) || start > 0) startedAtRef.current = true;
+  }, [cards, currentId]);
+  const onPlansScroll = () => {
+    const list = plansRef.current;
+    if (!list) return;
+    const children = Array.from(list.children) as HTMLElement[];
+    const left = list.scrollLeft;
+    let best = 0;
+    children.forEach((child, index) => {
+      if (Math.abs(child.offsetLeft - list.offsetLeft - left) < Math.abs((children[best].offsetLeft - list.offsetLeft) - left)) best = index;
+    });
+    setActiveIndex(best);
+  };
+  const goToPlan = (index: number) => {
+    const list = plansRef.current;
+    const target = list?.children[index] as HTMLElement | undefined;
+    if (!list || !target) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    list.scrollTo({ left: target.offsetLeft - list.offsetLeft, behavior: reduced ? 'auto' : 'smooth' });
+    setActiveIndex(index);
   };
 
   const yearly = billing === 'yearly';
@@ -157,9 +203,6 @@ export default function PricingPage() {
     <>
       <Head>
         <title>Pricing — VaRoom</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
       <style dangerouslySetInnerHTML={{ __html: PRICING_STYLES }} />
       <div className="pricing-page" id="pricing-page" style={isHost ? undefined : { visibility: 'hidden' }}>
@@ -174,7 +217,16 @@ export default function PricingPage() {
           <p className="eyebrow">Host plans</p>
           <h1 className="pricing-title">Pricing</h1>
 
-          <div className={`plans${cards && cards.length === 4 ? ' plans--four' : ''}`} aria-busy={cards ? undefined : 'true'}>
+          {notice && (
+            <div className={`pricing-notice is-${notice.tone}`} role={notice.tone === 'bad' ? 'alert' : 'status'} aria-live="polite" key={notice.text}>
+              {notice.tone === 'busy' && <span className="pricing-spinner" aria-hidden="true" />}
+              <span>{notice.text}</span>
+              {notice.retry && (
+                <button type="button" className="pricing-retry" onClick={() => { setNotice(null); setPlansAttempt((n) => n + 1); }}>Try again</button>
+              )}
+            </div>
+          )}
+          <div ref={plansRef} onScroll={onPlansScroll} className={`plans${cards && cards.length === 4 ? ' plans--four' : ''}`} aria-busy={cards ? undefined : 'true'}>
             {(cards || []).map((card, index) => {
               const current = card.id === currentId;
               const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;
@@ -203,8 +255,16 @@ export default function PricingPage() {
             })}
           </div>
 
+          {cards && cards.length > 1 && (
+            <div className="plan-dots" role="group" aria-label="Choose a plan to view">
+              {cards.map((card, index) => (
+                <button key={card.id} type="button" aria-label={`Show ${card.name}`} aria-current={activeIndex === index ? 'true' : undefined} onClick={() => goToPlan(index)} />
+              ))}
+            </div>
+          )}
+
           <div className="billing" role="group" aria-label="Billing period">
-            <span className={`billing-label${yearly ? '' : ' is-active'}`} onClick={() => toggle('monthly')}>Monthly</span>
+            <button type="button" className={`billing-label${yearly ? '' : ' is-active'}`} aria-pressed={!yearly} aria-disabled={canToggle ? undefined : 'true'} onClick={() => toggle('monthly')}>Monthly</button>
             <button
               type="button"
               className="switch"
@@ -217,13 +277,13 @@ export default function PricingPage() {
             >
               <span className="knob" />
             </button>
-            <span className={`billing-label${yearly ? ' is-active' : ''}`} onClick={() => toggle('yearly')}>
+            <button type="button" className={`billing-label${yearly ? ' is-active' : ''}`} aria-pressed={yearly} aria-disabled={canToggle ? undefined : 'true'} onClick={() => toggle('yearly')}>
               Yearly {!canToggle && <span className="badge-soon">Soon</span>}
-            </span>
+            </button>
           </div>
           <div className="pricing-msgs">
             <p className="pricing-note" id="billing-note">{canToggle ? '' : 'Yearly billing is coming soon. Prices shown are per month.'}</p>
-            <p className="pricing-status" role="status" aria-live="polite">{message}</p>
+
           </div>
         </div>
       </div>
