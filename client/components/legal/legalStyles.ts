@@ -1,3 +1,10 @@
+// Styles for the legal documents (Terms of Service, Privacy Policy), under
+// the pp- class prefix. Rendered only while a legal page is open (formerly
+// styles/privacy.css, loaded for every page). Above 900 px the sections scroll
+// in their own pane; below it the window scrolls and the section menu stays
+// at the top of the screen.
+
+export const LEGAL_STYLES = `
 .pp-root {
   --pp-bg: #faf7f2;
   --pp-text: #181513;
@@ -32,8 +39,9 @@
   top: 16px;
   left: 20px;
   display: inline-flex;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.75rem;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: -1px;
   color: #fff;
   text-decoration: none;
@@ -66,6 +74,10 @@
   display: none;
 }
 
+.pp-toc {
+  position: relative;
+}
+
 .pp-toc ul {
   list-style: none;
   margin: 0;
@@ -79,7 +91,7 @@
   line-height: 1.4;
   color: var(--pp-muted);
   text-decoration: none;
-  transition: color 140ms ease;
+  transition: color var(--motion-micro, 150ms) var(--ease-out, ease-out);
 }
 
 .pp-toc--dense a {
@@ -258,7 +270,7 @@
   .pp-root {
     min-height: 100vh;
     display: block;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .pp-hero {
@@ -286,33 +298,102 @@
     padding: 48px 20px 60px;
   }
 
+  /* The app clips sideways overflow with overflow-x: hidden on html and body
+     (pages/_app.tsx), which turns body into its own scroll box and stops the
+     sticky section menu. clip hides the same overflow without that. */
+  html.has-legal-page,
+  body.has-legal-page {
+    overflow-x: clip;
+  }
+
+  /* A section's heading lands below the sticky section menu. */
+  .pp-content section {
+    scroll-margin-top: 84px;
+  }
+
+  /* The section menu stays at the top of the screen while the reader scrolls. */
   .pp-toc {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 20;
     height: auto;
     overflow: visible;
+    margin: 0 -20px;
+    padding: 10px 20px;
+    background: var(--pp-bg);
+    border-bottom: 1px solid rgba(24, 21, 19, 0.08);
   }
 
   .pp-toc-toggle {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     width: 100%;
-    padding: 14px 0;
-    background: none;
-    border: 0;
+    min-height: 44px;
+    padding: 0 16px;
+    background: #fff;
+    border: 1px solid rgba(24, 21, 19, 0.16);
+    border-radius: 999px;
     color: var(--pp-text);
     font: inherit;
+    font-size: 0.9375rem;
     font-weight: 600;
     text-align: left;
     cursor: pointer;
+    transition: transform var(--motion-press, 120ms) var(--ease-out, ease-out), background var(--motion-micro, 150ms) var(--ease-out, ease-out);
+  }
+
+  .pp-toc-toggle:active {
+    transform: scale(var(--press-scale, 0.97));
+  }
+
+  .pp-toc-toggle-current {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pp-toc-chevron {
+    flex: 0 0 auto;
+    transition: transform var(--motion-quick, 200ms) var(--ease-out, ease-out);
+  }
+
+  .pp-toc-toggle[aria-expanded="true"] .pp-toc-chevron {
+    transform: rotate(180deg);
   }
 
   .pp-toc-list {
     display: none;
   }
 
-  .pp-toc-list.is-open {
+  .pp-toc-list.is-open,
+  .pp-toc-list.is-closing {
     display: block;
-    padding-bottom: 8px;
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: calc(100% - 4px);
+    max-height: min(60vh, 480px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 18px;
+    background: #fff;
+    border: 1px solid rgba(24, 21, 19, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(24, 21, 19, 0.16);
+    transform-origin: top center;
+    animation: pp-menu-in var(--motion-quick, 200ms) var(--ease-out, ease-out) both;
   }
+
+  .pp-toc-list.is-closing {
+    pointer-events: none;
+    animation: pp-menu-out 160ms var(--ease-in, ease-in) both;
+  }
+
+  @keyframes pp-menu-in { from { opacity: 0; transform: translateY(-6px) scale(0.95); } }
+  @keyframes pp-menu-out { to { opacity: 0; transform: translateY(-6px) scale(0.95); } }
 
   .pp-content-pane {
     height: auto;
@@ -324,4 +405,21 @@
   .pp-content-pane {
     scroll-behavior: auto !important;
   }
+
+  .pp-toc-list.is-open,
+  .pp-toc-list.is-closing {
+    animation-name: pp-menu-fade-in;
+  }
+
+  .pp-toc-list.is-closing {
+    animation-name: pp-menu-fade-out;
+  }
+
+  .pp-toc-chevron {
+    transition: none;
+  }
+
+  @keyframes pp-menu-fade-in { from { opacity: 0; } }
+  @keyframes pp-menu-fade-out { to { opacity: 0; } }
 }
+`;

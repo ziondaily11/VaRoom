@@ -19,7 +19,6 @@ import { installAppLinks } from '../lib/navigation/appLinks';
 import { applyTheme } from '../lib/theme';
 import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRail } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
-import '../styles/privacy.css';
 import '../styles/spinner.css';
 import '../styles/motion.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');

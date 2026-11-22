@@ -60,5 +60,6 @@ test('the shell loads the logo font once; pages need not', () => {
   assert.doesNotMatch(page, /fonts\.googleapis/);
   const shell = read('components', 'shell', 'AppShell.tsx');
   assert.match(shell, /<link rel="stylesheet" href=\{BRAND_FONT_HREF\} key="brand-font" \/>/);
-  assert.match(shell, /family=Fraunces/);
+  assert.match(shell, /import \{ BRAND_FONT_HREF \} from '\.\.\/\.\.\/lib\/brandFont';/);
+  assert.match(read('lib', 'brandFont.ts'), /family=Fraunces/);
 });
