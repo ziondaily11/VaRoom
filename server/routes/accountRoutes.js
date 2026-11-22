@@ -117,7 +117,82 @@ function createAccountRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
   });
 
+  // Become a Host: this client account becomes a host account in place (same
+  // sign-in, same profile). Changes the username, phone and name, so it needs
+  // the same unlocked session as Settings → Your Account; one update makes it
+  // a host with its niche, and a retry after a lost response succeeds.
+  router.post('/account/become-host', async (req, res) => {
+    const auth = await authenticated(req, res); if (!auth) return;
+    const input = parseHostSetup(req.body, auth.user.id);
+    if (input.error) return sendError(res, 400, input.error);
+    try {
+      const status = await securityStatus(supabaseAdmin, { userId: auth.user.id, claims: verifiedTokenClaims(auth.token) });
+      if (!status.unlocked) return res.status(403).json({ error: 'Verify your identity to continue.', code: 'step_up_required' });
+
+      const { data: current, error: readError } = await supabaseAdmin.from('profiles')
+        .select('role,onboarding_completed,listing_categories').eq('id', auth.user.id).maybeSingle();
+      if (readError) throw readError;
+      if (!current) return sendError(res, 404, 'Your profile could not be found');
+      if (current.role === 'host') return res.json({ success: true, role: 'host' });
+      if (current.role !== 'client' || !current.onboarding_completed) return sendError(res, 409, 'Finish setting up your account first');
+
+      const { data: taken, error: takenError } = await supabaseAdmin.from('profiles')
+        .select('id').ilike('username', input.username.replace(/[\\%_]/g, (c) => `\\${c}`)).neq('id', auth.user.id).limit(1);
+      if (takenError) throw takenError;
+      if (taken && taken.length) return res.status(409).json({ error: `Username "${input.username}" is already taken. Try another.`, code: 'username_taken' });
+
+      const patch = {
+        role: 'host', username: input.username, phone: input.phone, city: input.city,
+        listing_categories: [input.niche], full_name: input.discoverName, onboarding_completed: true,
+        ...(input.avatarPath !== undefined ? { avatar_url: input.avatarPath } : {}),
+      };
+      const { data: updated, error: updateError } = await supabaseAdmin.from('profiles')
+        .update(patch).eq('id', auth.user.id).eq('role', 'client').select('id').maybeSingle();
+      if (updateError) {
+        if (updateError.code === '23505') return res.status(409).json({ error: `Username "${input.username}" is already taken. Try another.`, code: 'username_taken' });
+        if (updateError.code === '23514') return sendError(res, 400, 'That username is not available. Try another.');
+        throw updateError;
+      }
+      if (!updated) return res.json({ success: true, role: 'host' });
+
+      // The sign-up role is only a fallback for a missing profile role; keep it in step.
+      const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(auth.user.id, { user_metadata: { ...(auth.user.user_metadata || {}), role: 'host' } });
+      if (metaError) console.error('Become a host: the sign-up role was not updated:', metaError.message);
+      return res.json({ success: true, role: 'host' });
+    } catch (error) {
+      console.error('Become a host failed:', error.message || error);
+      return sendError(res, 502, 'Your host account could not be set up. Please try again.');
+    }
+  });
+
   return router;
 }
 
-module.exports = { createAccountRoutes, DELETE_REASONS };
+const HOST_NICHES = ['airbnb', 'hotel', 'property', 'office', 'venue'];
+
+/** The Become a Host form, checked as onboarding checks it (client/lib/onboarding/onboarding.ts). */
+function parseHostSetup(body, userId) {
+  const value = (key) => (body && typeof body[key] === 'string' ? body[key].trim() : '');
+  const username = value('username').toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) return { error: 'Usernames are 3 to 20 lowercase letters, numbers or underscores.' };
+  const digits = value('phone').replace(/\D/g, '');
+  if (digits.length < 9 || digits.length > 15) return { error: 'Please enter a valid phone number.' };
+  const phone = digits.startsWith('254') ? `+${digits}` : digits.startsWith('0') ? `+254${digits.slice(1)}` : digits.length === 9 ? `+254${digits}` : `+${digits}`;
+  const city = value('city');
+  if (city.length < 2 || city.length > 120) return { error: 'Please enter or select your city/area.' };
+  const niche = value('niche');
+  if (!HOST_NICHES.includes(niche)) return { error: 'Please select exactly one listing category.' };
+  const discoverName = value('discoverName');
+  if (discoverName.length < 2 || discoverName.length > 40) return { error: 'Please enter a name between 2 and 40 characters.' };
+  // A photo uploaded to the account's own avatars folder, or null to remove it.
+  let avatarPath;
+  if (body && body.avatarPath === null) avatarPath = null;
+  else if (body && body.avatarPath !== undefined) {
+    const path = value('avatarPath');
+    if (!new RegExp(`^${userId}/avatar_\\d+\\.jpg$`).test(path)) return { error: 'That photo could not be used.' };
+    avatarPath = path;
+  }
+  return { username, phone, city, niche, discoverName, avatarPath };
+}
+
+module.exports = { createAccountRoutes, DELETE_REASONS, parseHostSetup };

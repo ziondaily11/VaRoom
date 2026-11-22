@@ -34,6 +34,5 @@ export function clientActiveNav(p: string, as: string): string {
   if (p === '/profile' || as.startsWith('/profile')) return 'profile';
   if (p === '/settings' || as.startsWith('/settings')) return 'settings';
   if (p === '/support' || as.startsWith('/support')) return 'support';
-  if (p === '/signup-host' || as.startsWith('/signup-host')) return 'signup-host';
   return '';
 }

@@ -718,6 +718,9 @@ function WidgetLoader({ label }: { label: string }) {
 
 export default function ClientHome() {
   const router = useRouter();
+  // The account effect redirects through this, so a query change (?view=, ?setup=) does not reload Home.
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const feed = useRef<HTMLElement>(null);
   const cache = useRef<ListingFeedCache | null>(null);
   const loadVersion = useRef(0);
@@ -855,7 +858,7 @@ export default function ClientHome() {
       if (!sessionUser) {
         setUser(null);
         if (active && epoch === authEpoch.current) {
-          router.replace({
+          routerRef.current.replace({
             pathname: '/',
             query: { auth: 'login', redirect: '/client-home' },
           });
@@ -888,11 +891,11 @@ export default function ClientHome() {
         return;
       }
       if (account.kind === 'host') {
-        router.replace('/host-home');
+        routerRef.current.replace('/host-home');
         return;
       }
       if (account.kind === 'onboarding') {
-        router.replace('/onboarding');
+        routerRef.current.replace('/onboarding');
         return;
       }
       if (account.kind !== 'ready') return;
@@ -945,7 +948,7 @@ export default function ClientHome() {
       if (videoTimer.current !== null) window.clearTimeout(videoTimer.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [authRetry, router]);
+  }, [authRetry]);
 
   const key = useMemo(
     () => user

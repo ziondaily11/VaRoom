@@ -1,5 +1,12 @@
 module.exports = {
   poweredByHeader: false,
+  // The Pages Router loads node_modules with require at runtime. These React
+  // component packages (ES modules, React as a peer: the Elie orb, avatar and
+  // composer effects on Chats and the sign-in callback) are bundled instead,
+  // so they always use the page's React. Left to load on their own,
+  // prerendering those pages sometimes failed with "Invalid hook call"
+  // (two React instances), depending on how the build split its chunks.
+  transpilePackages: ['thinking-orbs', 'bot-avatars', 'border-beam', 'liquid-gooey'],
   turbopack: {
     root: __dirname,
   },

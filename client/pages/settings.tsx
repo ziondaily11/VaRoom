@@ -8,7 +8,7 @@ import { accountRole } from '../lib/types/profile';
 import { loginUrl } from '../lib/safeRedirect';
 import { logout } from '../lib/account/accountActions';
 import {
-  completeGoogleVerification, deactivateAccount, deleteAccount, loadPreferences, loadSecurityStatus, rememberedUnlock, rememberUnlock, tokenSessionId, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
+  deactivateAccount, finishGoogleVerification, deleteAccount, loadPreferences, loadSecurityStatus, rememberedUnlock, rememberUnlock, tokenSessionId, VERIFICATION_ERROR_KEY, type Preferences,
 } from '../lib/settings/settings';
 import AccountSection from '../components/settings/AccountSection';
 import PlansSection, { PLANS_STYLES } from '../components/settings/PlansSection';
@@ -145,38 +145,12 @@ export default function SettingsPage() {
     if (!router.isReady || router.query.account_verification !== 'google' || !token || verificationHandled.current) return;
     verificationHandled.current = true;
     const client = getSupabaseClient();
-    (async () => {
-      let saved: { access_token?: string; refresh_token?: string } | null = null;
-      try { saved = JSON.parse(window.sessionStorage.getItem(VERIFICATION_SESSION_KEY) || 'null'); } catch { saved = null; }
-      try {
-        const result = await completeGoogleVerification(token);
-        if (result.verified) {
-          unlock(result.unlockedUntil);
-        } else if (client) {
-          // Another Google identity may have replaced the session: put the
-          // account that started back before keeping the page locked.
-          if (saved && saved.access_token && saved.refresh_token) {
-            await client.auth.setSession({ access_token: saved.access_token, refresh_token: saved.refresh_token });
-            const restored = await client.auth.getSession();
-            if (!restored.data.session) {
-              await client.auth.signOut({ scope: 'local' });
-              window.location.href = '/?auth=login&account_verification=failed';
-              return;
-            }
-          } else {
-            await client.auth.signOut({ scope: 'local' });
-            window.location.href = '/?auth=login&account_verification=failed';
-            return;
-          }
-          window.sessionStorage.setItem(VERIFICATION_ERROR_KEY, result.error || 'The Google account does not match this VaRoom account.');
-        }
-      } catch {
-        try { window.sessionStorage.setItem(VERIFICATION_ERROR_KEY, 'Google verification could not be completed. Please try again.'); } catch { /* ignore */ }
-      } finally {
-        try { window.sessionStorage.removeItem(VERIFICATION_SESSION_KEY); } catch { /* ignore */ }
-        router.replace('/settings', undefined, { shallow: true });
-      }
-    })();
+    if (!client) return;
+    finishGoogleVerification(client, token).then((result) => {
+      if (result.verified) unlock(result.unlockedUntil);
+      else { try { window.sessionStorage.setItem(VERIFICATION_ERROR_KEY, result.error); } catch { /* ignore */ } }
+      router.replace('/settings', undefined, { shallow: true });
+    });
   }, [router, router.isReady, router.query.account_verification, token, unlock]);
 
   const show = useCallback((next: View) => {
