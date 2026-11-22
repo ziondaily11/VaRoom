@@ -1,22 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useAuth } from '../lib/auth/AuthProvider';
+import { accountRole } from '../lib/types/profile';
+import { CATEGORY_LABELS } from '../lib/marketplace/marketplace';
+import { NOT_FOUND_STYLES } from '../components/notFound/notFoundStyles';
 
-// The not-found page: a search into the listings and the main categories.
+// The not-found page: any unknown address, and a profile address that is not
+// a usable username (/[username], /host/[hostId]). It offers the way home,
+// the way back, a search into the Marketplace and its real categories.
+// It always renders light (its drawing is light), and keeps its styles inside
+// .not-found-page so nothing else on the site changes while it is open.
 
-const categories: Array<{ label: string; query: string }> = [
-  { label: 'Hotels', query: 'hotel' },
-  { label: 'Vacation Rentals', query: 'vacation rental' },
-  { label: 'Studios', query: 'studio' },
-  { label: 'Offices', query: 'office' },
-  { label: 'Retail', query: 'retail' }
-];
+/** The Marketplace categories, filtered the way the Marketplace filters them. */
+const categories = Object.entries(CATEGORY_LABELS).map(([key, label]) => ({ key, label }));
+
+const SearchIcon = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+  </svg>
+);
 
 function NeighborhoodIllustration() {
   return (
     <svg
-      className="neighborhood"
+      className="nf-art"
       viewBox="0 0 760 360"
       role="img"
       aria-label="A tiny neighborhood with homes and shops"
@@ -68,7 +77,13 @@ function NeighborhoodIllustration() {
 
 export default function Custom404() {
   const router = useRouter();
+  const { status, profile } = useAuth();
+  const role = accountRole(profile);
+  const homeHref = status === 'signed-in' ? (role === 'host' ? '/host-home' : role === 'client' ? '/client-home' : '/') : '/';
   const [search, setSearch] = useState('');
+  // "Go back" only when there is a page to go back to (known in the browser only).
+  const [canGoBack, setCanGoBack] = useState(false);
+  useEffect(() => { setCanGoBack(window.history.length > 1); }, []);
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,110 +95,42 @@ export default function Custom404() {
   return (
     <>
       <Head>
-        <title>Page not found — VaRoom</title>
+        <title>Page not found · VaRoom</title>
         <meta name="description" content="This VaRoom page could not be found. Find your next stay or space." />
+        {/* Some not-found addresses answer 200 (/[username]); keep them out of search results. */}
+        <meta name="robots" content="noindex" />
       </Head>
-      <main className="not-found">
-        <div className="content">
-          <p className="eyebrow">VaRoom</p>
-          <h1>404</h1>
-          <p className="message">Oops! You&apos;ve drifted off the map. Let&apos;s find your way back.</p>
-          <form className="search" onSubmit={submitSearch} role="search">
-            <span aria-hidden="true">⌕</span>
+      <style dangerouslySetInnerHTML={{ __html: NOT_FOUND_STYLES }} />
+      <main className="not-found-page">
+        <div className="nf-content">
+          <Link className="nf-eyebrow" href={homeHref}>VaRoom</Link>
+          <h1 className="nf-code">404</h1>
+          <p className="nf-message">Oops! You&apos;ve drifted off the map. Let&apos;s find your way back.</p>
+          <div className="nf-actions">
+            <Link className="nf-btn nf-btn-primary" href={homeHref}>Go to Home</Link>
+            {canGoBack && <button type="button" className="nf-btn" onClick={() => router.back()}>Go back</button>}
+          </div>
+          <form className="nf-search" onSubmit={submitSearch} role="search">
             <input
               aria-label="Search for your next stay or space"
+              type="search"
+              enterKeyHint="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search for your next stay or space..."
             />
-            <button type="submit" aria-label="Search">Go</button>
+            <button type="submit" aria-label="Search"><SearchIcon /></button>
           </form>
           <NeighborhoodIllustration />
-          <nav className="categories" aria-label="Browse categories">
-            {categories.map((category, index) => (
-              <Link
-                className={index === 0 ? 'category active' : 'category'}
-                href={`/marketplace?q=${encodeURIComponent(category.query)}`}
-                key={category.label}
-              >
+          <nav className="nf-categories" aria-label="Browse categories">
+            {categories.map((category) => (
+              <Link className="nf-category" href={`/marketplace?category=${category.key}`} key={category.key}>
                 {category.label}
               </Link>
             ))}
           </nav>
         </div>
       </main>
-      <style jsx global>{`
-        :root { --not-found-ink: #24211f; --not-found-paper: #f7f5f1; }
-        html, body { margin: 0; min-height: 100%; }
-        body { background: var(--not-found-paper); }
-        *, *::before, *::after { box-sizing: border-box; }
-        .not-found {
-          min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          overflow: hidden;
-          color: var(--not-found-ink);
-          color-scheme: light;
-          font-family: Inter, Arial, sans-serif;
-          background: radial-gradient(circle at 50% 44%, #fffefa 0, var(--not-found-paper) 62%);
-        }
-        html[data-theme="dark"] .not-found {
-          color: var(--not-found-ink) !important;
-          background: radial-gradient(circle at 50% 44%, #fffefa 0, var(--not-found-paper) 62%) !important;
-        }
-        .content {
-          width: min(100%, 1040px);
-          min-height: 100vh;
-          padding: clamp(2.6rem, 8vh, 5.6rem) 1.25rem 2.5rem;
-          display: flex;
-          align-items: center;
-          flex-direction: column;
-          text-align: center;
-        }
-        html[data-theme="dark"] .not-found .content { background: transparent !important; }
-        .eyebrow {
-          margin: 0 0 .35rem;
-          color: #c41e3a;
-          font: 700 .82rem/1 Inter, Arial, sans-serif;
-          letter-spacing: .18em;
-          text-transform: uppercase;
-        }
-        h1 {
-          margin: 0;
-          font: 400 clamp(7rem, 19vw, 12rem)/.84 Arial, sans-serif;
-          letter-spacing: -.09em;
-        }
-        .message { margin: 1.25rem 0 1.75rem; font-size: clamp(.95rem, 2vw, 1.12rem); }
-        .search {
-          width: min(100%, 350px);
-          height: 48px;
-          display: flex;
-          align-items: center;
-          gap: .65rem;
-          padding: 0 .5rem 0 1rem;
-          border: 1px solid #8a837c;
-          border-radius: 999px;
-          background: #fff;
-          box-shadow: 0 7px 22px rgba(56, 45, 35, .12);
-        }
-        .search:focus-within { outline: 3px solid #c41e3a; outline-offset: 3px; }
-        .search > span { color: #716b66; font: 1.75rem/1 Arial, sans-serif; transform: rotate(-20deg); }
-        .search input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--not-found-ink); background: transparent; font: .78rem Inter, Arial, sans-serif; }
-        .search input::placeholder { color: #6f6a65; opacity: 1; }
-        .search button { display: none; }
-        .neighborhood { width: min(100%, 760px); height: auto; margin: 1.2rem auto .6rem; }
-        .categories { display: flex; flex-wrap: wrap; justify-content: center; gap: .65rem; }
-        .category { padding: .62rem 1.35rem; border: 1px solid #8a837c; border-radius: 999px; color: var(--not-found-ink); font-size: .82rem; text-decoration: none; transition: transform .15s ease, background .15s ease; }
-        .category:hover { transform: translateY(-2px); background: #ebe7e1; }
-        .category.active { color: #fff; background: #292725; }
-        .category.active:hover { background: #c41e3a; }
-        @media (max-width: 600px) {
-          .content { padding-top: 3.2rem; }
-          .message { max-width: 330px; line-height: 1.5; }
-          .neighborhood { margin-top: 1.4rem; }
-          .category { padding: .56rem .85rem; font-size: .73rem; }
-        }
-      `}</style>
     </>
   );
 }

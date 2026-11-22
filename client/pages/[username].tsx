@@ -9,8 +9,8 @@ import NotFound from './404';
 // (/profile, /settings ...) are separate routes and always win; usernames
 // can never take their names (lib/profile/usernames.ts and the database).
 // Any other single-segment address that is not a usable username is the
-// not-found page. Signed-in visitors see it inside their app shell (_app,
-// lib/accountRoleLayout.ts); signed-out visitors see it on its own.
+// not-found page, on its own (no app shell: lib/accountRoleLayout.ts gives
+// the shell only to usable usernames).
 
 export default function PublicProfilePage() {
   const router = useRouter();
