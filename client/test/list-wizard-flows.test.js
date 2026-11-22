@@ -1,6 +1,6 @@
 'use strict';
 
-// The listing wizard's draft session, checkout hand-off, requests and publish
+// The listing wizard's draft session, payment hand-off, requests and publish
 // steps as behaviour (lib/listWizard). These replace the source-regex checks
 // that server/test/listingDraftPersistence, listingPublication and
 // listingPaymentUi used to make against the wizard's client code.
@@ -8,6 +8,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { File } = require('node:buffer');
+const fs = require('node:fs');
+const path = require('node:path');
 const { loadWizard, createMemoryIndexedDB, createMemoryStorage, jsonResponse, routedFetch, plain, tick } = require('./helpers/listWizardFakes');
 
 const { createListingDraftCache } = loadWizard('draftCache.ts');
@@ -118,47 +120,17 @@ test('a missing token or an outage keeps the device copy and marks sync unavaila
   assert.deepEqual(offline.statuses.pop(), ['Saved on this device; sync will retry when the connection returns.', 'error']);
 });
 
-// ---------- Checkout save state ----------
+// ---------- Checkout save state (older pay-as-you-list returns) ----------
 
-test('a checkout copy that does not read back intact fails and writes no pointer', async () => {
-  const { session, storage, cache } = sessionWith();
-  const broken = { ...cache, load: async () => ({ fields: {} }) };
-  const { WizardSession } = loadWizard('wizardSession.ts');
-  const unreliable = new WizardSession({ ...session.options, cache: broken });
-  await assert.rejects(unreliable.saveCheckoutState('listing-1'), /could not be verified/);
-  assert.equal(storage.getItem('varoom_listing_checkout_state:host-1:listing-1'), null);
-});
-
-test('the checkout copy carries the whole form; private document bytes stay out', async () => {
-  const { session, cache, state } = sessionWith();
-  session.draftId = 'draft-1';
-  session.revision = 4;
-  state.category = 'hotel';
-  state.form = { ...emptyForm(), hotelListingMode: 'both', availableDates: ['2026-12-01'], fields: { title: 'Garden suite' } };
-  const photo = new File(['img'], 'a.jpg', { type: 'image/jpeg', lastModified: 1 });
-  const floorPlan = new File(['plan'], 'plan.pdf', { type: 'application/pdf', lastModified: 2 });
-  const refs = { property_policy: [{ id: 'doc-1', documentType: 'property_policy', filename: 'rules.pdf', fileSize: 3, lastModified: 0, mimeType: 'application/pdf' }] };
-  state.media = { mediaFiles: [photo], policyFile: new File(['p'], 'p.pdf', { type: 'application/pdf' }), officeShopFiles: { floorPlan, policy: null, documents: [] }, documentRefs: refs };
-  await session.saveCheckoutState('listing-1');
-  const saved = await cache.load('host-1:checkout:listing-1');
-  assert.equal(saved.checkoutState, true);
-  assert.equal(saved.listingId, 'listing-1');
-  assert.equal(saved.serverRevision, 4);
-  assert.equal(saved.hotelListingMode, 'both');
-  assert.deepEqual(saved.availableDates, ['2026-12-01']);
-  assert.equal(saved.mediaFiles[0].name, 'a.jpg');
-  assert.equal(saved.policyFile, null);
-  assert.deepEqual(saved.officeShopFiles, { floorPlan: null, policy: null, documents: [] });
-  assert.deepEqual(saved.uploadedDocumentRefs, refs);
-  assert.equal(saved.documentSelections.officeShop.floorPlan.filename, 'plan.pdf', 'the chosen document is named, not stored');
-});
-
-test('after a verified payment, later saves keep the checkout copy in step', async () => {
-  const { session, cache, state } = sessionWith({ 'PUT /api/listing-drafts/draft-1': savedDraft });
+test('after a verified payment, later saves keep an older checkout copy in step', async () => {
+  const { session, cache, state, storage } = sessionWith({ 'PUT /api/listing-drafts/draft-1': savedDraft });
   session.draftId = 'draft-1';
   session.listingId = 'listing-1';
   state.form = { ...emptyForm(), fields: { title: 'Before checkout' } };
-  await session.saveCheckoutState('listing-1');
+  // A checkout copy saved before Silver and Gold replaced Pay to list.
+  const before = drafts.captureSnapshot(session.identity('listing-1'), 'property', state.form, { mediaFiles: [], policyFile: null, officeShopFiles: { floorPlan: null, policy: null, documents: [] }, documentRefs: {} }, 'month');
+  await cache.save({ ...before, cacheKey: 'host-1:checkout:listing-1', checkoutState: true });
+  storage.setItem('varoom_listing_checkout_state:host-1:listing-1', JSON.stringify({ hostId: 'host-1', listingId: 'listing-1', category: 'property', draftId: 'draft-1', cacheKey: 'host-1:checkout:listing-1', createdAt: Date.now() }));
 
   state.form = { ...emptyForm(), fields: { title: 'Unverified edit' } };
   await session.save();
@@ -171,98 +143,14 @@ test('after a verified payment, later saves keep the checkout copy in step', asy
   assert.equal(mirrored.fields.title, 'Edited after payment');
   assert.equal(mirrored.checkoutState, true);
   assert.equal(mirrored.cacheKey, 'host-1:checkout:listing-1');
+  await session.clearCheckoutState('listing-1');
+  assert.equal(session.checkoutPointer('listing-1'), null);
 });
 
-// ---------- Before a checkout (saveForCheckout) ----------
-
-const { saveForCheckout, prepareListingCheckout } = loadWizard('checkout.ts');
-
-function recordingSession(overrides = {}) {
-  const log = [];
-  const session = {
-    checkoutHandoff: false, revisionConflict: false, remoteUnavailable: false,
-    cancelTimer: () => log.push('cancelTimer'),
-    settled: async () => { log.push(['settled', session.checkoutHandoff]); },
-    get documentQueue() { log.push('documentQueue'); return Promise.resolve(); },
-    ensureShell: async (token, payload) => { log.push(['ensureShell', token, payload()]); return 'listing-1'; },
-    saveCheckoutState: async (id) => { log.push(['saveCheckoutState', id]); },
-    save: async (id) => { log.push(['save', id]); },
-    ...overrides,
-  };
-  return { session, log };
-}
-const steps = (log, statuses = []) => ({
-  shellPayload: () => ({ category: 'property' }),
-  persistDocuments: async (id) => { log.push(['persistDocuments', id]); },
-  onStatus: (message, state) => statuses.push([message, state]),
-});
-
-test('checkout waits for the autosave and documents, then shell, documents, verified checkout copy, profile draft', async () => {
-  const { session, log } = recordingSession();
-  const listingId = await saveForCheckout(session, 'token-1', false, steps(log));
-  assert.equal(listingId, 'listing-1');
-  assert.deepEqual(log, ['cancelTimer', ['settled', true], 'documentQueue', ['ensureShell', 'token-1', { category: 'property' }],
-    ['persistDocuments', 'listing-1'], ['saveCheckoutState', 'listing-1'], ['save', 'listing-1']]);
-  assert.equal(session.checkoutHandoff, true, 'Pay to list hands off; autosave stays off while Paystack opens');
-
-  const pro = recordingSession();
-  await saveForCheckout(pro.session, 'token-1', true, steps(pro.log));
-  assert.deepEqual(pro.log[1], ['settled', false], 'Go Pro saves the profile draft and keeps autosave');
-  assert.equal(pro.session.checkoutHandoff, false);
-});
-
-test('an unverifiable checkout copy stops before any payment and restores autosave', async () => {
-  const { session, log } = recordingSession({ saveCheckoutState: async () => { throw new Error('mismatch'); } });
-  const originalError = console.error;
-  console.error = () => {};
-  try {
-    await assert.rejects(saveForCheckout(session, 'token-1', false, steps(log)), /No payment was started/);
-  } finally { console.error = originalError; }
-  assert.ok(!log.some((entry) => entry[0] === 'save'));
-  assert.equal(session.checkoutHandoff, false);
-});
-
-test('a stale profile revision or an API outage never blocks checkout', async () => {
-  const statuses = [];
-  const conflict = recordingSession({ revisionConflict: true });
-  assert.equal(await saveForCheckout(conflict.session, 't', false, steps(conflict.log, statuses)), 'listing-1');
-  const offline = recordingSession({ remoteUnavailable: true });
-  assert.equal(await saveForCheckout(offline.session, 't', false, steps(offline.log, statuses)), 'listing-1');
-  assert.deepEqual(statuses, [
-    ['Checkout save is ready. The saved profile copy will sync after this listing returns.', 'error'],
-    ['Checkout save is ready. Profile sync will resume when connected.', 'error'],
-  ]);
-});
-
-test('with a real session the checkout creates one payment-draft shell and links the profile draft to it', async () => {
-  const { session, storage, calls } = sessionWith({
-    'POST /api/listings': async () => { await tick(5); return jsonResponse(201, { listing: { id: 'listing-9' } }); },
-    'PUT /api/listing-drafts/draft-1': savedDraft,
-  });
-  session.draftId = 'draft-1';
-  const step = { shellPayload: () => publish.shellPayload('property', { ...emptyForm(), fields: { title: 'Flat' } }), persistDocuments: async () => {}, onStatus: () => {} };
-  const ids = await Promise.all([saveForCheckout(session, 't', false, step), saveForCheckout(session, 't', true, step)]);
-  assert.deepEqual(ids, ['listing-9', 'listing-9']);
-  const shells = calls.filter((call) => call.method === 'POST');
-  assert.equal(shells.length, 1);
-  assert.deepEqual(shells[0].body, { category: 'property', title: 'Flat', description: '', property_description: '', location_text: '', listing_purpose: 'rent', payment_draft: true });
-  assert.ok(storage.getItem('varoom_listing_checkout_state:host-1:listing-9'));
-  assert.ok(calls.some((call) => call.method === 'PUT' && call.body.listing_id === 'listing-9'));
-});
-
-test('Pay to list saves first and only then asks for the Paystack URL', async () => {
-  const log = [];
-  const url = await prepareListingCheckout(async () => 'token-1',
-    async (token) => { log.push(['persist', token]); return 'listing-1'; },
-    async (token, id) => { log.push(['start', token, id]); return 'https://paystack.test/pay'; });
-  assert.equal(url, 'https://paystack.test/pay');
-  assert.deepEqual(log, [['persist', 'token-1'], ['start', 'token-1', 'listing-1']]);
-
-  const started = [];
-  await assert.rejects(prepareListingCheckout(async () => null, async () => { started.push('persist'); return 'x'; }, async () => { started.push('start'); return 'x'; }),
-    /Please log in again to continue/);
-  await assert.rejects(prepareListingCheckout(async () => 't', async () => { throw new Error('save failed'); }, async () => { started.push('start'); return 'x'; }), /save failed/);
-  assert.deepEqual(started, []);
+test('Pay to list and Go Pro are gone: no checkout save state is written any more', () => {
+  const session = loadWizard('wizardSession.ts');
+  assert.equal(typeof session.WizardSession.prototype.saveCheckoutState, 'undefined');
+  assert.equal(fs.existsSync(path.join(__dirname, '..', 'lib', 'listWizard', 'checkout.ts')), false);
 });
 
 // ---------- Requests ----------
@@ -282,14 +170,14 @@ test('publishing creates with POST and edits through the authenticated PATCH, bo
   assert.deepEqual(network.calls[2].body, { booking_details: { price_amount: 5 } });
 });
 
-test('the Paystack checkout is requested for the listing and needs a URL and reference back', async () => {
-  let reply = { authorization_url: 'https://paystack.test/x', reference: 'ref-1' };
-  const network = routedFetch({ 'POST /api/billing/listing-checkout': () => reply });
-  const api = loadWizard('api.ts', { fetch: network.fetch });
-  assert.equal(await api.startListingCheckout('t', 'listing-1'), 'https://paystack.test/x');
-  assert.deepEqual(network.calls[0].body, { listing_id: 'listing-1' });
-  reply = { authorization_url: 'https://paystack.test/x' };
-  await assert.rejects(api.startListingCheckout('t', 'listing-1'), /Unable to start Paystack checkout/);
+test('a returned Silver / Gold payment is accepted without a listing; older payments still need theirs', async () => {
+  const reply = (payment) => loadWizard('api.ts', { fetch: async () => jsonResponse(200, { payment }) });
+  const credit = { status: 'succeeded', payment_kind: 'listing', listing_id: null, listing_tier: 'gold' };
+  assert.deepEqual(plain(await reply(credit).verifyReturnedPayment('t', 'ref', 3, false, async () => {})), credit);
+  let polls = 0;
+  const older = loadWizard('api.ts', { fetch: async () => { polls += 1; return jsonResponse(200, { payment: { status: 'succeeded', payment_kind: 'listing', listing_id: null } }); } });
+  await older.verifyReturnedPayment('t', 'ref', 3, false, async () => {});
+  assert.equal(polls, 3, 'a listing-bound payment without its listing keeps waiting');
 });
 
 test('a forbidden payment check stops at once too', async () => {
@@ -299,17 +187,20 @@ test('a forbidden payment check stops at once too', async () => {
   assert.equal(calls, 1);
 });
 
-test('the niche plan counts only when active, for this niche, with room for another listing', async () => {
+test('the allowance check returns a running plan for this niche and the paid Silver / Gold listings', async () => {
   const check = async (status, body, category = 'property') => {
     const api = loadWizard('api.ts', { fetch: async () => jsonResponse(status, body) });
-    return api.fetchNichePlanActive('t', category);
+    return plain(await api.fetchListingEntitlement('t', category));
   };
-  const plan = (subscription, allowed = true) => ({ entitlements: { active: true, subscription, canCreateAnotherListing: { allowed } } });
-  assert.equal(await check(200, plan({ status: 'active', niche: 'property' })), true);
-  assert.equal(await check(200, plan({ status: 'active', niche: 'shops_offices' }), 'shop'), true);
-  assert.equal(await check(200, plan({ status: 'active', niche: 'shops_offices' })), false, 'another niche');
-  assert.equal(await check(200, plan({ status: 'past_due', niche: 'property' })), false);
-  assert.equal(await check(200, plan({ status: 'active', niche: 'property' }, false)), false, 'allowance used up');
+  const plan = (subscription, allowed = true, listingCredits) => ({ entitlements: { active: Boolean(subscription), subscription, canCreateAnotherListing: { allowed }, listingCredits } });
+  assert.equal((await check(200, plan({ status: 'active', niche: 'property' }))).planActive, true);
+  assert.equal((await check(200, plan({ status: 'active', niche: 'shops_offices' }), 'shop')).planActive, true);
+  assert.equal((await check(200, plan({ status: 'active', niche: 'shops_offices' }))).planActive, false, 'another niche');
+  assert.equal((await check(200, plan({ status: 'past_due', niche: 'property' }))).planActive, false);
+  assert.equal((await check(200, plan({ status: 'active', niche: 'property' }, false))).planActive, false, 'allowance used up');
+  assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, credits: { silver: 1, gold: 2 } });
+  assert.deepEqual((await check(200, plan(null, false, { silver: -1, gold: 'x' }))).credits, { silver: 0, gold: 0 }, 'nonsense counts are zero');
+  assert.deepEqual((await check(200, plan(null, false))).credits, { silver: 0, gold: 0 });
   await assert.rejects(check(500, {}), /Unable to confirm your listing allowance/);
   await assert.rejects(check(200, { entitlements: { active: true } }), /Unable to confirm your listing allowance/);
 });
@@ -365,11 +256,11 @@ test('a video over 60 seconds is refused before any upload; others finish throug
 
 // ---------- Publishing ----------
 
-test('the review shows Pay and Go Pro only after the allowance check, and a note when it failed', () => {
-  assert.deepEqual(plain(publish.reviewActions(false, false)), { showPay: false, submitHidden: false, entitlementNote: false });
-  assert.deepEqual(plain(publish.reviewActions(false, true)), { showPay: false, submitHidden: false, entitlementNote: false });
-  assert.deepEqual(plain(publish.reviewActions(true, true)), { showPay: true, submitHidden: true, entitlementNote: false });
-  assert.deepEqual(plain(publish.reviewActions(true, false)), { showPay: false, submitHidden: true, entitlementNote: true }, 'neither Publish nor Pay');
+test('the Silver / Gold choice shows only after the allowance check, and a note when it failed', () => {
+  assert.deepEqual(plain(publish.reviewActions(false, false)), { showTierChoice: false, submitHidden: false, entitlementNote: false });
+  assert.deepEqual(plain(publish.reviewActions(false, true)), { showTierChoice: false, submitHidden: false, entitlementNote: false });
+  assert.deepEqual(plain(publish.reviewActions(true, true)), { showTierChoice: true, submitHidden: true, entitlementNote: false });
+  assert.deepEqual(plain(publish.reviewActions(true, false)), { showTierChoice: false, submitHidden: true, entitlementNote: true }, 'neither Publish nor the choice');
 });
 
 test('media uploads resume after a failure, and a failed new listing is not activated', async () => {

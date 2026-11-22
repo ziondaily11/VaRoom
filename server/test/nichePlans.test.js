@@ -96,12 +96,12 @@ test('a host cannot buy another niche\'s plan', async () => {
   assert.equal(response.code, 403);
 });
 
-test('a pending listing id is ignored for feature-only niche plans', async () => {
+test('a monthly plan checkout takes only the plan id (no listing) and refuses anything else', async () => {
   const { run, calls } = checkoutHarness({ hostNiche: 'hotel', targetPlan: hotelPlan('hotel_boutique', 400000) });
   const response = await run({ plan: 'hotel_boutique', listing_id: '6f1c2f8e-6a4b-4c5d-9e2f-1a2b3c4d5e6f' });
-  assert.equal(response.code, 201);
+  assert.equal(response.code, 400);
   assert.equal(calls.listingLookups, 0);
-  assert.equal(calls.initialized.metadata.listing_id, undefined);
+  assert.equal(calls.initialized, null);
 });
 
 const activeSubscription = (planId, niche, amount) => ({

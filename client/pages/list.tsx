@@ -7,12 +7,12 @@ import { loginUrl } from '../lib/safeRedirect';
 import { getListingFeedCache } from '../lib/listingFeedCache';
 import type { Category, FieldBinding, FieldValue, HotelMode, PropertyPurpose, SaleMode, WizardForm } from '../lib/listWizard/formState';
 import { REVIEW_STEP, emptyForm, isOfficeShop, listingAreaParts, joinListingArea, text, checked } from '../lib/listWizard/formState';
-import { payLabel, pricePreview, reviewMeta, reviewPrice, unitLabel, wizardCopy } from '../lib/listWizard/copy';
+import { pricePreview, reviewMeta, reviewPrice, unitLabel, wizardCopy } from '../lib/listWizard/copy';
 import { createListingDraftCache } from '../lib/listWizard/draftCache';
 import type { DocumentRefs, WizardMedia } from '../lib/listWizard/drafts';
 import { captureSnapshot } from '../lib/listWizard/drafts';
 import {
-  activateListing, addMediaFiles, deleteListingShell, deleteRemoteDraft, isVideoFile, latestRef, saveBookingDetails, saveDiningConfig, saveListing, startListingCheckout,
+  activateListing, addMediaFiles, deleteListingShell, deleteRemoteDraft, isVideoFile, latestRef, saveBookingDetails, saveDiningConfig, saveListing,
   uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
@@ -24,8 +24,8 @@ import { removeCurrentPolicyDocument, resolveCurrentPolicyPreview } from '../lib
 import type { OfficeShopFiles, OfficeShopKind } from '../lib/listWizard/officeShop';
 import { listingDocumentMimeType, officeShopBusinessHoursError, officeShopConditions } from '../lib/listWizard/officeShop';
 import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSession';
-import { prepareListingCheckout, saveForCheckout } from '../lib/listWizard/checkout';
-import { INITIAL_FLAGS, startWizard } from '../lib/listWizard/startup';
+import { INITIAL_FLAGS, hasListingCredit, startWizard } from '../lib/listWizard/startup';
+import { startListingTierCheckout, type ListingTier } from '../lib/billing/pricing';
 import type { Flags, Message } from '../lib/listWizard/startup';
 import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../lib/listWizard/amenities';
 import { LIST_WIZARD_STYLES } from '../components/listWizard/listWizardStyles';
@@ -40,6 +40,7 @@ import type { ReviewLine } from '../components/listWizard/ReviewStep';
 import { PolicyField, PolicyPreviewOverlay } from '../components/listWizard/PolicyDocument';
 import type { PolicyPreviewState } from '../components/listWizard/PolicyDocument';
 import { LeaveDialog } from '../components/listWizard/LeaveDialog';
+import { ListingTierChoice } from '../components/listWizard/ListingTierChoice';
 import type { LeaveStage } from '../components/listWizard/LeaveDialog';
 import { AmenitiesField, AmenitiesLibrary } from '../components/listWizard/AmenitiesLibrary';
 import { OfficeShopDetails, OfficeShopDocuments, OfficeShopLocation, OfficeShopPricing, OfficeShopReview, OfficeShopSpace } from '../components/listWizard/OfficeShopFields';
@@ -50,8 +51,9 @@ import { managerHostId, useWorkspace } from '../lib/team/team';
 // List a space (migrated from legacy-pages/list.html; also served at
 // /properties): the five-step listing wizard for creating or editing
 // (?edit=<id>) a listing. Drafts save to this device and to My Profile as the
-// host types, a paid niche checks out through Paystack and comes back here
-// to publish, and publishing returns to Host home without a reload.
+// host types. Property and Shops & Offices first pay for Silver or Gold
+// (Paystack brings the host back here) and publishing uses that payment.
+// Publishing returns to Host home without a reload.
 
 const TOTAL_STEPS = REVIEW_STEP;
 const EMPTY_FILES: OfficeShopFiles = { floorPlan: null, policy: null, documents: [] };
@@ -118,8 +120,8 @@ export default function ListPage() {
   const [policyRemoving, setPolicyRemoving] = useState(false);
   const [leave, setLeave] = useState<{ open: boolean; stage: LeaveStage; destination: string; busy: 'save' | 'discard' | null }>({ open: false, stage: 'choose', destination: '/host-home', busy: null });
   const [publishLabel, setPublishLabel] = useState<string | null>(null);
-  const [payBusy, setPayBusy] = useState<'pay' | 'pro' | null>(null);
-  const [payLabelText, setPayLabelText] = useState<string | null>(null);
+  const [tierBusy, setTierBusy] = useState<ListingTier | null>(null);
+  const [tierError, setTierError] = useState<string | null>(null);
   // What stops the host moving on, shown under the step (not a browser pop-up).
   const [stepError, setStepError] = useState<{ step: number; text: string } | null>(null);
   // Which way the last step change went, for the slide (none on first paint).
@@ -254,7 +256,7 @@ export default function ListPage() {
   const mediaUrls = useObjectUrls(mediaFiles);
   const publication: PublicationState = {
     category, editMode, paymentVerified: flags.paymentVerified, hasActiveNichePlan: flags.hasActiveNichePlan, hasCurrentListingFee: flags.hasCurrentListingFee,
-    listingIsPaused: flags.listingIsPaused, listingNeedsPublication: flags.listingNeedsPublication,
+    hasListingCredit: hasListingCredit(flags), listingIsPaused: flags.listingIsPaused, listingNeedsPublication: flags.listingNeedsPublication,
   };
   const paymentNeeded = needsListingPayment(publication);
   const amount = text(form.fields, 'price-amount');
@@ -369,17 +371,6 @@ export default function ListPage() {
     }
     sessionRef.current?.queueSave();
   }, [token, patchMedia]);
-
-  /** Everything a checkout needs saved first (persistBeforeCheckout). */
-  const persistBeforeCheckout = useCallback(async (accessToken: string, saveProfileDraft: boolean): Promise<string> => {
-    const current = sessionRef.current;
-    if (!current) throw new Error('Please log in again to continue.');
-    return saveForCheckout(current, accessToken, saveProfileDraft, {
-      shellPayload: () => shellPayload(latest.current.category, latest.current.form),
-      persistDocuments: persistSelectedDocuments,
-      onStatus: (text, state) => setSaveStatus({ message: text, state }),
-    });
-  }, [persistSelectedDocuments]);
 
   // ---------- Startup ----------
   useEffect(() => {
@@ -599,51 +590,38 @@ export default function ListPage() {
     }
   };
 
-  // ---------- Pay to list / Go Pro ----------
-  const validateUpTo = (last: number) => {
-    for (let step = 1; step <= last; step += 1) if (!validateStep(step)) { goToStep(step); return false; }
-    return true;
-  };
-
-  const payToList = async () => {
+  // ---------- Silver / Gold ----------
+  // Paystack's own page, same tab. It returns to /list (to this draft or
+  // listing being edited), where the server confirms the payment and the
+  // host carries on; publishing then uses it.
+  const payForTier = async (tier: ListingTier) => {
     if (paying.current || publishing.current) return;
-    if (!validateUpTo(REVIEW_STEP - 1)) return;
     paying.current = true;
-    setPayBusy('pay');
-    setPayLabelText('Preparing payment…');
+    setTierBusy(tier);
+    setTierError(null);
+    const current = sessionRef.current;
     let redirected = false;
     try {
-      const url = await prepareListingCheckout(token, (accessToken) => persistBeforeCheckout(accessToken, false), startListingCheckout);
-      setPayLabelText('Opening secure checkout…');
-      showMessage('Opening secure Paystack checkout. Your listing remains a saved draft until payment is verified and you select Publish Listing.', false);
-      // Same tab: Paystack returns here, and the payment is verified before Publish Listing shows.
+      const accessToken = await token();
+      if (!accessToken) throw new Error('Please log in again to continue.');
+      if (current) {
+        // Finish any draft save first, then keep autosave off while Paystack opens.
+        current.cancelTimer();
+        await current.settled();
+        current.checkoutHandoff = true;
+      }
+      const draft = !editMode && current ? current.draftId : null;
+      const url = await startListingTierCheckout(accessToken, tier, { draft, edit: editMode ? editListingId : null });
       window.location.assign(url);
       redirected = true;
     } catch (error) {
-      showMessage(errorMessage(error, 'Unable to start payment. Please try again.'), true);
+      setTierError(errorMessage(error, 'Unable to start payment. Please try again.'));
     } finally {
       paying.current = false;
-      if (!redirected && sessionRef.current) sessionRef.current.checkoutHandoff = false;
-      if (!redirected) { setPayBusy(null); setPayLabelText(null); }
-    }
-  };
-
-  const goPro = async () => {
-    if (paying.current || publishing.current) return;
-    paying.current = true;
-    setPayBusy('pro');
-    try {
-      if (!validateUpTo(REVIEW_STEP - 1)) return;
-      const accessToken = await token();
-      if (!accessToken) throw new Error('Please log in again to continue.');
-      await persistBeforeCheckout(accessToken, true);
-      if (sessionRef.current) { sessionRef.current.finished = true; sessionRef.current.cancelTimer(); }
-      void router.push(`/pricing?niche=${encodeURIComponent(category)}&returnTo=list`);
-    } catch (error) {
-      showMessage(errorMessage(error, 'Unable to save your listing before checkout.'), true);
-    } finally {
-      paying.current = false;
-      setPayBusy(null);
+      if (!redirected) {
+        if (current) current.checkoutHandoff = false;
+        setTierBusy(null);
+      }
     }
   };
 
@@ -659,8 +637,8 @@ export default function ListPage() {
       const state = latest.current;
       const cat = state.category;
       const stateForm = state.form;
-      if (isPaidNiche(cat) && !state.flags.hasActiveNichePlan && !state.flags.hasCurrentListingFee && !state.flags.paymentVerified) {
-        showMessage('Choose Pay KSh 1,000 or Go Pro before publishing this listing.', true);
+      if (isPaidNiche(cat) && !state.flags.hasActiveNichePlan && !state.flags.hasCurrentListingFee && !state.flags.paymentVerified && !hasListingCredit(state.flags)) {
+        showMessage('Choose Silver or Gold before publishing this listing.', true);
         return;
       }
       setPublishLabel(editMode ? 'Saving changes...' : 'Publishing...');
@@ -728,7 +706,7 @@ export default function ListPage() {
       const now = latest.current.flags;
       if (shouldActivate({
         category: cat, editMode, paymentVerified: now.paymentVerified, hasActiveNichePlan: now.hasActiveNichePlan, hasCurrentListingFee: now.hasCurrentListingFee,
-        listingIsPaused: now.listingIsPaused, listingNeedsPublication: now.listingNeedsPublication,
+        hasListingCredit: hasListingCredit(now), listingIsPaused: now.listingIsPaused, listingNeedsPublication: now.listingNeedsPublication,
       })) {
         const activationToken = (await token()) || accessToken;
         await activateListing(activationToken, listingId);
@@ -811,8 +789,15 @@ export default function ListPage() {
   };
 
   const step = form.currentStep;
-  const { showPay, submitHidden, entitlementNote } = reviewActions(paymentNeeded, flags.entitlementChecked);
-  const payDisabled = payBusy !== null;
+  const { showTierChoice, submitHidden, entitlementNote } = reviewActions(paymentNeeded, flags.entitlementChecked);
+  // Over whichever step is showing (the first, for a new listing) until a paid listing is there to use.
+  const tierChoice = showTierChoice && !flags.publishBlocked ? <ListingTierChoice busy={tierBusy} error={tierError} onChoose={(tier) => { void payForTier(tier); }} /> : null;
+  const overlayFor = (n: number) => (step === n ? tierChoice : null);
+  // Publishing uses the oldest paid Silver / Gold listing (activate_listing_with_entitlement).
+  const { silver, gold } = flags.listingCredits;
+  const creditNote = isPaidNiche(category) && !flags.hasActiveNichePlan && !flags.hasCurrentListingFee && !flags.paymentVerified && silver + gold > 0
+    ? `Publishing uses your paid ${gold && !silver ? 'Gold' : silver && !gold ? 'Silver' : 'Silver or Gold'} listing. It stays live for 30 days from today.`
+    : null;
   const submitLabel = publishLabel || (editMode ? 'Save changes' : 'Publish Listing');
   const officeProps = { kind, form, setField, update };
 
@@ -835,7 +820,7 @@ export default function ListPage() {
             <WizardProgress step={step} furthest={form.furthestStep} saveStatus={saveStatus} onGo={jumpTo} />
 
             {/* STEP 1 — About the property */}
-            <StepFrame step={1} active={step === 1}
+            <StepFrame step={1} active={step === 1} overlay={overlayFor(1)}
               photo={<StepPhoto image={1} badge="Your listing, coming to life" title="Every space has a story." text="Introduce your space and show people what makes it worth discovering." />}>
               <h1 className="step-title" id="listing-headline">{copy.headline}</h1>
               <p className="step-sub" id="about-sub">{copy.aboutSub}</p>
@@ -848,7 +833,7 @@ export default function ListPage() {
             </StepFrame>
 
             {/* STEP 2 — Location */}
-            <StepFrame step={2} active={step === 2}
+            <StepFrame step={2} active={step === 2} overlay={overlayFor(2)}
               photo={<StepPhoto image={2} badge="Location details added" title="Put your space on the map." text="Help people find your space with clear, accurate location details." />}>
               <h1 className="step-title" id="location-title">{copy.locationTitle}</h1>
               <p className="step-sub" id="location-sub">{copy.locationSub}</p>
@@ -871,7 +856,7 @@ export default function ListPage() {
             </StepFrame>
 
             {/* STEP 3 — The space */}
-            <StepFrame step={3} active={step === 3}
+            <StepFrame step={3} active={step === 3} overlay={overlayFor(3)}
               photo={(
                 <StepPhoto image={5} badge="Details added" title="Show what it's like inside." text="The details people compare before they choose." ref={setStepPhoto3}>
                   <AmenitiesLibrary open={library.open} trigger={library.trigger} category={category} amenities={form.amenities} officeShopSelections={form.officeShopAmenitySelections}
@@ -891,7 +876,7 @@ export default function ListPage() {
             </StepFrame>
 
             {/* STEP 4 — Photos */}
-            <StepFrame step={4} active={step === 4}
+            <StepFrame step={4} active={step === 4} overlay={overlayFor(4)}
               photo={<StepPhoto image={3} badge="Gallery ready" title="Show what makes it special." text="Lead with your best photo. People decide in seconds." />}>
               <h1 className="step-title" id="media-title">{copy.mediaTitle}</h1>
               <p className="step-sub" id="media-sub">{copy.mediaSub}</p>
@@ -907,7 +892,7 @@ export default function ListPage() {
             </StepFrame>
 
             {/* STEP 5 — Price & terms */}
-            <StepFrame step={5} active={step === 5}
+            <StepFrame step={5} active={step === 5} overlay={overlayFor(5)}
               photo={(
                 <StepPhoto image={4} badge="Pricing set" title="Make every detail count." text="Clear terms mean fewer questions and faster bookings.">
                   <PolicyPreviewOverlay preview={policyPreview} onClose={closePolicyPreview} />
@@ -930,7 +915,7 @@ export default function ListPage() {
             </StepFrame>
 
             {/* STEP 6 — Review & publish */}
-            <StepFrame step={6} active={step === 6}
+            <StepFrame step={6} active={step === 6} overlay={overlayFor(6)}
               photo={<ReviewHero media={reviewMedia} />}>
               <h1 className="step-title">Ready when you are.</h1>
               <p className="step-sub">One last look, then it&apos;s live for people to see.</p>
@@ -943,19 +928,14 @@ export default function ListPage() {
               </div>
               <StepAlert text={stepError && stepError.step === 6 ? stepError.text : null} />
               <div className="submit-row">
-                <button type="button" className="pay-to-list-btn" id="pay-to-list-btn" hidden={!showPay} disabled={payDisabled} onClick={(event) => { event.preventDefault(); void payToList(); }}>
-                  {payBusy === 'pay' && payLabelText ? payLabelText : payLabel()}
-                </button>
-                <button type="button" className="submit-btn" id="go-pro-btn" hidden={!showPay} disabled={payDisabled} onClick={(event) => { event.preventDefault(); void goPro(); }}>
-                  {payBusy === 'pro' ? 'Saving your listing…' : 'Go Pro'}
-                </button>
-                <button type="submit" className="submit-btn" id="submit-btn" hidden={submitHidden} disabled={Boolean(publishLabel) || payBusy === 'pay' || flags.publishBlocked}
+                <button type="submit" className="submit-btn" id="submit-btn" hidden={submitHidden} disabled={Boolean(publishLabel) || tierBusy !== null || flags.publishBlocked}
                   title={flags.publishBlocked ? 'Restore the saved listing details before publishing.' : undefined}>
                   {publishLabel ? submitLabel : <>{submitLabel} <span>✓</span></>}
                 </button>
                 <p className="form-note" id="listing-entitlement-note" hidden={!entitlementNote}>
                   {entitlementNote ? 'Unable to confirm your listing allowance. Refresh this page to try again before publishing or paying.' : ''}
                 </p>
+                {creditNote && <p className="form-note" id="listing-tier-note">{creditNote}</p>}
                 <p className="form-note">Goes live once saved, subject to GPS location verification.</p>
               </div>
               <PanelActions onBack={back} style={{ marginTop: '1rem' }} />

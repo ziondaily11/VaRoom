@@ -170,26 +170,6 @@ export function draftMediaMetadata(draft: Partial<DraftSnapshot>): MediaMetadata
   return metadata;
 }
 
-const sameFile = (saved: unknown, source: File | null | undefined): boolean => {
-  if (!source) return !saved;
-  const file = saved as File | null;
-  return Boolean(file && file.name === source.name && file.size === source.size && file.type === source.type
-    && file.lastModified === source.lastModified && typeof file.slice === 'function');
-};
-const sameFiles = (saved: unknown, source: File[]): boolean => Array.isArray(saved) && saved.length === source.length
-  && saved.every((file, index) => sameFile(file, source[index]));
-const json = (value: unknown) => JSON.stringify(value === undefined ? null : value);
-
-/** Whether a checkout snapshot read back from IndexedDB matches what was written (files included). */
-export function checkoutSnapshotMatches(saved: Partial<DraftSnapshot> | null, source: DraftSnapshot): boolean {
-  if (!saved || !saved.fields || Object.keys(saved.fields).length !== Object.keys(source.fields).length) return false;
-  if (!Array.isArray(saved.controls) || saved.controls.length !== source.controls.length) return false;
-  if (FORM_DATA_KEYS.some((key) => json(saved[key]) !== json(source[key]))) return false;
-  if (!sameFiles(saved.mediaFiles, source.mediaFiles) || !sameFile(saved.policyFile, source.policyFile)) return false;
-  const office = saved.officeShopFiles as { floorPlan?: unknown; policy?: unknown; documents?: unknown } | undefined;
-  return Boolean(office && sameFile(office.floorPlan, null) && sameFile(office.policy, null) && sameFiles(office.documents, []));
-}
-
 // ---------- Restore ----------
 
 const PURPOSES: PropertyPurpose[] = ['rent', 'sale', 'both'];

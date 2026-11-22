@@ -284,7 +284,3 @@ export function reviewMeta(category: Category, purpose: PropertyPurpose, locatio
   }
   return [CATEGORY_LABELS[category] || 'Listing', location].filter(Boolean).join(' · ');
 }
-
-/** "Pay KSh 1,000" (the server sets the actual amount). */
-export const PROPERTY_LISTING_FEE_KES = 1000;
-export const payLabel = () => `Pay KSh ${PROPERTY_LISTING_FEE_KES.toLocaleString()}`;

@@ -15,7 +15,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const reference = transaction && transaction.reference;
   if (!reference) throw new Error('Verified Paystack transaction has no reference');
   const { data: payment, error } = await supabaseAdmin.from('billing_payments')
-    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,paid_at,listing_id,payment_kind,niche,billing_interval,provider_payload')
+    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,paid_at,listing_id,listing_tier,payment_kind,niche,billing_interval,provider_payload')
     .eq('provider_reference', reference).maybeSingle();
   if (error) throw new Error('Unable to load billing payment');
   // Paystack creates a fresh transaction reference for each recurring charge.
@@ -30,8 +30,11 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const legacyPayment = payment.niche === 'legacy';
   const scopeMatches = (!payment.niche || (legacyPayment ? (!metadata.niche || metadata.niche === 'legacy') : metadata.niche === payment.niche))
     && (!payment.billing_interval || (legacyPayment ? (!metadata.billing_interval || metadata.billing_interval === payment.billing_interval) : metadata.billing_interval === payment.billing_interval));
+  // A Silver / Gold credit is bought before its listing exists (publishing
+  // fills listing_id later), so it is matched by its tier instead.
+  const listingMatches = payment.listing_tier ? metadata.listing_tier === payment.listing_tier : metadata.listing_id === payment.listing_id;
   const ownershipMatches = metadata.host_id === payment.host_id && (payment.payment_kind === 'listing'
-    ? scopeMatches && metadata.listing_id === payment.listing_id && metadata.payment_kind === 'listing'
+    ? scopeMatches && listingMatches && metadata.payment_kind === 'listing'
     : scopeMatches && metadata.plan_id === payment.plan_id && (!payment.listing_id || metadata.listing_id === payment.listing_id));
   if (status === 'succeeded' && (!amountMatches || !currencyMatches || !ownershipMatches)) {
     throw new Error('Verified Paystack transaction does not match the VaRoom payment');
@@ -60,13 +63,17 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   verifiedPaidAt = verifiedPaidAt || paymentUpdate.paid_at;
 
   if (status === 'succeeded' && payment.payment_kind === 'listing') {
-    // Payment records are keyed by a unique provider reference. Activation is
-    // tied to that record and may be repeated safely after webhook retries.
+    // A Silver / Gold credit waits for the host to publish a listing; its 30
+    // days start then (activate_listing_with_entitlement). An older
+    // pay-as-you-list payment was bound to its listing, whose term starts now.
+    // Activation is tied to the payment record and may be repeated safely after webhook retries.
     const paidAt = verifiedPaidAt;
-    const { error: listingError } = await supabaseAdmin.from('listings').update({
-      paid_listing_until: new Date(new Date(paidAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
-    if (listingError) throw new Error('Unable to activate paid listing');
+    if (!payment.listing_tier) {
+      const { error: listingError } = await supabaseAdmin.from('listings').update({
+        paid_listing_until: new Date(new Date(paidAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
+      if (listingError) throw new Error('Unable to activate paid listing');
+    }
   } else if (status === 'succeeded') {
     const paidAt = verifiedPaidAt;
     const periodEnd = new Date(paidAt);
@@ -91,7 +98,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     if (subscriptionError) throw new Error('Unable to close failed pending subscription');
   }
 
-  if (payment.payment_kind === 'listing' && ['failed', 'abandoned'].includes(status)) {
+  if (payment.payment_kind === 'listing' && payment.listing_id && ['failed', 'abandoned'].includes(status)) {
     const { error: listingError } = await supabaseAdmin.from('listings').update({ publication_state: 'draft' })
       .eq('id', payment.listing_id).eq('host_id', payment.host_id).eq('publication_state', 'payment_pending');
     if (listingError) throw new Error('Unable to return failed listing payment to draft');
@@ -107,7 +114,11 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
         title: isListing
           ? (status === 'succeeded' ? 'Listing payment successful' : 'Listing payment failed')
           : (status === 'succeeded' ? 'Subscription payment successful' : 'Subscription payment failed'),
-        message: isListing
+        message: isListing && payment.listing_tier
+          ? (status === 'succeeded'
+            ? `Your ${payment.listing_tier === 'gold' ? 'Gold' : 'Silver'} listing is paid. Its 30 days start when you publish the listing.`
+            : 'Your listing payment was not completed. You can try again.')
+          : isListing
           ? (status === 'succeeded' ? 'Your listing payment was verified.' : 'Your listing payment was not completed. Your listing remains a draft.')
           : (status === 'succeeded' ? 'Your subscription payment was verified and your plan is active.' : 'Your subscription payment was not completed. You can try again.'),
         relatedEntityType: isListing ? 'listing' : 'subscription',

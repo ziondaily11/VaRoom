@@ -4,8 +4,8 @@
 // are rendered; what lives only in the page's event handlers (the order of
 // the publish and pay flows) keeps a minimal source check, since those
 // handlers close over React state. Their logic is tested in
-// list-wizard-flows.test.js (saveForCheckout, prepareListingCheckout,
-// reviewActions, uploadPendingMedia).
+// list-wizard-flows.test.js (reviewActions, fetchListingEntitlement,
+// uploadPendingMedia) and pricing-page.test.js (startListingTierCheckout).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -43,6 +43,7 @@ function loadTsx(entry) {
 
 const { LeaveDialog } = loadTsx('components/listWizard/LeaveDialog.tsx');
 const { OfficeShopTypeChoice } = loadTsx('components/listWizard/WizardFields.tsx');
+const { ListingTierChoice } = loadTsx('components/listWizard/ListingTierChoice.tsx');
 
 const noop = () => {};
 const leave = (props) => renderToStaticMarkup(React.createElement(LeaveDialog, {
@@ -76,47 +77,62 @@ test('the office/shop choice marks only the chosen kind as selected', () => {
   assert.match(styles, /\.submit-row \[hidden\]\{ display:none !important; \}/);
 });
 
+test('the Silver / Gold choice: both plans with their prices, Gold first in focus, a way back home', () => {
+  const render = (props) => renderToStaticMarkup(React.createElement(ListingTierChoice, { busy: null, error: null, onChoose: noop, ...props }));
+  const html = render();
+  assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="tier-choice-title"/);
+  assert.match(html, /<h2 id="tier-choice-title">Choose your listing plan<\/h2>/);
+  assert.match(html, /It stays live for 30 days from when you publish it\./);
+  assert.deepEqual([...html.matchAll(/class="tier-choice-name">(\w+)</g)].map((match) => match[1]), ['Silver', 'Gold']);
+  assert.deepEqual([...html.matchAll(/<button type="button">(Pay KSh [\d,]+)<\/button>/g)].map((match) => match[1]), ['Pay KSh 1,000', 'Pay KSh 2,000']);
+  assert.match(html, /tier-choice-option featured[\s\S]*Gold/, 'Gold is the highlighted plan');
+  assert.match(html, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
+  assert.doesNotMatch(html, /tier-choice-error/);
+
+  const busy = render({ busy: 'gold' });
+  assert.equal((busy.match(/disabled=""/g) || []).length, 2, 'both buttons wait while checkout opens');
+  assert.match(busy, />Opening secure checkout…<\/button>/);
+  assert.match(render({ error: 'Unable to start payment.' }), /<p class="tier-choice-error" role="alert">Unable to start payment\.<\/p>/);
+});
+
 // ---------- The page's handlers (minimal source checks) ----------
 
 const page = fs.readFileSync(path.join(root, 'pages', 'list.tsx'), 'utf8');
-const checkout = fs.readFileSync(path.join(root, 'lib', 'listWizard', 'checkout.ts'), 'utf8');
 const between = (start, end) => {
   const from = page.indexOf(start);
   assert.ok(from >= 0, `${start} is in list.tsx`);
   return page.slice(from, page.indexOf(end, from));
 };
-const payToList = between('const payToList = async', 'const goPro = async');
-const goPro = between('const goPro = async', '// ---------- Publish');
+const payForTier = between('const payForTier = async', '// ---------- Publish');
 const publishFlow = between('const publish = async', '// ---------- Review');
 
-test('the review buttons: Pay and Go Pro are plain buttons with their own handlers; Publish submits', () => {
-  assert.match(page, /<button type="button" className="pay-to-list-btn" id="pay-to-list-btn" hidden=\{!showPay\}[^\n]*onClick=\{\(event\) => \{ event\.preventDefault\(\); void payToList\(\); \}\}/);
-  assert.match(page, /<button type="button" className="submit-btn" id="go-pro-btn" hidden=\{!showPay\}[^\n]*onClick=\{\(event\) => \{ event\.preventDefault\(\); void goPro\(\); \}\}/);
+test('the review has only Publish; Pay to list and Go Pro are gone', () => {
   assert.match(page, /<button type="submit" className="submit-btn" id="submit-btn" hidden=\{submitHidden\}/);
   assert.match(page, /= reviewActions\(paymentNeeded, flags\.entitlementChecked\)/);
   assert.match(page, /id="listing-entitlement-note" hidden=\{!entitlementNote\}>\s*\{entitlementNote \? 'Unable to confirm your listing allowance\. Refresh this page to try again before publishing or paying\.' : ''\}/);
   assert.match(page, /editMode \? 'Save changes' : 'Publish Listing'/);
+  assert.doesNotMatch(page, /pay-to-list-btn|go-pro-btn|payToList|goPro|\/pricing\?niche=/);
 });
 
-test('Pay to list opens Paystack in the same tab after saving, and never publishes or uploads by itself', () => {
-  assert.match(payToList, /if \(paying\.current \|\| publishing\.current\) return/);
-  assert.match(payToList, /await prepareListingCheckout\(token, \(accessToken\) => persistBeforeCheckout\(accessToken, false\), startListingCheckout\)/);
-  assert.ok(payToList.indexOf('prepareListingCheckout(') < payToList.indexOf('window.location.assign(url)'));
-  assert.match(payToList, /window\.location\.assign\(url\);\s*redirected = true/);
-  assert.match(payToList, /if \(!redirected && sessionRef\.current\) sessionRef\.current\.checkoutHandoff = false/);
-  assert.doesNotMatch(payToList, /window\.open|requestSubmit|\/pricing|uploadListing/);
+test('the Silver / Gold choice covers the showing step until a paid listing is there to use', () => {
+  assert.match(page, /const tierChoice = showTierChoice && !flags\.publishBlocked \? <ListingTierChoice /);
+  for (let step = 1; step <= 6; step += 1) assert.ok(page.includes(`<StepFrame step={${step}} active={step === ${step}} overlay={overlayFor(${step})}`), `step ${step}`);
+  assert.match(page, /hasListingCredit: hasListingCredit\(flags\)/, 'a paid listing counts as covered');
+  assert.match(page, /'Choose Silver or Gold before publishing this listing\.'/);
 });
 
-test('Go Pro saves the listing and then opens pricing, without paying or submitting', () => {
-  assert.ok(goPro.indexOf('await persistBeforeCheckout(accessToken, true)') >= 0);
-  assert.ok(goPro.indexOf('await persistBeforeCheckout(accessToken, true)') < goPro.indexOf('router.push(`/pricing?niche='));
-  assert.doesNotMatch(goPro, /requestSubmit|saveListing\(|startListingCheckout|uploadListing/);
-  assert.match(page, /persistBeforeCheckout = useCallback[\s\S]*?return saveForCheckout\(current, accessToken, saveProfileDraft, \{/);
+test('paying for Silver / Gold finishes the draft save, then opens Paystack in the same tab and returns to this draft', () => {
+  assert.match(payForTier, /if \(paying\.current \|\| publishing\.current\) return/);
+  assert.ok(payForTier.indexOf('await current.settled()') < payForTier.indexOf('current.checkoutHandoff = true'));
+  assert.ok(payForTier.indexOf('current.checkoutHandoff = true') < payForTier.indexOf('startListingTierCheckout('));
+  assert.match(payForTier, /startListingTierCheckout\(accessToken, tier, \{ draft, edit: editMode \? editListingId : null \}\)/);
+  assert.match(payForTier, /window\.location\.assign\(url\);\s*redirected = true/);
+  assert.match(payForTier, /if \(current\) current\.checkoutHandoff = false;/, 'autosave comes back if checkout did not open');
+  assert.doesNotMatch(payForTier, /window\.open|requestSubmit|saveListing\(|uploadListing/);
 });
 
-test('only Save as draft and checkout create the listing shell', () => {
+test('only Save as draft creates the listing shell', () => {
   assert.equal((page.match(/\.ensureShell\(/g) || []).length, 1, 'Save as draft');
-  assert.equal((checkout.match(/\.ensureShell\(/g) || []).length, 1, 'checkout');
 });
 
 test('publishing reuses the listing a failed attempt made and stops before activation when media failed', () => {

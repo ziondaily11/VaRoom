@@ -201,21 +201,23 @@ export interface PublicationState {
   paymentVerified: boolean;
   hasActiveNichePlan: boolean;
   hasCurrentListingFee: boolean;
+  /** A paid Silver / Gold listing not yet used: publishing uses it. */
+  hasListingCredit: boolean;
   listingIsPaused: boolean;
   listingNeedsPublication: boolean;
 }
 
-/** A paid niche needs a fee or plan before publishing. */
+/** A paid niche needs Silver, Gold (or a plan still running) before publishing. */
 export const needsListingPayment = (state: PublicationState) => isPaidNiche(state.category)
-  && !state.hasActiveNichePlan && !state.paymentVerified && !(state.editMode && state.hasCurrentListingFee);
+  && !state.hasActiveNichePlan && !state.paymentVerified && !state.hasListingCredit && !(state.editMode && state.hasCurrentListingFee);
 
 /**
- * The review step's actions: Pay to list and Go Pro only once the allowance
- * check has answered; Publish hidden while payment is needed; and when the
- * check failed, a note instead of either.
+ * While payment is needed: the Silver / Gold choice covers the step once the
+ * allowance check has answered, Publish stays hidden, and when the check
+ * failed, a note under the buttons instead.
  */
-export function reviewActions(paymentNeeded: boolean, entitlementChecked: boolean): { showPay: boolean; submitHidden: boolean; entitlementNote: boolean } {
-  return { showPay: paymentNeeded && entitlementChecked, submitHidden: paymentNeeded, entitlementNote: paymentNeeded && !entitlementChecked };
+export function reviewActions(paymentNeeded: boolean, entitlementChecked: boolean): { showTierChoice: boolean; submitHidden: boolean; entitlementNote: boolean } {
+  return { showTierChoice: paymentNeeded && entitlementChecked, submitHidden: paymentNeeded, entitlementNote: paymentNeeded && !entitlementChecked };
 }
 
 /**
@@ -245,13 +247,14 @@ export async function uploadPendingMedia(files: File[], uploaded: Set<File>, upl
 /** A new listing whose media didn't all upload is not activated (the host retries). */
 export const mediaUploadBlocksPublish = (editMode: boolean, total: number, failedCount: number) => !editMode && total > 0 && failedCount > 0;
 
-/** Whether publishing also sets the listing available (unchanged rule). */
+/** Whether publishing also sets the listing available (the server uses a Silver / Gold credit then). */
 export function shouldActivate(state: PublicationState): boolean {
   const paid = isPaidNiche(state.category);
+  const covered = state.hasActiveNichePlan || state.hasListingCredit;
   return state.paymentVerified
-    || (!state.editMode && state.hasActiveNichePlan && paid)
-    || (state.editMode && state.listingIsPaused && (state.hasCurrentListingFee || state.hasActiveNichePlan))
-    || (state.editMode && state.hasActiveNichePlan && !state.hasCurrentListingFee && paid)
+    || (!state.editMode && covered && paid)
+    || (state.editMode && state.listingIsPaused && (state.hasCurrentListingFee || covered))
+    || (state.editMode && covered && !state.hasCurrentListingFee && paid)
     || (!paid && (!state.editMode || state.listingNeedsPublication));
 }
 

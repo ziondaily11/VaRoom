@@ -44,13 +44,16 @@ function visit({ niche = 'property', routes = {}, device = { idb: createMemoryIn
   return { run, session, cache, device, state, client, network, pointerReads, checking, replaced };
 }
 
-/** A checkout copy saved by an earlier visit (what Pay to list / Go Pro leave behind). */
+/** A checkout copy saved by an earlier visit (what Pay to list / Go Pro left behind before Silver and Gold). */
 async function leaveCheckoutCopy(device, { niche = 'property', listingId = 'listing-1', title = 'Paid listing' } = {}) {
   const earlier = visit({ niche, device });
   earlier.session.draftId = 'draft-1';
-  earlier.state.form = { ...emptyForm(), currentStep: 4, furthestStep: 4, fields: { title } };
-  earlier.state.media = { ...noMedia(), mediaFiles: [new File(['img'], 'a.jpg', { type: 'image/jpeg', lastModified: 1 })] };
-  await earlier.session.saveCheckoutState(listingId);
+  const form = { ...emptyForm(), currentStep: 4, furthestStep: 4, fields: { title } };
+  const media = { ...noMedia(), mediaFiles: [new File(['img'], 'a.jpg', { type: 'image/jpeg', lastModified: 1 })] };
+  const cacheKey = `host-1:checkout:${listingId}`;
+  const createdAt = Date.now();
+  await earlier.cache.save({ ...drafts.captureSnapshot(earlier.session.identity(listingId), niche, form, media, 'month'), cacheKey, checkoutState: true, createdAt });
+  device.storage.setItem(`varoom_listing_checkout_state:host-1:${listingId}`, JSON.stringify({ hostId: 'host-1', listingId, category: niche, draftId: 'draft-1', cacheKey, createdAt }));
 }
 
 test('a fresh visit neither reads the previous draft pointer nor restores anything', async () => {
@@ -130,7 +133,7 @@ test('a listing payment is verified by the server, then the checkout copy is res
   assert.equal(v.session.listingId, 'listing-1');
   assert.equal(v.session.draftId, 'draft-1');
   assert.equal(outcome.form.fields.title, 'Paid listing');
-  assert.equal(outcome.form.currentStep, 5, 'back on the review step, not edit mode');
+  assert.equal(outcome.form.currentStep, 6, 'back on the review step, not edit mode');
   assert.equal(outcome.media.mediaFiles.length, 1);
   assert.equal(outcome.messages.at(-1).text, 'Payment confirmed. Review your listing, then select Publish Listing when you are ready.');
   const rewritten = device.idb.records.get('host-1:checkout:listing-1');
@@ -224,4 +227,55 @@ test('edit mode reads only the host\'s own listing', async () => {
   const stranger = visit({ niche: 'airbnb', tables: { listings: null } });
   const refused = await stranger.run(params({ edit: 'l1' }));
   assert.deepEqual(refused, { status: 'stopped', text: 'This listing could not be found or is not yours to edit.' });
+});
+
+// ---------- Silver / Gold ----------
+
+const credits = (silver, gold) => ({ entitlements: { active: false, subscription: null, canCreateAnotherListing: { allowed: false }, listingCredits: { silver, gold } } });
+const goldPaid = { payment: { status: 'succeeded', payment_kind: 'listing', listing_id: null, listing_tier: 'gold' } };
+
+test('the allowance check carries the paid Silver / Gold listings', async () => {
+  const outcome = await visit({ routes: { 'GET /api/billing/entitlements': credits(2, 1) } }).run(params());
+  assert.deepEqual({ ...outcome.flags.listingCredits }, { silver: 2, gold: 1 });
+  assert.equal(outcome.flags.hasActiveNichePlan, false);
+});
+
+test('back from paying for Gold: a fresh listing, the paid listing counted, never the last device draft', async () => {
+  const device = { idb: createMemoryIndexedDB(), storage: createMemoryStorage() };
+  const earlier = visit({ device });
+  earlier.session.draftId = 'old-draft';
+  earlier.state.form = { ...emptyForm(), fields: { title: 'Previous listing' } };
+  await earlier.session.save(null, false, true);
+
+  const v = visit({ device, search: '?payment=return&reference=gold-1', routes: { 'GET /api/billing/payments/gold-1': goldPaid, 'GET /api/billing/entitlements': credits(0, 1) } });
+  const outcome = await v.run(params({ payment: 'return', reference: 'gold-1' }));
+  assert.equal(outcome.status, 'ready');
+  assert.equal(outcome.form, null, 'nothing restored: the host starts the listing');
+  assert.equal(v.session.draftId, null);
+  assert.equal(v.session.cacheKey, null);
+  assert.equal(outcome.flags.paymentVerified, false, 'publishing uses the credit on the server, not a listing-bound payment');
+  assert.equal(outcome.flags.listingCredits.gold, 1);
+  assert.deepEqual(v.replaced, ['/list?payment=verified&reference=gold-1']);
+  assert.equal(outcome.messages.at(-1).text, 'Payment confirmed. Your Gold listing is ready: fill in your listing and publish it. Its 30 days start when you publish.');
+});
+
+test('a verified Gold payment counts even if the allowance check has not caught up', async () => {
+  const outcome = await visit({ routes: { 'GET /api/billing/payments/gold-1': goldPaid, 'GET /api/billing/entitlements': credits(0, 0) } })
+    .run(params({ payment: 'verified', reference: 'gold-1' }));
+  assert.equal(outcome.flags.listingCredits.gold, 1);
+  const used = await visit({ routes: { 'GET /api/billing/payments/gold-1': { payment: { ...goldPaid.payment, listing_id: 'listing-1' } }, 'GET /api/billing/entitlements': credits(0, 0) } })
+    .run(params({ payment: 'verified', reference: 'gold-1' }));
+  assert.equal(used.flags.listingCredits.gold, 0, 'a credit already used by a published listing is not counted again');
+  assert.equal(used.flags.paymentVerified, false);
+});
+
+test('back from paying while continuing a draft: that draft reopens where the host was', async () => {
+  const remote = { id: 'draft-7', listing_id: null, category: 'property', revision: 2, form_data: { fields: { title: 'Half done' }, currentStep: 3, furthestStep: 3, stepVersion: 2 }, media_metadata: [] };
+  const v = visit({ routes: { 'GET /api/listing-drafts/draft-7': { draft: remote }, 'GET /api/billing/payments/silver-1': { payment: { ...goldPaid.payment, listing_tier: 'silver' } }, 'GET /api/billing/entitlements': credits(1, 0) } });
+  const outcome = await v.run(params({ payment: 'return', reference: 'silver-1', draft: 'draft-7' }));
+  assert.equal(outcome.form.fields.title, 'Half done');
+  assert.equal(outcome.form.currentStep, 3);
+  assert.equal(v.session.draftId, 'draft-7');
+  assert.equal(outcome.flags.publishBlocked, false);
+  assert.match(outcome.messages.at(-1).text, /^Payment confirmed\. Your Silver listing is ready/);
 });

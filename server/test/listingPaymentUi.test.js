@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// The native listing wizard's review buttons, Pay to list, Go Pro, payment
-// verification and entitlement checks are tested in
+// The native listing wizard's Silver / Gold choice, payment verification
+// and entitlement checks are tested in
 // client/test/list-wizard-flows.test.js, list-wizard-startup.test.js and
 // list-wizard-page.test.js. These checks pin the pricing return and the
 // server's entitlement rule.
@@ -15,10 +15,11 @@ const clientFile = (file) => fs.readFileSync(path.join(__dirname, '..', '..', 'c
 const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts'].map(clientFile).join('\n');
 const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
-test('Go Pro returns from pricing to the listing it saved, only after a verified payment', () => {
-  assert.match(pricingPage, /pointer\.listingId/);
-  assert.match(pricingPage, /\/list\?subscription=return&reference=\$\{encodeURIComponent\(reference\)\}/);
+test('Silver and Gold are bought by tier from pricing; monthly plans by plan id; neither sends a price', () => {
+  assert.match(pricingPage, /card\.perListing\s*\? await startListingTierCheckout\(token, card\.id as ListingTier\)\s*: await startCheckout\(token, card\.id\)/);
+  assert.match(pricingPage, /'\/api\/billing\/listing-checkout', token, \{ tier,/);
   assert.match(pricingPage, /reference && payment && payment\.status === 'succeeded'/);
+  assert.doesNotMatch(pricingPage, /subscription=return|returnTo|pointer\.listingId/, 'Go Pro (a monthly plan bought from the wizard) is gone');
 });
 
 test('pricing callback verifies the returned reference and marks only the purchased active plan current', () => {

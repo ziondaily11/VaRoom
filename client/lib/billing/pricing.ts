@@ -1,6 +1,6 @@
 // Host plans for /pricing (migrated from legacy-pages/pricing.html). The
 // server owns prices, Paystack plan codes and activation: the browser sends
-// only a VaRoom plan id, and a return from Paystack never grants access by
+// only a VaRoom plan id (or Silver / Gold tier), and a return from Paystack never grants access by
 // itself; the plan counts as active only once the server reports the paid
 // reference as succeeded and that plan as the active subscription.
 // Import-free so it can be tested directly.
@@ -16,7 +16,7 @@ export interface BillingPlan {
 }
 
 export interface PlanCard {
-  /** The VaRoom plan id once the server's plans are loaded (the fallback slot name before). */
+  /** The VaRoom plan id, or the tier (silver / gold) of a per-listing plan. */
   id: string;
   name: string;
   description: string;
@@ -26,23 +26,27 @@ export interface PlanCard {
   /** Yearly prices are not defined yet. */
   yearly: number | null;
   featured: boolean;
+  /** Paid once per listing (Silver, Gold) rather than monthly. */
+  perListing?: boolean;
 }
 
-/** Shown until the server's plans load (legacy markup). */
+/** The original plans, for hosts without a niche plan set (filled in order from the server's legacy plans). */
 export const DEFAULT_PLAN_CARDS: PlanCard[] = [
-  { id: 'basic', name: 'Basic', description: 'For hosts getting started with their niche.', features: ['Up to 5 active listings', 'Analytics included', 'No landing-page promotion eligibility'], cta: 'Get Started', monthly: 3000, yearly: null, featured: false },
-  { id: 'pro', name: 'Pro', description: 'More room to grow and become eligible for promotion.', features: ['Up to 12 active listings', 'Analytics included', 'Eligible for landing-page promotion; featuring is not guaranteed'], cta: 'Go Pro', monthly: 6000, yearly: null, featured: true },
-  { id: 'premium', name: 'Premium', description: 'Maximum capacity with landing-page promotion eligibility.', features: ['Up to 20 active listings', 'Analytics included', 'Eligible for landing-page promotion; featuring is not guaranteed'], cta: 'Choose Premium', monthly: 12000, yearly: null, featured: false },
+  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access'], cta: 'Get Started', monthly: 800, yearly: null, featured: false },
+  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video listings', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, yearly: null, featured: true },
+  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', 'Elie', 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
 ];
 
-// Hosts without a property or shops & offices niche see the original plans.
-const LEGACY_DESCRIPTIONS = ['Essential tools for getting started on VaRoom', 'More visibility and better listing capabilities', 'Maximum visibility and intelligent client engagement'];
-const LEGACY_FEATURES = [
-  ['All core host tools', 'Limited storage', 'Standard listing access'],
-  ['Everything in Basic', 'Video listings', 'Increased storage', 'Get showcased to new clients searching within your niche'],
-  ['Everything in Growth', 'Elie', 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'],
+// Property and Shops & Offices pay per listing: Silver or Gold keeps one
+// listing live for 30 days from when it is published. Gold ranks above
+// Silver in Marketplace and is eligible for the landing page; VaRoom
+// Discover treats both the same.
+export const LISTING_TIER_CARDS: PlanCard[] = [
+  { id: 'silver', name: 'Silver', description: 'One listing, live for 30 days from when you publish it.', perListing: true, monthly: 1000, yearly: null, featured: false, cta: 'Choose Silver',
+    features: ['One listing live for 30 days', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included'] },
+  { id: 'gold', name: 'Gold', description: 'More visibility for one listing, live for 30 days from when you publish it.', perListing: true, monthly: 2000, yearly: null, featured: true, cta: 'Choose Gold',
+    features: ['One listing live for 30 days', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
 ];
-const LEGACY_CTAS = ['Get Started', 'Upgrade to Growth', 'Upgrade to Pro'];
 
 // Airbnb, Hotel and Event Venue plans unlock features; the included listings,
 // rooms or spaces are shown here but not enforced on publishing yet. The
@@ -52,6 +56,8 @@ const nicheCard = (id: string, name: string, monthly: number, description: strin
 );
 
 export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
+  property: LISTING_TIER_CARDS,
+  shops_offices: LISTING_TIER_CARDS,
   airbnb: [
     nicheCard('airbnb_starter', 'Starter', 1500, 'For hosts with one or two short-stay units.',
       ['Up to 2 active listings', 'Core host tools', 'Analytics included'], 'Get Started'),
@@ -92,14 +98,15 @@ const copyCards = (cards: PlanCard[]) => cards.map((card) => ({ ...card, feature
  */
 export function cardsForNiche(hostNiche: string | null | undefined): PlanCard[] | null {
   if (!hostNiche) return null;
-  if (NICHE_PLAN_CARDS[hostNiche]) return copyCards(NICHE_PLAN_CARDS[hostNiche]);
-  if (PROPERTY_SHOP_NICHES.has(hostNiche)) return copyCards(DEFAULT_PLAN_CARDS);
+  if (PROPERTY_SHOP_NICHES.has(hostNiche)) return copyCards(LISTING_TIER_CARDS);
+  if (['airbnb', 'hotel', 'venue'].includes(hostNiche)) return copyCards(NICHE_PLAN_CARDS[hostNiche]);
   return null;
 }
 
 // ---- Plans cache (per account, this tab) ----
 
-export const PLANS_CACHE_PREFIX = 'varoom_billing_plans:';
+// v2: Property and Shops & Offices moved to Silver and Gold, so older saved plans are ignored.
+export const PLANS_CACHE_PREFIX = 'varoom_billing_plans:v2:';
 export const PLANS_CACHE_TTL_MS = 10 * 60 * 1000;
 
 interface CachedPlans { hostNiche: string | null; savedAt: number; plans: BillingPlan[] }
@@ -138,23 +145,16 @@ export function applyPlans(cards: PlanCard[], plans: BillingPlan[]): PlanCard[] 
       return card ? [{ ...card, features: [...card.features], name: serverPlan.display_name || card.name, monthly: serverPlan.monthly_amount_minor / 100 }] : [];
     });
   }
-  const next = cards.map((card) => ({ ...card, features: [...card.features] }));
-  const isLegacy = plans.length > 0 && plans[0].niche === 'legacy';
+  // Legacy plans, in price order, fill the original cards in order.
+  const next = copyCards(cards);
   plans.forEach((plan, index) => {
-    const card = isLegacy ? next[index] : next.find((item) => item.name.toLowerCase() === plan.display_name.toLowerCase());
+    const card = next[index];
     if (!card) return;
-    if (isLegacy) {
-      card.name = plan.display_name;
-      card.description = LEGACY_DESCRIPTIONS[index] || card.description;
-      card.features = [...(LEGACY_FEATURES[index] || card.features)];
-      card.cta = LEGACY_CTAS[index] || card.cta;
-    }
     card.id = plan.id;
+    card.name = plan.display_name;
     card.monthly = plan.monthly_amount_minor / 100;
-    const limit = plan.features && plan.features.max_active_listings;
-    if (card.features.length && limit) card.features[0] = `Up to ${limit} active listings`;
   });
-  return next;
+  return next.slice(0, plans.length);
 }
 
 type FetchFn = typeof fetch;
@@ -172,6 +172,8 @@ export async function fetchPlans(token: string, fetchFn: FetchFn = fetch): Promi
 export interface Entitlements {
   active?: boolean;
   subscription?: { plan_id?: string; status?: string } | null;
+  /** Paid Silver / Gold listings not yet used. */
+  listingCredits?: Record<ListingTier, number>;
 }
 
 export async function fetchEntitlements(token: string, fetchFn: FetchFn = fetch): Promise<Entitlements | null> {
@@ -187,64 +189,8 @@ export function currentPlanId(entitlements: Entitlements | null): string | null 
 
 // ---- Checkout ----
 
-export const DRAFT_POINTER_PREFIX = 'varoom_listing_draft_pointer:';
-export const LISTING_AFTER_UPGRADE_KEY = 'varoom_listing_after_upgrade';
-const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
-export interface DraftPointer { hostId: string; cacheKey: string; createdAt: number; listingId?: string; returnTo?: string; category?: string }
-
-/** The /list draft pointer for this host (same validation as listing-draft-cache.js). */
-export function readDraftPointer(storage: Storage | null, hostId: string): DraftPointer | null {
-  if (!storage || !hostId) return null;
-  const value = storage.getItem(DRAFT_POINTER_PREFIX + hostId);
-  if (!value) return null;
-  let pointer: DraftPointer;
-  try {
-    pointer = JSON.parse(value);
-  } catch (error) {
-    console.warn('Ignoring a corrupt saved listing draft pointer:', error);
-    storage.removeItem(DRAFT_POINTER_PREFIX + hostId);
-    return null;
-  }
-  if (!pointer || pointer.hostId !== hostId || typeof pointer.cacheKey !== 'string' || !Number.isFinite(pointer.createdAt)) return null;
-  return pointer;
-}
-
-/**
- * The listing a subscription unlocks: a draft from /list under a week old
- * (and of the requested niche), or one saved for after the upgrade.
- */
-export function pendingListingId({ pointer, niche, afterUpgrade, now = Date.now() }: {
-  pointer: DraftPointer | null;
-  niche: string | null;
-  afterUpgrade: string | null;
-  now?: number;
-}): string | null {
-  let listingId: string | null = null;
-  if (pointer && pointer.listingId && pointer.returnTo === 'list' && pointer.createdAt && now - pointer.createdAt <= DRAFT_MAX_AGE_MS
-      && (!niche || pointer.category === niche)) {
-    listingId = pointer.listingId;
-  }
-  try {
-    const pending = JSON.parse(afterUpgrade || 'null') as { id?: string } | null;
-    if (pending && pending.id) listingId = pending.id;
-  } catch {
-    // Ignore an unreadable saved value.
-  }
-  return listingId;
-}
-
-export function checkoutBody(planId: string, listingId: string | null, returnTo: string | null): { plan: string; listing_id?: string; return_to?: 'list' } {
-  return {
-    plan: planId,
-    ...(listingId ? { listing_id: listingId } : {}),
-    ...(returnTo === 'list' ? { return_to: 'list' as const } : {}),
-  };
-}
-
-/** Start Paystack checkout; resolves the URL to send the browser to. */
-export async function startCheckout(token: string, body: ReturnType<typeof checkoutBody>, fetchFn: FetchFn = fetch): Promise<string> {
-  const response = await fetchFn('/api/billing/checkout', {
+async function postCheckout(url: string, token: string, body: Record<string, string>, fetchFn: FetchFn): Promise<string> {
+  const response = await fetchFn(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(body),
@@ -253,6 +199,19 @@ export async function startCheckout(token: string, body: ReturnType<typeof check
   if (!response.ok || !result.authorization_url) throw new Error((result.error as string) || 'Unable to start checkout.');
   return result.authorization_url as string;
 }
+
+/** Start a monthly plan's Paystack checkout (only the plan id is sent, never a price); resolves the URL to send the browser to. */
+export const startCheckout = (token: string, planId: string, fetchFn: FetchFn = fetch) => postCheckout('/api/billing/checkout', token, { plan: planId }, fetchFn);
+
+export type ListingTier = 'silver' | 'gold';
+
+/** Where Paystack returns the host on /list: the saved draft being continued, or the listing being edited. */
+export interface ListingReturn { draft?: string | null; edit?: string | null }
+
+/** Pay for one Silver or Gold listing; Paystack then returns the host to /list. */
+export const startListingTierCheckout = (token: string, tier: ListingTier, back: ListingReturn = {}, fetchFn: FetchFn = fetch) => postCheckout(
+  '/api/billing/listing-checkout', token, { tier, ...(back.draft ? { draft: back.draft } : {}), ...(back.edit ? { edit: back.edit } : {}) }, fetchFn,
+);
 
 // ---- Return from Paystack (?billing=return&reference=…) ----
 

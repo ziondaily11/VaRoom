@@ -2,15 +2,18 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createBillingRoutes, normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance } = require('../routes/billingRoutes');
+const { createBillingRoutes, normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, calculateTransitionAllowance } = require('../routes/billingRoutes');
 const { ValidationError } = require('../lib/inputValidation');
 
 test('checkout accepts only canonical VaRoom plan identifiers, never a browser price', () => {
   assert.equal(normalizeRequestedPlan('basic'), 'basic');
   assert.equal(normalizeRequestedPlan('growth'), 'growth');
   assert.equal(normalizeRequestedPlan('pro'), 'pro');
-  assert.equal(normalizeRequestedPlan('property_basic'), 'property_basic');
-  assert.equal(normalizeRequestedPlan('shops_premium'), 'shops_premium');
+  assert.equal(normalizeRequestedPlan('airbnb_pro'), 'airbnb_pro');
+  // Property and Shops & Offices sell Silver and Gold per listing instead.
+  for (const retired of ['property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium']) {
+    assert.throws(() => normalizeRequestedPlan(retired), ValidationError);
+  }
   assert.throws(() => normalizeRequestedPlan('pro?amount=1'), ValidationError);
   assert.throws(() => normalizeRequestedPlan({ plan: 'pro', amount: 1 }), ValidationError);
 });
@@ -74,7 +77,7 @@ test('subscription checkout callback includes its generated payment reference an
   let initialized;
   let insertedPayment;
   const plan = {
-    id: 'property_basic', active: true, niche: 'property', monthly_amount_minor: 300000,
+    id: 'airbnb_starter', active: true, niche: 'airbnb', monthly_amount_minor: 150000,
     currency: 'KES', billing_interval: 'monthly', paystack_plan_code: 'PLN_TEST',
   };
   const supabase = {
@@ -86,7 +89,7 @@ test('subscription checkout callback includes its generated payment reference an
         update(value) { query.updated = value; return query; },
         maybeSingle: async () => ({
           data: table === 'profiles' && query.selected === 'role' ? { role: 'host' }
-            : table === 'profiles' ? { listing_categories: ['property'] }
+            : table === 'profiles' ? { listing_categories: ['airbnb'] }
               : table === 'billing_plans' ? plan : null,
           error: null,
         }),
@@ -120,215 +123,120 @@ test('subscription checkout callback includes its generated payment reference an
 
   await checkoutRoute.route.stack[0].handle({
     headers: { authorization: 'Bearer host-token' },
-    body: { plan: 'property_basic' },
+    body: { plan: 'airbnb_starter' },
   }, response);
 
   const callback = new URL(initialized.callback_url);
   assert.equal(responseCode, 201);
   assert.equal(responseBody.reference, 'checkout-reference');
   assert.equal(callback.searchParams.get('reference'), responseBody.reference);
-  assert.equal(callback.searchParams.get('plan'), 'property_basic');
+  assert.equal(callback.searchParams.get('plan'), 'airbnb_starter');
   assert.equal(insertedPayment.provider_payload.checkout_reservation, true);
   assert.equal(insertedPayment.provider_payload.listing_allowance_transition.limit, null);
 });
 
-test('upgrade checkout reserves exactly the remaining old slots plus the new plan allowance', async () => {
-  const targetPlan = {
-    id: 'property_pro', active: true, niche: 'property', monthly_amount_minor: 600000,
-    currency: 'KES', billing_interval: 'monthly', paystack_plan_code: 'PLN_PRO',
-    features: { max_active_listings: 12 },
-  };
-  const existing = {
-    id: 'sub-1', plan_id: 'property_basic', status: 'active', niche: 'property',
-    listing_allowance_limit: 5, provider_subscription_code: 'SUB_OLD', provider_email_token: 'token',
-    billing_plans: { features: { max_active_listings: 5 } },
-  };
-  let insertedPayment;
-  let initialized;
-  const supabase = {
-    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
-    from(table) {
-      const query = { selected: null, filters: {}, select(columns) { this.selected = columns; return this; },
-        eq(column, value) { this.filters[column] = value; return this; },
-        in() { return this; }, is() { return this; },
-        maybeSingle: async () => {
-          if (table === 'profiles' && query.selected === 'role') return { data: { role: 'host' }, error: null };
-          if (table === 'profiles') return { data: { listing_categories: ['property'] }, error: null };
-          if (table === 'billing_plans') return { data: targetPlan, error: null };
-          if (table === 'host_subscriptions') return { data: existing, error: null };
-          if (table === 'billing_payments') return { data: null, error: null };
-          return { data: null, error: null };
-        },
-        async then(resolve) {
-          if (table === 'listings') return resolve({ count: 3, error: null });
-          return resolve({ error: null });
-        },
-        insert(value) { if (table === 'billing_payments') insertedPayment = value; return Promise.resolve({ error: null }); },
-        update() { return { eq: async () => ({ error: null }) }; },
-      };
-      return query;
-    },
-  };
-  const router = createBillingRoutes({
-    supabaseAdmin: supabase,
-    baseUrl: 'https://varoom.co.ke',
-    nodeEnv: 'production',
-    paystack: {
-      generateReference: () => 'upgrade-reference',
-      initializeTransaction: async (payload) => { initialized = payload; return { authorization_url: 'https://checkout.paystack.test/' }; },
-    },
-  });
-  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/checkout');
-  let responseCode;
-  const response = { status(code) { responseCode = code; return this; }, json(body) { this.body = body; return this; } };
-  await route.route.stack[0].handle({ headers: { authorization: 'Bearer host-token' }, body: { plan: 'property_pro' } }, response);
-  assert.equal(responseCode, 201);
-  assert.equal(initialized.reference, 'upgrade-reference');
-  assert.equal(insertedPayment.subscription_id, 'sub-1');
-  assert.deepEqual(insertedPayment.provider_payload.listing_allowance_transition, {
-    limit: 14, previous_remaining: 2, newly_granted: 12,
-  });
-  assert.equal(insertedPayment.provider_payload.replaces_subscription.code, 'SUB_OLD');
-});
-
-test('pay-as-you-list checkout initializes KSh 1,000 with its listing-bound callback metadata', async () => {
-  const insertedPayments = [];
-  let initialized;
-  const supabase = {
-    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
-    from(table) {
-      const query = {
-        selected: '',
-        filters: {},
-        select(columns) { this.selected = columns; return this; },
-        eq(column, value) { this.filters[column] = value; return this; },
-        maybeSingle: async () => {
-          if (table === 'profiles' && query.selected === 'role') return { data: { role: 'host' }, error: null };
-          if (table === 'profiles') return { data: { listing_categories: ['property'] }, error: null };
-          if (table === 'listings') return { data: { id: 'listing-1', host_id: 'host-1', category: 'property' }, error: null };
-          if (table === 'billing_payments') return { data: null, error: null };
-          return { data: null, error: null };
-        },
-        insert(value) { insertedPayments.push(value); return Promise.resolve({ error: null }); },
-      };
-      return query;
-    },
-  };
-  const router = createBillingRoutes({
-    supabaseAdmin: supabase,
-    baseUrl: 'https://varoom.co.ke',
-    nodeEnv: 'production',
-    paystack: {
-      generateReference: () => 'listing-checkout-reference',
-      initializeTransaction: async (payload) => {
-        initialized = payload;
-        return { authorization_url: 'https://checkout.paystack.test/' };
-      },
-    },
-  });
-  const checkoutRoute = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
-  let responseCode;
-  let responseBody;
-  const response = {
-    status(code) { responseCode = code; return this; },
-    json(body) { responseBody = body; return this; },
-  };
-
-  await checkoutRoute.route.stack[0].handle({
-    headers: { authorization: 'Bearer session-token' },
-    body: { listing_id: '11111111-1111-4111-8111-111111111111' },
-  }, response);
-
-  assert.equal(responseCode, 201);
-  assert.equal(responseBody.reference, 'listing-checkout-reference');
-  assert.equal(initialized.amount, 100000);
-  assert.equal(initialized.currency, 'KES');
-  assert.deepEqual(initialized.metadata, {
-    host_id: 'host-1',
-    listing_id: 'listing-1',
-    niche: 'property',
-    billing_interval: 'one_time',
-    payment_kind: 'listing',
-    varoom_billing: true,
-  });
-  const callback = new URL(initialized.callback_url);
-  assert.equal(callback.pathname, '/list');
-  assert.equal(callback.searchParams.get('payment'), 'return');
-  assert.equal(callback.searchParams.get('reference'), responseBody.reference);
-  assert.equal(insertedPayments[0].status, 'initialized');
-  assert.equal(insertedPayments[0].amount_minor, 100000);
-});
-
-test('listing checkout eligibility preserves property, office, and shop categories and verifies ownership', () => {
-  const hostId = 'host-1';
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'property' }, hostId, ['property']), true);
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'office' }, hostId, ['office']), true);
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['shop']), true);
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['office']), true);
-  assert.equal(isEligibleListingForHost({ host_id: 'another-host', category: 'property' }, hostId, ['property']), false);
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['property']), false);
-  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'hotel' }, hostId, ['office']), false);
-});
-
-test('listing checkout starts payment only for the authenticated host and matching niche', async (t) => {
-  for (const scenario of [
-    { category: 'property', hostCategories: ['property'], expectedNiche: 'property' },
-    { category: 'office', hostCategories: ['office'], expectedNiche: 'shops_offices' },
-    { category: 'shop', hostCategories: ['shop'], expectedNiche: 'shops_offices' },
-    { category: 'shop', hostCategories: ['office'], expectedNiche: 'shops_offices' },
-  ]) {
-    await t.test(scenario.category + ' from profile ' + scenario.hostCategories[0], async () => {
-      let initialized;
-      const listing = { id: 'listing-1', host_id: 'host-1', category: scenario.category };
-      const supabase = {
-        auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
-        from(table) {
-          const query = { selected: '', filters: {}, select(columns) { this.selected = columns; return this; },
-            eq(column, value) { this.filters[column] = value; return this; },
-            maybeSingle: async () => table === 'profiles'
-              ? (query.selected === 'role' ? { data: { role: 'host' }, error: null } : { data: { listing_categories: scenario.hostCategories }, error: null })
-              : table === 'listings' ? { data: listing, error: null } : { data: null, error: null },
-            insert: async () => ({ error: null }),
-          };
-          return query;
-        },
-      };
-      const router = createBillingRoutes({
-        supabaseAdmin: supabase, baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
-        paystack: { generateReference: () => 'reference-' + scenario.category,
-          initializeTransaction: async (payload) => { initialized = payload; return { authorization_url: 'https://checkout.paystack.test/' }; } },
-      });
-      const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
-      let status;
-      const response = { status(code) { status = code; return this; }, json(body) { this.body = body; return this; } };
-      await route.route.stack[0].handle({ headers: { authorization: 'Bearer token' }, body: { listing_id: '11111111-1111-4111-8111-111111111111' } }, response);
-      assert.equal(status, 201);
-      assert.equal(initialized.metadata.host_id, 'host-1');
-      assert.equal(initialized.metadata.listing_id, listing.id);
-      assert.equal(initialized.metadata.niche, scenario.expectedNiche);
-    });
-  }
-});
-
-test('listing checkout rejects another host\'s listing before initializing payment', async () => {
+test('Property and Shops & Offices monthly plans can no longer be bought', async () => {
   let initialized = false;
   const supabase = {
     auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
     from(table) {
-      const query = { selected: '', select(columns) { this.selected = columns; return this; }, eq() { return this; },
-        maybeSingle: async () => table === 'profiles'
-          ? (query.selected === 'role' ? { data: { role: 'host' }, error: null } : { data: { listing_categories: ['property'] }, error: null })
-          : table === 'listings' ? { data: { id: 'listing-1', host_id: 'other-host', category: 'property' }, error: null }
-            : { data: null, error: null } };
+      const query = { selected: null, select(columns) { this.selected = columns; return this; }, eq() { return this; },
+        maybeSingle: async () => ({ data: table === 'profiles' ? (query.selected === 'role' ? { role: 'host' } : { listing_categories: ['property'] }) : null, error: null }) };
       return query;
     },
   };
   const router = createBillingRoutes({ supabaseAdmin: supabase, baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
     paystack: { generateReference: () => 'unused', initializeTransaction: async () => { initialized = true; return {}; } } });
-  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
-  let status;
-  const response = { status(code) { status = code; return this; }, json() { return this; } };
-  await route.route.stack[0].handle({ headers: { authorization: 'Bearer token' }, body: { listing_id: '11111111-1111-4111-8111-111111111111' } }, response);
-  assert.equal(status, 404);
+  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/checkout');
+  let responseCode;
+  const response = { status(code) { responseCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await route.route.stack[0].handle({ headers: { authorization: 'Bearer host-token' }, body: { plan: 'property_pro' } }, response);
+  assert.equal(responseCode, 400);
   assert.equal(initialized, false);
+});
+
+// ---------- Silver / Gold (Property, Shops & Offices) ----------
+
+function tierSupabase({ categories = ['property'], log = [] } = {}) {
+  return {
+    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+    from(table) {
+      const query = {
+        selected: '',
+        select(columns) { this.selected = columns; return this; },
+        eq() { return this; },
+        maybeSingle: async () => (table === 'profiles'
+          ? { data: query.selected === 'role' ? { role: 'host' } : { listing_categories: categories }, error: null }
+          : { data: null, error: null }),
+        insert(value) { log.push(['insert', value]); return Promise.resolve({ error: null }); },
+        update(value) { log.push(['update', value]); return { eq: async () => ({ error: null }) }; },
+      };
+      return query;
+    },
+  };
+}
+
+async function tierCheckout(body, { categories, log = [] } = {}) {
+  let initialized = null;
+  const router = createBillingRoutes({
+    supabaseAdmin: tierSupabase({ categories, log }), baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
+    paystack: {
+      generateReference: () => 'tier-reference',
+      initializeTransaction: async (payload) => { log.push(['paystack']); initialized = payload; return { authorization_url: 'https://checkout.paystack.test/' }; },
+    },
+  });
+  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
+  const response = { status(code) { this.code = code; return this; }, json(value) { this.body = value; return this; } };
+  await route.route.stack[0].handle({ headers: { authorization: 'Bearer session-token' }, body }, response);
+  return { response, initialized, log };
+}
+
+test('Gold checkout charges KSh 2,000 set by the server, recorded before Paystack, and returns to /list', async () => {
+  const { response, initialized, log } = await tierCheckout({ tier: 'gold' });
+  assert.equal(response.code, 201);
+  assert.equal(response.body.reference, 'tier-reference');
+  assert.equal(initialized.amount, 200000);
+  assert.equal(initialized.currency, 'KES');
+  assert.deepEqual(initialized.metadata, {
+    host_id: 'host-1', niche: 'property', billing_interval: 'one_time', payment_kind: 'listing', listing_tier: 'gold', varoom_billing: true,
+  });
+  const callback = new URL(initialized.callback_url);
+  assert.equal(callback.pathname, '/list');
+  assert.equal(callback.searchParams.get('payment'), 'return');
+  assert.equal(callback.searchParams.get('reference'), 'tier-reference');
+  assert.deepEqual(log.map(([step]) => step), ['insert', 'paystack', 'update'], 'the payment row exists before Paystack can charge');
+  const inserted = log[0][1];
+  assert.equal(inserted.listing_id, null, 'a credit is not tied to a listing until one is published');
+  assert.equal(inserted.listing_tier, 'gold');
+  assert.equal(inserted.amount_minor, 200000);
+  assert.equal(inserted.status, 'initialized');
+});
+
+test('Silver is KSh 1,000 for property, office and shop hosts, each in their billing niche', async () => {
+  for (const [category, niche] of [['property', 'property'], ['office', 'shops_offices'], ['shop', 'shops_offices']]) {
+    const { response, initialized } = await tierCheckout({ tier: 'silver' }, { categories: [category] });
+    assert.equal(response.code, 201, category);
+    assert.equal(initialized.amount, 100000);
+    assert.equal(initialized.metadata.niche, niche);
+  }
+});
+
+test('the tier checkout returns to the draft or listing being edited', async () => {
+  const draft = '11111111-1111-4111-8111-111111111111';
+  const edit = '22222222-2222-4222-8222-222222222222';
+  const { initialized } = await tierCheckout({ tier: 'silver', draft, edit });
+  const callback = new URL(initialized.callback_url);
+  assert.equal(callback.searchParams.get('draft'), draft);
+  assert.equal(callback.searchParams.get('edit'), edit);
+});
+
+test('the tier checkout refuses prices, unknown tiers, bad ids and other niches before Paystack', async () => {
+  for (const body of [{ tier: 'platinum' }, { tier: 'gold', amount: 1 }, { tier: 'gold', draft: 'not-a-uuid' }, {}, { tier: '__proto__' }]) {
+    const { response, initialized } = await tierCheckout(body);
+    assert.equal(response.code, 400, JSON.stringify(body));
+    assert.equal(initialized, null);
+  }
+  const airbnb = await tierCheckout({ tier: 'gold' }, { categories: ['airbnb'] });
+  assert.equal(airbnb.response.code, 403);
+  assert.equal(airbnb.initialized, null);
 });
