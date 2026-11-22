@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
@@ -49,7 +49,7 @@ export default function BookingApprovedPage() {
   useEffect(() => {
     if (!router.isReady || status === 'loading' || phone !== true) return undefined;
     if (status === 'signed-out' || !userId) {
-      router.replace(loginUrl(router.asPath));
+      Router.replace(loginUrl(Router.asPath));
       return undefined;
     }
     if (!bookingId) {
@@ -77,7 +77,8 @@ export default function BookingApprovedPage() {
       }
     });
     return () => { cancelled = true; };
-  }, [router, router.isReady, status, userId, bookingId, phone]);
+    // Not this render's router: opening the map card (?map=) must not load the booking again.
+  }, [router.isReady, status, userId, bookingId, phone]);
 
   const onCancelled = useCallback(() => {
     setState((current) => (current.kind === 'ready' ? { ...current, booking: { ...current.booking, status: 'cancelled' } } : current));

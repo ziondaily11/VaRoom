@@ -385,6 +385,7 @@ test('wheel, touch, pointer and scroll keys outside form fields count as scroll 
 
 test('the page restores before paint after the feed key commits and persists per key', () => {
   assert.match(pageSource, /useIsomorphicLayoutEffect\(\(\) => \{\s*if \(!shouldRestoreFeedScroll\([\s\S]*?return restoreClientHomeScroll\(window, feed\.current, key, \{[\s\S]*?\}, \[error, feedReady, key, loadedFeedKey, loading\]\);/);
-  assert.match(pageSource, /return persistClientHomeScroll\(window, node, key, router, \{[\s\S]*?\}, \[key, router\]\);/);
+  // The shared Router: a change of address on Home (the map card) keeps the same listener.
+  assert.match(pageSource, /return persistClientHomeScroll\(window, node, key, Router, \{[\s\S]*?\}, \[key\]\);/);
   assert.match(pageSource, /trackScrollIntent\(window, \(\) => \{ scrollInteractionVersion\.current \+= 1; \}\)/);
 });

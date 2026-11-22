@@ -18,10 +18,12 @@ test('in-app links switch page without reloading the app', () => {
   for (const anchor of anchors) {
     assert.match(anchor, /href="(https?:|\/privacy|\/terms|\/support)|href=\{SOCIAL_LINKS/, `plain anchor: ${anchor}`);
   }
-  for (const href of ['/booking?listing=', '/map?listing=', '/property-news?id=', '/property-news"']) {
+  for (const href of ['/booking?listing=', '/property-news?id=', '/property-news"']) {
     assert.match(page, new RegExp(`<Link[^>]*href=\\{?[\`"]${href.replace(/[?]/g, '\\?')}`), href);
   }
   assert.match(page, /<Link className=\{styles\.marketplaceSwitch\} href=\{marketplaceHref\}>/);
+  // "View on Map" opens the map card over the page, without leaving it.
+  assert.match(page, /<MapLink target=\{\{ kind: 'listing', id: listing\.id \}\} className=\{styles\.mapLink\}>View on Map<\/MapLink>/);
 });
 
 test('phones use the shared bottom bar; no dead buttons', () => {

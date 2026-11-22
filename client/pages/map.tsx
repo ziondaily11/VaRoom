@@ -1,23 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
-import { describeLocation, fetchLocation, locationEndpoint, LOCATION_PROBLEMS, type LocationView } from '../lib/maps/maps';
-import LocationMap from '../components/maps/LocationMap';
+import type { MapTarget } from '../lib/maps/maps';
+import LocationPanel from '../components/maps/LocationPanel';
 import { MAP_STYLES } from '../components/maps/mapStyles';
 
 // Property location (migrated from legacy-pages/map.html): /map?listing=… or
-// /map?booking=…. The server decides how much is shown (general area or exact
-// address); directions open in Google Maps once the exact location is
-// unlocked. A location that can't be shown says why (missing link, not
-// allowed, not found, could not load) and offers the way forward.
-
-type MapState =
-  | { kind: 'loading' }
-  | { kind: 'missing' | 'forbidden' | 'notFound' | 'failed' }
-  | { kind: 'ready'; view: LocationView };
+// /map?booking=…. Inside the app, "View on Map" opens the same map in a card
+// over the page (components/maps/LocationCard.tsx); this page serves links
+// opened in a new tab and older shared links. The map fills the page; the
+// server decides how much is shown (general area or exact location).
 
 function queryValue(value: string | string[] | undefined): string | null {
   return typeof value === 'string' && value ? value : null;
@@ -25,32 +20,21 @@ function queryValue(value: string | string[] | undefined): string | null {
 
 export default function MapPage() {
   const router = useRouter();
-  const { status, session, profile } = useAuth();
+  const { status, profile } = useAuth();
   const role = accountRole(profile);
   const homeHref = status === 'signed-in' ? (role === 'host' ? '/host-home' : '/client-home') : '/';
-  const [state, setState] = useState<MapState>({ kind: 'loading' });
-  const [attempt, setAttempt] = useState(0);
+
+  // The page is static: the address is read after the first paint, so the
+  // server and the browser draw the same first frame.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const listing = queryValue(router.query.listing);
   const booking = queryValue(router.query.booking);
-
-  useEffect(() => {
-    // The page is static: the query and the session are known only on the client.
-    if (!router.isReady || status === 'loading') return undefined;
-    const endpoint = locationEndpoint({ listing, booking });
-    if (!endpoint) {
-      setState({ kind: 'missing' });
-      return undefined;
-    }
-    let cancelled = false;
-    setState({ kind: 'loading' });
-    fetchLocation(endpoint, session?.access_token || null).then((outcome) => {
-      if (cancelled) return;
-      if (outcome.kind === 'ok') setState({ kind: 'ready', view: describeLocation(outcome.result) });
-      else setState({ kind: outcome.kind === 'missing' ? 'notFound' : outcome.kind });
-    });
-    return () => { cancelled = true; };
-  }, [router.isReady, status, listing, booking, session?.access_token, attempt]);
+  const target = useMemo<MapTarget | null>(
+    () => (booking ? { kind: 'booking', id: booking } : listing ? { kind: 'listing', id: listing } : null),
+    [booking, listing],
+  );
 
   // Back: where the person came from (a booking, a listing), else Bookings.
   const goBack = useCallback((event: React.MouseEvent) => {
@@ -58,11 +42,6 @@ export default function MapPage() {
     if (window.history.length > 1) router.back();
     else void router.push('/bookings');
   }, [router]);
-
-  const view = state.kind === 'ready' ? state.view : null;
-  const problem = state.kind === 'ready' || state.kind === 'loading' ? null : LOCATION_PROBLEMS[state.kind];
-  const title = state.kind === 'loading' ? 'Loading location…' : problem ? problem.title : (view as LocationView).title;
-  const sub = problem ? problem.sub : view ? view.sub : '';
 
   return (
     <>
@@ -75,33 +54,8 @@ export default function MapPage() {
           <Link className="logo" href={homeHref}><span className="va">Va</span>Room</Link>
           <a className="back-link" id="back-link" href="/bookings" onClick={goBack}>← Back</a>
         </header>
-
-        <div className="map-layout">
-          <LocationMap view={view} message={state.kind === 'loading' ? 'Loading the map…' : problem ? problem.title : null} />
-          <div className="sheet">
-            <div className="sheet-title" id="sheet-title">{title}</div>
-            {sub && <div className="sheet-sub" id="sheet-sub">{sub}</div>}
-            {view && <div className={`sheet-status ${view.statusKind}`} id="sheet-status">{view.status}</div>}
-            <div className="sheet-actions">
-              {view && (
-                <button
-                  className="map-btn map-btn-primary"
-                  id="directions-btn"
-                  type="button"
-                  disabled={!view.directionsUrl}
-                  onClick={() => { if (view.directionsUrl) window.open(view.directionsUrl, '_blank', 'noopener'); }}
-                >
-                  Get Directions
-                </button>
-              )}
-              {state.kind === 'failed' && (
-                <button className="map-btn map-btn-primary" type="button" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
-              )}
-              {(state.kind === 'missing' || state.kind === 'forbidden' || state.kind === 'notFound') && (
-                <Link className="map-btn" href="/bookings">Go to Bookings</Link>
-              )}
-            </div>
-          </div>
+        <div className="map-stage">
+          <LocationPanel target={mounted && router.isReady ? target : undefined} titleId="map-page-title" />
         </div>
       </div>
     </>
