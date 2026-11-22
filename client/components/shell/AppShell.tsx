@@ -8,6 +8,7 @@ import AddAccountNotice from './AddAccountNotice';
 import WorkspaceBanner from './WorkspaceBanner';
 import { isShellSettled, shellFrame, shellState, type ShellVariant } from '../../lib/shell/appShell';
 import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES, RAIL_STYLES, SIDEBAR_EXTRA_STYLES } from './shellStyles';
+import { BRAND_FONT_HREF } from '../../lib/brandFont';
 
 export type { ShellVariant };
 
@@ -16,7 +17,6 @@ export type { ShellVariant };
  * face once for every page it holds (the link stays while the shell does), so
  * the logo looks the same everywhere and pages need not load it themselves.
  */
-export const BRAND_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap';
 
 /**
  * True once the account's role is known (or known to be absent): signed out,

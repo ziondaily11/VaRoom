@@ -98,7 +98,7 @@ test('legal documents: web links open in a new tab; email and in-app links do no
 });
 
 test('legal documents: on desktop the section list scrolls the content pane, which tracks the active section', () => {
-  const css = fs.readFileSync(path.join(clientRoot, 'styles', 'privacy.css'), 'utf8');
+  const css = fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'legalStyles.ts'), 'utf8');
   // The JS breakpoint matches the stylesheet's independent-pane layout.
   assert.match(css, /@media\s*\(\s*min-width:\s*901px\s*\)/);
   assert.equal(legal.isPaneLayout(901), true);
@@ -119,8 +119,9 @@ test('legal documents: on desktop the section list scrolls the content pane, whi
 });
 
 test('Privacy Policy and Terms share the legal document layout with well-formed content', () => {
-  const privacyPage = fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'PrivacyPolicyPage.tsx'), 'utf8');
+  const privacyPage = fs.readFileSync(path.join(clientRoot, 'pages', 'privacy.tsx'), 'utf8');
   assert.match(privacyPage, /<LegalDocumentPage[\s\S]*title="Privacy Policy"/);
+  assert.equal(fs.existsSync(path.join(clientRoot, 'components', 'legal', 'PrivacyPolicyPage.tsx')), false, 'one page file per document, like Terms');
   for (const file of ['privacyContent.ts', 'termsContent.ts']) {
     const content = loadTs(path.join(clientRoot, 'lib', 'legal', file));
     const ids = content.sections.map((section) => section.id);
@@ -131,8 +132,8 @@ test('Privacy Policy and Terms share the legal document layout with well-formed 
   }
 });
 
-test('privacy.css defines desktop independent scrolling rules, hidden scrollbars, and a fixed light design', () => {
-  const cssPath = path.join(clientRoot, 'styles', 'privacy.css');
+test('the legal styles define desktop independent scrolling rules, hidden scrollbars, and a fixed light design', () => {
+  const cssPath = path.join(clientRoot, 'components', 'legal', 'legalStyles.ts');
   const cssContent = fs.readFileSync(cssPath, 'utf8');
 
   // Desktop media query
@@ -165,4 +166,60 @@ test('privacy and terms always render light, whatever the saved or system theme'
     assert.equal(resolveTheme(route, 'system', true), 'light');
   }
   assert.match(themeBootScript(), /"\/privacy","\/terms"/, 'the pre-paint script must keep them light too');
+});
+
+const legalPage = () => fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'LegalDocumentPage.tsx'), 'utf8');
+const legalStyles = () => fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'legalStyles.ts'), 'utf8');
+
+test('legal pages: one set of content types; titles; styles load only on these pages', () => {
+  for (const file of ['privacyContent.ts', 'termsContent.ts']) {
+    const source = fs.readFileSync(path.join(clientRoot, 'lib', 'legal', file), 'utf8');
+    assert.match(source, /import type \{ Block, Inline, Section \} from "\.\/legalDocument";/, file);
+    assert.doesNotMatch(source, /export type (Inline|Block)|export interface Section/, `${file}: no copy of the types`);
+  }
+  assert.equal(loadTs(path.join(clientRoot, 'lib', 'legal', 'termsContent.ts')).TERMS_TITLE, 'Terms of Service · VaRoom');
+  assert.equal(loadTs(path.join(clientRoot, 'lib', 'legal', 'privacyContent.ts')).PRIVACY_TITLE, 'Privacy Policy · VaRoom');
+  assert.equal(fs.existsSync(path.join(clientRoot, 'styles', 'privacy.css')), false);
+  assert.doesNotMatch(fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8'), /privacy\.css/);
+  assert.match(legalPage(), /<style dangerouslySetInnerHTML=\{\{ __html: LEGAL_STYLES \}\} \/>/);
+  assert.doesNotMatch(legalPage(), /"use client"|'use client'/);
+});
+
+test('legal pages: a section click does not add a history step; the active section follows any width', () => {
+  const page = legalPage();
+  assert.match(page, /window\.history\.replaceState\(window\.history\.state, '', `#\$\{id\}`\);/);
+  assert.doesNotMatch(page, /pushState/);
+  // Both scroll sources are watched, and the layout is checked on every update.
+  assert.match(page, /pane\?\.addEventListener\('scroll', schedule, \{ passive: true \}\);/);
+  assert.match(page, /window\.addEventListener\('scroll', schedule, \{ passive: true \}\);/);
+  assert.match(page, /const container = pane && isPaneLayout\(window\.innerWidth\) \? pane : null;/);
+  assert.match(page, /const behavior: ScrollBehavior = prefersReducedMotion\(\) \? 'auto' : 'smooth';/);
+});
+
+test('legal pages: logo font and in-app links without a reload', () => {
+  const page = legalPage();
+  assert.match(page, /<Link className="pp-brand" href="\/">/);
+  assert.match(page, /<link rel="stylesheet" href=\{BRAND_FONT_HREF\} key="brand-font" \/>/);
+  assert.match(legalStyles(), /font-family: 'Fraunces', Georgia, serif;/);
+  assert.match(page, /if \(isInAppLink\(node\.href\)\) return <Link href=\{node\.href\}>\{node\.text\}<\/Link>;/);
+  assert.equal(legal.isInAppLink('/privacy'), true);
+  assert.equal(legal.isInAppLink('//evil.example'), false);
+  assert.equal(legal.isInAppLink('mailto:privacy@varoom.co.ke'), false);
+  assert.equal(legal.isInAppLink('https://varoom.co.ke'), false);
+});
+
+test('legal pages, phones: the section menu stays on screen, names the section, opens and closes smoothly', () => {
+  const page = legalPage();
+  const css = legalStyles();
+  assert.match(page, /aria-controls="pp-toc-list"/);
+  assert.match(page, /\$\{activeIndex \+ 1\}\. \$\{sections\[activeIndex\]\.title\}/);
+  assert.match(page, /event\.key === 'Escape'/);
+  assert.match(page, /document\.addEventListener\('pointerdown', onPointer\);/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*\.pp-toc \{\s*position: sticky;\s*top: 0;/);
+  assert.match(css, /overflow-x: clip;/, 'hidden would stop the sticky menu');
+  assert.match(css, /html\.has-legal-page,\s*body\.has-legal-page \{\s*overflow-x: clip;/, 'the app-wide overflow-x: hidden is clipped instead on these pages');
+  assert.match(css, /scroll-margin-top: 84px;/);
+  assert.match(css, /@keyframes pp-menu-in/);
+  assert.match(css, /@keyframes pp-menu-out/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*pp-menu-fade-in/);
 });
