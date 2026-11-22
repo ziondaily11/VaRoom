@@ -184,12 +184,18 @@ export const saveHostProfile = (client: SupabaseClient, userId: string, values: 
 export const saveHostListing = (client: SupabaseClient, userId: string, niche: Category, discoverName: string) =>
   update(client, userId, { listing_categories: [niche], full_name: discoverName.trim(), onboarding_completed: true });
 
-/** Upload the cropped photo and save it on the profile; returns the stored key. */
-export async function saveAvatar(client: SupabaseClient, userId: string, photo: Blob, now: number = Date.now()): Promise<string> {
+/** Upload the cropped photo to the account's avatars folder; returns the stored key. */
+export async function uploadAvatar(client: SupabaseClient, userId: string, photo: Blob, now: number = Date.now()): Promise<string> {
   const { data, error } = await client.storage.from('avatars').upload(`${userId}/avatar_${now}.jpg`, photo, { upsert: false, contentType: 'image/jpeg' });
   if (error || !data) throw new Error(error ? error.message : 'Upload failed');
-  await update(client, userId, { avatar_url: data.path });
   return data.path;
+}
+
+/** Upload the cropped photo and save it on the profile; returns the stored key. */
+export async function saveAvatar(client: SupabaseClient, userId: string, photo: Blob, now: number = Date.now()): Promise<string> {
+  const path = await uploadAvatar(client, userId, photo, now);
+  await update(client, userId, { avatar_url: path });
+  return path;
 }
 
 // ---------- Where to go next ----------

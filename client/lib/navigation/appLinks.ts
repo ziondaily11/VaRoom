@@ -27,7 +27,6 @@ export const CLIENT_INTERNAL_ROUTES = [
   '/profile',
   '/settings',
   '/marketplace',
-  '/signup-host',
   '/host/',
   '/property-news',
 ];

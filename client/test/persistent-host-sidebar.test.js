@@ -89,7 +89,6 @@ test('client sidebar active item follows the route', () => {
   assert.equal(clientActiveNav('/profile', '/profile'), 'profile');
   assert.equal(clientActiveNav('/settings', '/settings'), 'settings');
   assert.equal(clientActiveNav('/support', '/support'), 'support');
-  assert.equal(clientActiveNav('/signup-host', '/signup-host'), 'signup-host');
   assert.equal(clientActiveNav('/list', '/list'), '', 'no item for other routes');
 });
 

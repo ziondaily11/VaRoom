@@ -8,6 +8,7 @@ import AppShell from '../components/shell/AppShell';
 import MobileNav from '../components/shell/MobileNav';
 import LocationCardHost from '../components/maps/LocationCard';
 import LazyAddAccountModal from '../components/LazyAddAccountModal';
+import LazyBecomeHost from '../components/becomeHost/LazyBecomeHost';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
 import { profileStore } from '../lib/auth/session';
@@ -489,6 +490,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <CountsBridge />
       <AccountLayout Component={Component as AppPage} pageProps={pageProps} />
       <LazyAddAccountModal />
+      <LazyBecomeHost />
     </AuthProvider>
   );
 }
