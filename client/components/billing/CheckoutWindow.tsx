@@ -23,6 +23,9 @@ type Stage = 'choose' | 'starting' | 'waiting' | 'card' | 'confirming' | 'paid' 
 type Method = 'mpesa' | 'card';
 
 const POLL_MS = 3000;
+// Paystack's card window normally shows within a second or two.
+const POPUP_SHOW_MS = 8000;
+const BLOCKED_TEXT = 'The Paystack card window did not open. Brave Shields or an ad blocker may be stopping it. Open Paystack in this tab instead, or pay with M-Pesa where it is offered.';
 const CARD_CONFIRM_TRIES = 30;
 // The M-Pesa prompt lasts 180 s; the server's last word may come a little after.
 const MPESA_GRACE_MS = 30 * 1000;
@@ -63,7 +66,8 @@ export function CheckoutWindow({ open, item, allowMpesa, paidText, start, confir
     setStage('choose'); setError(null); setPrompt(''); setFallbackUrl(null); setLeft(MPESA_WINDOW_MS);
   }, []);
 
-  const close = useCallback(() => { if (stage === 'card') return; attempt.current += 1; onClose(); }, [onClose, stage]);
+  // Always closable: when Paystack's card window is really open it sits on top of this one anyway.
+  const close = useCallback(() => { attempt.current += 1; onClose(); }, [onClose]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -148,15 +152,27 @@ export function CheckoutWindow({ open, item, allowMpesa, paidText, start, confir
     if (attempt.current !== mine || started.channel !== 'card') return;
     if (!started.accessCode) { setStage('choose'); setFallbackUrl(started.authorizationUrl); setError('The card window could not open here.'); return; }
     setStage('card');
+    // Paystack's own page is always one click away while its card window is up:
+    // a blocker can stop the window from showing without any error reaching us.
+    setFallbackUrl(started.authorizationUrl);
+    let shown = false;
+    const notShown = window.setTimeout(() => {
+      if (!shown && attempt.current === mine) setError(BLOCKED_TEXT);
+    }, POPUP_SHOW_MS);
     let result;
-    try { result = await payByCard(started.accessCode); } catch {
+    try {
+      result = await payByCard(started.accessCode, () => { shown = true; window.clearTimeout(notShown); if (attempt.current === mine) setError(null); });
+    } catch {
+      window.clearTimeout(notShown);
       if (attempt.current !== mine) return;
-      // Blocked by the browser or offline: Paystack's own page still works.
-      setStage('choose'); setFallbackUrl(started.authorizationUrl);
-      setError('The Paystack card window could not load in this browser.');
+      // The script itself was blocked or offline: Paystack's own page still works.
+      setStage('choose');
+      setError(BLOCKED_TEXT);
       return;
     }
+    window.clearTimeout(notShown);
     if (attempt.current !== mine) return;
+    setFallbackUrl(null);
     if (result.outcome === 'success') { await confirmCard(mine, started.reference); return; }
     setStage('choose');
     if (result.outcome === 'error') { setFallbackUrl(started.authorizationUrl); setError('The Paystack card window had a problem.'); }
@@ -186,7 +202,7 @@ export function CheckoutWindow({ open, item, allowMpesa, paidText, start, confir
         </section>
 
         <section className="vr-checkout-pay">
-          <button type="button" className="vr-checkout-close" aria-label="Close" ref={closeButton} onClick={close} disabled={stage === 'card'}>×</button>
+          <button type="button" className="vr-checkout-close" aria-label="Close" ref={closeButton} onClick={close}>×</button>
           <h2 id="vr-checkout-title">Pay {price}</h2>
 
           {showMethods && (
@@ -217,7 +233,7 @@ export function CheckoutWindow({ open, item, allowMpesa, paidText, start, confir
             <div className="vr-checkout-form">
               <p className="vr-checkout-hint">A secure Paystack card window opens on top of this one. You stay on VaRoom.</p>
               <button type="button" className="vr-checkout-primary" disabled={busy} onClick={() => { void payCard(); }}>
-                {stage === 'starting' ? 'Preparing…' : stage === 'card' ? 'Card window open…' : `Pay ${price} by card`}
+                {stage === 'starting' ? 'Preparing…' : stage === 'card' ? 'Waiting for the Paystack card window…' : `Pay ${price} by card`}
               </button>
             </div>
           )}

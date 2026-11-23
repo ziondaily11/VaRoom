@@ -6,6 +6,7 @@
 export const PAYSTACK_INLINE_SRC = 'https://js.paystack.co/v2/inline.js';
 
 interface PopupCallbacks {
+  onLoad: () => void;
   onSuccess: (transaction: { reference?: string }) => void;
   onCancel: () => void;
   onError: (error: unknown) => void;
@@ -34,11 +35,17 @@ export function loadPaystackPop(doc: Document = document): Promise<PaystackPopCl
 
 export type PopupResult = { outcome: 'success'; reference: string | null } | { outcome: 'cancel' } | { outcome: 'error' };
 
-/** Opens Paystack's card popup for a transaction the server already started; resolves when it closes. */
-export async function payByCard(accessCode: string): Promise<PopupResult> {
+/**
+ * Opens Paystack's card popup for a transaction the server already started;
+ * resolves when it closes. `onLoad` fires once the popup has actually shown.
+ * A blocker (e.g. Brave Shields) can let the script run but stop the popup
+ * itself, and then no callback ever comes, so callers must not wait on it alone.
+ */
+export async function payByCard(accessCode: string, onLoad: () => void = () => {}): Promise<PopupResult> {
   const PaystackPop = await loadPaystackPop();
   return new Promise<PopupResult>((resolve) => {
     new PaystackPop().resumeTransaction(accessCode, {
+      onLoad,
       onSuccess: (transaction) => resolve({ outcome: 'success', reference: transaction && typeof transaction.reference === 'string' ? transaction.reference : null }),
       onCancel: () => resolve({ outcome: 'cancel' }),
       onError: (error) => { console.warn('Paystack popup error:', error); resolve({ outcome: 'error' }); },
