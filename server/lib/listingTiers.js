@@ -25,4 +25,16 @@ function listingTierPlans(niche) {
   }));
 }
 
-module.exports = { LISTING_TERM_DAYS, LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans };
+/**
+ * A Kenyan Safaricom number as Paystack's M-Pesa charge wants it (+2547XXXXXXXX
+ * or +2541XXXXXXXX), from 07…, 01…, 7…, 254… or +254… with spaces or dashes;
+ * null when it is not one.
+ */
+function mpesaPhone(value) {
+  if (typeof value !== 'string') return null;
+  const digits = value.replace(/[\s\-()]/g, '');
+  const match = /^(?:\+?254|0)?([71]\d{8})$/.exec(digits);
+  return match ? `+254${match[1]}` : null;
+}
+
+module.exports = { LISTING_TERM_DAYS, LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans, mpesaPhone };

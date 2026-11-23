@@ -176,19 +176,25 @@ function tierSupabase({ categories = ['property'], log = [] } = {}) {
   };
 }
 
-async function tierCheckout(body, { categories, log = [] } = {}) {
+async function tierCheckout(body, { categories, log = [], charge } = {}) {
   let initialized = null;
+  let charged = null;
   const router = createBillingRoutes({
     supabaseAdmin: tierSupabase({ categories, log }), baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
     paystack: {
       generateReference: () => 'tier-reference',
-      initializeTransaction: async (payload) => { log.push(['paystack']); initialized = payload; return { authorization_url: 'https://checkout.paystack.test/' }; },
+      initializeTransaction: async (payload) => { log.push(['paystack']); initialized = payload; return { authorization_url: 'https://checkout.paystack.test/', access_code: 'access-1' }; },
+      charge: async (payload) => {
+        log.push(['charge']); charged = payload;
+        if (charge) return charge(payload);
+        return { status: 'pay_offline', display_text: 'Please complete authorization process on your mobile phone' };
+      },
     },
   });
   const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
   const response = { status(code) { this.code = code; return this; }, json(value) { this.body = value; return this; } };
   await route.route.stack[0].handle({ headers: { authorization: 'Bearer session-token' }, body }, response);
-  return { response, initialized, log };
+  return { response, initialized, charged, log };
 }
 
 test('Gold checkout charges KSh 2,000 set by the server, recorded before Paystack, and returns to /list', async () => {
@@ -239,4 +245,44 @@ test('the tier checkout refuses prices, unknown tiers, bad ids and other niches 
   const airbnb = await tierCheckout({ tier: 'gold' }, { categories: ['airbnb'] });
   assert.equal(airbnb.response.code, 403);
   assert.equal(airbnb.initialized, null);
+});
+
+test('card checkout gives the popup its access code; the full page stays as the fallback', async () => {
+  const { response, charged } = await tierCheckout({ tier: 'silver', channel: 'card' });
+  assert.equal(response.code, 201);
+  assert.deepEqual(response.body, { reference: 'tier-reference', channel: 'card', authorization_url: 'https://checkout.paystack.test/', access_code: 'access-1' });
+  assert.equal(charged, null);
+});
+
+test('M-Pesa sends the PIN prompt to the host\'s Safaricom number at the server\'s price, recorded first', async () => {
+  const { response, initialized, charged, log } = await tierCheckout({ tier: 'gold', channel: 'mpesa', phone: '0712 345 678' });
+  assert.equal(response.code, 201);
+  assert.deepEqual(response.body, { reference: 'tier-reference', channel: 'mpesa', display_text: 'Please complete authorization process on your mobile phone' });
+  assert.equal(initialized, null, 'no Paystack page');
+  assert.deepEqual(charged, {
+    email: 'host@example.test', amount: 200000, currency: 'KES', reference: 'tier-reference',
+    mobile_money: { phone: '+254712345678', provider: 'mpesa' },
+    metadata: { host_id: 'host-1', niche: 'property', billing_interval: 'one_time', payment_kind: 'listing', listing_tier: 'gold', varoom_billing: true },
+  });
+  assert.deepEqual(log.map(([step]) => step), ['insert', 'charge'], 'the payment row exists before M-Pesa is asked');
+});
+
+test('M-Pesa refuses numbers that are not Safaricom before anything is recorded; Paystack errors reach the host', async () => {
+  for (const phone of ['', '12345', '0812345678', '+255712345678', undefined]) {
+    const { response, log } = await tierCheckout({ tier: 'silver', channel: 'mpesa', phone });
+    assert.equal(response.code, 400, String(phone));
+    assert.match(response.body.error, /Safaricom number/);
+    assert.equal(log.length, 0);
+  }
+  assert.equal((await tierCheckout({ tier: 'silver', channel: 'paypal' })).response.code, 400, 'unknown method');
+  const refused = await tierCheckout({ tier: 'silver', channel: 'mpesa', phone: '0712345678' }, { charge: async () => { throw new Error('Charge attempted on an invalid number'); } });
+  assert.equal(refused.response.code, 502);
+  assert.equal(refused.response.body.error, 'Charge attempted on an invalid number');
+});
+
+test('Safaricom numbers are normalised the way Paystack wants them', () => {
+  const { mpesaPhone } = require('../lib/listingTiers');
+  for (const typed of ['0712345678', '0712 345 678', '712345678', '254712345678', '+254 712-345-678', '(0712) 345678']) assert.equal(mpesaPhone(typed), '+254712345678', typed);
+  assert.equal(mpesaPhone('0110 123 456'), '+254110123456', 'the 01… range');
+  for (const bad of ['0812345678', '07123456', '07123456789', '+255712345678', 'abc', null]) assert.equal(mpesaPhone(bad), null, String(bad));
 });

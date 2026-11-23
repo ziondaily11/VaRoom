@@ -42,6 +42,8 @@ function createPaystackClient({ env = process.env, fetchImpl = global.fetch } = 
     verifyWebhookSignature: (rawBody, signature) => verifyWebhookSignature(rawBody, signature, getConfig(env).webhookSecret),
     initializeTransaction: (payload) => request('/transaction/initialize', { method: 'POST', body: JSON.stringify(payload) }),
     verifyTransaction: (reference) => request(`/transaction/verify/${encodeURIComponent(reference)}`),
+    // A direct charge (M-Pesa: Paystack sends the PIN prompt to the phone; data.status is pay_offline).
+    charge: (payload) => request('/charge', { method: 'POST', body: JSON.stringify(payload) }),
     fetchSubscription: (subscriptionCode) => request(`/subscription/${encodeURIComponent(subscriptionCode)}`),
     disableSubscription: ({ code, token }) => request('/subscription/disable', { method: 'POST', body: JSON.stringify({ code, token }) }),
     // A Paystack-hosted page where the customer updates the card for a subscription.

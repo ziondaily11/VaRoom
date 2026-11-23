@@ -88,3 +88,13 @@ test('the migration sells Silver / Gold per listing and keeps old subscribers un
   assert.match(sql, /new\.listing_tier := old\.listing_tier;\s*new\.paid_listing_until := old\.paid_listing_until;/, 'hosts cannot set their own tier or term');
   assert.match(sql, /generated always as \(case when listing_tier = 'gold' then 1 else 0 end\) stored/);
 });
+
+test('an M-Pesa charge still waiting for the PIN is pending, never failed', async () => {
+  for (const status of ['pay_offline', 'send_otp', 'ongoing', 'pending', 'queued']) {
+    const { supabase, writes } = verificationSupabase(goldCredit);
+    const originalError = console.error;
+    console.error = () => {};
+    try { await applyVerifiedTransaction(supabase, { ...paystackSuccess({}), status }); } finally { console.error = originalError; }
+    assert.equal(writes.find(([table]) => table === 'billing_payments')[1].status, 'pending', status);
+  }
+});

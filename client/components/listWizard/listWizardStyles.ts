@@ -250,7 +250,24 @@ export const LIST_WIZARD_STYLES = `
   #listing-page .review-checklist{ margin-bottom:1.4rem; font-size:.88rem; line-height:1.9; color:var(--muted); }
   #listing-page .review-checklist li{ display:flex; gap:.55rem; }
   #listing-page .review-checklist .check{ color:var(--ok); font-weight:800; }
-  #listing-page .review-mobile-gallery{ display:none; }
+  /* The review's carousel of every chosen photo and video, on every screen size. */
+  #listing-page .review-gallery{ position:absolute; inset:0; z-index:2; overflow:hidden; background:#000; border-radius:inherit; outline:none; }
+  #listing-page .review-gallery:focus-visible{ box-shadow:inset 0 0 0 3px rgba(196,30,58,.6); }
+  #listing-page .review-gallery-track{ display:flex; width:100%; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
+  #listing-page .review-gallery-track::-webkit-scrollbar{ display:none; }
+  #listing-page .review-gallery-slide{ flex:0 0 100%; height:100%; scroll-snap-align:start; }
+  #listing-page .review-gallery-slide :is(img, video){ width:100%; height:100%; object-fit:cover; display:block; }
+  #listing-page .review-gallery-count{ position:absolute; top:1rem; right:1rem; z-index:1; padding:.3rem .65rem; border-radius:999px; background:rgba(20,14,12,.6); color:#fff; font-size:.78rem; font-weight:600; }
+  #listing-page .review-gallery-controls{ position:absolute; inset:auto 0 1rem; z-index:1; display:flex; align-items:center; justify-content:center; gap:.6rem; pointer-events:none; }
+  #listing-page .review-gallery-controls > *{ pointer-events:auto; }
+  #listing-page .review-gallery-arrow{ width:2.4rem; height:2.4rem; display:grid; place-items:center; border:0; border-radius:50%; background:rgba(20,14,12,.6); color:#fff; font-size:1.3rem; line-height:1; cursor:pointer;
+    transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
+  @media (hover:hover){ #listing-page .review-gallery-arrow:hover{ background:rgba(20,14,12,.85); } }
+  #listing-page .review-gallery-dots{ display:flex; gap:.35rem; padding:.45rem .6rem; border-radius:999px; background:rgba(20,14,12,.5); }
+  #listing-page .review-gallery-dot{ width:.45rem; height:.45rem; padding:0; border:0; border-radius:999px; background:rgba(255,255,255,.55); cursor:pointer;
+    transition:width var(--motion-quick,200ms) var(--ease-in-out,ease-in-out); }
+  #listing-page .review-gallery-dot.active{ width:1.1rem; background:#fff; }
+  #listing-page :is(.review-gallery-arrow, .review-gallery-dot):focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 
   #listing-page .submit-row{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:auto; padding-top:1rem; }
   #listing-page .submit-row [hidden]{ display:none !important; }
@@ -285,8 +302,6 @@ export const LIST_WIZARD_STYLES = `
   @media (hover:hover){ #listing-page .tier-choice-option button:not(:disabled):hover{ border-color:var(--ink); } #listing-page .tier-choice-option.featured button:not(:disabled):hover{ border-color:var(--red-deep); background:var(--red-deep); } }
   #listing-page .tier-choice-option button:not(:disabled):active{ transform:scale(var(--press-scale,.97)); }
   #listing-page .tier-choice-option button:focus-visible, #listing-page .tier-choice-back:focus-visible{ outline:3px solid rgba(196,30,58,.45); outline-offset:2px; }
-  #listing-page .tier-choice-option button:disabled{ opacity:.6; cursor:wait; }
-  #listing-page .tier-choice-error{ margin:.9rem 0 0; color:var(--red); font-size:.86rem; }
   #listing-page .tier-choice-back{ display:block; width:max-content; margin:1rem auto 0; color:var(--muted); font-size:.86rem; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
   @media (max-width:640px){
     #listing-page .tier-choice-overlay{ align-items:flex-start; }
@@ -370,17 +385,7 @@ export const LIST_WIZARD_STYLES = `
     /* The photo becomes a short banner above the form; the review keeps a swipeable gallery. */
     #listing-page .step-photo{ order:-1; height:150px; }
     #listing-page .step-photo-caption, #listing-page .step-photo-badge{ display:none; }
-    #listing-page .step-frame[data-step="5"] .step-photo{ height:clamp(15rem, 40dvh, 24rem); }
-    #listing-page .review-mobile-gallery{ display:block; position:absolute; inset:0; z-index:2; overflow:hidden; background:#000; }
-    #listing-page .review-mobile-gallery-track{ display:flex; width:100%; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; }
-    #listing-page .review-mobile-gallery-track::-webkit-scrollbar{ display:none; }
-    #listing-page .review-mobile-gallery-slide{ flex:0 0 100%; height:100%; scroll-snap-align:start; }
-    #listing-page .review-mobile-gallery-slide :is(img, video){ width:100%; height:100%; object-fit:cover; display:block; }
-    #listing-page .review-mobile-gallery-controls{ position:absolute; inset:auto 0 .8rem; z-index:1; display:flex; align-items:center; justify-content:center; gap:.55rem; }
-    #listing-page .review-gallery-arrow{ width:2rem; height:2rem; display:grid; place-items:center; border-radius:50%; background:rgba(20,14,12,.6); color:#fff; }
-    #listing-page .review-gallery-dots{ display:flex; gap:.35rem; padding:.45rem .55rem; border-radius:999px; background:rgba(20,14,12,.5); }
-    #listing-page .review-gallery-dot{ width:.4rem; height:.4rem; border-radius:999px; background:rgba(255,255,255,.55); transition:width var(--motion-quick,200ms) var(--ease-in-out,ease-in-out); }
-    #listing-page .review-gallery-dot.active{ width:1rem; background:#fff; }
+    #listing-page .step-frame:is([data-step="5"], [data-step="6"]) .step-photo{ height:clamp(15rem, 40dvh, 24rem); }
     /* The policy preview and amenities library cover the screen on phones. */
     #listing-page .policy-preview-overlay{ position:fixed; z-index:300; }
     #listing-page .amenities-library-overlay.mobile-amenities-overlay{ position:absolute; inset:var(--amenities-overlay-top, 0px) 0 var(--amenities-overlay-bottom, 0px); align-items:stretch; justify-content:stretch; padding:.5rem; border-radius:0 0 20px 20px; }
