@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // The listing wizard's frame: one progress bar above the steps, then each
 // step's panel (its content) beside its photo. Every step stays mounted and
@@ -48,16 +48,23 @@ export function WizardProgress({ step, furthest, saveStatus, onGo }: {
   );
 }
 
-export function StepFrame({ step, active, children, photo }: {
+export function StepFrame({ step, active, children, photo, overlay = null }: {
   step: number;
   active: boolean;
   children: React.ReactNode;
   photo: React.ReactNode;
+  /** Covers the whole card (the Silver / Gold choice); the step behind it is inert. */
+  overlay?: React.ReactNode;
 }) {
+  const covered = active && Boolean(overlay);
+  const panel = useRef<HTMLDivElement>(null);
+  // React 18 has no inert prop: set the attribute so focus can't reach the covered form.
+  useEffect(() => { panel.current?.toggleAttribute('inert', covered); }, [covered]);
   return (
     <section className={`step-frame${active ? ' active' : ''}`} data-step={step}>
-      <div className="step-panel">{children}</div>
+      <div className="step-panel" ref={panel}>{children}</div>
       {photo}
+      {covered && overlay}
     </section>
   );
 }

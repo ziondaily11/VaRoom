@@ -2,6 +2,15 @@
 
 As of 2026-11-04
 
+> **Update 2026-11-22: Property and Shops & Offices.** These two niches no longer sell the monthly Basic / Pro / Premium plans. Hosts pay per listing instead:
+>
+> | Plan | KES, one-off | What it gives |
+> | --- | --- | --- |
+> | Silver | 1,000 | One listing live for 30 days from when it is published |
+> | Gold | 2,000 | The same, plus first place in Marketplace (above Silver) and landing-page eligibility |
+>
+> VaRoom Discover treats both the same. The host pays first (on /pricing or in the /list overlay), and publishing a listing uses the paid plan. Existing monthly subscribers keep their plan until its period ends. Code: `server/migrations/20261122_000078_silver_gold_listing_plans.sql`, `server/lib/listingTiers.js`, `client/lib/billing/pricing.ts`. The Property / Shops & Offices rows below describe the earlier setup.
+
 ## Summary
 
 **Recommendation: charge each niche its own monthly subscription now, then add a booking commission once guests can pay through VaRoom.** That commission is 10%, or 5% for subscribers. Today all three niches share one generic KES 800–1,800 plan set that ignores how each one earns money. Guests also pay hosts off-platform, so a commission cannot be collected yet.

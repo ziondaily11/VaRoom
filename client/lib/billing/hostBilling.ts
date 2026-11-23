@@ -24,6 +24,10 @@ export interface HostEntitlements {
   planId: string | null;
   subscription: BillingSubscription | null;
   canCreateAnotherListing: { allowed: boolean; limit: number | null; activeCount?: number; reason: string | null };
+  /** The host's niche pays per listing: Silver or Gold (Property, Shops & Offices). */
+  listingTiers?: boolean;
+  /** Paid Silver / Gold listings not yet used by a published listing. */
+  listingCredits?: { silver: number; gold: number };
 }
 
 export interface PaymentMethod {
@@ -58,8 +62,8 @@ export interface HostBilling {
 }
 
 export const BILLING_TTL_MS = 2 * 60 * 1000;
-export const PAY_AS_YOU_LIST_MINOR = 100000;
-export const TOP_PLAN_LISTINGS = 20;
+export const SILVER_LISTING_MINOR = 100000;
+export const GOLD_LISTING_MINOR = 200000;
 
 const cache = new Map<string, { at: number; value: HostBilling }>();
 const inFlight = new Map<string, Promise<HostBilling>>();
@@ -169,7 +173,7 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 export interface PlanSummary {
-  kind: 'plan' | 'pay-as-you-list';
+  kind: 'plan' | 'listing-tiers' | 'none';
   name: string;
   status: SubscriptionStatus | null;
   line: string;
@@ -182,10 +186,20 @@ export interface PlanSummary {
 export function planSummary(billing: HostBilling): PlanSummary {
   const { entitlements, payments } = billing;
   const subscription = entitlements && entitlements.active ? entitlements.subscription : null;
+  if (!subscription && entitlements && entitlements.listingTiers) {
+    const credits = entitlements.listingCredits || { silver: 0, gold: 0 };
+    const ready = [credits.gold ? `${credits.gold} Gold` : '', credits.silver ? `${credits.silver} Silver` : ''].filter(Boolean).join(' and ');
+    const total = credits.gold + credits.silver;
+    return {
+      kind: 'listing-tiers', name: 'Silver & Gold', status: null,
+      line: `Silver ${formatKes(SILVER_LISTING_MINOR)} or Gold ${formatKes(GOLD_LISTING_MINOR)} per listing, live for 30 days from publishing.`
+        + (ready ? ` You have ${ready} paid listing${total === 1 ? '' : 's'} ready to publish.` : ''),
+      price: null, canUpgrade: true, canCancel: false, canUpdateCard: false,
+    };
+  }
   if (!subscription) {
     return {
-      kind: 'pay-as-you-list', name: 'Pay as you list', status: null,
-      line: `${formatKes(PAY_AS_YOU_LIST_MINOR)} per listing, live for 30 days.`,
+      kind: 'none', name: 'No plan', status: null, line: 'Choose a plan to unlock more for your listings.',
       price: null, canUpgrade: true, canCancel: false, canUpdateCard: false,
     };
   }
@@ -197,12 +211,12 @@ export function planSummary(billing: HostBilling): PlanSummary {
       ? 'Your last payment didn’t go through. Paystack will try again; update your card to keep your plan.'
       : `Renews on ${end}.`;
   const lastCharge = (payments || []).find((payment) => payment.kind === 'subscription' && payment.status === 'succeeded' && payment.plan_name === name);
-  const allowance = Number(subscription.billing_plans?.features?.max_active_listings || 0);
   return {
     kind: 'plan', name, status: subscription.status, line,
     price: lastCharge ? `${formatKes(lastCharge.amount_minor)} / month` : null,
-    // The server upgrades only an active plan, to a larger allowance.
-    canUpgrade: subscription.status === 'active' && allowance > 0 && allowance < TOP_PLAN_LISTINGS,
+    // Upgrading was offered only to Property / Shops & Offices monthly plans,
+    // which are no longer sold (Silver and Gold replaced them); they run to the end of their period.
+    canUpgrade: false,
     canCancel: subscription.status === 'active' || subscription.status === 'past_due',
     canUpdateCard: subscription.status === 'active' || subscription.status === 'past_due',
   };
@@ -210,7 +224,7 @@ export function planSummary(billing: HostBilling): PlanSummary {
 
 export interface ListingAllowance { limit: number | null; active: number; remaining: number | null; percent: number }
 
-/** Plan listings in use (pay-as-you-list listings are not counted). */
+/** Plan listings in use (paid Silver, Gold and pay-as-you-list listings are not counted). */
 export function listingAllowance(billing: HostBilling): ListingAllowance | null {
   const { entitlements } = billing;
   if (!entitlements || !entitlements.active) return null;

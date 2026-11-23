@@ -15,9 +15,11 @@ const profilePage = ['lib/profile/hostProfile.ts', 'pages/profile.tsx', 'compone
 const listingRoutes = fs.readFileSync(path.join(root, 'server', 'routes', 'listingRoutes.js'), 'utf8');
 const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261021_000044_private_listing_drafts_and_publication_rls.sql'), 'utf8');
 
-test('the pricing page returns a Go Pro checkout to the listing wizard with its reference', () => {
-  // The wizard restores the saved listing from this return (client/test/list-wizard-startup.test.js).
-  assert.match(clientFile('pages/pricing.tsx'), /subscription=return&reference=\$\{encodeURIComponent\(reference\)\}/);
+test('paying for Silver or Gold from the wizard comes back to the draft or listing being edited', () => {
+  // The wizard reopens that draft from this return (client/test/list-wizard-startup.test.js).
+  assert.match(clientFile('pages/list.tsx'), /startListingTierCheckout\(accessToken, tier, \{ draft, edit: editMode \? editListingId : null \}\)/);
+  assert.match(fs.readFileSync(path.join(root, 'server', 'routes', 'billingRoutes.js'), 'utf8'),
+    /buildPaymentCallbackUrl\(callbackOrigin, '\/list', \{ payment: 'return', reference, draft: body\.draft, edit: body\.edit \}\)/);
 });
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {

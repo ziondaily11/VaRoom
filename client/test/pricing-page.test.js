@@ -10,20 +10,28 @@ const theme = loadTs(path.join(root, 'lib', 'theme.ts'));
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 const json = (status, body) => ({ ok: status < 300, status, json: async () => body });
 
-test('niche plans fill the matching cards by name: id, price and listing limit', () => {
-  const cards = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, [
-    { id: 'property_basic', display_name: 'Basic', monthly_amount_minor: 250000, niche: 'property', features: { max_active_listings: 4 } },
-    { id: 'property_pro', display_name: 'Pro', monthly_amount_minor: 600000, niche: 'property', features: null },
-  ]);
-  assert.equal(cards[0].id, 'property_basic');
-  assert.equal(cards[0].monthly, 2500);
-  assert.equal(cards[0].features[0], 'Up to 4 active listings');
-  assert.equal(cards[1].id, 'property_pro');
-  assert.equal(cards[1].features[0], 'Up to 12 active listings', 'no limit keeps the text');
-  assert.equal(cards[2].id, 'premium', 'unmatched cards keep their fallback');
-  assert.equal(pricing.DEFAULT_PLAN_CARDS[0].id, 'basic', 'defaults are not mutated');
+test('Property and Shops & Offices show Silver and Gold, priced per listing by the server', () => {
+  for (const niche of ['property', 'shops_offices']) {
+    const cards = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, [
+      { id: 'silver', display_name: 'Silver', monthly_amount_minor: 100000, billing_interval: 'one_time', niche },
+      { id: 'gold', display_name: 'Gold', monthly_amount_minor: 200000, billing_interval: 'one_time', niche },
+    ]);
+    assert.deepEqual(cards.map((c) => [c.id, c.name, c.monthly, c.perListing, c.featured]), [['silver', 'Silver', 1000, true, false], ['gold', 'Gold', 2000, true, true]]);
+    assert.ok(cards[1].features.some((f) => /landing page/.test(f)), 'Gold is eligible for the landing page');
+    assert.ok(!cards[0].features.some((f) => /landing page/.test(f)), 'Silver is not');
+    assert.ok(cards.every((c) => c.features.includes('Shown in VaRoom Discover')), 'Discover is the same for both');
+    assert.ok(cards.every((c) => c.features[0] === 'One listing live for 30 days'));
+  }
+  const unchanged = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, [{ id: 'silver', display_name: 'Silver', monthly_amount_minor: 100, niche: 'property' }]);
+  unchanged[0].features.push('mutated');
+  assert.equal(pricing.LISTING_TIER_CARDS[0].features.includes('mutated'), false, 'defaults are not mutated');
   assert.equal(pricing.formatPrice(12000), (12000).toLocaleString('en-KE'));
-  assert.equal(pricing.yearlyReady(cards), false, 'yearly billing stays "Soon"');
+  assert.equal(pricing.yearlyReady(unchanged), false, 'yearly billing stays "Soon"');
+
+  const page = read('pages', 'pricing.tsx');
+  assert.match(page, /card\.perListing \? '\/listing'/, 'priced per listing, not per month');
+  assert.match(page, /perListing \? \(/, 'the monthly / yearly switch is hidden for per-listing plans');
+  assert.ok(page.includes('the 30 days start when you publish it'));
 });
 
 test('legacy niche plans fill cards in order with the original wording', () => {
@@ -70,7 +78,7 @@ test('first paint shows only the host\'s own niche cards, never another niche\'s
   assert.deepEqual(pricing.cardsForNiche('hotel').map((c) => c.id), ['hotel_dining', 'hotel_boutique', 'hotel_standard', 'hotel_plus']);
   assert.deepEqual(pricing.cardsForNiche('airbnb').map((c) => c.id), ['airbnb_starter', 'airbnb_pro', 'airbnb_business']);
   assert.deepEqual(pricing.cardsForNiche('venue').map((c) => c.id), ['venue_basic', 'venue_pro', 'venue_premium']);
-  for (const niche of ['property', 'shop', 'office']) assert.equal(pricing.cardsForNiche(niche)[0].name, 'Basic');
+  for (const niche of ['property', 'shop', 'office']) assert.deepEqual(pricing.cardsForNiche(niche).map((c) => c.name), ['Silver', 'Gold']);
   assert.equal(pricing.cardsForNiche(null), null, 'unknown niche waits for the server');
   assert.equal(pricing.cardsForNiche('unknown'), null);
   pricing.cardsForNiche('hotel')[0].features.push('mutated');
@@ -109,30 +117,20 @@ test('plans, entitlements and checkout send the token; errors carry the server m
   assert.equal(pricing.currentPlanId({ active: false, subscription: { plan_id: 'x' } }), null);
 
   let request;
-  const url = await pricing.startCheckout('tok', pricing.checkoutBody('property_pro', 'l1', 'list'), async (u, init) => { request = { u, init }; return json(200, { authorization_url: 'https://checkout.paystack.com/x' }); });
+  const paystack = async (u, init) => { request = { u, init }; return json(200, { authorization_url: 'https://checkout.paystack.com/x' }); };
+  const url = await pricing.startCheckout('tok', 'airbnb_pro', paystack);
   assert.equal(url, 'https://checkout.paystack.com/x');
   assert.equal(request.u, '/api/billing/checkout');
-  assert.deepEqual(JSON.parse(request.init.body), { plan: 'property_pro', listing_id: 'l1', return_to: 'list' }, 'only the plan id (and listing) — never a price');
-  assert.deepEqual(pricing.checkoutBody('p', null, 'elsewhere'), { plan: 'p' });
-  await assert.rejects(pricing.startCheckout('t', { plan: 'p' }, async () => json(409, { error: 'An upgrade payment is already being processed.' })), /already being processed/);
-});
+  assert.equal(request.init.headers.Authorization, 'Bearer tok');
+  assert.deepEqual(JSON.parse(request.init.body), { plan: 'airbnb_pro' }, 'only the plan id, never a price');
+  await assert.rejects(pricing.startCheckout('t', 'p', async () => json(409, { error: 'An upgrade payment is already being processed.' })), /already being processed/);
 
-test('the /list draft is used only when recent, from /list and of the requested niche', () => {
-  const now = Date.parse('2026-11-03T12:00:00Z');
-  const pointer = { hostId: 'h1', cacheKey: 'k', createdAt: now - 3600000, listingId: 'l1', returnTo: 'list', category: 'property' };
-  assert.equal(pricing.pendingListingId({ pointer, niche: 'property', afterUpgrade: null, now }), 'l1');
-  assert.equal(pricing.pendingListingId({ pointer, niche: 'shop', afterUpgrade: null, now }), null);
-  assert.equal(pricing.pendingListingId({ pointer: { ...pointer, createdAt: now - 8 * 86400000 }, niche: null, afterUpgrade: null, now }), null);
-  assert.equal(pricing.pendingListingId({ pointer: { ...pointer, returnTo: 'home' }, niche: null, afterUpgrade: null, now }), null);
-  assert.equal(pricing.pendingListingId({ pointer: null, niche: null, afterUpgrade: '{"id":"l9"}', now }), 'l9');
-  const store = new Map([['varoom_listing_draft_pointer:h1', JSON.stringify(pointer)], ['varoom_listing_draft_pointer:h2', '{bad']]);
-  const storage = { getItem: (k) => store.get(k) || null, removeItem: (k) => store.delete(k) };
-  assert.equal(pricing.readDraftPointer(storage, 'h1').listingId, 'l1');
-  assert.equal(pricing.readDraftPointer(storage, 'h3'), null);
-  assert.equal(pricing.readDraftPointer(storage, 'h2'), null);
-  assert.equal(store.has('varoom_listing_draft_pointer:h2'), false, 'a corrupt pointer is removed');
-  store.set('varoom_listing_draft_pointer:h4', JSON.stringify({ ...pointer, hostId: 'someone-else' }));
-  assert.equal(pricing.readDraftPointer(storage, 'h4'), null, 'another host\'s pointer is ignored');
+  await pricing.startListingTierCheckout('tok', 'gold', {}, paystack);
+  assert.equal(request.u, '/api/billing/listing-checkout');
+  assert.deepEqual(JSON.parse(request.init.body), { tier: 'gold' }, 'only the tier, never a price');
+  await pricing.startListingTierCheckout('tok', 'silver', { draft: 'd1', edit: null }, paystack);
+  assert.deepEqual(JSON.parse(request.init.body), { tier: 'silver', draft: 'd1' }, 'the draft to come back to');
+  await assert.rejects(pricing.startListingTierCheckout('t', 'gold', {}, async () => json(403, { error: 'Silver and Gold are available for Property and Shops & Offices' })), /Silver and Gold/);
 });
 
 test('return from Paystack: active only for a succeeded payment of the active plan', async () => {

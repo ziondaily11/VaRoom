@@ -6,9 +6,10 @@ import { CATEGORY_LABELS } from './copy';
 import type { ListingDraftCache } from './draftCache';
 import type { DocumentRefs, DraftSnapshot, RemoteDraft, WizardMedia } from './drafts';
 import { captureSnapshot, draftFormData, draftMediaMetadata, pendingDocumentSelections, restoreSnapshot, sameCategory, snapshotFromRemote } from './drafts';
-import type { VerifiedPayment } from './api';
+import type { ListingCredits, VerifiedPayment } from './api';
+import type { ListingTier } from '../billing/pricing';
 import {
-  fetchDiningConfig, fetchListingDocuments, fetchNichePlanActive, fetchRemoteDraft, fetchRemoteDrafts, refsFromDocuments, tryFetchRemoteDraft, verifyReturnedPayment,
+  fetchDiningConfig, fetchListingDocuments, fetchListingEntitlement, fetchRemoteDraft, fetchRemoteDrafts, refsFromDocuments, tryFetchRemoteDraft, verifyReturnedPayment,
 } from './api';
 import type { EditDetailsRow, EditListingRow } from './publish';
 import { editForm, editOfficeShopDocuments, effectivePriceUnit, isPaidNiche } from './publish';
@@ -31,14 +32,18 @@ export interface Flags {
   listingIsPaused: boolean;
   listingNeedsPublication: boolean;
   hasActiveNichePlan: boolean;
+  /** Paid Silver / Gold listings not yet used (publishing uses the oldest). */
+  listingCredits: ListingCredits;
   /** Payment returned but the form couldn't be restored: publishing waits. */
   publishBlocked: boolean;
 }
 
 export const INITIAL_FLAGS: Flags = {
   paymentVerified: false, returnedPaymentVerified: false, subscriptionVerified: false, hasCurrentListingFee: false, entitlementChecked: false,
-  listingIsPaused: false, listingNeedsPublication: false, hasActiveNichePlan: false, publishBlocked: false,
+  listingIsPaused: false, listingNeedsPublication: false, hasActiveNichePlan: false, listingCredits: { silver: 0, gold: 0 }, publishBlocked: false,
 };
+
+export const hasListingCredit = (flags: Pick<Flags, 'listingCredits'>) => flags.listingCredits.silver + flags.listingCredits.gold > 0;
 
 export interface Message { text: string; error: boolean }
 
@@ -109,6 +114,9 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
   if (profileError || !row || row.role !== 'host') return { status: 'stopped', text: 'Only host accounts can list a space. Redirecting...', redirect: { to: '/', delayMs: 1500 } };
 
   let niche: Category;
+  let profileNiche: Category | null = null;
+  /** A Silver / Gold listing just paid for (and not yet used by a listing). */
+  let creditTier: ListingTier | null = null;
   let continuationDraft: RemoteDraft | null = null;
   let continuationPointer: { cacheKey?: string | null; draftId?: string | null; category?: string | null } | null = null;
   let checkoutSnapshot: DraftSnapshot | null = null;
@@ -146,6 +154,7 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
       return { status: 'stopped', text: 'Choose your posting niche before creating a listing. Redirecting...', redirect: { to: '/profile?select-niches=1', delayMs: 1200 } };
     }
     niche = niches[0];
+    profileNiche = niches[0];
     const resume = (continuationDraft && continuationDraft.category) || (continuationPointer && continuationPointer.category);
     if (isCategory(resume)) {
       if (!sameCategory(niche, resume)) return { status: 'stopped', text: 'This saved listing does not match your host profile category.' };
@@ -158,7 +167,8 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
     try {
       const attempts = params.payment === 'return' || params.subscription === 'return' ? 30 : 1;
       const payment: VerifiedPayment | null = await verifyReturnedPayment(accessToken, recoveryReference, attempts, Boolean(subscriptionReturn));
-      const listingPayment = Boolean(payment && payment.payment_kind === 'listing');
+      // An older pay-as-you-list payment was bound to its listing; a Silver / Gold one is not.
+      const listingPayment = Boolean(payment && payment.payment_kind === 'listing' && !payment.listing_tier);
       const linkedSubscription = Boolean(payment && subscriptionReturn && payment.payment_kind !== 'listing' && payment.listing_id && payment.niche === planNiche(niche));
       if (payment && payment.listing_id && (listingPayment || linkedSubscription)) {
         session.listingId = payment.listing_id;
@@ -204,7 +214,12 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
         next.set('reference', recoveryReference);
         deps.replaceUrl(`/list?${next.toString()}`);
       };
-      if (payment && payment.status === 'succeeded' && payment.payment_kind === 'listing' && payment.listing_id) {
+      if (payment && payment.status === 'succeeded' && payment.payment_kind === 'listing' && payment.listing_tier) {
+        // Silver / Gold: the host carries on with the listing; publishing uses
+        // the credit (the server decides, never the callback URL).
+        if (!payment.listing_id) creditTier = payment.listing_tier;
+        verifiedUrl('payment');
+      } else if (payment && payment.status === 'succeeded' && listingPayment && payment.listing_id) {
         // Only the authenticated server check unlocks publishing, never the callback URL.
         flags.paymentVerified = true;
         flags.returnedPaymentVerified = true;
@@ -227,11 +242,23 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
     }
   }
 
+  // A new listing after paying (no draft continued): start fresh, not from this device's last draft.
+  if (creditTier && !params.draft && !params.edit) {
+    session.draftId = null;
+    session.cacheKey = null;
+    continuationPointer = null;
+    if (profileNiche) niche = profileNiche;
+  }
+
   if (isPaidNiche(niche)) {
     try {
-      flags.hasActiveNichePlan = await fetchNichePlanActive(accessToken, niche);
+      const entitlement = await fetchListingEntitlement(accessToken, niche);
+      flags.hasActiveNichePlan = entitlement.planActive;
+      flags.listingCredits = entitlement.credits;
       flags.entitlementChecked = true;
     } catch (_) { /* The note under the buttons explains. */ }
+    // The verified payment counts even if the allowance check lags behind it.
+    if (creditTier && !hasListingCredit(flags)) flags.listingCredits = { ...flags.listingCredits, [creditTier]: 1 };
   }
 
   let form: WizardForm | null = null;
@@ -240,8 +267,9 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
   let officeShopTypeSelected = Boolean(params.edit) && isOfficeShop(niche);
   const messages: Message[] = [];
 
-  if (!params.edit && (params.draft || recoveryReference)) {
-    const restored = await restoreDraft(deps, niche, continuationDraft, continuationPointer, checkoutSnapshot, flags, Boolean(recoveryReference), Boolean(params.draft));
+  const restoreAfterPayment = Boolean(recoveryReference) && !creditTier;
+  if (!params.edit && (params.draft || restoreAfterPayment)) {
+    const restored = await restoreDraft(deps, niche, continuationDraft, continuationPointer, checkoutSnapshot, flags, restoreAfterPayment, Boolean(params.draft));
     form = restored.form;
     media = restored.media;
     messages.push(...restored.messages);
@@ -264,7 +292,8 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
       if (defaults) { const fresh = emptyForm(); form = { ...fresh, fields: { ...fresh.fields, ...bookingDefaultFields(defaults) } }; }
     } catch (error) { console.warn('Booking defaults could not be loaded; the listing starts blank:', error); }
   }
-  if (flags.subscriptionVerified) messages.push({ text: 'Your plan is active. Your saved listing has been restored for review and publishing.', error: false });
+  if (creditTier) messages.push({ text: `Payment confirmed. Your ${creditTier === 'gold' ? 'Gold' : 'Silver'} listing is ready: fill in your listing and publish it. Its 30 days start when you publish.`, error: false });
+  else if (flags.subscriptionVerified) messages.push({ text: 'Your plan is active. Your saved listing has been restored for review and publishing.', error: false });
   else if (flags.returnedPaymentVerified) messages.push({ text: 'Payment confirmed. Review your listing, then select Publish Listing when you are ready.', error: false });
   else if (returnedMessage) messages.push({ text: returnedMessage, error: true });
   return { status: 'ready', category: niche, flags, officeShopTypeSelected, form, media, edit, messages };

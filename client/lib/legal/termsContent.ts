@@ -2,7 +2,7 @@ import type { Block, Inline, Section } from "./legalDocument";
 
 export const TERMS_TITLE = "Terms of Service · VaRoom";
 export const TERMS_DESCRIPTION = "Varoom Terms of Service governing the use of the Varoom property marketplace.";
-export const LAST_UPDATED = "November 3, 2026";
+export const LAST_UPDATED = "November 22, 2026";
 
 const b = (strong: string): Inline => ({ strong });
 const a = (text: string, href: string): Inline => ({ text, href });
@@ -206,14 +206,16 @@ export const sections: Section[] = [
       ),
       h3("Ways to pay for listings"),
       p(
-        "For properties to let or buy, offices, and shops, Hosts can keep listings live on Varoom in one of two ways:"
+        "For properties to let or buy, offices, and shops, Hosts pay once for each listing, choosing one of two plans:"
       ),
       ul(
-        "Pay as you list: a one-time payment for a single listing, which is live and visible in Marketplace and Discover for 30 days. It does not renew. When the 30 days end, the listing is discontinued from public view.",
-        "Subscription plan: a monthly plan that allows a set number of listings to be active in each billing month."
+        "Silver: a one-time payment for a single listing, which is live and visible in Marketplace and Discover for 30 days from when it is published.",
+        "Gold: a one-time payment for a single listing, which is live for 30 days from when it is published, is shown above Silver listings in Marketplace, and is eligible for the landing page. Eligibility does not guarantee that a listing will be featured.",
+        "Neither plan renews. When the 30 days end, the listing is discontinued from public view. Visibility in Discover is the same for both plans.",
+        "Hosts who subscribed to a monthly plan for these categories before Silver and Gold were introduced keep that plan until the end of its current billing month."
       ),
       p(
-        "The payment options available for other listing categories will be shown in Varoom before purchase."
+        "Other listing categories use monthly subscription plans. The payment options available for each category are shown in Varoom before purchase."
       ),
       h3("Subscription plans"),
       ul(
@@ -234,12 +236,12 @@ export const sections: Section[] = [
       ),
       h3("Failed payments"),
       ul(
-        "Pay as you list: if payment fails, the listing is not published and remains a draft. Unpaid drafts are automatically deleted after 7 days together with all their details, and the listing must then be created again from the beginning.",
+        "Silver and Gold: if payment fails, no listing can be published with it and the Host can try again. Unpaid drafts are automatically deleted after 7 days together with all their details, and the listing must then be created again from the beginning. A paid Silver or Gold listing that has not been used yet is kept until the Host publishes a listing.",
         "Subscription plans: if a payment fails, the plan's features will not be available until payment is completed. Varoom will notify the Host and explain the steps needed to restore them."
       ),
       h3("Refunds"),
       ul(
-        "Pay as you list fees are non-refundable once the listing goes live. The fee pays for 30 days of visibility in Marketplace and Discover, and no refund is given if the property is let, sold, or otherwise no longer available before that period ends.",
+        "Silver and Gold fees are non-refundable once the listing goes live. The fee pays for 30 days of visibility in Marketplace and Discover, and no refund is given if the property is let, sold, or otherwise no longer available before that period ends.",
         "A subscription plan fee may be refunded only if no listing has been published or made active under the plan in that billing month. Approved refunds are processed within 2 working days; the time it takes for funds to reach the Host depends on the payment provider."
       ),
       h3("Price changes"),

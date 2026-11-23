@@ -205,7 +205,8 @@ export async function fetchListingPage(client: SupabaseClient, search: Marketpla
   if (term) query = query.or(`title.ilike.%${term}%,location_text.ilike.%${term}%,category.ilike.%${term}%`);
   const minGuests = search.guests ? parseInt(search.guests, 10) : null;
   if (minGuests) query = query.gte('listing_booking_details.max_guests', minGuests);
-  const { data, error } = await query.order('created_at', { ascending: false });
+  // Gold listings (tier_rank 1) come before Silver and every other listing, newest first within each.
+  const { data, error } = await query.order('tier_rank', { ascending: false }).order('created_at', { ascending: false });
   if (error) throw error;
   const rows = (data || []) as unknown as MarketplaceListing[];
   // The guests filter applies to the embedded details, so rows are checked too.

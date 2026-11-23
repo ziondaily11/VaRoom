@@ -117,15 +117,6 @@ test('older property drafts restore the type from size-or-type', () => {
   assert.equal(restored.form.propertySalePriceMode, 'starting');
 });
 
-test('a checkout copy verifies only when every field and media file reads back intact', () => {
-  const photo = new File(['img'], 'a.jpg', { type: 'image/jpeg', lastModified: 1 });
-  const source = drafts.captureSnapshot(identity, 'property', emptyForm(), { ...noMedia(), mediaFiles: [photo] }, 'month');
-  const copy = { ...structuredClone({ ...source, mediaFiles: [] }), mediaFiles: [photo] };
-  assert.equal(drafts.checkoutSnapshotMatches(copy, source), true);
-  assert.equal(drafts.checkoutSnapshotMatches({ ...copy, mediaFiles: [] }, source), false);
-  assert.equal(drafts.checkoutSnapshotMatches({ ...copy, availableDates: ['2026-01-01'] }, source), false);
-});
-
 // ---------- The draft session ----------
 
 function sessionWith(fetchImpl, overrides = {}) {
@@ -179,18 +170,6 @@ test('the checkout shell is created once however many callers ask', async () => 
   assert.equal(posts, 1);
 });
 
-test('the checkout save state is written, read back and pointed to', async () => {
-  const { session, storage } = sessionWith(async () => jsonResponse(200, {}));
-  session.draftId = 'draft-1';
-  const snapshot = await session.saveCheckoutState('listing-1');
-  assert.equal(snapshot.cacheKey, 'host-1:checkout:listing-1');
-  const pointer = JSON.parse(storage.getItem('varoom_listing_checkout_state:host-1:listing-1'));
-  assert.equal(pointer.cacheKey, 'host-1:checkout:listing-1');
-  assert.equal(session.checkoutPointer('listing-1').draftId, 'draft-1');
-  await session.clearCheckoutState('listing-1');
-  assert.equal(session.checkoutPointer('listing-1'), null);
-});
-
 // ---------- Requests ----------
 
 test('a signed-out payment check stops at once instead of polling', async () => {
@@ -222,10 +201,11 @@ test('media choices follow the type, size, count and duplicate rules (WEBM inclu
 
 // ---------- Publishing ----------
 
-const state = (overrides) => ({ category: 'airbnb', editMode: false, paymentVerified: false, hasActiveNichePlan: false, hasCurrentListingFee: false, listingIsPaused: false, listingNeedsPublication: false, ...overrides });
+const state = (overrides) => ({ category: 'airbnb', editMode: false, paymentVerified: false, hasActiveNichePlan: false, hasCurrentListingFee: false, hasListingCredit: false, listingIsPaused: false, listingNeedsPublication: false, ...overrides });
 
-test('paid niches need a fee or plan; activation follows the unchanged rule', () => {
+test('paid niches need Silver, Gold or a running plan; publishing then activates', () => {
   assert.equal(publish.needsListingPayment(state({ category: 'property' })), true);
+  assert.equal(publish.needsListingPayment(state({ category: 'office', hasListingCredit: true })), false, 'a paid Silver / Gold listing covers it');
   assert.equal(publish.needsListingPayment(state({ category: 'property', hasActiveNichePlan: true })), false);
   assert.equal(publish.needsListingPayment(state({ category: 'shop', editMode: true, hasCurrentListingFee: true })), false);
   assert.equal(publish.needsListingPayment(state({ category: 'hotel' })), false);
@@ -238,6 +218,9 @@ test('paid niches need a fee or plan; activation follows the unchanged rule', ()
   assert.equal(publish.shouldActivate(state({ category: 'office', hasActiveNichePlan: true })), true);
   assert.equal(publish.shouldActivate(state({ category: 'office', editMode: true, listingIsPaused: true, hasCurrentListingFee: true })), true);
   assert.equal(publish.shouldActivate(state({ category: 'office', editMode: true, hasCurrentListingFee: true })), false);
+  assert.equal(publish.shouldActivate(state({ category: 'property', hasListingCredit: true })), true, 'a new listing uses the credit');
+  assert.equal(publish.shouldActivate(state({ category: 'shop', editMode: true, hasListingCredit: true })), true, 'an expired listing is republished with a credit');
+  assert.equal(publish.shouldActivate(state({ category: 'shop', editMode: true, hasListingCredit: true, hasCurrentListingFee: true })), false, 'a live listing keeps its term; the credit is not spent');
 });
 
 test('booking details per niche match what list.html sent', () => {

@@ -5,9 +5,9 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  applyPlans, cardsForNiche, checkoutBody, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
-  LISTING_AFTER_UPGRADE_KEY, pendingListingId, readDraftPointer, RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout,
-  readCachedPlans, writeCachedPlans, yearlyReady, type PlanCard,
+  applyPlans, cardsForNiche, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
+  RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout, startListingTierCheckout,
+  readCachedPlans, writeCachedPlans, yearlyReady, type ListingTier, type PlanCard,
 } from '../lib/billing/pricing';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
 import { clearHostBillingCache } from '../lib/billing/hostBilling';
@@ -32,10 +32,6 @@ function CheckIcon() {
 }
 
 const queryValue = (value: string | string[] | undefined) => (typeof value === 'string' && value ? value : null);
-
-function readSession(key: string): string | null {
-  try { return window.sessionStorage.getItem(key); } catch { return null; }
-}
 
 export default function PricingPage() {
   const router = useRouter();
@@ -62,6 +58,7 @@ export default function PricingPage() {
   const userId = user?.id || null;
   const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] || null : null;
   const canToggle = Boolean(cards && cards.length && yearlyReady(cards));
+  const perListing = Boolean(cards && cards.length && cards.every((card) => card.perListing));
 
   // Hosts only: signed out → login, clients → their home.
   useEffect(() => {
@@ -101,7 +98,6 @@ export default function PricingPage() {
   useEffect(() => {
     if (!router.isReady || !isHost || !userId || queryValue(router.query.billing) !== 'return') return undefined;
     const reference = queryValue(router.query.reference) || queryValue(router.query.trxref);
-    const returnToList = queryValue(router.query.returnTo) === 'list';
     let attempts = 0;
     let timer = 0;
     let stopped = false;
@@ -116,12 +112,6 @@ export default function PricingPage() {
           clearHostBillingCache();
           setNotice({ tone: 'good', text: `Your ${planName(result.planId)} plan is active.` });
           setCurrentId(result.planId);
-          if (returnToList && reference) {
-            try { window.sessionStorage.removeItem(LISTING_AFTER_UPGRADE_KEY); } catch { /* Storage unavailable. */ }
-            timer = window.setTimeout(() => {
-              router.replace(`/list?subscription=return&reference=${encodeURIComponent(reference)}`);
-            }, 700);
-          }
           return;
         }
         if (result.kind === 'failed') { setNotice({ tone: 'bad', text: RETURN_MESSAGES.failed }); return; }
@@ -135,7 +125,7 @@ export default function PricingPage() {
     };
     check();
     return () => { stopped = true; window.clearTimeout(timer); };
-  }, [router, router.isReady, router.query.billing, router.query.reference, router.query.trxref, router.query.returnTo, isHost, userId]);
+  }, [router, router.isReady, router.query.billing, router.query.reference, router.query.trxref, isHost, userId]);
 
   const toggle = (next?: Billing) => {
     if (!canToggle) return;
@@ -148,14 +138,10 @@ export default function PricingPage() {
     try {
       const token = tokenRef.current;
       if (!token || !userId) throw new Error('Please log in again to continue.');
-      let pointer = null;
-      try {
-        pointer = readDraftPointer(window.localStorage, userId);
-      } catch (error) {
-        console.warn('Unable to read the listing draft for subscription checkout:', error);
-      }
-      const listingId = pendingListingId({ pointer, niche: queryValue(router.query.niche), afterUpgrade: readSession(LISTING_AFTER_UPGRADE_KEY) });
-      const url = await startCheckout(token, checkoutBody(card.id, listingId, queryValue(router.query.returnTo)));
+      // Silver / Gold: Paystack returns the host to /list to publish the listing.
+      const url = card.perListing
+        ? await startListingTierCheckout(token, card.id as ListingTier)
+        : await startCheckout(token, card.id);
       // Paystack's hosted checkout is a separate site.
       window.location.assign(url);
     } catch (error) {
@@ -233,7 +219,7 @@ export default function PricingPage() {
               const price = yearly ? card.yearly : card.monthly;
               return (
                 <article key={index} className={`plan${card.featured ? ' plan--featured' : ''}`} data-plan={card.id} aria-labelledby={nameId}>
-                  <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{yearly ? '/year' : '/month'}</span></p>
+                  <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{card.perListing ? '/listing' : yearly ? '/year' : '/month'}</span></p>
                   <h2 className="plan-name" id={nameId}>{card.name}</h2>
                   <p className="plan-desc">{card.description}</p>
                   <hr className="plan-divider" />
@@ -263,6 +249,11 @@ export default function PricingPage() {
             </div>
           )}
 
+          {perListing ? (
+            <div className="pricing-msgs">
+              <p className="pricing-note">You pay once per listing. After paying you go straight to listing your space, and the 30 days start when you publish it.</p>
+            </div>
+          ) : (<>
           <div className="billing" role="group" aria-label="Billing period">
             <button type="button" className={`billing-label${yearly ? '' : ' is-active'}`} aria-pressed={!yearly} aria-disabled={canToggle ? undefined : 'true'} onClick={() => toggle('monthly')}>Monthly</button>
             <button
@@ -285,6 +276,7 @@ export default function PricingPage() {
             <p className="pricing-note" id="billing-note">{canToggle ? '' : 'Yearly billing is coming soon. Prices shown are per month.'}</p>
 
           </div>
+          </>)}
         </div>
       </div>
     </>

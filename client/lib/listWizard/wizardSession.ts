@@ -1,7 +1,7 @@
 import type { ListingDraftCache } from './draftCache';
 import { CHECKOUT_POINTER_PREFIX } from './draftCache';
 import type { DraftSnapshot, MediaMetadata, SnapshotIdentity } from './drafts';
-import { checkoutSnapshotMatches, draftFormData, draftMediaMetadata } from './drafts';
+import { draftFormData, draftMediaMetadata } from './drafts';
 import { createListingShell, putRemoteDraft } from './api';
 
 // One listing-creation session's draft bookkeeping (migrated from the
@@ -90,23 +90,6 @@ export class WizardSession {
       console.warn('Unable to read the payment checkout save state:', error);
       return null;
     }
-  }
-
-  /** Writes the complete form (and media files) for a checkout and checks it reads back intact. */
-  async saveCheckoutState(listingId: string): Promise<DraftSnapshot> {
-    const { cache, storage } = this.options;
-    if (!listingId || !storage) throw new Error('The payment listing could not be linked to its saved form.');
-    const cacheKey = `${this.hostId}:checkout:${listingId}`;
-    const snapshot = this.options.capture(this.identity(listingId));
-    snapshot.cacheKey = cacheKey;
-    snapshot.checkoutState = true;
-    snapshot.createdAt = Date.now();
-    await cache.save(snapshot);
-    const saved = await cache.load<DraftSnapshot>(cacheKey);
-    if (!checkoutSnapshotMatches(saved, snapshot)) throw new Error('The saved checkout state could not be verified.');
-    const pointer: CheckoutPointer = { hostId: this.hostId, listingId, category: snapshot.category, draftId: snapshot.draftId || null, cacheKey, createdAt: snapshot.createdAt };
-    storage.setItem(checkoutPointerKey(this.hostId, listingId), JSON.stringify(pointer));
-    return snapshot;
   }
 
   async clearCheckoutState(listingId: string): Promise<void> {

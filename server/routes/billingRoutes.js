@@ -7,16 +7,17 @@ const { createPaystackClient } = require('../lib/paystackClient');
 const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
+const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans } = require('../lib/listingTiers');
 
+// Monthly plans still sold. Property and Shops & Offices sell Silver and Gold
+// per listing instead (/billing/listing-checkout).
 const VALID_PLAN_IDS = new Set([
-  'basic', 'growth', 'pro', 'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium',
+  'basic', 'growth', 'pro',
   'airbnb_starter', 'airbnb_pro', 'airbnb_business',
   'hotel_dining', 'hotel_boutique', 'hotel_standard', 'hotel_plus',
   'venue_basic', 'venue_pro', 'venue_premium',
 ]);
 
-// Niches whose plans cap published listings (activate_listing_with_entitlement).
-const LISTING_ALLOWANCE_NICHES = new Set(['property', 'shops_offices']);
 // Niches whose plans unlock features only; publishing is not capped yet.
 const FEATURE_PLAN_NICHES = new Set(['airbnb', 'hotel', 'venue']);
 
@@ -26,13 +27,6 @@ function billingNicheFor(hostNiche) {
   if (['shop', 'office'].includes(hostNiche)) return 'shops_offices';
   if (FEATURE_PLAN_NICHES.has(hostNiche)) return hostNiche;
   return 'legacy';
-}
-
-function isEligibleListingForHost(listing, hostId, categories) {
-  if (!listing || listing.host_id !== hostId) return false;
-  if (listing.category === 'property') return categories.includes('property');
-  return ['office', 'shop'].includes(listing.category)
-    && categories.some((category) => ['office', 'shop'].includes(category));
 }
 
 function normalizeRequestedPlan(value) {
@@ -108,11 +102,12 @@ function billingHistoryEntry(row) {
   const planName = row.billing_plans && row.billing_plans.display_name || null;
   const listingTitle = row.listings && row.listings.title || null;
   const isListing = row.payment_kind === 'listing';
+  const tier = row.listing_tier && LISTING_TIERS[row.listing_tier];
   return {
     id: row.id,
     kind: isListing ? 'listing' : 'subscription',
     description: isListing
-      ? `Pay as you list${listingTitle ? ` — ${listingTitle}` : ''}`
+      ? `${tier ? `${tier.display_name} listing` : 'Pay as you list'}${listingTitle ? ` — ${listingTitle}` : ''}`
       : `${planName || 'VaRoom'} plan — monthly`,
     plan_name: planName,
     listing_title: listingTitle,
@@ -158,6 +153,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
     const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
     const niche = billingNicheFor(hostNiche);
+    if (LISTING_TIER_NICHES.has(niche)) return res.json({ plans: listingTierPlans(niche) });
     const { data, error } = await supabaseAdmin.from('billing_plans').select('id,display_name,currency,monthly_amount_minor,billing_interval,features,niche').eq('active', true).eq('niche', niche).order('monthly_amount_minor');
     if (error) return res.status(500).json({ error: 'Unable to load billing plans' });
     return res.json({ plans: data || [] });
@@ -171,6 +167,17 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const user = await requireHost(req, res); if (!user) return;
     try {
       const entitlements = await getHostEntitlements(supabaseAdmin, user.id);
+      // Paid Silver / Gold listings that no published listing has used yet.
+      const { data: credits, error: creditsError } = await supabaseAdmin.from('billing_payments').select('listing_tier')
+        .eq('host_id', user.id).eq('payment_kind', 'listing').eq('status', 'succeeded')
+        .not('listing_tier', 'is', null).is('consumed_at', null).is('listing_id', null);
+      if (creditsError) throw new Error('Unable to load listing credits');
+      const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
+      if (profileError) throw new Error('Unable to load the posting niche');
+      // Property and Shops & Offices pay per listing (Silver / Gold).
+      entitlements.listingTiers = LISTING_TIER_NICHES.has(billingNicheFor(Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null));
+      entitlements.listingCredits = { silver: 0, gold: 0 };
+      (credits || []).forEach((credit) => { if (credit.listing_tier in entitlements.listingCredits) entitlements.listingCredits[credit.listing_tier] += 1; });
       const limit = Number(entitlements.listingLimit);
       if (!entitlements.active) {
         entitlements.canCreateAnotherListing = { allowed: false, limit: null, activeCount: 0, reason: 'No active niche subscription.' };
@@ -196,7 +203,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   router.post('/billing/checkout', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
-    try { assertAllowedKeys(req.body || {}, ['plan', 'listing_id', 'return_to']); if (req.body.listing_id !== undefined) uuid(req.body.listing_id, 'listing_id'); if (req.body.return_to !== undefined && req.body.return_to !== 'list') throw new ValidationError('Invalid return destination'); } catch (error) { return res.status(400).json({ error: 'Invalid checkout request' }); }
+    try { assertAllowedKeys(req.body || {}, ['plan']); } catch { return res.status(400).json({ error: 'Invalid checkout request' }); }
     let planId;
     try { planId = normalizeRequestedPlan(req.body.plan); } catch (error) { return res.status(400).json({ error: 'Invalid plan' }); }
     const { data: plan, error: planError } = await supabaseAdmin.from('billing_plans').select('*').eq('id', planId).eq('active', true).maybeSingle();
@@ -205,13 +212,6 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
     const niche = billingNicheFor(hostNiche);
     if (plan.niche !== niche) return res.status(403).json({ error: 'This plan is not available for your posting niche' });
-    let pendingListing = null;
-    if (req.body.listing_id && LISTING_ALLOWANCE_NICHES.has(niche)) {
-      const { data: listing } = await supabaseAdmin.from('listings').select('id,host_id,category,availability_status').eq('id', req.body.listing_id).maybeSingle();
-      const categoryMatches = niche === 'property' ? listing?.category === 'property' : ['shop', 'office'].includes(listing?.category);
-      if (!listing || listing.host_id !== user.id || !categoryMatches || listing.availability_status !== 'paused') return res.status(400).json({ error: 'Pending listing does not match this plan' });
-      pendingListing = listing;
-    }
     const paystackPlanCode = plan.paystack_plan_env ? process.env[plan.paystack_plan_env] : plan.paystack_plan_code;
     if (!paystackPlanCode) return res.status(503).json({ error: 'Checkout is not configured for this plan yet' });
     let { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
@@ -276,7 +276,6 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       billing: 'return',
       reference,
       plan: plan.id,
-      ...(req.body.return_to === 'list' ? { returnTo: 'list' } : {}),
     });
     let subscriptionId = existing && existing.id;
     if (!subscriptionId) {
@@ -286,7 +285,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     const payment = {
       host_id: user.id, subscription_id: subscriptionId, plan_id: plan.id, niche, billing_interval: plan.billing_interval,
-      ...(pendingListing ? { listing_id: pendingListing.id } : {}), provider_reference: reference,
+      provider_reference: reference,
       amount_minor: plan.monthly_amount_minor, currency: plan.currency, status: 'initialized',
       provider_payload: {
         checkout_reservation: true,
@@ -306,7 +305,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     let initialized;
     try {
-      initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
+      initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, varoom_billing: true } });
     } catch (error) {
       // Keep the reservation initialized when the network result is uncertain;
       // allowing another checkout here could charge twice for the same upgrade.
@@ -321,43 +320,43 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     return res.status(201).json({ reference, authorization_url: initialized.authorization_url, access_code: initialized.access_code });
   });
+  // Silver or Gold: one listing credit for Property or Shops & Offices. The
+  // next listing the host publishes uses it (activate_listing_with_entitlement),
+  // so the host pays first and Paystack brings them back to /list. The row is
+  // recorded before Paystack is called, so a paid transaction is never unmatched.
   router.post('/billing/listing-checkout', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
-    try { assertAllowedKeys(req.body || {}, ['listing_id']); uuid(req.body.listing_id, 'listing_id'); }
-    catch { return res.status(400).json({ error: 'Invalid listing checkout request' }); }
+    const body = req.body || {};
+    let tier = null;
+    try {
+      assertAllowedKeys(body, ['tier', 'draft', 'edit']);
+      // The draft being continued or the listing being edited: /list reopens it on return (and checks it is the host's).
+      ['draft', 'edit'].forEach((key) => { if (body[key] !== undefined) uuid(body[key], key); });
+      if (Object.prototype.hasOwnProperty.call(LISTING_TIERS, body.tier)) tier = LISTING_TIERS[body.tier];
+    } catch { tier = null; }
+    if (!tier) return res.status(400).json({ error: 'Choose Silver or Gold' });
     const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
     if (profileError) return res.status(503).json({ error: 'Unable to verify your listing category' });
-    const categories = Array.isArray(profile?.listing_categories) ? profile.listing_categories : [];
-    if (!categories.some((category) => ['property', 'office', 'shop'].includes(category))) return res.status(403).json({ error: 'Pay-as-you-list is not available for this niche' });
-    const { data: listing, error: listingError } = await supabaseAdmin.from('listings').select('id,host_id,category').eq('id', req.body.listing_id).maybeSingle();
-    if (listingError) {
-      console.error('Pay-as-you-list eligibility lookup failed:', { listingId: req.body.listing_id, hostId: user.id, message: listingError.message });
-      return res.status(503).json({ error: 'Unable to verify listing eligibility right now' });
-    }
-    if (!isEligibleListingForHost(listing, user.id, categories)) return res.status(404).json({ error: 'Eligible listing not found' });
-    const { data: existing } = await supabaseAdmin.from('billing_payments').select('id,status,provider_reference,provider_payload').eq('listing_id', listing.id).eq('payment_kind', 'listing').maybeSingle();
-    if (existing?.status === 'succeeded') return res.status(409).json({ error: 'This listing has already been paid' });
-    if (existing && ['initialized', 'pending'].includes(existing.status)) {
-      const authorizationUrl = existing.provider_payload && existing.provider_payload.authorization_url;
-      if (authorizationUrl) return res.status(200).json({ reference: existing.provider_reference, authorization_url: authorizationUrl, reused: true });
-      return res.status(409).json({ error: 'A payment for this listing is still being verified. Please check its status before retrying.' });
-    }
+    const niche = billingNicheFor(Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null);
+    if (!LISTING_TIER_NICHES.has(niche)) return res.status(403).json({ error: 'Silver and Gold are available for Property and Shops & Offices' });
     const reference = paystack.generateReference();
+    const { error: insertError } = await supabaseAdmin.from('billing_payments').insert({
+      host_id: user.id, listing_id: null, listing_tier: tier.id, payment_kind: 'listing', niche, billing_interval: 'one_time', plan_id: null, subscription_id: null,
+      provider_reference: reference, amount_minor: tier.amount_minor, currency: 'KES', status: 'initialized', provider_payload: {},
+    });
+    if (insertError) return res.status(500).json({ error: 'Unable to record listing payment' });
     let initialized;
     try {
-      initialized = await paystack.initializeTransaction({ email: user.email, amount: 100000, currency: 'KES', reference,
-        callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference }),
-        metadata: { host_id: user.id, listing_id: listing.id, niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', payment_kind: 'listing', varoom_billing: true } });
+      initialized = await paystack.initializeTransaction({ email: user.email, amount: tier.amount_minor, currency: 'KES', reference,
+        callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference, draft: body.draft, edit: body.edit }),
+        metadata: { host_id: user.id, niche, billing_interval: 'one_time', payment_kind: 'listing', listing_tier: tier.id, varoom_billing: true } });
     } catch (error) {
-      console.error('Paystack listing checkout initialization failed', { listingId: listing.id, reference, message: error.message });
+      console.error('Paystack listing checkout initialization failed', { tier: tier.id, reference, message: error.message });
       return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
     }
-    const payment = { host_id: user.id, listing_id: listing.id, payment_kind: 'listing', niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', plan_id: null, subscription_id: null,
-      provider_reference: reference, amount_minor: 100000, currency: 'KES', status: 'initialized', provider_payload: { authorization_url: initialized.authorization_url } };
-    const result = existing
-      ? await supabaseAdmin.from('billing_payments').update(payment).eq('id', existing.id)
-      : await supabaseAdmin.from('billing_payments').insert(payment);
-    if (result.error) return res.status(500).json({ error: 'Unable to record listing payment' });
+    const { error: urlError } = await supabaseAdmin.from('billing_payments')
+      .update({ provider_payload: { authorization_url: initialized.authorization_url } }).eq('provider_reference', reference);
+    if (urlError) console.error('Unable to save Paystack listing checkout URL', { reference, message: urlError.message });
     return res.status(201).json({ reference, authorization_url: initialized.authorization_url });
   });
   router.get('/billing/payments/:reference', async (req, res) => {
@@ -378,12 +377,12 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const { provider_payload: _privateProviderPayload, ...safePayment } = refreshed || verifiedPayment;
     return res.json({ payment: safePayment });
   });
-  // Subscription and pay-as-you-list payments, newest first, with the
+  // Subscription and listing (Silver, Gold, pay-as-you-list) payments, newest first, with the
   // payment method of the latest successful one. Unfinished checkouts are left out.
   router.get('/billing/payments', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
     const { data, error } = await supabaseAdmin.from('billing_payments')
-      .select('id,payment_kind,amount_minor,currency,status,paid_at,created_at,provider_reference,verified_authorization:provider_payload->last_verification->authorization,renewal_authorization:provider_payload->authorization,billing_plans(display_name),listings(title)')
+      .select('id,payment_kind,listing_tier,amount_minor,currency,status,paid_at,created_at,provider_reference,verified_authorization:provider_payload->last_verification->authorization,renewal_authorization:provider_payload->authorization,billing_plans(display_name),listings(title)')
       .eq('host_id', user.id).in('status', HISTORY_STATUSES)
       .order('created_at', { ascending: false }).limit(100);
     if (error) return res.status(500).json({ error: 'Unable to load billing history' });
@@ -432,4 +431,4 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, billingNicheFor, paymentMethodFrom, billingHistoryEntry, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance };
+module.exports = { createBillingRoutes, authenticatedHost, billingNicheFor, paymentMethodFrom, billingHistoryEntry, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, calculateTransitionAllowance };

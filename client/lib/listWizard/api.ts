@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DocumentRef, ListingDocument } from './policyDocuments';
 import type { DocumentRefs, MediaMetadata, RemoteDraft } from './drafts';
 import { listingDocumentMimeType } from './officeShop';
+import type { ListingTier } from '../billing/pricing';
 
 // The listing wizard's requests (unchanged from legacy-pages/list.html).
 // Every call takes the current access token; the page reads it from the
@@ -86,7 +87,7 @@ export async function deleteListingShell(token: string, listingId: string): Prom
   return response.ok;
 }
 
-export interface VerifiedPayment { status: string; listing_id: string | null; payment_kind: string; niche?: string | null }
+export interface VerifiedPayment { status: string; listing_id: string | null; payment_kind: string; niche?: string | null; listing_tier?: ListingTier | null }
 
 export const SESSION_EXPIRED_PAYMENT = 'Your session expired. Sign in again to check this payment.';
 
@@ -108,6 +109,8 @@ export async function verifyReturnedPayment(token: string, reference: string, at
       const result = await readJson(response);
       if (response.ok) payment = (result.payment as VerifiedPayment) || null;
     }
+    // A Silver / Gold payment has no listing yet: publishing uses it later.
+    if (payment && payment.status === 'succeeded' && payment.payment_kind === 'listing' && payment.listing_tier) return payment;
     if (payment && payment.status === 'succeeded' && payment.listing_id
         && (payment.payment_kind === 'listing' || (isSubscriptionReturn && payment.payment_kind !== 'listing'))) return payment;
     if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) return payment;
@@ -120,10 +123,22 @@ interface EntitlementResult {
   active: boolean;
   subscription?: { status?: string; niche?: string } | null;
   canCreateAnotherListing?: { allowed?: boolean } | null;
+  listingCredits?: Partial<ListingCredits> | null;
 }
 
-/** Whether the host's plan covers this niche; throws when the allowance can't be confirmed. */
-export async function fetchNichePlanActive(token: string, category: string): Promise<boolean> {
+export type ListingCredits = Record<ListingTier, number>;
+
+export interface ListingEntitlement {
+  /** A monthly plan bought before Silver and Gold still covers this niche. */
+  planActive: boolean;
+  /** Paid Silver / Gold listings not yet used by a published listing. */
+  credits: ListingCredits;
+}
+
+const creditCount = (value: unknown) => (Number.isInteger(value) && Number(value) > 0 ? Number(value) : 0);
+
+/** What lets the host publish in this niche; throws when the allowance can't be confirmed. */
+export async function fetchListingEntitlement(token: string, category: string): Promise<ListingEntitlement> {
   const response = await fetch('/api/billing/entitlements', { headers: bearer(token) });
   if (!response.ok) throw new Error('Unable to confirm your listing allowance');
   const result = await readJson(response);
@@ -131,15 +146,12 @@ export async function fetchNichePlanActive(token: string, category: string): Pro
   if (!entitlement || typeof entitlement.active !== 'boolean' || !entitlement.canCreateAnotherListing) throw new Error('Unable to confirm your listing allowance');
   const expectedNiche = category === 'property' ? 'property' : 'shops_offices';
   const allowance = entitlement.canCreateAnotherListing;
-  return Boolean(entitlement.active && entitlement.subscription && entitlement.subscription.status === 'active'
-    && entitlement.subscription.niche === expectedNiche && allowance && allowance.allowed);
-}
-
-export async function startListingCheckout(token: string, listingId: string): Promise<string> {
-  const response = await fetch('/api/billing/listing-checkout', { method: 'POST', headers: jsonHeaders(token), body: JSON.stringify({ listing_id: listingId }) });
-  const result = await readJson(response);
-  if (!response.ok || !result.authorization_url || !result.reference) throw new Error(errorText(result, 'Unable to start Paystack checkout.'));
-  return String(result.authorization_url);
+  const credits = entitlement.listingCredits || {};
+  return {
+    planActive: Boolean(entitlement.active && entitlement.subscription && entitlement.subscription.status === 'active'
+      && entitlement.subscription.niche === expectedNiche && allowance && allowance.allowed),
+    credits: { silver: creditCount(credits.silver), gold: creditCount(credits.gold) },
+  };
 }
 
 // ---------- Documents ----------

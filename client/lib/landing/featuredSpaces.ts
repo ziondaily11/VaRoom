@@ -195,7 +195,9 @@ async function fetchNicheListings(client: SupabaseClient, niche: SpaceNiche, now
     .in('category', niche.categories)
     .eq('moderation_status', 'active')
     .eq('availability_status', 'available')
-    .or(`paid_listing_until.is.null,paid_listing_until.gt.${nowIso}`)
+    // Within any paid term; of the Silver / Gold listings only Gold is eligible for the landing page.
+    .or(`paid_listing_until.is.null,and(paid_listing_until.gt.${nowIso},or(listing_tier.is.null,listing_tier.eq.gold))`)
+    .order('tier_rank', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(CANDIDATES);
   if (error) console.warn(`Landing spaces: ${niche.id} listings unavailable`, error.message);

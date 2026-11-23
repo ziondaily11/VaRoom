@@ -15,7 +15,7 @@ const subscription = (status = 'active', extra = {}) => ({
   billing_plans: { id: 'property_basic', display_name: 'Basic', features: { max_active_listings: 5 } }, ...extra,
 });
 const entitled = (sub, activeCount = 3, limit = 5) => ({ active: true, planId: sub.plan_id, subscription: sub, canCreateAnotherListing: { allowed: activeCount < limit, limit, activeCount, reason: null } });
-const payAsYouList = { active: false, planId: null, subscription: null, canCreateAnotherListing: { allowed: false, limit: null, activeCount: 0, reason: 'No active niche subscription.' } };
+const perListing = { active: false, planId: null, subscription: null, listingTiers: true, listingCredits: { silver: 0, gold: 0 }, canCreateAnotherListing: { allowed: false, limit: null, activeCount: 0, reason: 'No active niche subscription.' } };
 const paid = (extra) => ({ id: 'p1', kind: 'subscription', description: 'Basic plan — monthly', plan_name: 'Basic', listing_title: null, amount_minor: 300000, currency: 'KES', status: 'succeeded', paid_at: '2026-11-01T08:00:00Z', created_at: '2026-11-01T07:59:00Z', reference: 'ref-1', method: null, ...extra });
 
 test('billing loads once per host: both endpoints together, shared while in flight, reused while fresh', async () => {
@@ -46,24 +46,30 @@ test('billing loads once per host: both endpoints together, shared while in flig
 
 test('a failed history still shows the plan; a failed plan is an error', async () => {
   const hb = fresh();
-  const partial = await hb.loadHostBilling('u1', 't', { fetchFn: async (url) => (url.endsWith('/entitlements') ? json(200, { entitlements: payAsYouList }) : json(500, { error: 'Unable to load billing history' })) });
+  const partial = await hb.loadHostBilling('u1', 't', { fetchFn: async (url) => (url.endsWith('/entitlements') ? json(200, { entitlements: perListing }) : json(500, { error: 'Unable to load billing history' })) });
   assert.equal(partial.payments, null);
-  assert.equal(hb.planSummary(partial).name, 'Pay as you list');
+  assert.equal(hb.planSummary(partial).name, 'Silver & Gold');
   await assert.rejects(hb.loadHostBilling('u2', 't', { fetchFn: async (url) => (url.endsWith('/entitlements') ? json(500, { error: 'Unable to load entitlements' }) : json(200, { payments: [] })) }), /Unable to load entitlements/);
   assert.equal(hb.cachedHostBilling('u2'), null, 'failures are not cached');
 });
 
-test('plan summary: pay as you list, active, payment due and cancelled', () => {
+test('plan summary: Silver & Gold, no plan, a retired monthly plan, payment due and cancelled', () => {
   const hb = fresh();
-  const none = hb.planSummary({ entitlements: payAsYouList, payments: [], paymentMethod: null });
-  assert.deepEqual({ ...none }, { kind: 'pay-as-you-list', name: 'Pay as you list', status: null, line: 'KES 1,000 per listing, live for 30 days.', price: null, canUpgrade: true, canCancel: false, canUpdateCard: false });
+  const none = hb.planSummary({ entitlements: perListing, payments: [], paymentMethod: null });
+  assert.deepEqual({ ...none }, { kind: 'listing-tiers', name: 'Silver & Gold', status: null, line: 'Silver KES 1,000 or Gold KES 2,000 per listing, live for 30 days from publishing.', price: null, canUpgrade: true, canCancel: false, canUpdateCard: false });
+  const ready = hb.planSummary({ entitlements: { ...perListing, listingCredits: { silver: 1, gold: 2 } }, payments: [], paymentMethod: null });
+  assert.match(ready.line, / You have 2 Gold and 1 Silver paid listings ready to publish\.$/);
+  const oneGold = hb.planSummary({ entitlements: { ...perListing, listingCredits: { silver: 0, gold: 1 } }, payments: [], paymentMethod: null });
+  assert.match(oneGold.line, / You have 1 Gold paid listing ready to publish\.$/);
+  const other = hb.planSummary({ entitlements: { ...perListing, listingTiers: false }, payments: [], paymentMethod: null });
+  assert.deepEqual([other.kind, other.name], ['none', 'No plan'], 'Silver & Gold is never offered to other niches');
   const active = hb.planSummary({ entitlements: entitled(subscription()), payments: [paid()], paymentMethod: null });
   assert.equal(active.name, 'Basic');
   assert.match(active.line, /^Renews on /);
   assert.equal(active.price, 'KES 3,000 / month');
-  assert.deepEqual([active.canUpgrade, active.canCancel, active.canUpdateCard], [true, true, true]);
+  assert.deepEqual([active.canUpgrade, active.canCancel, active.canUpdateCard], [false, true, true], 'monthly Property plans are no longer sold, so no upgrade');
   const top = hb.planSummary({ entitlements: entitled(subscription('active', { billing_plans: { id: 'property_premium', display_name: 'Premium', features: { max_active_listings: 20 } } })), payments: [], paymentMethod: null });
-  assert.equal(top.canUpgrade, false, 'nothing above Premium');
+  assert.equal(top.canUpgrade, false);
   assert.equal(top.price, null, 'no payment for this plan yet');
   const due = hb.planSummary({ entitlements: entitled(subscription('past_due')), payments: [], paymentMethod: null });
   assert.match(due.line, /didn’t go through/);
@@ -71,8 +77,8 @@ test('plan summary: pay as you list, active, payment due and cancelled', () => {
   const cancelled = hb.planSummary({ entitlements: entitled(subscription('cancel_requested')), payments: [], paymentMethod: null });
   assert.match(cancelled.line, /^Cancelled\. Your plan stays active until /);
   assert.deepEqual([cancelled.canUpgrade, cancelled.canCancel, cancelled.canUpdateCard], [false, false, false]);
-  const expired = hb.planSummary({ entitlements: { ...payAsYouList, subscription: subscription() }, payments: [], paymentMethod: null });
-  assert.equal(expired.kind, 'pay-as-you-list', 'a plan past its period is no longer the current plan');
+  const expired = hb.planSummary({ entitlements: { ...perListing, subscription: subscription() }, payments: [], paymentMethod: null });
+  assert.equal(expired.kind, 'listing-tiers', 'a plan past its period is no longer the current plan');
 });
 
 test('remaining listings: limit minus active plan listings', () => {
@@ -80,7 +86,7 @@ test('remaining listings: limit minus active plan listings', () => {
   assert.deepEqual({ ...hb.listingAllowance({ entitlements: entitled(subscription(), 3, 5) }) }, { limit: 5, active: 3, remaining: 2, percent: 60 });
   assert.deepEqual({ ...hb.listingAllowance({ entitlements: entitled(subscription(), 7, 5) }) }, { limit: 5, active: 7, remaining: 0, percent: 100 });
   assert.equal(hb.listingAllowance({ entitlements: entitled(subscription(), 4, null) }).remaining, null, 'no limit on legacy plans');
-  assert.equal(hb.listingAllowance({ entitlements: payAsYouList }), null);
+  assert.equal(hb.listingAllowance({ entitlements: perListing }), null);
 });
 
 test('payment method labels: card, M-Pesa, other', () => {
