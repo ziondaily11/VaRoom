@@ -7,6 +7,7 @@ const { sendError } = require('../lib/apiResponse');
 const { deactivateAccount, reactivateAccount } = require('../lib/accountDeactivation');
 const { createClient } = require('@supabase/supabase-js');
 const { verifiedTokenClaims, securityStatus, recordStepUp, passwordMatches, createAttemptLimiter } = require('../lib/stepUp');
+const { isNewR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 
 // Settings → Your Account → Account Status. "Delete account" deactivates the
 // account for 30 days before it is permanently deleted; "Deactivate account"
@@ -171,7 +172,7 @@ function createAccountRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
 const HOST_NICHES = ['airbnb', 'hotel', 'property', 'office', 'venue'];
 
 /** The Become a Host form, checked as onboarding checks it (client/lib/onboarding/onboarding.ts). */
-function parseHostSetup(body, userId) {
+function parseHostSetup(body, userId, environment = process.env.NODE_ENV || 'development') {
   const value = (key) => (body && typeof body[key] === 'string' ? body[key].trim() : '');
   const username = value('username').toLowerCase();
   if (!/^[a-z0-9_]{3,20}$/.test(username)) return { error: 'Usernames are 3 to 20 lowercase letters, numbers or underscores.' };
@@ -184,12 +185,16 @@ function parseHostSetup(body, userId) {
   if (!HOST_NICHES.includes(niche)) return { error: 'Please select exactly one listing category.' };
   const discoverName = value('discoverName');
   if (discoverName.length < 2 || discoverName.length > 40) return { error: 'Please enter a name between 2 and 40 characters.' };
-  // A photo uploaded to the account's own avatars folder, or null to remove it.
+  // A photo uploaded (R2, POST /photos/upload-complete) to this account's own
+  // avatars folder, as Settings and onboarding save it; or null to remove it.
   let avatarPath;
   if (body && body.avatarPath === null) avatarPath = null;
   else if (body && body.avatarPath !== undefined) {
     const path = value('avatarPath');
-    if (!new RegExp(`^${userId}/avatar_\\d+\\.jpg$`).test(path)) return { error: 'That photo could not be used.' };
+    const ownFolder = `photos/${environment}/avatars/${userId}/`;
+    if (!isNewR2PhotoObjectKey('avatars', path, environment) || !path.startsWith(ownFolder) || path.length === ownFolder.length) {
+      return { error: 'That photo could not be used.' };
+    }
     avatarPath = path;
   }
   return { username, phone, city, niche, discoverName, avatarPath };
