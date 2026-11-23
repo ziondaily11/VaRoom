@@ -58,8 +58,8 @@ test('settings search: every target exists in the section that renders it', () =
 test('settings page: Chats opens the shared Chat Settings; ?section=chats deep-links', () => {
   const page = read('pages', 'settings.tsx');
   const sections = read('components', 'settings', 'SettingsSections.tsx');
-  assert.match(page, /wanted === 'chats'/);
+  assert.match(page, /const SECTIONS = \[[^\]]*'chats'/);
   assert.match(page, /view === 'chats'\) section = <ChatsSection/);
   assert.match(sections, /<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => \{ void router\.push\('\/chats\?archived=1'\); \}\} \/>/);
-  assert.match(sections, /\{ key: 'chats', title: 'Chats' \}/);
+  assert.match(sections, /\{ key: 'chats', title: 'Chats', desc: '/);
 });

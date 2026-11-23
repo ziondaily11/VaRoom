@@ -20,26 +20,26 @@ type Notify = (message: string) => void;
 
 // ---------- Category list ----------
 
-const CATEGORIES: Array<{ key: string; title: string; href?: string }> = [
-  { key: 'account', title: 'Your Account' },
-  { key: 'notifications', title: 'Notifications' },
-  { key: 'chats', title: 'Chats' },
-  { key: 'display', title: 'Display' },
-  { key: 'team', title: 'Team' },
-  { key: 'privacy', title: 'Privacy & Security' },
-  { key: 'support', title: 'Support & About', href: '/support' },
-  { key: 'login-accounts', title: 'Login & Accounts' },
+const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: string }> = [
+  { key: 'account', title: 'Your Account', desc: 'Manage your personal info, password and account status.' },
+  { key: 'notifications', title: 'Notifications', desc: 'Choose what notifications you want to receive.' },
+  { key: 'chats', title: 'Chats', desc: 'Chat theme, quick replies, read receipts and archived chats.' },
+  { key: 'display', title: 'Display', desc: 'Customise appearance and font size.' },
+  { key: 'team', title: 'Team', desc: 'Your team and the teams you work on.' },
+  { key: 'privacy', title: 'Privacy & Security', desc: 'Control your privacy, visibility and security preferences.' },
+  { key: 'support', title: 'Support & About', desc: 'Get help, view policies and learn more about VaRoom.', href: '/support' },
+  { key: 'login-accounts', title: 'Login & Accounts', desc: 'Switch or add accounts, or log out of VaRoom.' },
 ];
 // Hosts only, after Your Account.
-const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing' };
-const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings' };
+const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'Your subscription, payment method and invoices.' };
+const BOOKINGS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'bookings', title: 'Bookings', desc: 'Instant book, stay lengths, check-in times and cancellations.' };
 
 /**
  * The categories, or while searching, the matching settings (lib/settings/settingsSearch).
  * showPlans: hosts, and Finance members working as a company.
  */
-export function CategoryList({ active, onOpen, onPick, isHost = false, showPlans = isHost }: {
-  active: string; onOpen: (key: string) => void; onPick: (entry: SearchEntry) => void; isHost?: boolean; showPlans?: boolean;
+export function CategoryList({ onOpen, onPick, isHost = false, showPlans = isHost }: {
+  onOpen: (key: string) => void; onPick: (entry: SearchEntry) => void; isHost?: boolean; showPlans?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const categories = [CATEGORIES[0], ...(showPlans ? [PLANS_CATEGORY] : []), ...(isHost ? [BOOKINGS_CATEGORY] : []), ...CATEGORIES.slice(1)];
@@ -48,6 +48,7 @@ export function CategoryList({ active, onOpen, onPick, isHost = false, showPlans
   return (
     <div id="view-list">
       <h1 className="page-title">Settings</h1>
+      <p className="page-sub">Manage your account, preferences and app experience.</p>
       <div className="settings-search" role="search">
         <SearchIcon />
         <input
@@ -85,20 +86,20 @@ export function CategoryList({ active, onOpen, onPick, isHost = false, showPlans
             const inner = (
               <>
                 <span className="cat-icon">{CAT_ICONS[cat.key]}</span>
-                <span className="cat-main"><span className="cat-title">{cat.title}</span></span>
+                <span className="cat-main"><span className="cat-title">{cat.title}</span><span className="cat-desc">{cat.desc}</span></span>
                 <span className="cat-chevron"><ChevronRight /></span>
               </>
             );
             if (cat.href) return <Link key={cat.key} href={cat.href} className="cat-row" {...newTabProps(cat.href)}>{inner}</Link>;
-            return <button key={cat.key} type="button" className={`cat-row${active === cat.key ? ' active' : ''}`} onClick={() => onOpen(cat.key)}>{inner}</button>;
+            return <button key={cat.key} type="button" className="cat-row" onClick={() => onOpen(cat.key)}>{inner}</button>;
           })}
           <div className="soon-divider">Coming soon</div>
           <div className="cat-row disabled">
             <span className="cat-icon">{CAT_ICONS.payments}</span>
             <span className="cat-main">
               <span className="cat-title-row"><span className="cat-title">Payments &amp; Payouts</span><span className="soon-badge">Soon</span></span>
+              <span className="cat-desc">Get paid and manage your payouts.</span>
             </span>
-            <span className="cat-chevron mobile-only-chevron"><ChevronRight /></span>
           </div>
         </div>
       )}
@@ -110,17 +111,18 @@ export function SettingsSkeleton() {
   const row = (chevron: boolean, key: number) => (
     <div className="skeleton-cat-row" key={key}>
       <span className="skeleton-nav-icon"><span className="skeleton-nav-icon-shape" /></span>
-      <span className="cat-main"><span className="skeleton-nav-title" /></span>
+      <span className="cat-main"><span className="skeleton-nav-title" /><span className="skeleton-nav-title is-desc" /></span>
       {chevron && <span className="skeleton-nav-chevron"><span className="skeleton-nav-chevron-shape" /></span>}
     </div>
   );
   return (
     <div className="settings-skeleton" aria-label="Loading settings navigation" role="status">
       <div className="page-title" aria-hidden="true"><div className="skeleton-heading" /></div>
+      <div className="page-sub" aria-hidden="true">Manage your account, preferences and app experience.</div>
       <div className="skeleton-search" aria-hidden="true"><span className="skeleton-search-glyph" /><span className="skeleton-search-placeholder" /></div>
       <div className="cat-list" aria-hidden="true">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => row(true, i))}
-        <div className="soon-divider skeleton-soon-divider" aria-hidden="true">Coming soon</div>
+        <div className="soon-divider" aria-hidden="true">Coming soon</div>
         {row(false, 7)}
       </div>
     </div>

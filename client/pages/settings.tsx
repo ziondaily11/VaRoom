@@ -25,11 +25,14 @@ import { MenuIcon } from '../components/settings/SettingsIcons';
 import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 
 // Settings (migrated from legacy-pages/settings.html), inside the app shell:
-// the category list and the chosen section side by side on larger screens;
-// on phones the list, then the section. Identity comes from AuthProvider;
-// the profile's preferences are read once.
+// one column beside the sidebar showing the category list, or the section
+// named by ?section= (shallow routing, so Back, refresh and deep links work).
+// Identity comes from AuthProvider; the profile's preferences are read once.
 
-type View = 'list' | 'account' | 'plans' | 'bookings' | 'team' | 'notifications' | 'chats' | 'display' | 'privacy' | 'support' | 'login-accounts';
+const SECTIONS = ['account', 'plans', 'bookings', 'team', 'notifications', 'chats', 'display', 'privacy', 'support', 'login-accounts'] as const;
+type Section = (typeof SECTIONS)[number];
+type View = 'list' | Section;
+const isSection = (value: unknown): value is Section => typeof value === 'string' && (SECTIONS as readonly string[]).includes(value);
 
 // The element a search result points at, highlighted in its row (or box).
 const HIT_CONTAINER = '.field, .toggle-row, .info-row, .cs-row, .cs-section, .plan-box';
@@ -54,10 +57,13 @@ export default function SettingsPage() {
   const userId = user?.id || null;
   const token = session?.access_token || null;
 
-  const [view, setView] = useState<View>('account');
-  const [mobileDetail, setMobileDetail] = useState(false);
+  // Plans & Billing and Bookings only for those who have them; anything else shows the list.
+  const wanted = router.query.section;
+  const view: View = isSection(wanted) && (wanted !== 'plans' || showPlans) && (wanted !== 'bookings' || role === 'host') ? wanted : 'list';
   // How the person moved (for the slide): into a section, or back to the list. None on first paint.
   const [nav, setNav] = useState<'forward' | 'back' | null>(null);
+  // Whether this visit pushed the open section, so going back can pop it instead of adding history.
+  const pushedSection = useRef(false);
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   // Your Account opens without asking unless the server sees a risk (lib/settings/settings.ts).
   const [lock, setLock] = useState<'checking' | 'unlocked' | 'locked'>('checking');
@@ -81,18 +87,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (status === 'signed-out') router.replace(loginUrl('/settings'));
   }, [status, router]);
-
-  // ?section=notifications, team or chats (plans and bookings for those who have them) opens that section.
-  useEffect(() => {
-    if (!router.isReady) return;
-    const wanted = router.query.section;
-    if (wanted === 'notifications' || wanted === 'team' || wanted === 'chats' || (wanted === 'plans' && showPlans) || (wanted === 'bookings' && role === 'host')) { setView(wanted); setMobileDetail(true); }
-  }, [router.isReady, router.query.section, role, showPlans]);
-
-  // Plans & Billing and Bookings are for hosts; another account type falls back to Your Account.
-  useEffect(() => {
-    if (((view === 'plans' && !showPlans) || (view === 'bookings' && role !== 'host')) && profile) setView('account');
-  }, [view, profile, role]);
 
   // The profile's preferences (the app's profile already has the rest).
   useEffect(() => {
@@ -149,17 +143,28 @@ export default function SettingsPage() {
     finishGoogleVerification(client, token).then((result) => {
       if (result.verified) unlock(result.unlockedUntil);
       else { try { window.sessionStorage.setItem(VERIFICATION_ERROR_KEY, result.error); } catch { /* ignore */ } }
-      router.replace('/settings', undefined, { shallow: true });
+      router.replace({ pathname: '/settings', query: { section: 'account' } }, undefined, { shallow: true });
     });
   }, [router, router.isReady, router.query.account_verification, token, unlock]);
 
   const show = useCallback((next: View) => {
+    if (next === view) return; // Already there (a search result in the open section): no extra history entry.
     setNav(next === 'list' ? 'back' : 'forward');
-    setView(next);
-    setMobileDetail(next !== 'list');
-    window.scrollTo({ top: 0 });
-  }, []);
+    if (next === 'list') {
+      if (pushedSection.current) { pushedSection.current = false; router.back(); }
+      else void router.replace('/settings', undefined, { shallow: true });
+      return;
+    }
+    pushedSection.current = true;
+    void router.push({ pathname: '/settings', query: { section: next } }, undefined, { shallow: true });
+  }, [router, view]);
   const back = useCallback(() => show('list'), [show]);
+
+  // Each screen starts at the top (the shell's content column scrolls, phones may scroll the window).
+  useEffect(() => {
+    document.getElementById('settings-page')?.closest('.client-page-content, .host-page-content')?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [view]);
 
   // A search result: leave for its page, or open its section and point at the setting.
   const [target, setTarget] = useState<{ id: string; at: number } | null>(null);
@@ -171,7 +176,7 @@ export default function SettingsPage() {
       else void router.push(entry.href);
       return;
     }
-    show(entry.section as View);
+    show(entry.section);
     setTarget(entry.target ? { id: entry.target, at: Date.now() } : null);
   }, [router, show]);
 
@@ -246,7 +251,7 @@ export default function SettingsPage() {
 
   const ready = Boolean(profile && userId && prefs);
   const homeHref = role === 'host' ? '/host-home' : '/client-home';
-  const pageClass = `${ready ? '' : 'is-loading '}${ready && view !== 'list' ? 'has-selection ' : ''}${mobileDetail ? 'mobile-detail ' : ''}${nav ? `nav-${nav}` : ''}`.trim();
+  const pageClass = `${ready ? '' : 'is-loading '}${ready && view !== 'list' ? 'has-selection ' : ''}${nav ? `nav-${nav}` : ''}`.trim();
 
   let section: React.ReactNode = null;
   if (ready && userId) {
@@ -305,9 +310,9 @@ export default function SettingsPage() {
               <Link href={homeHref} className="logo" style={{ fontSize: '1.15rem' }}><span className="va">Va</span><span className="room">Room</span></Link>
             </div>
             <main className="settings-main">
-              <div id="settings-page" className={pageClass} style={{ display: 'grid' }}>
+              <div id="settings-page" className={pageClass}>
                 {!ready && <SettingsSkeleton />}
-                {ready && <CategoryList active={view} isHost={role === 'host'} showPlans={showPlans} onOpen={(key) => show(key as View)} onPick={pick} />}
+                {ready && <CategoryList isHost={role === 'host'} showPlans={showPlans} onOpen={(key) => { if (isSection(key)) show(key); }} onPick={pick} />}
                 {section}
               </div>
             </main>

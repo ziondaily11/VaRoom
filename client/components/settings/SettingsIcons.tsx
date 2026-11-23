@@ -66,13 +66,22 @@ export const THEME_ICONS = {
   system: icon(16, <><rect x="2.5" y="4" width="19" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>),
 };
 
-/** The section header with its back button (to the list on phones). */
+/** The section header: a breadcrumb back to Settings, then the back button and title. */
 export function DetailHead({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="detail-head">
-      <button type="button" className="detail-back" onClick={onBack}><BackChevron /></button>
-      <span className="detail-title">{title}</span>
-    </div>
+    <>
+      <nav className="detail-crumbs" aria-label="Breadcrumb">
+        <ol>
+          <li><button type="button" onClick={onBack}>Settings</button></li>
+          <li aria-hidden="true">{icon(14, <path d="m9 18 6-6-6-6" />)}</li>
+          <li aria-current="page">{title}</li>
+        </ol>
+      </nav>
+      <div className="detail-head">
+        <button type="button" className="detail-back" aria-label="Back to Settings" onClick={onBack}><BackChevron /></button>
+        <h1 className="detail-title">{title}</h1>
+      </div>
+    </>
   );
 }
 

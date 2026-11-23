@@ -1,12 +1,13 @@
 // Styles for /settings, ported from legacy-pages/settings.html and scoped
-// under .settings-page. Grouped white cards on a warm page (Apple-style
-// Settings); motion follows animation.md with a reduced-motion fallback at the end. The legacy sidebar rules are dropped (the app shell
-// renders its own sidebar); class names are kept so the shell's legacy-page
-// rules (shellStyles.ts) apply unchanged.
+// under .settings-page. One column beside the app shell's sidebar: the
+// categories as one grouped card (Apple-style Settings), then each section.
+// The page uses the sidebar's white only; dark mode is black. Motion follows
+// animation.md with a reduced-motion fallback at the end. Class names are kept
+// so the shell's legacy-page rules (shellStyles.ts) apply unchanged.
 
 export const SETTINGS_STYLES = `
   .settings-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#FFFFFF; --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --line:rgba(26,18,16,.12); --row-hover:rgba(26,18,16,.035);
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Sidebar tokens shared with /client-home and /host-home. */
@@ -27,7 +28,6 @@ export const SETTINGS_STYLES = `
   .settings-page, .settings-page :where(:not(.settings-chats *)){ margin:0; padding:0; box-sizing:border-box; }
   .settings-page{
     font-family:var(--font-body); color:var(--ink); min-height:100vh; overflow-x:hidden;
-    transition:background var(--motion-quick,200ms) var(--ease-out,ease), color var(--motion-quick,200ms) var(--ease-out,ease);
     background:var(--paper);
   }
   .settings-page a{ color:inherit; text-decoration:none; }
@@ -38,42 +38,35 @@ export const SETTINGS_STYLES = `
   .settings-page .logo .va{ color:var(--red); }
   .settings-page .logo .room{ color:var(--ink); }
   
-  .settings-page .app-shell{ display:grid; grid-template-columns:280px minmax(400px, 420px) minmax(0, 1fr); min-height:100vh; background:var(--paper); }
-  
+  .settings-page .app-shell{ display:grid; grid-template-columns:280px minmax(0, 1fr); min-height:100vh; background:var(--paper); }
+
   /* =====================================================================
-     MAIN COLUMN — Settings navigation and detail panes
+     MAIN COLUMN — the category list, or the open section, in one column
      ===================================================================== */
-  
+
   .settings-page .main-col{ min-width:0; display:contents; }
   .settings-page .mobile-topbar{ display:none; }
-  .settings-page .settings-main{
-    grid-column:2 / 4; min-width:0; min-height:100vh; display:grid;
-    grid-template-columns:minmax(300px, 370px) minmax(0, 1fr);
-    padding:0; margin:0;
-  }
+  .settings-page .settings-main{ grid-column:2; min-width:0; min-height:100vh; padding:0; margin:0; }
   
   /* The contextual skeleton below is the loading UI; avoid a competing
      generic message and keep the final two-column footprint reserved. */
   
   .settings-page .checking-msg{ display:none; }
-  .settings-page .page-title{ font-family:var(--font-display); font-weight:700; font-size:1.45rem; margin-bottom:1.2rem; }
-  .settings-page .page-sub{ color:var(--muted); font-size:.82rem; margin-bottom:1.1rem; }
-  .settings-page .settings-search{ position:relative; margin-bottom:1rem; }
-  .settings-page .settings-search svg{ position:absolute; left:.8rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
-  .settings-page .settings-search input{ height:38px; border-radius:999px; padding:.55rem .85rem .55rem 2.3rem; background:transparent; border:1px solid var(--search-line); }
+  .settings-page .page-title{ font-family:var(--font-brand); font-weight:700; font-size:clamp(2rem, 3vw, 2.4rem); line-height:1.1; letter-spacing:-.01em; margin-bottom:.45rem; }
+  .settings-page .page-sub{ color:var(--muted); font-size:.95rem; margin-bottom:1.6rem; }
+  .settings-page .settings-search{ position:relative; margin-bottom:1.25rem; }
+  .settings-page .settings-search svg{ position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+  .settings-page .settings-search input{ height:42px; border-radius:999px; padding:.55rem .9rem .55rem 2.45rem; background:transparent; border:1px solid var(--search-line); }
   .settings-page .settings-search input:focus{ border-color:var(--muted); }
   html[data-theme="dark"] .settings-page .settings-search input{ border:1px solid var(--search-line) !important; }
   html[data-theme="dark"] .settings-page .settings-search input:focus{ border-color:var(--muted) !important; }
   .settings-page .cat-list [hidden]{ display:none !important; }
   .settings-page .search-where{ font-size:.76rem; color:var(--muted); margin-top:.15rem; }
   .settings-page .search-empty{ padding:1rem .75rem; color:var(--muted); font-size:.88rem; }
-  .settings-page #settings-page{ display:grid; grid-template-columns:subgrid; grid-column:1 / -1; min-width:0; }
-  .settings-page #view-list{ grid-column:1; min-width:0; padding:1.6rem 1rem 4rem; border-right:1px solid var(--line); }
-  .settings-page #settings-page > [id^="view-"]:not(#view-list){ grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem; }
+  /* One screen at a time: the list, or the open section (the list stays mounted, keeping the search). */
+  .settings-page #settings-page{ max-width:760px; min-width:0; margin:0 auto; padding:clamp(2rem, 6vh, 3.5rem) clamp(1.25rem, 4vw, 3rem) 5rem; }
+  .settings-page #settings-page.has-selection #view-list{ display:none !important; }
   .settings-page #settings-page:not(.has-selection) > [id^="view-"]:not(#view-list){ display:none !important; }
-  .settings-page .settings-skeleton{
-    grid-column:1; min-width:0; padding:1.6rem 1rem 4rem; border-right:1px solid var(--line);
-  }
   .settings-page .settings-skeleton[hidden]{ display:none; }
   .settings-page .settings-skeleton{ --skeleton-highlight:rgba(255,255,255,.5); }
   html[data-theme="dark"] .settings-page .settings-skeleton{ --skeleton-highlight:rgba(255,255,255,.12); }
@@ -87,8 +80,8 @@ export const SETTINGS_STYLES = `
   }
   .settings-page .skeleton-heading{ width:5.2rem; height:1.15em; border-radius:4px; }
   .settings-page .skeleton-search{
-    display:flex; align-items:center; gap:.45rem; height:38px; margin-bottom:1rem;
-    padding:0 .85rem 0 .8rem; border:1px solid var(--line); border-radius:999px;
+    display:flex; align-items:center; gap:.45rem; height:42px; margin-bottom:1.25rem;
+    padding:0 .9rem; border:1px solid var(--line); border-radius:999px;
   }
   .settings-page .skeleton-search-glyph{ width:14px; height:14px; position:relative; flex-shrink:0; }
   .settings-page .skeleton-search-glyph::before{
@@ -102,27 +95,27 @@ export const SETTINGS_STYLES = `
   .settings-page .skeleton-search-placeholder{ width:7.3rem; height:.8rem; border-radius:4px; }
   .settings-page .skeleton-cat-row{
     display:flex; align-items:center; gap:1rem; min-height:0; width:100%;
-    padding:.85rem .75rem; margin-bottom:2px;
+    padding:.9rem 1.1rem;
   }
   .settings-page .skeleton-nav-icon{
-    display:flex; align-items:center; justify-content:center; width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center; width:36px; height:36px;
     background:transparent; overflow:visible; flex-shrink:0;
   }
-  .settings-page .skeleton-nav-icon-shape{ position:relative; overflow:hidden; width:20px; height:20px; border-radius:5px; background:var(--line); }
+  .settings-page .skeleton-nav-icon-shape{ position:relative; overflow:hidden; width:36px; height:36px; border-radius:10px; background:var(--line); }
   .settings-page .skeleton-nav-icon-shape::after{
     content:''; position:absolute; inset:0; transform:translateX(-100%);
     background:linear-gradient(100deg, transparent, var(--skeleton-highlight), transparent);
     animation:settings-skeleton-shimmer 2.4s ease-in-out infinite;
   }
-  .settings-page .skeleton-nav-title{ width:42%; height:1rem; border-radius:4px; }
+  .settings-page .skeleton-nav-title{ width:32%; height:.9rem; border-radius:4px; }
+  .settings-page .skeleton-nav-title.is-desc{ width:62%; height:.7rem; margin-top:.45rem; }
   .settings-page .skeleton-nav-chevron{ display:flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:auto; flex-shrink:0; background:transparent; overflow:visible; }
   .settings-page .skeleton-nav-chevron-shape{
     width:7px; height:7px; transform:rotate(45deg);
     border-top:2px solid var(--line); border-right:2px solid var(--line); border-radius:1px;
     animation:settings-skeleton-chevron-shimmer 2.4s ease-in-out infinite;
   }
-  .settings-page .skeleton-soon-divider{ margin:.8rem 0 -.1rem; }
-  .settings-page .skeleton-cat-row:last-child{ border-bottom:none; opacity:.55; }
+  .settings-page .skeleton-cat-row:last-child{ opacity:.55; }
   @keyframes settings-skeleton-shimmer{
     0%, 55%{ transform:translateX(-100%); }
     100%{ transform:translateX(100%); }
@@ -131,17 +124,16 @@ export const SETTINGS_STYLES = `
     0%, 55%{ border-color:var(--line); }
     100%{ border-color:var(--skeleton-highlight); }
   }
-  @media (min-width:861px){
-    .settings-page{ overflow-x:clip; }
-    .settings-page #view-list, .settings-page #settings-page > [id^="view-"]:not(#view-list), .settings-page .settings-skeleton{ grid-row:1; }
-    .settings-page #view-list, .settings-page .settings-skeleton{
-      position:sticky; top:0; align-self:start; height:100vh;
-    }
-    .settings-page #settings-page.is-loading #view-list{ visibility:hidden; }
-  }
+  @media (min-width:861px){ .settings-page{ overflow-x:clip; } }
   @media (prefers-reduced-motion:reduce){
     .settings-page .skeleton-heading::after, .settings-page .skeleton-search-placeholder::after, .settings-page .skeleton-nav-title::after, .settings-page .skeleton-nav-icon-shape::after, .settings-page .skeleton-nav-chevron-shape{ animation:none; }
   }
+  /* Breadcrumb above each section: Settings › Section. */
+  .settings-page .detail-crumbs ol{ display:flex; align-items:center; gap:.35rem; margin-bottom:.9rem; font-size:.82rem; color:var(--muted); list-style:none; }
+  .settings-page .detail-crumbs li{ display:flex; align-items:center; min-width:0; }
+  .settings-page .detail-crumbs li[aria-current]{ color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .settings-page .detail-crumbs button{ font-size:inherit; color:var(--muted); padding:.15rem .3rem; margin:0 -.3rem; border-radius:6px; transition:color var(--motion-micro,150ms) var(--ease-out,ease), background-color var(--motion-micro,150ms) var(--ease-out,ease); }
+  @media (hover:hover){ .settings-page .detail-crumbs button:hover{ color:var(--ink); background:var(--row-hover); } }
   .settings-page .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:1.5rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
   .settings-page .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
   .settings-page .detail-back{ transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
@@ -151,36 +143,38 @@ export const SETTINGS_STYLES = `
   
   /* ---------- Category list (main screen) ---------- */
   
-  .settings-page .cat-list{ display:flex; flex-direction:column; }
-  /* Rows are pills: the open section is a soft highlight (no divider lines). */
-  .settings-page .cat-list{ gap:2px; }
-  .settings-page .cat-row{
-    display:flex; align-items:center; gap:1rem; background:transparent;
-    border:none; border-radius:12px; padding:.85rem .75rem; text-align:left; width:100%;
+  /* One grouped card: icon tile, title and description, chevron; inset dividers between rows. */
+  .settings-page .cat-list{
+    display:flex; flex-direction:column; background:var(--plan-box); border:1px solid var(--plan-box-line);
+    border-radius:16px; overflow:hidden; box-shadow:var(--card-shadow);
   }
-  .settings-page .cat-row{ position:relative; transition:background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }
-  @media (hover:hover){ .settings-page .cat-row:not(.disabled):not(.active):hover{ background:var(--row-hover); } }
-  .settings-page .cat-row:not(.disabled):active{ transform:scale(var(--press-scale,.97)); }
-  .settings-page .cat-row.active{ background:var(--nav-active-bg); }
-  .settings-page .cat-row.active .cat-title{ font-weight:700; }
-  .settings-page .cat-row.active .cat-icon{ color:var(--red); }
-  .settings-page .cat-row.disabled{ opacity:.55; cursor:default; }
-  .settings-page .cat-row.disabled:hover{ background:transparent; }
+  .settings-page .cat-row{
+    position:relative; display:flex; align-items:center; gap:1rem; background:transparent;
+    border:none; border-radius:0; padding:.9rem 1.1rem; text-align:left; width:100%;
+    transition:background-color var(--motion-micro,150ms) var(--ease-out,ease);
+  }
+  .settings-page .cat-row + .cat-row::before{ content:''; position:absolute; top:0; right:0; left:calc(1.1rem + 36px + 1rem); height:1px; background:var(--plan-box-line); }
+  @media (hover:hover){ .settings-page .cat-row:not(.disabled):hover{ background:var(--row-hover); } }
+  /* Press: the row tints at once (a grouped row does not scale out of its card). */
+  .settings-page .cat-row:not(.disabled):active{ background:var(--nav-active-bg); transition-duration:var(--motion-press,120ms); }
+  .settings-page .cat-row.disabled{ cursor:default; }
+  .settings-page .cat-row.disabled > *{ opacity:.55; }
   .settings-page .cat-icon{
-    width:30px; height:30px; border-radius:0; background:transparent; border:none;
+    width:36px; height:36px; border-radius:10px; background:var(--plan-box-head); border:none;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink);
   }
+  .settings-page .cat-icon svg{ width:18px; height:18px; }
   .settings-page .cat-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
   .settings-page .cat-title-row{ display:flex; align-items:center; gap:.5rem; }
-  .settings-page .cat-title{ font-weight:600; font-size:.9rem; color:var(--ink); }
-  .settings-page .cat-desc{ display:none; font-size:.8rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
-  .settings-page .cat-chevron{ color:var(--muted); flex-shrink:0; }
+  .settings-page .cat-title{ font-weight:600; font-size:.95rem; color:var(--ink); }
+  .settings-page .cat-desc{ font-size:.8rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
+  .settings-page .cat-chevron{ display:flex; color:var(--muted); flex-shrink:0; transition:transform var(--motion-micro,150ms) var(--ease-out,ease); }
+  @media (hover:hover){ .settings-page .cat-row:not(.disabled):hover .cat-chevron{ transform:translateX(2px); } }
   .settings-page .soon-badge{
     font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
     background:var(--line); color:var(--muted); padding:.15rem .5rem; border-radius:100px;
   }
-  .settings-page .soon-divider{ display:flex; align-items:center; gap:.7rem; margin:.8rem 0 .2rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
-  .settings-page .soon-divider::before, .settings-page .soon-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .settings-page .soon-divider{ display:flex; align-items:center; gap:.7rem; padding:.85rem 1.1rem .3rem; border-top:1px solid var(--plan-box-line); color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
   
   /* ---------- Shared detail-view building blocks ---------- */
   
@@ -237,7 +231,6 @@ export const SETTINGS_STYLES = `
   @media (hover:hover){ .settings-page .info-row.clickable:hover{ background:var(--row-hover); } }
   /* Rows sit inside rounded cards that clip overflow: their focus ring is drawn inside. */
   .settings-page :is(.info-row.clickable, .cat-row, .cs-row):focus-visible{ outline:2px solid var(--ink); outline-offset:-2px; }
-  .settings-page .cat-row:focus-visible{ border-radius:12px; }
   .settings-page .info-chevron{ transition:transform var(--motion-quick,200ms) var(--ease-in-out,ease-in-out); }
   .settings-page .info-row.clickable[aria-expanded="true"] .info-chevron{ transform:rotate(90deg); }
   .settings-page .info-icon{ width:34px; height:34px; border-radius:9px; background:transparent; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
@@ -445,7 +438,7 @@ export const SETTINGS_STYLES = `
      ===================================================================== */
   
   @media (max-width:1100px) and (min-width:861px){
-    .settings-page .app-shell{ grid-template-columns:240px minmax(360px, 390px) minmax(0, 1fr); }
+    .settings-page .app-shell{ grid-template-columns:240px minmax(0, 1fr); }
   }
   @media (max-width:860px){
     .settings-page .app-shell{ display:block; }
@@ -455,27 +448,13 @@ export const SETTINGS_STYLES = `
     }
     .settings-page .mobile-menu-btn{ color:var(--ink); display:flex; }
     .settings-page .mobile-topbar .logo{ position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
-    .settings-page .settings-main{ display:block; min-height:0; padding-top:1.4rem; }
-    .settings-page #settings-page{ display:block !important; }
-    .settings-page #view-list{ border-right:none; padding:0 5vw 4rem; }
-    .settings-page #settings-page > [id^="view-"]:not(#view-list){ padding:0 5vw 5rem; }
-    .settings-page .settings-skeleton{ padding:0 5vw 5rem; }
-    .settings-page #settings-page.mobile-detail #view-list{ display:none !important; }
-    .settings-page #settings-page:not(.mobile-detail) > [id^="view-"]:not(#view-list){ display:none !important; }
-    .settings-page #settings-page:not(.mobile-detail) .settings-skeleton{ display:none; }
+    .settings-page .settings-main{ min-height:0; }
+    .settings-page #settings-page{ padding:1.4rem 5vw 5rem; }
   }
   @media (max-width:520px){
-    .settings-page .settings-main{ padding-top:1rem; }
-    .settings-page .cat-row{ padding:.95rem 1rem; }
-    .settings-page .cat-icon{ width:38px; height:38px; }
-  }
-  .settings-page .mobile-only-chevron{ display:none; }
-  @media (max-width:860px){
-    .settings-page .mobile-only-chevron{ display:flex; }
-    /* Phones: the list is its own screen, so no row looks open there. */
-    .settings-page .cat-row.active{ background:transparent; }
-    .settings-page .cat-row.active .cat-title{ font-weight:600; }
-    .settings-page .cat-row.active .cat-icon{ color:var(--ink); }
+    .settings-page #settings-page{ padding-top:1rem; }
+    .settings-page .cat-row, .settings-page .skeleton-cat-row{ padding:.95rem 1rem; }
+    .settings-page .cat-row + .cat-row::before{ left:calc(1rem + 36px + 1rem); }
   }
 
   /* Your Account while the server decides: the shape of its rows. */
@@ -486,22 +465,22 @@ export const SETTINGS_STYLES = `
   .settings-page .account-skeleton-text .skeleton-nav-title{ width:38%; height:.8rem; }
   .settings-page .account-skeleton-text .skeleton-nav-title.is-short{ width:22%; height:.65rem; }
 
-  /* Moving between sections (animation.md C4): wide screens fade the new section in;
-     phones slide a section in from the right and the list back in from the left. */
+  /* Moving between the list and a section (animation.md C4), never on first paint: wide screens
+     fade the new screen up 6px; phones slide a section in from the right and the list back from the left. */
   .settings-page #settings-page.nav-forward > [id^="view-"]:not(#view-list),
-  .settings-page #settings-page.nav-back > [id^="view-"]:not(#view-list){ animation:settings-pane-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+  .settings-page #settings-page.nav-back #view-list{ animation:settings-pane-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
   @keyframes settings-pane-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
   @keyframes settings-from-right{ from{ opacity:0; transform:translateX(24px); } to{ opacity:1; transform:none; } }
   @keyframes settings-from-left{ from{ opacity:0; transform:translateX(-24px); } to{ opacity:1; transform:none; } }
   @media (max-width:860px){
-    .settings-page #settings-page.nav-forward.mobile-detail > [id^="view-"]:not(#view-list){ animation:settings-from-right var(--motion-standard,250ms) var(--ease-out,ease) both; }
-    .settings-page #settings-page.nav-back:not(.mobile-detail) #view-list{ animation:settings-from-left var(--motion-standard,250ms) var(--ease-out,ease) both; }
+    .settings-page #settings-page.nav-forward > [id^="view-"]:not(#view-list){ animation:settings-from-right var(--motion-standard,250ms) var(--ease-out,ease) both; }
+    .settings-page #settings-page.nav-back #view-list{ animation:settings-from-left var(--motion-standard,250ms) var(--ease-out,ease) both; }
   }
 
   @media (prefers-reduced-motion:reduce){
-    .settings-page .cat-row, .settings-page .btn, .settings-page .appearance-pill, .settings-page .info-row.clickable, .settings-page .info-chevron,
+    .settings-page .cat-row, .settings-page .cat-chevron, .settings-page .detail-crumbs button, .settings-page .btn, .settings-page .appearance-pill, .settings-page .info-row.clickable, .settings-page .info-chevron,
     .settings-page .expand-panel, .settings-page .switch-track, .settings-page .switch-track::before{ transition:none; }
-    .settings-page .cat-row:active, .settings-page .btn:active, .settings-page .appearance-pill:active{ transform:none; }
+    .settings-page .cat-row .cat-chevron, .settings-page .btn:active, .settings-page .appearance-pill:active{ transform:none !important; }
     .settings-page .switch:active input + .switch-track::before{ width:20px; }
     .settings-page .switch:active input:checked + .switch-track::before{ transform:translateX(18px); }
     .settings-page #settings-page > [id^="view-"], .settings-page #settings-page #view-list{ animation:none !important; }
