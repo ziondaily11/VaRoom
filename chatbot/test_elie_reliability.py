@@ -811,3 +811,90 @@ def test_listing_results_carry_what_the_chat_card_needs():
     assert main.ElieListing(**shaped).photo_path == "host/l1/a.jpg"
     empty = main.reshape_listing({"id": "l2", "title": "Room", "booking_details": [], "photos": []})
     assert empty["photo_path"] is None and empty["listing_purpose"] is None
+
+
+# ── 15. The answered question is saved to the caller's session ────────────
+
+SESSION = "5f0c6a0e-6f4b-4a43-9a51-1f7b8e2b9c11"
+
+
+def _saving_client(owned=True):
+    calls = []
+
+    async def get(url, params=None, headers=None):
+        calls.append(("GET", url, params, None))
+        return httpx.Response(200, json=[{"id": SESSION}] if owned else [], request=httpx.Request("GET", url))
+
+    async def post(url, json=None, headers=None):
+        calls.append(("POST", url, None, json))
+        return httpx.Response(201, request=httpx.Request("POST", url))
+
+    async def patch(url, params=None, json=None, headers=None):
+        calls.append(("PATCH", url, params, json))
+        return httpx.Response(204, request=httpx.Request("PATCH", url))
+
+    return calls, get, post, patch
+
+
+def test_question_and_answer_are_saved_with_the_listings():
+    async def run():
+        calls, get, post, patch_ = _saving_client()
+        result = main.ElieSearchResponse(reply="Here you go.", listings=[main.ElieListing(id="l1", title="Loft")])
+        with patch.object(httpx.AsyncClient, "get", side_effect=get), \
+             patch.object(httpx.AsyncClient, "post", side_effect=post), \
+             patch.object(httpx.AsyncClient, "patch", side_effect=patch_):
+            assert await main.save_elie_turns(SESSION, "user-1", "lofts in Kilimani", result, "T") is True
+        owned = calls[0]
+        assert owned[2] == {"id": f"eq.{SESSION}", "user_id": "eq.user-1", "select": "id"}
+        rows = calls[1][3]
+        assert [row["role"] for row in rows] == ["user", "elie"]
+        assert rows[0]["body"] == "lofts in Kilimani" and rows[1]["body"] == "Here you go."
+        assert rows[1]["results"]["listings"][0]["id"] == "l1"
+        assert rows[0]["created_at"] < rows[1]["created_at"]
+        assert calls[2][0] == "PATCH"
+
+    asyncio.run(run())
+
+
+def test_another_users_session_or_a_bad_id_is_never_written():
+    async def run():
+        calls, get, post, patch_ = _saving_client(owned=False)
+        result = main.ElieSearchResponse(reply="Hi!")
+        with patch.object(httpx.AsyncClient, "get", side_effect=get), \
+             patch.object(httpx.AsyncClient, "post", side_effect=post), \
+             patch.object(httpx.AsyncClient, "patch", side_effect=patch_):
+            assert await main.save_elie_turns(SESSION, "user-1", "hi", result, "T") is False
+            assert await main.save_elie_turns("x;drop", "user-1", "hi", result, "T") is False
+        assert [call[0] for call in calls] == ["GET"]
+
+    asyncio.run(run())
+
+
+def test_the_route_reports_whether_the_turns_were_saved():
+    async def run():
+        request = MagicMock(); request.headers = {}; request.client.host = "127.0.0.1"
+        response = MagicMock(); response.headers = {}
+        save = AsyncMock(return_value=True)
+        with patch("main.verify_supabase_user", new_callable=AsyncMock, return_value={"id": "user-7"}), \
+             patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "client"}), \
+             patch("main.get_vcoin_wallet", new_callable=AsyncMock, return_value=main.ElieVcoins(balance=100)), \
+             patch("main.classify_message", new_callable=AsyncMock, return_value={"intent": "chat", "chat_reply": "Hi!"}), \
+             patch("main.save_elie_turns", save):
+            saved = await main.elie_search(main.ElieSearchRequest(message="hi", session_id=SESSION), request, response, authorization="Bearer t")
+            unsaved = await main.elie_search(main.ElieSearchRequest(message="hi"), request, response, authorization="Bearer t")
+        assert saved.saved is True and unsaved.saved is None
+        assert save.await_count == 1 and save.await_args.args[:3] == (SESSION, "user-7", "hi")
+
+    asyncio.run(run())
+
+
+def test_chat_replies_have_room_for_a_written_description():
+    long_reply = "x" * 3000
+    raw = json.dumps({"intent": "chat", "chat_reply": long_reply})
+
+    async def run():
+        with patch("main.call_gemini", new_callable=AsyncMock, return_value=raw):
+            result = await main.classify_message("write me a description", request_id="T")
+        assert len(result["chat_reply"]) == main.CHAT_REPLY_MAX_CHARS
+
+    asyncio.run(run())

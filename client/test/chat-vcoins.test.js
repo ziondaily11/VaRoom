@@ -49,7 +49,7 @@ test('a payment check returns its state and the wallet after it', async () => {
 test('the Elie composer shows the meter, and answers keep the balance current for the asking account only', () => {
   const page = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
   assert.match(page, /\{isElie && <VCoinMeter wallet=\{elie\.wallet\} onWallet=\{elie\.setWallet\} openSignal=\{elie\.topupSignal\} \/>\}/);
-  const hook = fs.readFileSync(path.join(root, 'components', 'chat', 'useElie.ts'), 'utf8');
-  assert.match(hook, /data\.vcoins && asker === userRef\.current/);
-  assert.match(hook, /data\.needs_topup/);
+  const store = fs.readFileSync(path.join(root, 'lib', 'chat', 'elieStore.ts'), 'utf8');
+  assert.match(store, /if \(state\.userId !== userId\) return;\s*if \(data\.vcoins\) set\(/);
+  assert.match(store, /data\.needs_topup/);
 });

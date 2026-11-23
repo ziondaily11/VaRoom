@@ -153,14 +153,14 @@ test('compact phone chat header: identity in a row, 38px avatar', () => {
 
 test('Elie: its thread, the composer beam and the header in Elie mode', () => {
   const { html } = renderChatsPage({ initialConversationId: 'elie' });
-  assert.match(html, /<main class="chat-col is-elie">/);
+  assert.match(html, /<main class="chat-col is-elie elie-fresh">/, 'before the first question: composer mid-screen');
   assert.match(html, /<h2>Ask Elie to find you a space\.<\/h2>/, 'ElieThread, empty');
   assert.match(html, /<div class="chat-header-name" id="chatName">Elie<\/div>/);
   assert.match(html, /data-placeholder="Ask Elie about spaces, prices, amenities\.\.\."/);
   assert.match(html, /<textarea placeholder="Ask Elie\.\.\."><\/textarea>/);
   assert.doesNotMatch(html, /id="mobileAttachMenu"/, 'no attachments for Elie');
   const { ElieThread } = loadChats('components/chat/ElieThread.tsx');
-  assert.doesNotMatch(render(ElieThread, { entries: [], thinking: true, onPrompt() {}, onRetry() {} }), /Ask Elie to find you a space/, 'the intro gives way while Elie thinks');
+  assert.doesNotMatch(render(ElieThread, { entries: [], thinking: true, onRetry() {} }), /Ask Elie to find you a space/, 'the intro gives way while Elie thinks');
 });
 
 test('composer: the formatting buttons, the attachment menu and its icons', () => {
