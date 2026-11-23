@@ -294,10 +294,38 @@ def test_call_gemini_timeout_triggers_fallback():
         )
 
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [timeout_exc, timeout_exc, resp_fallback]
+            mock_post.side_effect = [timeout_exc, resp_fallback]
             result = await call_gemini("Test timeout", request_id="TEST-008", stage="test")
             assert result == "Response after timeout"
-            assert mock_post.call_count == 3
+            # One wait on the slow model, then straight to the other one.
+            assert mock_post.call_count == 2
+            assert main.PRIMARY_GEMINI_MODEL in str(mock_post.call_args_list[0][0][0])
+            assert main.FALLBACK_GEMINI_MODEL in str(mock_post.call_args_list[1][0][0])
+
+    asyncio.run(run())
+
+
+def test_call_gemini_both_models_get_a_turn_when_each_times_out():
+    async def run():
+        timeout_exc = httpx.ReadTimeout("slow", request=httpx.Request("POST", "https://mock/"))
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, side_effect=[timeout_exc, timeout_exc]) as mock_post:
+            with pytest.raises(ElieGenerationError) as exc_info:
+                await call_gemini("Test timeout", request_id="TEST-008b", stage="test")
+        assert exc_info.value.category == GeminiErrorCategory.TIMEOUT
+        assert mock_post.call_count == 2
+        assert main.FALLBACK_GEMINI_MODEL in str(mock_post.call_args_list[1][0][0])
+
+    asyncio.run(run())
+
+
+def test_call_gemini_connection_error_still_retries_the_same_model():
+    async def run():
+        connect_exc = httpx.ConnectError("reset", request=httpx.Request("POST", "https://mock/"))
+        ok = httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "ok"}]}, "finishReason": "STOP"}]},
+                            request=httpx.Request("POST", "https://mock/"))
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, side_effect=[connect_exc, ok]) as mock_post:
+            assert await call_gemini("Test", request_id="TEST-008c", stage="test") == "ok"
+        assert main.PRIMARY_GEMINI_MODEL in str(mock_post.call_args_list[1][0][0])
 
     asyncio.run(run())
 
