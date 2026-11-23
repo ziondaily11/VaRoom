@@ -4,6 +4,7 @@ import { SHORT_STAY, checked, isOfficeShop, nightlyStayRules, text } from '../..
 import type { WizardCopy } from '../../lib/listWizard/copy';
 import { priceUnitOptions } from '../../lib/listWizard/copy';
 import { ADVANCE_OPTIONS, NOTICE_OPTIONS } from '../../lib/settings/bookingDefaults';
+import { PROPERTY_TYPES } from '../../lib/marketplace/drilldown';
 
 // The listing wizard's own fields for steps 1, 2 and 4 (ids, names,
 // classes and wording unchanged from legacy-pages/list.html). The office/shop
@@ -112,9 +113,17 @@ export function SpaceFields({ binding, copy, category, hotelMode }: { binding: F
   if (property) {
     return (
       <div className="space-fields" id="space-fields">
+      <div className="field" id="property-type-field">
+        <label htmlFor="property-type">Property type</label>
+        {/* Guests browse the Marketplace by it (Property › Buy › Apartment). */}
+        <select {...bind(binding, 'property-type')} name="property-type" required>
+          <option value="">Choose property type</option>
+          {PROPERTY_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </div>
       <div className="field-row property-bed-bath-fields" id="property-bed-bath-fields" >
         <div className="field">
-          <label htmlFor="property-bedroom-type">Type</label>
+          <label htmlFor="property-bedroom-type">Bedrooms</label>
           <select {...bind(binding, 'property-bedroom-type')} name="property-bedroom-type">
             <option value="">Choose type</option>
             {BEDROOM_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}

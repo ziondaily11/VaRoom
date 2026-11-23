@@ -75,3 +75,18 @@ test('stay and venue details: allowed keys, ranges and the listing types they be
   const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261120_000075_stay_and_venue_details.sql'), 'utf8');
   for (const column of ['bedrooms', 'beds', 'seated_capacity', 'standing_capacity']) assert.match(migration, new RegExp(`add column if not exists ${column} integer`), column);
 });
+
+test('property type: allowed key, one of the six types, property listings only (migration 000079)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
+  assert.match(source, /const PROPERTY_TYPES = \['apartment', 'house', 'bungalow', 'maisonette', 'townhouse', 'villa'\];/);
+  assert.match(source, /'seated_capacity', 'standing_capacity', 'property_type',/);
+  assert.match(source, /key === 'property_type'\) \{\s*detailUpdate\[key\] = value === null \? null : enumValue\(value, key, PROPERTY_TYPES\);/);
+  assert.match(source, /property_type: \['property'\],/);
+  assert.match(source, /!DETAIL_CATEGORIES\.property_type\.includes\(listing\.category\) && has\('property_type'\)/);
+  assert.equal(enumValue('villa', 'property_type', ['apartment', 'house', 'bungalow', 'maisonette', 'townhouse', 'villa']), 'villa');
+  assert.throws(() => enumValue('castle', 'property_type', ['apartment', 'house', 'bungalow', 'maisonette', 'townhouse', 'villa']), ValidationError);
+  const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261123_000079_property_type.sql'), 'utf8');
+  assert.match(migration, /add column if not exists property_type text/);
+});

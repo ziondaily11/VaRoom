@@ -10,8 +10,10 @@ import { toggleBookmark } from '../lib/bookmarks/bookmarks';
 import { useSavedListingIds } from '../lib/bookmarks/useSavedListingIds';
 import {
   CATEGORIES, CATEGORY_LABELS, emptyMessage, fetchListingPage, getCachedPage, getListSnapshot, orderListings, preferredCategories,
-  searchFromQuery, searchSummary, setCachedPage, setListSnapshot, type MarketplaceListing, type MarketplaceSearch,
+  searchFromQuery, searchPath, searchSummary, setCachedPage, setListSnapshot, type MarketplaceListing, type MarketplaceSearch,
 } from '../lib/marketplace/marketplace';
+import { choose, crumbs, currentStep, encodeTrail, pathQuery } from '../lib/marketplace/drilldown';
+import TrailNav, { TRAIL_STYLES } from '../components/marketplace/TrailNav';
 import MarketplaceCard from '../components/marketplace/MarketplaceCard';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
 import { MARKETPLACE_STYLES } from '../components/marketplace/marketplaceStyles';
@@ -29,6 +31,12 @@ import { useCardGrid } from '../components/marketplace/useCardGrid';
 // category and any guests filter, each removable. More places load as the
 // list nears its end (the button stays as a fallback). Back from a listing
 // shows the same list at the same scroll position.
+//
+// Property, Offices and Shops narrow step by step: choosing one swaps the
+// category tabs for its next step (Property: Buy/Rent → type → bedrooms), and
+// a breadcrumb (Marketplace › Property › Buy › Apartment) leads back to any
+// step. Each step is in the page address, so Back, Forward and shared links
+// keep it; a listing opened from a step carries the trail to its page.
 
 type LoadState = 'idle' | 'loading' | 'error';
 
@@ -53,7 +61,8 @@ function SkeletonCard() {
   );
 }
 
-const sameSearch = (a: MarketplaceSearch, b: MarketplaceSearch) => a.q === b.q && a.category === b.category && a.guests === b.guests;
+const sameSearch = (a: MarketplaceSearch, b: MarketplaceSearch) => a.q === b.q && a.category === b.category && a.guests === b.guests
+  && searchPath(a).join('.') === searchPath(b).join('.');
 
 /** The element that scrolls the list: Marketplace's own body on laptops, the page (or the shell) on phones. */
 function scrollParent(element: HTMLElement | null): HTMLElement | null {
@@ -102,14 +111,33 @@ export default function MarketplacePage() {
     setDraft(initial.q);
   }, [router.isReady, router.query, search]);
 
-  const runSearch = useCallback((next: MarketplaceSearch) => {
+  /**
+   * Runs a search and writes it to the page address. Typing replaces the
+   * address; a category or step choice is a new history entry, so Back
+   * returns to the step before.
+   */
+  const runSearch = useCallback((next: MarketplaceSearch, { step = false }: { step?: boolean } = {}) => {
     setSearch((current) => (current && sameSearch(current, next) ? { ...next } : next));
     const query: Record<string, string> = {};
     if (next.q) query.q = next.q;
     if (next.category !== 'all') query.category = next.category;
     if (next.guests) query.guests = next.guests;
-    router.replace({ pathname: '/marketplace', query }, undefined, { shallow: true, scroll: false });
+    Object.assign(query, pathQuery(next.category, searchPath(next)));
+    const go = step ? router.push : router.replace;
+    void go({ pathname: '/marketplace', query }, undefined, { shallow: true, scroll: false });
   }, [router]);
+
+  // Back and Forward (and a breadcrumb link opened in this tab) change the
+  // address without a choice here: the search follows the address.
+  useEffect(() => {
+    if (!router.isReady || !search) return;
+    const fromAddress = searchFromQuery(router.query);
+    if (sameSearch(fromAddress, search)) return;
+    setSearch(fromAddress);
+    setDraft(fromAddress.q);
+    // Only an address change re-reads it; the search's own changes write the address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.asPath]);
 
   // First page for each search. Coming back: the list as it was left (every
   // page, the scroll position); else a recent first page renders at once.
@@ -236,7 +264,10 @@ export default function MarketplacePage() {
   }, [loadState, hasMore, moreFailed, loadMore]);
 
   const openListing = (href: string) => {
-    router.push(userId ? href : loginUrl(href));
+    // Opened from a category or step, the listing's page shows the trail back.
+    const trail = search ? encodeTrail(search.category, searchPath(search)) : '';
+    const target = trail ? `${href}${href.includes('?') ? '&' : '?'}trail=${encodeURIComponent(trail)}` : href;
+    router.push(userId ? target : loginUrl(target));
   };
   const save = (listingId: string) => {
     const client = getSupabaseClient();
@@ -244,15 +275,25 @@ export default function MarketplacePage() {
     toggleBookmark(client, userId, listingId).catch((error) => console.error('Listing bookmark could not be updated:', error));
   };
 
-  const active = useMemo(() => search || { q: '', category: 'all', guests: '' }, [search]);
-  const chooseCategory = (category: string) => runSearch({ ...active, category });
+  const active = useMemo<MarketplaceSearch>(() => search || { q: '', category: 'all', guests: '', path: [] }, [search]);
+  const chooseCategory = (category: string) => runSearch({ ...active, category, path: [] }, { step: true });
+  const path = searchPath(active);
+  const stepRow = currentStep(active.category, path);
+  const chooseStep = (index: number, value: string) => runSearch({ ...active, path: choose(path, index, value) }, { step: true });
+  const words: Record<string, string> = { q: active.q, guests: active.guests };
+  const trail = crumbs(active.category, CATEGORY_LABELS[active.category] || active.category, path, words);
+  /** A breadcrumb part goes back to that step here (Marketplace, the category, then each step). */
+  const backTo = (index: number) => {
+    if (index === 0) runSearch({ ...active, category: 'all', path: [] }, { step: true });
+    else runSearch({ ...active, path: path.slice(0, index - 1) }, { step: true });
+  };
   const submit = () => runSearch({ ...active, q: draft.trim() });
   const clearSearch = () => { setDraft(''); runSearch({ ...active, q: '' }); };
-  const removePart = (key: 'q' | 'category' | 'guests') => {
+  const removePart = (key: 'q' | 'guests') => {
     if (key === 'q') { clearSearch(); return; }
-    runSearch({ ...active, [key]: key === 'category' ? 'all' : '' });
+    runSearch({ ...active, guests: '' });
   };
-  const clearAll = () => { setDraft(''); runSearch({ q: '', category: 'all', guests: '' }); };
+  const clearAll = () => { setDraft(''); runSearch({ q: '', category: 'all', guests: '', path: [] }, { step: true }); };
   const ordered = useMemo(() => orderListings(listings, active, preferred), [listings, active, preferred]);
   const summary = searchSummary(active);
   const isPublic = status === 'signed-out';
@@ -273,7 +314,7 @@ export default function MarketplacePage() {
       <div className="empty-state">
         <h2>{empty.title}</h2>
         <p>{empty.text}</p>
-        {summary.length > 0 && <button type="button" className="pill-btn" onClick={clearAll}>Clear search</button>}
+        {(summary.length > 0 || active.category !== 'all') && <button type="button" className="pill-btn" onClick={clearAll}>Clear search</button>}
       </div>
     );
   } else {
@@ -287,7 +328,7 @@ export default function MarketplacePage() {
       <Head>
         <title>Marketplace · VaRoom</title>
       </Head>
-      <style dangerouslySetInnerHTML={{ __html: MARKETPLACE_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: MARKETPLACE_STYLES + TRAIL_STYLES }} />
       <div className={`marketplace-page${isPublic ? ' public-marketplace' : ''}`}>
         {isPublic && (
           <div className="mkt-visitor">
@@ -317,24 +358,43 @@ export default function MarketplacePage() {
             </form>
           </div>
           <div className="category-strip">
-            <SegmentedTabs label="Property categories" activeKey={active.category}>
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  role="tab"
-                  aria-selected={active.category === category}
-                  aria-controls="results-grid"
-                  data-category={category}
-                  onClick={() => chooseCategory(category)}
-                >{chipLabel(category)}</button>
-              ))}
-            </SegmentedTabs>
+            {stepRow ? (
+              // The category's next step replaces the category tabs (key: a new row starts at its own first tab).
+              <SegmentedTabs key={`${active.category}-${stepRow.index}`} label={stepRow.step.label} activeKey={path[stepRow.index] || ''}>
+                {stepRow.step.options.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={path[stepRow.index] === value}
+                    aria-controls="results-grid"
+                    data-step={stepRow.step.key}
+                    data-value={value}
+                    onClick={() => chooseStep(stepRow.index, value)}
+                  >{label}</button>
+                ))}
+              </SegmentedTabs>
+            ) : (
+              <SegmentedTabs label="Property categories" activeKey={active.category}>
+                {CATEGORIES.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    role="tab"
+                    aria-selected={active.category === category}
+                    aria-controls="results-grid"
+                    data-category={category}
+                    onClick={() => chooseCategory(category)}
+                  >{chipLabel(category)}</button>
+                ))}
+              </SegmentedTabs>
+            )}
           </div>
         </header>
 
         <div className="mkt-body">
           <main className="results-col">
+            <TrailNav crumbs={trail} onBack={backTo} />
             {summary.length > 0 && (
               <div className="mkt-summary" aria-live="polite">
                 <span className="mkt-summary-label">Showing</span>

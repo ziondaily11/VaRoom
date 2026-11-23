@@ -140,6 +140,7 @@ export function bookingDetailsFor(category: Category, form: WizardForm, editMode
     details.amenities = Object.keys(officeShop.amenities).filter((key) => officeShop.amenities[key as keyof typeof officeShop.amenities] === true);
   } else if (category === 'property') {
     const units = text(fields, 'property-units-available');
+    details.property_type = text(fields, 'property-type') || null;
     details.bathrooms = int(text(fields, 'property-bathrooms'));
     if (units || editMode) details.units_available = int(units);
     details.available_from = text(fields, 'available-from') || null;
@@ -278,6 +279,7 @@ export function editForm(base: WizardForm, category: Category, listing: EditList
   set('os-address-visibility', listing.address_visibility);
   set('price-amount', details.price_amount); set('price-unit', details.price_unit); set('size-or-type', details.size_or_type);
   if (category === 'property' && details.size_or_type) set('property-bedroom-type', details.size_or_type);
+  if (category === 'property') set('property-type', details.property_type);
   set('property-bathrooms', details.bathrooms); set('max-guests', details.max_guests); set('min-stay', details.min_stay_nights);
   set('stay-bedrooms', details.bedrooms); set('stay-beds', details.beds); set('stay-bathrooms', details.bathrooms);
   if (category === 'hotel') set('hotel-rooms-available', details.units_available);
