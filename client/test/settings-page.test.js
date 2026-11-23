@@ -194,7 +194,7 @@ test('page: in the shell, legacy wording, phone menu opens the app drawer, legac
   assert.match(page, /const view: View = isSection\(wanted\) && \(wanted !== 'plans' \|\| showPlans\) && \(wanted !== 'bookings' \|\| role === 'host'\) \? wanted : 'list';/, '?section= opens any section its owner may see; else the list');
   assert.match(page, /router\.push\(\{ pathname: '\/settings', query: \{ section: next \} \}, undefined, \{ shallow: true \}\)/, 'a section is a history entry (Back returns to the list)');
   assert.match(page, /if \(pushedSection\.current\) \{ pushedSection\.current = false; router\.back\(\); \}/, 'back pops the section it pushed');
-  assert.match(read('components', 'settings', 'SettingsIcons.tsx'), /<nav className="detail-crumbs" aria-label="Breadcrumb">[\s\S]*?<li aria-current="page">\{title\}<\/li>/, 'every section has a breadcrumb back to Settings');
+  assert.match(read('components', 'settings', 'SettingsIcons.tsx'), /<h1 className="detail-title">\{title\}<\/h1>\s*<nav className="detail-crumbs" aria-label="Breadcrumb">[\s\S]*?<li aria-current="page">\{title\}<\/li>/, 'every section has a breadcrumb back to Settings, under its title');
   const sections = read('components', 'settings', 'SettingsSections.tsx');
   for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete my account']) {
     assert.ok(sections.includes(text), text);
