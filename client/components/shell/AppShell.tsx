@@ -29,11 +29,13 @@ export function useShellSettled(): boolean {
 
 /**
  * Keep the account switcher's stored account and the active-account marker
- * in step with the signed-in session, once per account.
+ * in step with the signed-in session: once per account, and again when its
+ * role changes (Become a Host), so the saved account shows the new role.
  */
 function useActiveAccountSync(enabled: boolean) {
-  const { session, user } = useAuth();
+  const { session, user, profile } = useAuth();
   const userId = enabled ? user?.id : undefined;
+  const role = profile && profile.id === userId ? profile.role : null;
   useEffect(() => {
     if (!userId || !session) return;
     try { window.localStorage.setItem('varoom_active_account_id', userId); } catch { /* Storage unavailable. */ }
@@ -44,9 +46,9 @@ function useActiveAccountSync(enabled: boolean) {
         console.warn('Unable to save the active account:', error);
       });
     }
-    // Once per account: token refreshes are saved by the switcher itself.
+    // Once per account and role: token refreshes are saved by the switcher itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, role]);
 }
 
 /**

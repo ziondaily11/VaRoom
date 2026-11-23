@@ -8,6 +8,7 @@ import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/account
 import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity } from './useShellChrome';
 import { clientInitialIdentity } from '../../lib/shell/shellIdentity';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
+import { BECOME_HOST_HREF } from '../../lib/becomeHost/becomeHost';
 
 // The client sidebar (formerly components/SharedClientSidebar.jsx). Markup,
 // ids and classes are unchanged; identity, counts, linked accounts, menus and
@@ -39,7 +40,8 @@ const CLIENT_MORE: Array<{ key: string; href: string; label: string; icon: React
     icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
   },
   { key: 'support', href: '/support', label: 'Help & Support', icon: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5" /><path d="M12 17.2v.1" /></> },
-  { key: 'signup-host', href: '/signup-host', label: 'Become a Host', icon: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></> },
+  // Opens the host setup over Client Home: this same account becomes a host (lib/becomeHost).
+  { key: 'become-host', href: BECOME_HOST_HREF, label: 'Become a Host', icon: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></> },
 ];
 
 const DRAWER_EVENTS = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  googleVerificationEligible, startGoogleVerification, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, verifyPassword,
+  beginGoogleVerification, googleVerificationEligible, VERIFICATION_ERROR_KEY, verifyPassword,
 } from '../../lib/settings/settings';
 import {
   accountDetailUpdate, DETAIL_MESSAGES, saveAccountDetail, useUsernameAvailability, type AccountDetailKey, type UsernameAvailability,
@@ -168,18 +168,8 @@ function VerifyGate({ userId, email, token, onVerified, onBack }: Pick<Props, 'u
     setGoogleBusy(true);
     setGoogleError('');
     try {
-      const { data } = client ? await client.auth.getSession() : { data: { session: null } };
-      const session = data.session;
-      if (!client || !session) throw new Error('Your session has expired. Please sign in again.');
-      await startGoogleVerification(session.access_token);
-      // Kept only to restore this account if Google returns a different one;
-      // it never unlocks the page.
-      window.sessionStorage.setItem(VERIFICATION_SESSION_KEY, JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }));
-      const { error: oauthError } = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/settings?account_verification=google` },
-      });
-      if (oauthError) throw oauthError;
+      if (!client) throw new Error('Your session has expired. Please sign in again.');
+      await beginGoogleVerification(client, '/settings');
     } catch (failure) {
       setGoogleError((failure as Error).message || 'Google verification could not be started. Please try again.');
       setGoogleBusy(false);

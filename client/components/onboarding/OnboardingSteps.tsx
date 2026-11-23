@@ -19,13 +19,17 @@ type UsernameStatus = { kind: 'idle' | 'checking' | 'ok' | 'current' | 'taken' |
 
 export interface ProfileDraft { username: string; phone: string; city: string; photo: PhotoState | null }
 
-export function HostProfileStep({ userId, currentUsername, initial, existingAvatar, initialPhoto, onDraft, onDone }: {
+export function HostProfileStep({ userId, currentUsername, initial, existingAvatar, initialPhoto, deferSave = false, note, onDraft, onDone }: {
   userId: string;
   currentUsername: string | null;
   initial: { username: string; phone: string; city: string };
   existingAvatar: string | null;
   /** The photo chosen earlier (coming back from step 2). */
   initialPhoto: PhotoState | null;
+  /** Check the details but leave saving to the caller (Become a Host saves everything at the end). */
+  deferSave?: boolean;
+  /** A line above the button. */
+  note?: React.ReactNode;
   onDraft: (draft: ProfileDraft) => void;
   /** Step 1 is saved; a new photo's image is handed over to upload in the background. */
   onDone: (newPhoto: { photo: PhotoState; blob: Blob } | null, removedAvatar: boolean) => void;
@@ -88,8 +92,10 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         setBusy('');
         return;
       }
-      setBusy('Saving details...');
-      await saveHostProfile(client, userId, { username, phone, city, removeAvatar: removedAvatar });
+      if (!deferSave) {
+        setBusy('Saving details...');
+        await saveHostProfile(client, userId, { username, phone, city, removeAvatar: removedAvatar });
+      }
     } catch (saveError) {
       console.error('Onboarding profile save failed:', saveError);
       setBusy('');
@@ -150,6 +156,7 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         </div>
       </div>
       <div className="onb-actions">
+        {note}
         {error && <p className="onb-alert" role="alert">{error}</p>}
         <button type="submit" className="onb-primary" disabled={!valid || Boolean(busy)} aria-busy={Boolean(busy)}>{busy || needs || 'Continue'}</button>
       </div>
@@ -175,8 +182,11 @@ export function PhotoUploadNotice({ upload, onRetry, onSkip }: { upload: PhotoUp
   );
 }
 
-export function HostListingStep({ userId, initialNiche, initialName, photoNotice, onDraft, onDone }: {
+export function HostListingStep({ userId, initialNiche, initialName, photoNotice, deferSave = false, submitLabel = 'Finish setup', onDraft, onDone }: {
   userId: string; initialNiche: Category | null; initialName: string;
+  /** Leave saving to the caller (Become a Host saves everything at the end). */
+  deferSave?: boolean;
+  submitLabel?: string;
   /** The background photo upload's status (shown above the button). */
   photoNotice: React.ReactNode;
   onDraft: (draft: { niche: Category | null; name: string }) => void;
@@ -202,7 +212,7 @@ export function HostListingStep({ userId, initialNiche, initialName, photoNotice
     setBusy(true);
     setError('');
     try {
-      await saveHostListing(client, userId, niche, name);
+      if (!deferSave) await saveHostListing(client, userId, niche, name);
     } catch (saveError) {
       console.error('Onboarding listing save failed:', saveError);
       setError(MESSAGES.finish);
@@ -230,7 +240,7 @@ export function HostListingStep({ userId, initialNiche, initialName, photoNotice
       <div className="onb-actions">
         {photoNotice}
         {error && <p className="onb-alert" role="alert">{error}</p>}
-        <button type="submit" className="onb-primary" disabled={!valid || busy} aria-busy={busy}>{busy ? 'Finishing setup...' : needs || 'Finish setup'}</button>
+        <button type="submit" className="onb-primary" disabled={!valid || busy} aria-busy={busy}>{busy ? 'Finishing setup...' : needs || submitLabel}</button>
         <p className="onb-footnote">You can update these listing details anytime.</p>
       </div>
     </form>
