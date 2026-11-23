@@ -785,6 +785,83 @@ class ElieSearchResponse(BaseModel):
     news: Optional[List[dict]] = None
     citations: Optional[List[dict]] = None
     regulatory_status_note: Optional[str] = None
+    vcoins: Optional["ElieVcoins"] = None
+    needs_topup: Optional[bool] = None
+
+
+class ElieVcoins(BaseModel):
+    balance: int
+    charged: int = 0
+    included: bool = False
+
+
+ElieSearchResponse.model_rebuild()
+
+# V-Coins (migration 20261123_000079): charged only after Elie has answered.
+# Chat, searches without results and errors are free. Hosts whose plan
+# includes Elie are never charged.
+VCOIN_SEARCH_COST = 10
+VCOIN_NEWS_COST = 15
+VCOIN_TOPUP_REPLY = (
+    "You need more V-Coins for this. A search costs {cost} V-Coins and you have {balance}. "
+    "Top up with the coin meter next to the send button and ask me again."
+)
+
+
+class VcoinError(RuntimeError):
+    pass
+
+
+async def call_vcoin_rpc(name: str, args: dict) -> dict:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise VcoinError("Supabase is not configured")
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/{name}",
+                json=args,
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise VcoinError(type(exc).__name__) from exc
+    if not isinstance(data, dict):
+        raise VcoinError("Unexpected V-Coin response")
+    return data
+
+
+async def get_vcoin_wallet(user_id: str) -> ElieVcoins:
+    data = await call_vcoin_rpc("elie_vcoin_wallet", {"p_user_id": user_id})
+    return ElieVcoins(balance=int(data.get("balance") or 0), included=data.get("included") is True)
+
+
+async def spend_vcoins(user_id: str, wallet: ElieVcoins, kind: str, request_id: str) -> ElieVcoins:
+    """Charges an answered request. A failed charge never takes the answer away."""
+    if wallet.included:
+        return wallet
+    coins = VCOIN_NEWS_COST if kind == "news" else VCOIN_SEARCH_COST
+    try:
+        data = await call_vcoin_rpc(
+            "elie_spend_vcoins",
+            {"p_user_id": user_id, "p_coins": coins, "p_kind": kind, "p_request_id": f"{request_id}:{uuid.uuid4().hex}"},
+        )
+        return ElieVcoins(balance=int(data.get("balance") or 0), charged=int(data.get("charged") or 0))
+    except VcoinError as exc:
+        logger.error("request_id=%s stage=vcoin_charge error=%s", request_id, exc)
+        return wallet
+
+
+def vcoin_topup_response(wallet: ElieVcoins, cost: int) -> "ElieSearchResponse":
+    return ElieSearchResponse(
+        reply=VCOIN_TOPUP_REPLY.format(cost=cost, balance=wallet.balance),
+        vcoins=wallet,
+        needs_topup=True,
+    )
 
 
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
@@ -817,7 +894,7 @@ async def get_profile(user_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{user_id}", "select": "role,elie_premium,city,full_name,away_mode"},
+                params={"id": f"eq.{user_id}", "select": "role,city,full_name,away_mode"},
                 headers=headers,
             )
             response.raise_for_status()
@@ -830,7 +907,7 @@ async def get_profile(user_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{user_id}", "select": "role,elie_premium,city,full_name"},
+                params={"id": f"eq.{user_id}", "select": "role,city,full_name"},
                 headers=headers,
             )
             response.raise_for_status()
@@ -1579,7 +1656,10 @@ async def generate_news_reply(
             return reply.strip()
     except Exception as exc:
         logger.warning("request_id=%s stage=generate_news_reply_fallback error=%s", req_id, type(exc).__name__)
-    return "I found published reports, but I couldn't safely summarize them right now."
+    return NEWS_SUMMARY_FAILED
+
+
+NEWS_SUMMARY_FAILED = "I found published reports, but I couldn't safely summarize them right now."
 
 
 @app.post("/elie/search", response_model=ElieSearchResponse)
@@ -1611,15 +1691,15 @@ async def elie_search(
         logger.warning("request_id=%s stage=profile_check error=profile_not_found", req_id)
         raise HTTPException(status_code=404, detail="Profile not found for this account.")
 
-    if profile.get("role") != "client":
-        logger.info("request_id=%s stage=access_check error=non_client_role", req_id)
-        return ElieSearchResponse(reply="Elie is available on client accounts only.")
-
-    if not profile.get("elie_premium"):
-        logger.info("request_id=%s stage=access_check error=non_premium", req_id)
-        return ElieSearchResponse(
-            reply="Elie is a premium feature — upgrade your VaRoom account to search with Elie."
-        )
+    # Every account searches with V-Coins; a plan that includes Elie covers it.
+    try:
+        wallet = await get_vcoin_wallet(user["id"])
+    except VcoinError as exc:
+        logger.error("request_id=%s stage=vcoin_wallet error=%s", req_id, exc)
+        raise HTTPException(status_code=503, detail="Elie is temporarily unavailable. Please try again shortly.") from exc
+    if not wallet.included and wallet.balance < VCOIN_SEARCH_COST:
+        logger.info("request_id=%s stage=access_check error=vcoins_low", req_id)
+        return vcoin_topup_response(wallet, VCOIN_SEARCH_COST)
 
     history_dicts = [{"role": t.role, "text": t.text} for t in payload.history] if payload.history else None
     try:
@@ -1638,9 +1718,11 @@ async def elie_search(
         ) from exc
 
     if classification["intent"] == "chat":
-        return ElieSearchResponse(reply=classification["chat_reply"], listings=None)
+        return ElieSearchResponse(reply=classification["chat_reply"], listings=None, vcoins=wallet)
 
     if classification["intent"] == "news":
+        if not wallet.included and wallet.balance < VCOIN_NEWS_COST:
+            return vcoin_topup_response(wallet, VCOIN_NEWS_COST)
         try:
             evidence = await search_property_news(
                 classification["query"],
@@ -1668,6 +1750,7 @@ async def elie_search(
         ]
         return ElieSearchResponse(
             reply=reply,
+            vcoins=await spend_vcoins(user["id"], wallet, "news", req_id) if evidence and reply != NEWS_SUMMARY_FAILED else wallet,
             news=evidence,
             citations=citations,
             regulatory_status_note=(
@@ -1708,6 +1791,7 @@ async def elie_search(
             reply=no_results_reply,
             listings=None,
             filters=filters,
+            vcoins=wallet,
         )
 
     intro = classification.get("intro") or "Here are some matching listings for you:"
@@ -1715,6 +1799,7 @@ async def elie_search(
         reply=intro,
         listings=raw_listings,
         filters=filters,
+        vcoins=await spend_vcoins(user["id"], wallet, "search", req_id),
     )
 
 

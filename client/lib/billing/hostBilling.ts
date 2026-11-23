@@ -41,7 +41,7 @@ export interface PaymentMethod {
 
 export interface BillingPayment {
   id: string;
-  kind: 'subscription' | 'listing';
+  kind: 'subscription' | 'listing' | 'vcoins';
   description: string;
   plan_name: string | null;
   listing_title: string | null;

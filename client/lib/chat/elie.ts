@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { VcoinWallet } from './vcoins';
 
 // Elie, the VaRoom search assistant (ported from public/js/chat-data.js).
 // The request, response and history rules live here; the page renders them.
@@ -26,6 +27,10 @@ export interface ElieResponse {
   news?: ElieNewsResult[];
   listings?: ElieListingResult[];
   detail?: string;
+  /** The V-Coin balance after this answer (chatbot/main.py). */
+  vcoins?: VcoinWallet & { charged?: number };
+  /** Too few V-Coins: Elie asked for a top-up instead of searching. */
+  needs_topup?: boolean;
 }
 
 /** One item in the Elie thread. */

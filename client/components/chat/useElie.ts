@@ -13,10 +13,12 @@ import {
   type ElieSessionSummary,
   type ElieTurn,
 } from '../../lib/chat/elie';
+import { fetchVcoins, type VcoinWallet } from '../../lib/chat/vcoins';
 
 // The Elie conversation: thread entries, the history sent with each question,
 // saving turns to the user's search history, and loading past sessions.
 // A newer action (new conversation, loaded session) makes in-flight replies stale.
+// It also keeps the V-Coin wallet: loaded once per account, then updated by each answer.
 
 export function useElie(userId: string | null) {
   const [entries, setEntries] = useState<ElieEntry[]>([]);
@@ -24,6 +26,11 @@ export function useElie(userId: string | null) {
   const historyRef = useRef<ElieTurn[]>([]);
   const generationRef = useRef(0);
   const recorderRef = useRef(createElieRecorder(null, null));
+  const [wallet, setWallet] = useState<VcoinWallet | null>(null);
+  const [topupSignal, setTopupSignal] = useState(0);
+  const walletUserRef = useRef<string | null>(null);
+  const userRef = useRef(userId);
+  userRef.current = userId;
 
   const reset = useCallback(() => {
     generationRef.current += 1;
@@ -33,8 +40,24 @@ export function useElie(userId: string | null) {
     setThinking(false);
   }, [userId]);
 
-  // A new account starts a new conversation.
-  useEffect(() => { reset(); }, [reset]);
+  // A new account starts a new conversation, and never sees the previous account's coins.
+  useEffect(() => { reset(); setWallet(null); walletUserRef.current = null; }, [reset]);
+
+  /** Loads the wallet once per account (Elie opened); answers keep it current after that. */
+  const loadWallet = useCallback(async () => {
+    if (!userId || walletUserRef.current === userId) return;
+    walletUserRef.current = userId;
+    try {
+      const client = getSupabaseClient();
+      const token = client ? (await client.auth.getSession()).data.session?.access_token ?? null : null;
+      if (!token) throw new Error('No session');
+      const result = await fetchVcoins(token);
+      if (walletUserRef.current === userId) setWallet({ balance: result.balance, included: result.included });
+    } catch (error) {
+      if (walletUserRef.current === userId) walletUserRef.current = null;
+      console.warn('Unable to load V-Coins:', error);
+    }
+  }, [userId]);
 
   // `retry`: ask the same question again without adding it to the thread,
   // the history or the saved session a second time.
@@ -42,6 +65,7 @@ export function useElie(userId: string | null) {
     const question = text.trim();
     if (!question) return;
     const generation = generationRef.current;
+    const asker = userRef.current;
     const recorder = recorderRef.current;
     const asked = beginElieQuestion(question, { retry, history: historyRef.current, recorder });
     if (asked) setEntries((prev) => [...prev, asked]);
@@ -50,7 +74,10 @@ export function useElie(userId: string | null) {
       const client = getSupabaseClient();
       const token = client ? (await client.auth.getSession()).data.session?.access_token ?? null : null;
       const data = await askElie({ message: question, history: historyRef.current, token });
+      // A new conversation still shows the coins spent; another account never does.
+      if (data.vcoins && asker === userRef.current) setWallet({ balance: Number(data.vcoins.balance) || 0, included: data.vcoins.included === true });
       if (generation !== generationRef.current) return;
+      if (data.needs_topup) setTopupSignal((count) => count + 1);
       if (data.reply) {
         historyRef.current.push({ role: 'elie', text: data.reply });
         void recorder.record('elie', data.reply);
@@ -101,5 +128,5 @@ export function useElie(userId: string | null) {
     }
   }, [userId]);
 
-  return { entries, thinking, send, retry, reset, listSessions, loadSession };
+  return { entries, thinking, send, retry, reset, listSessions, loadSession, wallet, setWallet, loadWallet, topupSignal };
 }

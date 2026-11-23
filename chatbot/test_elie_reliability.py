@@ -314,9 +314,9 @@ def test_elie_search_handles_400_vs_503():
                 status_code=400,
             )
             with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
-                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile:
+                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile,                  patch("main.get_vcoin_wallet", new_callable=AsyncMock, return_value=main.ElieVcoins(balance=100)):
                 mock_user.return_value = {"id": "user-123"}
-                mock_profile.return_value = {"role": "client", "elie_premium": True}
+                mock_profile.return_value = {"role": "client"}
 
                 req_payload = main.ElieSearchRequest(message="Search query")
                 mock_request = MagicMock()
@@ -343,9 +343,9 @@ def test_elie_search_handles_400_vs_503():
                 status_code=503,
             )
             with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
-                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile:
+                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile,                  patch("main.get_vcoin_wallet", new_callable=AsyncMock, return_value=main.ElieVcoins(balance=100)):
                 mock_user.return_value = {"id": "user-123"}
-                mock_profile.return_value = {"role": "client", "elie_premium": True}
+                mock_profile.return_value = {"role": "client"}
 
                 req_payload = main.ElieSearchRequest(message="Search query")
                 mock_request = MagicMock()
@@ -552,14 +552,14 @@ def test_no_secrets_in_logs(caplog):
 
 # ── 13. Phase 2: categories, error text, news payloads, history ───────────
 
-async def _search_as_premium_client(message="Search query", history=None):
+async def _search_as_client(message="Search query", history=None, wallet=None):
     mock_request = MagicMock()
     mock_request.headers = {}
     mock_request.client.host = "127.0.0.1"
     mock_response = MagicMock()
     mock_response.headers = {}
     with patch("main.verify_supabase_user", new_callable=AsyncMock, return_value={"id": "user-123"}), \
-         patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "client", "elie_premium": True}):
+         patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "client"}),          patch("main.get_vcoin_wallet", new_callable=AsyncMock, return_value=wallet or main.ElieVcoins(balance=100)):
         return await main.elie_search(
             main.ElieSearchRequest(message=message, history=history),
             mock_request, mock_response, authorization="Bearer test-token",
@@ -604,7 +604,7 @@ def test_safety_block_gets_a_polite_reply_not_an_error():
     async def run():
         with patch("main.classify_message", new_callable=AsyncMock,
                    side_effect=ElieGenerationError("blocked", category=GeminiErrorCategory.SAFETY_BLOCK, status_code=400)):
-            result = await _search_as_premium_client()
+            result = await _search_as_client()
         assert "can't help with that" in result.reply
         assert result.listings is None
 
@@ -629,7 +629,7 @@ def test_malformed_news_payload_is_a_generic_503(monkeypatch):
         with patch("main.classify_message", new_callable=AsyncMock, return_value=news_intent), \
              patch("main.search_property_news", new_callable=AsyncMock, side_effect=ValueError("bad payload")):
             with pytest.raises(main.HTTPException) as exc_info:
-                await _search_as_premium_client("what changed with land rates?")
+                await _search_as_client("what changed with land rates?")
         assert exc_info.value.status_code == 503
         assert "bad payload" not in exc_info.value.detail
 
@@ -645,3 +645,125 @@ def test_history_turns_cannot_pose_as_elie():
     assert "guest_message" not in body
     assert "untrusted" in block
     assert main.format_elie_history([{"role": "user", "text": "same"}], 100, skip_text="same") == ""
+
+
+# ── 14. V-Coins: every account pays per answered search ──────────────────
+
+LISTING = {"id": "l1", "title": "Studio", "category": "airbnb"}
+SEARCH_INTENT = {"intent": "search", "category": "airbnb", "location": None, "max_price": None, "guests": None, "intro": "Here you go."}
+
+
+def _spend_mock(balance_after=90, charged=10):
+    return AsyncMock(return_value={"balance": balance_after, "charged": charged})
+
+
+def test_any_role_with_coins_searches_and_is_charged_after_results():
+    async def run():
+        spend = _spend_mock()
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=SEARCH_INTENT), \
+             patch("main.search_listings", new_callable=AsyncMock, return_value=[LISTING]), \
+             patch("main.call_vcoin_rpc", spend), \
+             patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "host"}), \
+             patch("main.verify_supabase_user", new_callable=AsyncMock, return_value={"id": "host-1"}), \
+             patch("main.get_vcoin_wallet", new_callable=AsyncMock, return_value=main.ElieVcoins(balance=100)):
+            request = MagicMock(); request.headers = {}; request.client.host = "127.0.0.1"
+            response = MagicMock(); response.headers = {}
+            result = await main.elie_search(main.ElieSearchRequest(message="airbnbs"), request, response, authorization="Bearer t")
+        assert result.listings and result.vcoins.balance == 90 and result.vcoins.charged == 10
+        name, args = spend.await_args.args
+        assert name == "elie_spend_vcoins" and args["p_coins"] == 10 and args["p_kind"] == "search" and args["p_user_id"] == "host-1"
+
+    asyncio.run(run())
+
+
+def test_low_balance_asks_for_a_top_up_without_calling_gemini():
+    async def run():
+        classify = AsyncMock()
+        with patch("main.classify_message", classify):
+            result = await _search_as_client(wallet=main.ElieVcoins(balance=5))
+        assert result.needs_topup is True and result.vcoins.balance == 5
+        assert "V-Coins" in result.reply
+        classify.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_no_results_and_chat_are_free():
+    async def run():
+        spend = _spend_mock()
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=SEARCH_INTENT), \
+             patch("main.search_listings", new_callable=AsyncMock, return_value=[]), \
+             patch("main.generate_no_results_reply", new_callable=AsyncMock, return_value="Nothing yet."), \
+             patch("main.call_vcoin_rpc", spend):
+            result = await _search_as_client()
+        assert result.vcoins.balance == 100 and result.vcoins.charged == 0
+        with patch("main.classify_message", new_callable=AsyncMock, return_value={"intent": "chat", "chat_reply": "Hi!"}), \
+             patch("main.call_vcoin_rpc", spend):
+            result = await _search_as_client()
+        assert result.reply == "Hi!" and result.vcoins.charged == 0
+        spend.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_plan_holders_are_never_charged():
+    async def run():
+        spend = _spend_mock()
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=SEARCH_INTENT), \
+             patch("main.search_listings", new_callable=AsyncMock, return_value=[LISTING]), \
+             patch("main.call_vcoin_rpc", spend):
+            result = await _search_as_client(wallet=main.ElieVcoins(balance=0, included=True))
+        assert result.listings and result.vcoins.included and result.vcoins.charged == 0
+        spend.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_news_costs_more_and_a_failed_summary_is_free():
+    news_intent = {"intent": "news", "query": "land rates", "county": None, "regulatory_status": None, "days": None}
+    evidence = [{"title": "Rates bill", "source_name": "Gazette"}]
+
+    async def run():
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=news_intent):
+            low = await _search_as_client(wallet=main.ElieVcoins(balance=12))
+        assert low.needs_topup and "15" in low.reply
+        spend = _spend_mock(balance_after=85, charged=15)
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=news_intent), \
+             patch("main.search_property_news", new_callable=AsyncMock, return_value=evidence), \
+             patch("main.generate_news_reply", new_callable=AsyncMock, return_value="The bill was proposed."), \
+             patch("main.call_vcoin_rpc", spend):
+            paid = await _search_as_client()
+        assert paid.vcoins.charged == 15 and spend.await_args.args[1]["p_kind"] == "news"
+        spend.reset_mock()
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=news_intent), \
+             patch("main.search_property_news", new_callable=AsyncMock, return_value=evidence), \
+             patch("main.generate_news_reply", new_callable=AsyncMock, return_value=main.NEWS_SUMMARY_FAILED), \
+             patch("main.call_vcoin_rpc", spend):
+            free = await _search_as_client()
+        assert free.vcoins.charged == 0
+        spend.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_a_failed_charge_keeps_the_answer_and_an_unreachable_wallet_is_a_503():
+    async def run():
+        with patch("main.classify_message", new_callable=AsyncMock, return_value=SEARCH_INTENT), \
+             patch("main.search_listings", new_callable=AsyncMock, return_value=[LISTING]), \
+             patch("main.call_vcoin_rpc", AsyncMock(side_effect=main.VcoinError("down"))):
+            result = await _search_as_client()
+        assert result.listings and result.vcoins.charged == 0
+        with patch("main.call_vcoin_rpc", AsyncMock(side_effect=main.VcoinError("down"))):
+            with pytest.raises(main.HTTPException) as exc_info:
+                await _search_with_real_wallet()
+        assert exc_info.value.status_code == 503
+
+    asyncio.run(run())
+
+
+async def _search_with_real_wallet():
+    request = MagicMock(); request.headers = {}; request.client.host = "127.0.0.1"
+    response = MagicMock(); response.headers = {}
+    with patch("main.verify_supabase_user", new_callable=AsyncMock, return_value={"id": "user-9"}), \
+         patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "client"}):
+        return await main.elie_search(main.ElieSearchRequest(message="x"), request, response, authorization="Bearer t")

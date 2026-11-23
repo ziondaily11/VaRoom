@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 implemented on `elie-phase2-search` (2026-11-22)
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) implemented on `elie-vcoins` (2026-11-23) · Phase 2c (Host Elie) next
 
 This plan makes the two chatbot features production ready:
 
@@ -173,6 +173,21 @@ Branch `elie-phase2-search`.
 
 **Results (2026-11-22):** 37 chatbot tests pass (6 new, 3 updated). Live, read-only searches against production data with the current code all fail with HTTP 300; with the fix: venue 1 listing (was 0), hotels 4, Airbnbs in Kilimani ≤ KSh 5,000 for 2 guests 2, free text "studio" 7. Classification timing could not be measured from the development machine (even a one-word Gemini request failed 2 of 3 times there); check it after deploy.
 
+### Phase 2b — V-Coins: paying for Elie search
+
+Branch `elie-vcoins`. Approved 2026-11-23: prices as proposed, 50 welcome coins, host tools on the top plans only (as the pricing pages say), and Elie away answers for plan holders only (Phase 2c).
+
+- **Who:** every account can buy V-Coins and search with Elie, clients and hosts alike, including a host whose plan expired or who never had one. Hosts whose plan includes Elie (`features.elie`: Airbnb Business, Hotel Plus, Venue Premium, or the legacy Pro) search without spending coins. `profiles.elie_premium` is no longer read (the column stays until a later cleanup, so an older chatbot keeps working during the deploy).
+- **Packs (KES → coins):** 100 → 100, 250 → 275, 500 → 600, 1,000 → 1,300. Paid with M-Pesa or card in the existing checkout window. Coins never expire.
+- **Cost:** a search with results 10, a news answer 15. Chat, no results, a news answer Elie could not summarize, and errors are free. Charged only after Elie has answered; under 10 coins Elie asks for a top-up without calling Gemini.
+- **Ledger:** `elie_ledger` (one row per welcome grant, purchase or charge; the balance is the sum). `elie_vcoin_wallet` grants the 50 welcome coins once and reports the balance and plan; `elie_spend_vcoins` charges under a per-user lock and never goes below zero. A payment credits once (unique `payment_id`).
+- **Billing:** `billing_payments.payment_kind = 'vcoins'` with `vcoins`; `applyVerifiedTransaction` checks owner, amount and coins against the row, credits the ledger, and never touches a subscription. Plan replacement after a payment now runs for subscriptions only.
+- **Client:** a ring meter beside Elie's send button (green 50+, yellow 20–49, red under 20) with the balance; it opens the packs, and opens by itself when Elie asks for a top-up. Answers update the balance; another account never sees it.
+
+### Phase 2c — Host Elie (top plans)
+
+Branch `elie-host-tools`, after 2b. Away answers and `@reply` for plan holders (the host's own away message stays for everyone), a reply draft in the host composer, and "Write with Elie" for the listing summary highlight and description; 300 host actions a month.
+
 ### Phase 3 — Latency and cold starts (F6, F16, F18)
 
 Branch `elie-phase3-latency`.
@@ -203,18 +218,19 @@ Branch `elie-phase5-ops` (docs only).
 
 ## 6. Files and SQL by phase
 
-**Database:** no migrations in any phase. The only SQL is the read-only Phase 0 file. If Phase 0 shows a schema or data gap, the fix is written as a separate SQL file and shared for the owner to run before the phase that needs it.
+**Database:** Phase 2b adds `server/migrations/20261123_000079_elie_vcoins.sql` (the owner runs it before 2b deploys). Otherwise no migrations. The only SQL is the read-only Phase 0 file. If Phase 0 shows a schema or data gap, the fix is written as a separate SQL file and shared for the owner to run before the phase that needs it.
 
 | Phase | Added | Edited |
 |---|---|---|
 | 0 | `docs/elie/ops/2026-11-03-phase0-checks.sql` (read-only) | `docs/elie/PRODUCTION_READINESS_PLAN.md` (results) |
 | 1 | `server/lib/autoReply.js`, `server/test/autoReply.test.js`, `chatbot/test_internal_reply.py` | `chatbot/main.py` (internal generate endpoint; remove `/reply`, `get_conversation`, `get_conversation_messages`, `insert_auto_reply`, `touch_conversation`, `attach_video_media`; model config; reply budget; listings in the prompt), `server/routes/chatRoutes.js` (send route, `@reply` route, logs), `server/.env.example` (`CHATBOT_INTERNAL_API_KEY`, `ELIE_AUTO_REPLY_ENABLED`), `chatbot/.env.example` (`CHATBOT_INTERNAL_API_KEY`; the repo has no root `.env.example`) |
 | 2 | — | `chatbot/main.py` (model guard, classification thinking level, listing query, categories, errors, news parsing, history tags), `chatbot/test_elie_reliability.py` (real model test, new search and error tests) |
+| 2b | `server/migrations/20261123_000079_elie_vcoins.sql`, `server/lib/vcoins.js`, `server/routes/vcoinRoutes.js`, `server/test/vcoins.test.js`, `client/lib/chat/vcoins.ts`, `client/components/chat/VCoinMeter.tsx`, `client/test/chat-vcoins.test.js` | `chatbot/main.py` (V-Coin gate and charge), `chatbot/test_elie_reliability.py`, `server/lib/billingService.js`, `server/routes/billingRoutes.js`, `server/routes/paystackWebhookRoutes.js`, `server/server.js`, `client/lib/chat/elie.ts`, `client/components/chat/useElie.ts`, `client/pages/chats.tsx`, `client/lib/billing/hostBilling.ts` |
 | 3 | — | `chatbot/main.py` (deadline, thinking level, shared HTTP client, token cache, single profile read), `chatbot/test_elie_reliability.py`, `client/lib/chat/elie.ts` (env URL, abort signal, warm-up ping, waking-up retry), `client/components/chat/useElie.ts` (warm-up on load; abort on reset/load/unmount), `client/components/chat/ElieThread.tsx` ("Elie is waking up…" text in the existing thinking row), `client/test/chat-elie.test.js`, `client/.env.example` (`NEXT_PUBLIC_ELIE_API_URL`) |
 | 4 | — | `chatbot/main.py` (diagnostics key, rate limiter, CORS, guarded mount), `chatbot/test_elie_reliability.py` |
 | 5 | `docs/elie/OPERATIONS.md` | `docs/elie/PRODUCTION_READINESS_PLAN.md` (final status) |
 
-Not touched: `client/pages/chats.tsx` (it already appends `message`/`messages` from `@reply` and receives new rows through realtime), the message encryption service, Property News code, and every other page.
+Not touched in Phases 0–2: `client/pages/chats.tsx` (it already appends `message`/`messages` from `@reply` and receives new rows through realtime), the message encryption service, Property News code, and every other page.
 
 ## 7. Verification (production sign-off)
 
