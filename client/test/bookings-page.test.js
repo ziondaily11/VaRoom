@@ -289,8 +289,8 @@ test('host: listing video loads once per listing; videos are kept for less than 
 
 test('/bookings is the native page inside the app shell', () => {
   const page = read('pages', 'bookings.tsx');
-  assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} \/>/);
-  assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} \/>/);
+  assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} switcher=\{switcher\}/);
+  assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} switcher=\{switcher\} \/>/);
   assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);
 });
@@ -334,4 +334,25 @@ test('host: declining asks first; an answer shows its result, then the request l
   const sheet = read('components', 'bookings', 'ConfirmSheet.tsx');
   assert.match(sheet, /usePresence\(open, EXIT_MS\)/, 'the dialog plays its exit');
   assert.match(sheet, /@media \(prefers-reduced-motion:reduce\)/);
+});
+
+test('hosts book stays too: Hosting | My trips on their own account, linked as ?view=trips', () => {
+  const links = loadTs(path.join(root, 'lib', 'bookings', 'links.ts'));
+  assert.equal(links.ownBookingHref(null, false), '/bookings');
+  assert.equal(links.ownBookingHref('a b', false), '/bookings?booking=a%20b');
+  assert.equal(links.ownBookingHref(null, true), '/bookings?view=trips');
+  assert.equal(links.ownBookingHref('b1', true), '/bookings?view=trips&booking=b1');
+  assert.equal(links.bookingsView('trips'), 'trips');
+  assert.equal(links.bookingsView(undefined), 'hosting');
+  assert.equal(links.bookingsView(['trips']), 'hosting');
+
+  const page = read('pages', 'bookings.tsx');
+  assert.match(page, /const ownHost = role === 'host' && hostId === userId;/, 'not while working as a company');
+  assert.match(page, /\{ key: 'hosting', label: 'Hosting' \},\s+\{ key: 'trips', label: 'My trips' \},/);
+  assert.match(page, /\{\(role === 'client' \|\| view === 'trips'\) && <ClientBookingsView showToast=\{toast\.show\} switcher=\{switcher\} \/>\}/);
+  assert.match(page, /onMissingBooking=\{ownHost \? openTrip : undefined\}/, "a linked stay that isn't a request opens under My trips");
+  assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /if \(!booking\) \{ onMissingBooking\?\.\(requestedId\); return; \}/);
+  assert.match(read('components', 'bookings', 'ClientBookingsView.tsx'), /router\.query\.view === 'trips' \? \{ view: 'trips' \} : \{\}/, 'selecting a stay keeps My trips');
+  assert.match(read('pages', 'booking-approved.tsx'), /const listHref = ownBookingHref\(null, profile\?\.role === 'host'\);/);
+  assert.match(read('components', 'booking', 'BookingWidget.tsx'), /href=\{ownBookingHref\(null, profile\?\.role === 'host'\)\}/);
 });

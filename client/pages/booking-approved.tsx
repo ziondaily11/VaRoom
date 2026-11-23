@@ -13,6 +13,7 @@ import { useBookingActions, useToast } from '../components/bookings/useBookingAc
 import { usePhoneLayout, wasOpenedFromList } from '../components/bookings/usePhoneLayout';
 import { BOOKINGS_STYLES } from '../components/bookings/bookingsStyles';
 import { BackIcon } from '../components/bookings/BookingIcons';
+import { ownBookingHref } from '../lib/bookings/links';
 
 // Booking details on phones (migrated from legacy-pages/booking-approved.html):
 // /booking-approved?id=…. Every status shows the full details (BookingDetail);
@@ -98,6 +99,8 @@ export default function BookingApprovedPage() {
 
   // A booking that can't be shown (missing, not yours) offers the way back as a button too.
   const showBackButton = state.kind === 'status';
+  // Hosts keep their own stays under Bookings → My trips.
+  const listHref = ownBookingHref(null, profile?.role === 'host');
 
   return (
     <>
@@ -108,7 +111,7 @@ export default function BookingApprovedPage() {
       <div className="bookings-page booking-approved-page">
         {toast.element}
         <header className="ba-header">
-          <Link href="/bookings" className="ba-back" aria-label="Back to bookings" onClick={backToList}><BackIcon /></Link>
+          <Link href={listHref} className="ba-back" aria-label="Back to bookings" onClick={backToList}><BackIcon /></Link>
           <h1 className="ba-title">Booking details</h1>
           <span aria-hidden="true" />
         </header>
@@ -130,7 +133,7 @@ export default function BookingApprovedPage() {
               </div>
               {showBackButton && (
                 <div className="ba-state-actions">
-                  <Link href="/bookings" className="bk-btn bk-btn-solid" onClick={backToList}>Back to bookings</Link>
+                  <Link href={listHref} className="bk-btn bk-btn-solid" onClick={backToList}>Back to bookings</Link>
                 </div>
               )}
             </div>

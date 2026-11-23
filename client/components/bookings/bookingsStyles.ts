@@ -208,6 +208,8 @@ export const BOOKINGS_STYLES = `
   .bookings-page .page-subtitle{ font-size:.88rem; color:var(--muted); margin-top:.25rem; margin-bottom:1.4rem; }
   /* Tabs: the shared segmented control (components/ui/SegmentedTabs). */
   .bookings-page .bookings-tabs-row{ display:flex; margin:0 0 1.4rem; padding-bottom:1rem; border-bottom:1px solid var(--line); }
+  /* A host's Hosting | My trips switch, above the title. */
+  .bookings-page .bookings-view-switch{ display:flex; margin:0 0 1.1rem; }
   .bookings-page .state-msg{ color:var(--muted); font-size:.92rem; padding:2.2rem 0; text-align:center; }
   
   /* ---------- BOOKING CARD ---------- */

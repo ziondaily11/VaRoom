@@ -371,13 +371,19 @@ test('7. Notification actions and their intended navigation destinations', () =>
 
   const booking = notification({ type: 'booking_approved', booking_id: 'b-777', related_entity_type: 'booking' });
   assert.equal(desktop.notificationTarget({ ...booking, type: 'booking_request', booking_id: 'b-999' }, 'host'), '/bookings?booking=b-999');
-  assert.equal(phone.notificationTarget({ ...booking, booking_id: 'b-999' }, 'host'), '/bookings?booking=b-999');
+  assert.equal(phone.notificationTarget({ ...booking, type: 'booking_request', booking_id: 'b-999' }, 'host'), '/bookings?booking=b-999');
+  // A host's own stay (they booked as a guest) opens under Bookings → My trips.
+  for (const type of ['booking_approved', 'booking_declined', 'booking_expired']) {
+    assert.equal(desktop.notificationTarget({ ...booking, type }, 'host'), '/bookings?view=trips&booking=b-777', type);
+    assert.equal(phone.notificationTarget({ ...booking, type }, 'host'), '/booking-approved?id=b-777', type);
+  }
+  assert.equal(desktop.notificationTarget({ ...booking, type: 'booking_cancelled' }, 'host'), '/bookings?booking=b-777');
   // Clients open the Bookings rail on laptops/desktops and the booking page on phones.
   assert.equal(desktop.notificationTarget(booking, 'client'), '/bookings?booking=b-777');
   assert.equal(phone.notificationTarget(booking, 'client'), '/booking-approved?id=b-777');
   // related_entity_id wins over booking_id and is URL-encoded.
   assert.equal(
-    desktop.notificationTarget({ ...booking, related_entity_id: 'a b' }, 'host'),
+    desktop.notificationTarget({ ...booking, type: 'booking_request', related_entity_id: 'a b' }, 'host'),
     '/bookings?booking=a%20b',
   );
 
