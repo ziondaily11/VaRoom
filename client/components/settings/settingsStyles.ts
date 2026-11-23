@@ -128,13 +128,14 @@ export const SETTINGS_STYLES = `
   @media (prefers-reduced-motion:reduce){
     .settings-page .skeleton-heading::after, .settings-page .skeleton-search-placeholder::after, .settings-page .skeleton-nav-title::after, .settings-page .skeleton-nav-icon-shape::after, .settings-page .skeleton-nav-chevron-shape{ animation:none; }
   }
-  /* Breadcrumb above each section: Settings › Section. */
-  .settings-page .detail-crumbs ol{ display:flex; align-items:center; gap:.35rem; margin-bottom:.9rem; font-size:.82rem; color:var(--muted); list-style:none; }
+  /* Breadcrumb under each section's title: Settings › Section. */
+  .settings-page .detail-heading{ display:flex; flex-direction:column; min-width:0; }
+  .settings-page .detail-crumbs ol{ display:flex; align-items:center; gap:.35rem; margin-top:.3rem; font-size:.82rem; color:var(--muted); list-style:none; }
   .settings-page .detail-crumbs li{ display:flex; align-items:center; min-width:0; }
   .settings-page .detail-crumbs li[aria-current]{ color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .settings-page .detail-crumbs button{ font-size:inherit; color:var(--muted); padding:.15rem .3rem; margin:0 -.3rem; border-radius:6px; transition:color var(--motion-micro,150ms) var(--ease-out,ease), background-color var(--motion-micro,150ms) var(--ease-out,ease); }
   @media (hover:hover){ .settings-page .detail-crumbs button:hover{ color:var(--ink); background:var(--row-hover); } }
-  .settings-page .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:1.5rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
+  .settings-page .detail-head{ display:flex; align-items:flex-start; gap:.9rem; margin-bottom:1.5rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
   .settings-page .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
   .settings-page .detail-back{ transition:background-color var(--motion-micro,150ms) var(--ease-out,ease); }
   @media (hover:hover){ .settings-page .detail-back:hover{ background:var(--row-hover); } }
