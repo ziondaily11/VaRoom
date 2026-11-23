@@ -145,7 +145,11 @@ function queryValue(value: string | string[] | undefined): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
-export default function ClientBookingsView({ showToast }: { showToast: (message: string) => void }) {
+export default function ClientBookingsView({ showToast, switcher }: {
+  showToast: (message: string) => void;
+  /** A host's Hosting | My trips switch, above the title. */
+  switcher?: React.ReactNode;
+}) {
   const router = useRouter();
   const { user, profile } = useAuth();
   const userId = user?.id || null;
@@ -170,7 +174,8 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
   }, [state.bookings, now]);
 
   const setSelected = useCallback((bookingId: string | null) => {
-    const query = bookingId ? { booking: bookingId } : {};
+    // A host's trips keep ?view=trips.
+    const query = { ...(router.query.view === 'trips' ? { view: 'trips' } : {}), ...(bookingId ? { booking: bookingId } : {}) };
     router.replace({ pathname: '/bookings', query }, undefined, { shallow: true, scroll: false });
   }, [router]);
 
@@ -272,6 +277,7 @@ export default function ClientBookingsView({ showToast }: { showToast: (message:
     <>
       <div className="feed-area" ref={feedRef}>
         <div id="client-bookings-view">
+          {switcher}
           <h1 className="page-title">My Bookings</h1>
           <p className="page-subtitle">Manage your verified stays, event venues, and workstations in Kenya.</p>
           <div className="bookings-tabs-row">

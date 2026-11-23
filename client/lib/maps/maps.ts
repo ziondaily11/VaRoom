@@ -1,4 +1,4 @@
-// Google Maps helpers for location screens (ported from public/js/varoom-maps.js
+// Google Maps helpers for location screens (the map card and /map) (ported from public/js/varoom-maps.js
 // and legacy-pages/map.html). The server decides how much location a user may
 // see (server/lib/locationAccess.js); these helpers only show what it returns.
 
@@ -36,11 +36,6 @@ export function resetGoogleMapsLoad(): void {
   mapsLoad = null;
 }
 
-/** Google Maps directions to a point (VaRoom hands off; it never navigates in-app). */
-export function getDirectionsUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-}
-
 export interface LocationResult {
   level?: number;
   pendingApproval?: boolean;
@@ -62,19 +57,11 @@ export interface LocationView {
   /** Where to center the map: the exact point, or Nairobi until the area is found by name. */
   center: { lat: number; lng: number };
   zoom: number;
-  directionsUrl: string | null;
   /** The general area's name for the map to find ("Nyali, Mombasa, Kenya"); never an address. Null when exact. */
   areaQuery: string | null;
-  /** "Open in Google Maps": the exact point's directions, or a search for the area's name only. */
-  mapsUrl: string | null;
 }
 
-/** A Google Maps search for an area's name (the general area: no address, no coordinates). */
-export function areaSearchUrl(area: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(area)}`;
-}
-
-/** What the sheet and map show for a server answer (legacy renderResult). */
+/** What the map and its label show for a server answer (legacy renderResult). */
 export function describeLocation(result: LocationResult): LocationView {
   const loc = result.location || {};
   const exact = (result.level || 0) >= 3 && loc.latitude != null && loc.longitude != null;
@@ -89,9 +76,7 @@ export function describeLocation(result: LocationResult): LocationView {
       exact: true,
       center: { lat, lng },
       zoom: 16,
-      directionsUrl: getDirectionsUrl(lat, lng),
       areaQuery: null,
-      mapsUrl: getDirectionsUrl(lat, lng),
     };
   }
   const areaName = [loc.neighborhood, loc.city].filter(Boolean).join(', ');
@@ -105,9 +90,7 @@ export function describeLocation(result: LocationResult): LocationView {
     exact: false,
     center: NAIROBI,
     zoom: 12,
-    directionsUrl: null,
     areaQuery: areaName ? `${areaName}, Kenya` : null,
-    mapsUrl: areaName ? areaSearchUrl(`${areaName}, Kenya`) : null,
   };
 }
 
@@ -149,3 +132,75 @@ export const LOCATION_PROBLEMS = {
   notFound: { title: "We couldn't find this property", sub: 'It may have been removed, or the link is no longer valid.' },
   failed: { title: 'The location could not load', sub: 'Please check your connection and try again.' },
 } as const;
+
+// ── Which location a map shows ────────────────────────────────────────────
+
+/** A listing's location (general area until a booking is approved) or a booking's. */
+export interface MapTarget {
+  kind: 'listing' | 'booking';
+  id: string;
+}
+
+/** The query key that opens the map card over the current page: ?map=listing:<id>. */
+export const MAP_QUERY_KEY = 'map';
+
+/** "listing:<id>" / "booking:<id>" for the URL. */
+export function mapTargetValue(target: MapTarget): string {
+  return `${target.kind}:${target.id}`;
+}
+
+/** The target in a ?map= value, or null for anything else. */
+export function parseMapTarget(value: unknown): MapTarget | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(listing|booking):([A-Za-z0-9_-]{1,80})$/.exec(value);
+  return match ? { kind: match[1] as MapTarget['kind'], id: match[2] } : null;
+}
+
+/** The full /map page for a target (the link's address: new tabs and shared links). */
+export function mapPageHref(target: MapTarget): string {
+  return `/map?${target.kind}=${encodeURIComponent(target.id)}`;
+}
+
+/** The server endpoint for a target. */
+export function targetEndpoint(target: MapTarget): string {
+  return target.kind === 'booking'
+    ? `/api/bookings/${encodeURIComponent(target.id)}/location`
+    : `/api/listings/${encodeURIComponent(target.id)}/location`;
+}
+
+// ── Location cache ────────────────────────────────────────────────────────
+// Opening the same location again (close, reopen; or the card, then /map) is
+// instant. Answers are kept per signed-in user (never shared between
+// accounts), for a few minutes, and only when the server said yes; a refusal
+// or a failure is asked again next time. Two opens at once share one request.
+
+const LOCATION_TTL_MS = 5 * 60 * 1000;
+const LOCATION_CACHE_MAX = 40;
+const locationCache = new Map<string, { at: number; result: LocationResult }>();
+const locationInFlight = new Map<string, Promise<LocationOutcome>>();
+
+/** The location for a target, from the cache when fresh (never throws). */
+export function loadLocation(endpoint: string, viewer: { userId: string | null; accessToken: string | null }, fetchFn: typeof fetch = fetch, now: () => number = Date.now): Promise<LocationOutcome> {
+  const key = `${viewer.userId || 'guest'}|${endpoint}`;
+  const cached = locationCache.get(key);
+  if (cached && now() - cached.at < LOCATION_TTL_MS) return Promise.resolve({ kind: 'ok', result: cached.result });
+  const pending = locationInFlight.get(key);
+  if (pending) return pending;
+  const request = fetchLocation(endpoint, viewer.accessToken, fetchFn).then((outcome) => {
+    locationInFlight.delete(key);
+    if (outcome.kind === 'ok') {
+      locationCache.delete(key);
+      locationCache.set(key, { at: now(), result: outcome.result });
+      if (locationCache.size > LOCATION_CACHE_MAX) locationCache.delete(locationCache.keys().next().value as string);
+    }
+    return outcome;
+  });
+  locationInFlight.set(key, request);
+  return request;
+}
+
+/** Forget every cached location (sign-out, account switch, tests). */
+export function clearLocationCache(): void {
+  locationCache.clear();
+  locationInFlight.clear();
+}

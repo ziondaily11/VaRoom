@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
@@ -13,6 +13,7 @@ import { useBookingActions, useToast } from '../components/bookings/useBookingAc
 import { usePhoneLayout, wasOpenedFromList } from '../components/bookings/usePhoneLayout';
 import { BOOKINGS_STYLES } from '../components/bookings/bookingsStyles';
 import { BackIcon } from '../components/bookings/BookingIcons';
+import { ownBookingHref } from '../lib/bookings/links';
 
 // Booking details on phones (migrated from legacy-pages/booking-approved.html):
 // /booking-approved?id=…. Every status shows the full details (BookingDetail);
@@ -49,7 +50,7 @@ export default function BookingApprovedPage() {
   useEffect(() => {
     if (!router.isReady || status === 'loading' || phone !== true) return undefined;
     if (status === 'signed-out' || !userId) {
-      router.replace(loginUrl(router.asPath));
+      Router.replace(loginUrl(Router.asPath));
       return undefined;
     }
     if (!bookingId) {
@@ -77,7 +78,8 @@ export default function BookingApprovedPage() {
       }
     });
     return () => { cancelled = true; };
-  }, [router, router.isReady, status, userId, bookingId, phone]);
+    // Not this render's router: opening the map card (?map=) must not load the booking again.
+  }, [router.isReady, status, userId, bookingId, phone]);
 
   const onCancelled = useCallback(() => {
     setState((current) => (current.kind === 'ready' ? { ...current, booking: { ...current.booking, status: 'cancelled' } } : current));
@@ -97,6 +99,8 @@ export default function BookingApprovedPage() {
 
   // A booking that can't be shown (missing, not yours) offers the way back as a button too.
   const showBackButton = state.kind === 'status';
+  // Hosts keep their own stays under Bookings → My trips.
+  const listHref = ownBookingHref(null, profile?.role === 'host');
 
   return (
     <>
@@ -107,7 +111,7 @@ export default function BookingApprovedPage() {
       <div className="bookings-page booking-approved-page">
         {toast.element}
         <header className="ba-header">
-          <Link href="/bookings" className="ba-back" aria-label="Back to bookings" onClick={backToList}><BackIcon /></Link>
+          <Link href={listHref} className="ba-back" aria-label="Back to bookings" onClick={backToList}><BackIcon /></Link>
           <h1 className="ba-title">Booking details</h1>
           <span aria-hidden="true" />
         </header>
@@ -129,7 +133,7 @@ export default function BookingApprovedPage() {
               </div>
               {showBackButton && (
                 <div className="ba-state-actions">
-                  <Link href="/bookings" className="bk-btn bk-btn-solid" onClick={backToList}>Back to bookings</Link>
+                  <Link href={listHref} className="bk-btn bk-btn-solid" onClick={backToList}>Back to bookings</Link>
                 </div>
               )}
             </div>

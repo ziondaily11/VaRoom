@@ -1,17 +1,7 @@
-export type Inline = string | { strong: string } | { text: string; href: string };
+import type { Block, Inline, Section } from "./legalDocument";
 
-export type Block =
-  | { type: "p"; content: Inline[] }
-  | { type: "h3"; text: string }
-  | { type: "ul"; items: string[] }
-  | { type: "contact"; title: string; lines: Inline[][] };
-
-export interface Section {
-  id: string;
-  title: string;
-  blocks: Block[];
-}
-
+export const PRIVACY_TITLE = "Privacy Policy · VaRoom";
+export const PRIVACY_DESCRIPTION = "Privacy Policy governing the use of the Varoom property marketplace.";
 export const LAST_UPDATED = "November 22, 2026";
 
 const b = (strong: string): Inline => ({ strong });

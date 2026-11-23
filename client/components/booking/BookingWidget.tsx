@@ -12,6 +12,8 @@ import BookingCalendar from './BookingCalendar';
 import { CommercialDocuments, PropertyPolicy } from './PolicySections';
 import SendingButton, { type SendingHandle } from './SendingButton';
 import Svg from './Svg';
+import { useAuth } from '../../lib/auth/AuthProvider';
+import { ownBookingHref } from '../../lib/bookings/links';
 import type { RatingInfo } from './ListingDetails';
 
 // The booking widget beside the listing. Nightly stays pick check-in then
@@ -90,13 +92,15 @@ function GuestStepper({ value, max, isHotel, onChange }: { value: number; max: n
 
 /** A sent request or a confirmed booking: what happens next, and a way to Bookings. */
 function SentCard({ text }: { text: string }) {
+  // A host's own stays are under Bookings → My trips.
+  const { profile } = useAuth();
   return (
     <div className="sent-card" role="status">
       <span className="sent-check" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path pathLength={1} d="m5 12.5 4.5 4.5L19 7" /></svg>
       </span>
       <p>{text}</p>
-      <Link href="/bookings" className="sent-link">View my bookings</Link>
+      <Link href={ownBookingHref(null, profile?.role === 'host')} className="sent-link">View my bookings</Link>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 implemented on `elie-phase1-auto-reply` (not committed; tests pass, not yet deployed)
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 implemented on `elie-phase2-search` (2026-11-22)
 
 This plan makes the two chatbot features production ready:
 
@@ -32,7 +32,7 @@ Found by reading the code on 2026-11-03. The first row also explains why nothing
 | F2 | Critical | Auto-reply cannot save its reply. No away-mode reply or "Shared listing" message is ever posted | `insert_auto_reply` writes `body` (`chatbot/main.py:1019`). The Python service has no encryption key, so it cannot write `ciphertext/iv/key_version` either |
 | F3 | High | Logs claim success that did not happen | `requestChatbotReply` logs "Elie response persisted" unconditionally (`server/routes/chatRoutes.js:63-72`) |
 | F4 | High | `GEMINI_MODEL` is ignored; primary is always `gemini-3.7-flash` while the warning says 3.8 | `chatbot/main.py:60`. Tests hide it by overwriting the variable (`chatbot/test_elie_reliability.py:52`) |
-| F5 | High | Searches with a budget or guest count probably fail with "Listing search is temporarily unavailable" | The embed is aliased `booking_details:listing_booking_details!inner(...)` but the filters use `listing_booking_details.price_amount` / `.max_guests` (`chatbot/main.py:1590-1592`). PostgREST expects the alias |
+| F5 | ~~High~~ Not a bug | ~~Searches with a budget or guest count probably fail~~ Checked 2026-11-22 against the live API: the unaliased filter is applied correctly (a KSh 1 ceiling returns 0 rows with either form). Dropped from Phase 2. Original suspicion: with "Listing search is temporarily unavailable" | The embed is aliased `booking_details:listing_booking_details!inner(...)` but the filters use `listing_booking_details.price_amount` / `.max_guests` (`chatbot/main.py:1590-1592`). PostgREST expects the alias |
 | F6 | High | Server can run longer than the client waits; the abandoned request keeps spending Gemini calls | Client aborts at 25 s (`client/lib/chat/elie.ts:7`). Server: classification budget 18 s, news lookup 12 s, news summary 18 s, plus auth/profile lookups of up to 8 s each, plus Render cold start |
 | F7 | High | Provider error text is shown to users | `detail=f"Invalid request to Elie AI service: {exc}"` includes up to 1,000 chars of the Gemini error body (`chatbot/main.py:1763`); the client displays `detail` |
 | F8 | Medium | Any participant can call the public `/reply` directly with any text, including text never sent in the chat | `/reply` trusts `payload.message` and accepts the client's token (`chatbot/main.py:623-688`) |
@@ -48,6 +48,10 @@ Found by reading the code on 2026-11-03. The first row also explains why nothing
 | F18 | Low | Elie URL is hardcoded; in-flight requests are not aborted on reset, session load or unmount | `client/lib/chat/elie.ts:6`, `client/components/chat/useElie.ts` |
 | F19 | Low | Auto-replies create no notification for the guest, unlike a normal host message | `insert_auto_reply` writes directly; `createNotification` only runs in the Express send route |
 | F20 | High | Elie never finds event venues. Searches for venues filter on `event venues`, but listings store `venue` | Phase 0 query 5: categories are `airbnb`, `property`, `office`, `hotel`, `venue`. `server/routes/listingRoutes.js:13` uses `venue`; `normalize_category_filter` maps "venue" to `event venues` (`chatbot/main.py:139-148`) |
+
+| F21 | Critical | **Every Elie listing search fails** with "Listing search is temporarily unavailable" | `host:profiles(...)` is ambiguous since `listing_likes` (migration `20261003_000031`, 2026-10-03) added a second path from `listings` to `profiles`: PostgREST answers HTTP 300 `PGRST201`. Found 2026-11-22 by running the search against real data; the tests mock the database |
+| F22 | High | 5 of 32 available listings never appear in Elie (including the only venue) | They have no `listing_booking_details` row, and the search always used `!inner` on it |
+| F23 | High | `GEMINI_MODEL=gemini-3.6-flash` silently becomes `gemini-3.8-flash` | The duplicate-model guard replaced the primary instead of the fallback (both default to 3.6), so the Phase 1 advice could not take effect; production `/health` kept reporting 3.8 |
 
 Production confirms F1/F2: `messages.body` no longer exists and **no auto-reply has ever been saved** (0 rows with `is_auto_reply`). 3 hosts currently have Away mode on.
 
@@ -155,17 +159,19 @@ Added during implementation (found by running the endpoint locally against real 
 
 **Done when:** tests pass and the §7 auto-reply scenarios pass on the deployed services.
 
-### Phase 2 — Elie search correctness (F4, F5, F7, F14, F17, F20)
+### Phase 2 — Elie search correctness (F4, F7, F14, F17, F20, F21, F22, F23)
 
 Branch `elie-phase2-search`.
 
-- Models: the configuration itself was fixed in Phase 1. Remaining: fix the test fixture that overwrites `PRIMARY_GEMINI_MODEL` so the test checks the real configuration; give classification its own thinking level.
-- Filters: use `booking_details.price_amount` / `booking_details.max_guests`. Add `created_at.desc` as a secondary order so results are stable.
+- Models: the duplicate-model guard keeps the configured primary and switches the fallback (F23). The model test runs in a fresh process, since the test fixture overwrites the values. Classification uses thinking level `low`.
+- Listing query: name the host relationship `profiles!listings_host_id_fkey` (F21); require booking details (`!inner`) only when filtering by budget or guests (F22); `created_at.desc` as a secondary order so results are stable. F5 needed no change.
 - Categories (F20): canonical values become `airbnb, hotel, venue, office, shop, property`, matching `server/routes/listingRoutes.js:13`; "event venue(s)" and similar map to `venue`. Test with every stored value.
 - Errors: safety blocks get a polite 200 reply ("I can't help with that one…"); all other errors return a generic message plus the correlation ID. Provider text is logged only.
 - News: catch malformed JSON and non-dict payloads as "temporarily unavailable".
 - Wrap client-supplied history in `<conversation_history>` tags with the same "untrusted" directive used for the guest message.
 - Tests: filter params for budget and guests; category normalisation from real values; safety block → 200; Gemini 400 → no provider text in `detail`; malformed news payload → 503 with a generic message.
+
+**Results (2026-11-22):** 37 chatbot tests pass (6 new, 3 updated). Live, read-only searches against production data with the current code all fail with HTTP 300; with the fix: venue 1 listing (was 0), hotels 4, Airbnbs in Kilimani ≤ KSh 5,000 for 2 guests 2, free text "studio" 7. Classification timing could not be measured from the development machine (even a one-word Gemini request failed 2 of 3 times there); check it after deploy.
 
 ### Phase 3 — Latency and cold starts (F6, F16, F18)
 
@@ -203,7 +209,7 @@ Branch `elie-phase5-ops` (docs only).
 |---|---|---|
 | 0 | `docs/elie/ops/2026-11-03-phase0-checks.sql` (read-only) | `docs/elie/PRODUCTION_READINESS_PLAN.md` (results) |
 | 1 | `server/lib/autoReply.js`, `server/test/autoReply.test.js`, `chatbot/test_internal_reply.py` | `chatbot/main.py` (internal generate endpoint; remove `/reply`, `get_conversation`, `get_conversation_messages`, `insert_auto_reply`, `touch_conversation`, `attach_video_media`; model config; reply budget; listings in the prompt), `server/routes/chatRoutes.js` (send route, `@reply` route, logs), `server/.env.example` (`CHATBOT_INTERNAL_API_KEY`, `ELIE_AUTO_REPLY_ENABLED`), `chatbot/.env.example` (`CHATBOT_INTERNAL_API_KEY`; the repo has no root `.env.example`) |
-| 2 | — | `chatbot/main.py` (models, filters, categories, errors, news parsing, history tags), `chatbot/test_elie_reliability.py` (real model test, new search and error tests) |
+| 2 | — | `chatbot/main.py` (model guard, classification thinking level, listing query, categories, errors, news parsing, history tags), `chatbot/test_elie_reliability.py` (real model test, new search and error tests) |
 | 3 | — | `chatbot/main.py` (deadline, thinking level, shared HTTP client, token cache, single profile read), `chatbot/test_elie_reliability.py`, `client/lib/chat/elie.ts` (env URL, abort signal, warm-up ping, waking-up retry), `client/components/chat/useElie.ts` (warm-up on load; abort on reset/load/unmount), `client/components/chat/ElieThread.tsx` ("Elie is waking up…" text in the existing thinking row), `client/test/chat-elie.test.js`, `client/.env.example` (`NEXT_PUBLIC_ELIE_API_URL`) |
 | 4 | — | `chatbot/main.py` (diagnostics key, rate limiter, CORS, guarded mount), `chatbot/test_elie_reliability.py` |
 | 5 | `docs/elie/OPERATIONS.md` | `docs/elie/PRODUCTION_READINESS_PLAN.md` (final status) |

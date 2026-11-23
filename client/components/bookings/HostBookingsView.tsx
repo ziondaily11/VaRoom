@@ -266,7 +266,14 @@ function queryValue(value: string | string[] | undefined): string | null {
 }
 
 /** hostId: the account's own id, or the company a team Manager works as. */
-export default function HostBookingsView({ hostId, showToast }: { hostId: string; showToast: (message: string) => void }) {
+export default function HostBookingsView({ hostId, showToast, switcher, onMissingBooking }: {
+  hostId: string;
+  showToast: (message: string) => void;
+  /** The Hosting | My trips switch, above the title (the host's own account only). */
+  switcher?: React.ReactNode;
+  /** A linked booking that is not one of this host's requests (one of their own stays). */
+  onMissingBooking?: (bookingId: string) => void;
+}) {
   const router = useRouter();
   const { user, session } = useAuth();
   const ownId = user?.id || null;
@@ -385,14 +392,14 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
     if (!bookings || !requestedId || handledLink.current === requestedId) return;
     handledLink.current = requestedId;
     const booking = bookings.find((b) => b.id === requestedId);
-    if (!booking) return;
+    if (!booking) { onMissingBooking?.(requestedId); return; }
     const key = hostTabFor(booking.status);
     if (key) setTab(key);
     setSelectedId(booking.id);
     window.requestAnimationFrame(() => {
       feedRef.current?.querySelector(`[data-booking-id="${CSS.escape(booking.id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-  }, [bookings, requestedId]);
+  }, [bookings, requestedId, onMissingBooking]);
 
   const switchTab = (key: HostTab) => { setTab(key); setSelectedId(null); };
   const shiftMonth = (delta: number) => setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
@@ -465,6 +472,7 @@ export default function HostBookingsView({ hostId, showToast }: { hostId: string
     <>
       <div className="feed-area" ref={feedRef}>
         <div id="host-bookings-view">
+          {switcher}
           <div className="host-header-row">
             <div>
               <h1 className="page-title">Bookings</h1>

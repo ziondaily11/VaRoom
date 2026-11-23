@@ -76,7 +76,7 @@ test('calendar: every day is a labelled button; no past months; closed days are 
   assert.doesNotMatch(widget, /window\.alert|ReservationChoice|choose-reservation-btn/);
   assert.match(widget, /<div className="mode-switch" role="tablist" aria-label="What to reserve"/);
   assert.match(widget, /guests: isShortStay \? guests : undefined/);
-  assert.match(widget, /<Link href="\/bookings" className="sent-link">View my bookings<\/Link>/);
+  assert.match(widget, /<Link href=\{ownBookingHref\(null, profile\?\.role === 'host'\)\} className="sent-link">View my bookings<\/Link>/);
   assert.doesNotMatch(widget, /<select id="guests-input"/, 'the old Guests box that was never saved is gone');
   assert.doesNotMatch(widget, /leasePicked/, 'the move-in date starts filled in, so the price shows at once');
 });

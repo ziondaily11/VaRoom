@@ -13,6 +13,7 @@ import PayDialog from './PayDialog';
 import ConfirmSheet from './ConfirmSheet';
 import { usePresence } from '../../lib/motion/usePresence';
 import { DURATION, exitMs } from '../../lib/motion/tokens';
+import { MapLink } from '../maps/LocationCard';
 
 // A client's booking, whatever its status: a header that says where it stands
 // (approved, waiting for the host, declined, cancelled, expired, complete),
@@ -180,7 +181,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
             <h3 className="booking-detail-property-title" title={title}>{title}</h3>
             <div className="booking-detail-location">
               <span>{listing.location_text || 'Location not available'}</span>
-              {stayed && <Link className="booking-detail-map" href={`/map?booking=${encodeURIComponent(booking.id)}`}>View map &amp; directions</Link>}
+              {stayed && <MapLink className="booking-detail-map" target={{ kind: 'booking', id: booking.id }}>View on map</MapLink>}
             </div>
             <div className="booking-detail-host">
               <div className="booking-detail-host-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : initial(host.full_name)}</div>

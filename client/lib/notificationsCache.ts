@@ -1,5 +1,6 @@
 import { createCache } from './cache/createCache';
 import { CACHE_NAMESPACES } from './cache/namespaces';
+import { GUEST_BOOKING_NOTIFICATIONS, ownBookingHref } from './bookings/links';
 
 export interface NotificationItem {
   id: string;
@@ -144,8 +145,9 @@ export function notificationTarget(notification: NotificationItem, role: 'host' 
   // A copy for a team member: work as the company (Settings → Team) to act on it.
   if (notification.metadata && typeof notification.metadata === 'object' && 'team_host' in notification.metadata) return '/settings?section=team';
   const bookingId = notification.related_entity_id || notification.booking_id;
+  const guest = role === 'client' || GUEST_BOOKING_NOTIFICATIONS.has(notification.type);
   if (
-    role === 'host' &&
+    !guest &&
     (notification.related_entity_type === 'booking' || notification.booking_id) &&
     bookingId
   ) {
@@ -162,10 +164,11 @@ export function notificationTarget(notification: NotificationItem, role: 'host' 
     (notification.related_entity_type === 'booking' || notification.booking_id) &&
     bookingId
   ) {
-    // Laptops and desktops open booking details in the Bookings rail; phones
-    // open the booking details page.
+    // The guest's own booking (a host's is under My trips): laptops and
+    // desktops open its details in the Bookings rail; phones open the booking
+    // details page.
     if (typeof window !== 'undefined' && window.matchMedia('(min-width: 861px)').matches) {
-      return `/bookings?booking=${encodeURIComponent(bookingId)}`;
+      return ownBookingHref(bookingId, role === 'host');
     }
     return `/booking-approved?id=${encodeURIComponent(bookingId)}`;
   }

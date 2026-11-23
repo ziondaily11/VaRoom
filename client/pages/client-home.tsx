@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import { hostProfilePath } from '../lib/profile/hostProfile';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -55,6 +55,7 @@ import { useFeedScrollRoot, useFeedWindow, useLoadMore } from '../lib/discover/f
 import { pageAfter, type FeedCursorRow } from '../lib/discover/feedCursor';
 import { feedImageHints, feedPhotoSrcSet, isSlideNear, previewPhotoUrl } from '../lib/discover/feedMedia';
 import { afterFeedSettles } from '../lib/discover/deferredWork';
+import { MapLink } from '../components/maps/LocationCard';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // The lightbox and the report dialog load when first opened (and are fetched
@@ -575,7 +576,7 @@ function ListingCard({
             <div className={styles.location}>
               {host.username ? `@${host.username} · ` : ''}{listing.location_text || ''}
               {' · '}
-              <Link href={`/map?listing=${encodeURIComponent(listing.id)}`} className={styles.mapLink}>View on Map</Link>
+              <MapLink target={{ kind: 'listing', id: listing.id }} className={styles.mapLink}>View on Map</MapLink>
             </div>
           </div>
           <time className={styles.time}>{timeAgo(listing.created_at)}</time>
@@ -855,7 +856,7 @@ export default function ClientHome() {
       if (!sessionUser) {
         setUser(null);
         if (active && epoch === authEpoch.current) {
-          router.replace({
+          Router.replace({
             pathname: '/',
             query: { auth: 'login', redirect: '/client-home' },
           });
@@ -888,11 +889,11 @@ export default function ClientHome() {
         return;
       }
       if (account.kind === 'host') {
-        router.replace('/host-home');
+        Router.replace('/host-home');
         return;
       }
       if (account.kind === 'onboarding') {
-        router.replace('/onboarding');
+        Router.replace('/onboarding');
         return;
       }
       if (account.kind !== 'ready') return;
@@ -945,7 +946,9 @@ export default function ClientHome() {
       if (videoTimer.current !== null) window.clearTimeout(videoTimer.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [authRetry, router]);
+  // The shared Router, not this render's router: a change of address on
+  // this page (the map card's ?map=) must not load the account again.
+  }, [authRetry]);
 
   const key = useMemo(
     () => user
@@ -1234,11 +1237,12 @@ export default function ClientHome() {
   useEffect(() => {
     const node = feed.current;
     if (!node || !key) return;
-    return persistClientHomeScroll(window, node, key, router, {
+    // The shared Router keeps one listener set while the address changes on this page.
+    return persistClientHomeScroll(window, node, key, Router, {
       leaving: leavingClientHome,
       anchorCleanup: anchorObserverCleanup,
     });
-  }, [key, router]);
+  }, [key]);
 
   // Side widgets and Property News refresh once the feed has had its turn
   // (lib/discover/deferredWork.ts); their cached values are already shown.
