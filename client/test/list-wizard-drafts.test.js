@@ -227,9 +227,9 @@ test('booking details per niche match what list.html sent', () => {
   const sale = emptyForm();
   sale.propertyPurpose = 'sale';
   sale.propertySalePriceMode = 'starting';
-  sale.fields = { 'property-sale-price': '12500000', 'property-bedroom-type': '3 bedrooms', 'property-bathrooms': '2', 'property-units-available': '' };
+  sale.fields = { 'property-sale-price': '12500000', 'property-type': 'maisonette', 'property-bedroom-type': '3 bedrooms', 'property-bathrooms': '2', 'property-units-available': '' };
   assert.deepEqual(plain(publish.bookingDetailsFor('property', sale, true, null)), {
-    price_amount: 12500000, price_unit: 'month', size_or_type: '3 bedrooms', amenities: [], bathrooms: 2, units_available: null, available_from: null,
+    price_amount: 12500000, price_unit: 'month', size_or_type: '3 bedrooms', amenities: [], property_type: 'maisonette', bathrooms: 2, units_available: null, available_from: null,
     sale_price_amount: 12500000, sale_price_mode: 'starting', min_lease_months: null, deposit_amount: null, utilities_included: false,
   });
 

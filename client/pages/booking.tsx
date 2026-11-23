@@ -21,6 +21,9 @@ import BookingWidget from '../components/booking/BookingWidget';
 import { TableReservationDialog } from '../components/booking/ReservationDialogs';
 import { BOOKING_STYLES } from '../components/booking/bookingStyles';
 import PhoneBookingBar from '../components/booking/PhoneBookingBar';
+import TrailNav, { TRAIL_STYLES } from '../components/marketplace/TrailNav';
+import { crumbs, decodeTrail } from '../lib/marketplace/drilldown';
+import { CATEGORY_LABELS } from '../lib/marketplace/marketplace';
 
 // Booking (migrated from legacy-pages/booking.html): one listing's details
 // and its booking widget. On phones a bar at the bottom shows the price and
@@ -63,6 +66,11 @@ export default function BookingPage() {
   const token = session?.access_token || null;
   const role: 'host' | 'client' | null = profile ? (profile.role === 'host' ? 'host' : 'client') : null;
   const listingId = typeof router.query.listing === 'string' && router.query.listing ? router.query.listing : null;
+  // Opened from a Marketplace category or step: the breadcrumb back to it.
+  const trail = useMemo(() => {
+    const from = decodeTrail(router.query.trail, (key) => Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, key));
+    return from ? crumbs(from.category, CATEGORY_LABELS[from.category], from.path) : [];
+  }, [router.query.trail]);
 
   const [bundle, setBundle] = useState<ListingBundle | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -198,7 +206,7 @@ export default function BookingPage() {
       <Head>
         <title>{listing ? `${listing.title} · VaRoom` : 'Book · VaRoom'}</title>
       </Head>
-      <style dangerouslySetInnerHTML={{ __html: BOOKING_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: BOOKING_STYLES + TRAIL_STYLES }} />
       <div className="page-shell booking-page">
         <div className="main-shell">
           {!showable && !pageError && <Skeleton />}
@@ -206,6 +214,7 @@ export default function BookingPage() {
             {showable && listing && kind && (
               <div className="content-grid">
                 <div className="col-main" id="col-main">
+                  {trail.length > 0 && <TrailNav crumbs={trail} current={listing.title} />}
                   <BookingGallery title={listing.title} photoUrls={photoUrls} video={galleryVideo} like={like} onToggleLike={like.toggle} onClose={closeGallery} />
                   <ListingDetails
                     listing={listing}

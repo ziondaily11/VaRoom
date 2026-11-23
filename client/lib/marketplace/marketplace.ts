@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listingMatchesInterests, normalizeInterests } from '../clientInterests';
+import { pathFilter, pathFromQuery, type StepKey } from './drilldown';
 
 // Marketplace listings (migrated from legacy-pages/marketplace.html): what is
 // publicly listed, the search, the card display rules and the ordering.
@@ -24,8 +25,10 @@ export interface BookingDetails {
   max_guests?: number | null;
   amenities?: string[] | null;
   location_text?: string | null;
-  /** Property: the bedroom type ('Studio', '2 bedrooms', ...). */
+  /** Property: the bedroom type ('Studio', '2 bedrooms', ...). Offices and Shops: their subtype. */
   size_or_type?: string | null;
+  /** Property: apartment, house, bungalow, maisonette, townhouse or villa (drilldown.ts). */
+  property_type?: string | null;
   bathrooms?: number | null;
   /** Airbnb: bedroom count (0 = studio). */
   bedrooms?: number | null;
@@ -53,7 +56,12 @@ export interface MarketplaceSearch {
   category: string;
   /** Minimum guests (from a ?guests link); '' for any. */
   guests: string;
+  /** The category's drill-down steps chosen so far (drilldown.ts), e.g. ['buy', 'apartment', '3']. */
+  path?: string[];
 }
+
+/** The search's drill-down path (none when unset). */
+export const searchPath = (search: MarketplaceSearch): string[] => search.path || [];
 
 const first = <T,>(value: T | T[] | null | undefined): T | null => (Array.isArray(value) ? value[0] || null : value || null);
 
@@ -65,7 +73,8 @@ export function normalizeCategory(value: unknown): string {
 /** The search seeded from the URL (client home's "Browse as Marketplace" sends q and category). */
 export function searchFromQuery(query: Record<string, string | string[] | undefined>): MarketplaceSearch {
   const one = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : '');
-  return { q: one('q'), category: normalizeCategory(one('category')), guests: one('guests') };
+  const category = normalizeCategory(one('category'));
+  return { q: one('q'), category, guests: one('guests'), path: pathFromQuery(category, (key: StepKey) => one(key)) };
 }
 
 export function categoryLabel(category: string | null | undefined): string {
@@ -191,9 +200,12 @@ export interface ListingPage {
  * term. No total is counted (nothing shows it).
  */
 export async function fetchListingPage(client: SupabaseClient, search: MarketplaceSearch, offset: number, now: Date = new Date()): Promise<ListingPage> {
+  const filter = pathFilter(search.category, searchPath(search));
+  const filtersDetails = Boolean(filter.propertyType || filter.sizeOrType);
   let query = client
     .from('listings')
-    .select(MARKETPLACE_SELECT)
+    // A drill-down step on the details row must narrow the listings themselves, so it joins them (!inner).
+    .select(filtersDetails ? MARKETPLACE_SELECT.replace('listing_booking_details(*)', 'listing_booking_details!inner(*)') : MARKETPLACE_SELECT)
     .range(offset, offset + PAGE_SIZE - 1)
     .eq('moderation_status', 'active')
     .eq('availability_status', 'available')
@@ -201,6 +213,13 @@ export async function fetchListingPage(client: SupabaseClient, search: Marketpla
     // verified 30-day term. Legacy rows keep a NULL term.
     .or(`paid_listing_until.is.null,paid_listing_until.gt.${now.toISOString()}`);
   if (search.category !== 'all') query = query.eq('category', search.category);
+  if (filter.purposes) {
+    query = filter.includeNoPurpose
+      ? query.or(`listing_purpose.in.(${filter.purposes.join(',')}),listing_purpose.is.null`)
+      : query.in('listing_purpose', filter.purposes);
+  }
+  if (filter.propertyType) query = query.eq('listing_booking_details.property_type', filter.propertyType);
+  if (filter.sizeOrType) query = query.ilike('listing_booking_details.size_or_type', filter.sizeOrType);
   const term = searchTerm(search.q);
   if (term) query = query.or(`title.ilike.%${term}%,location_text.ilike.%${term}%,category.ilike.%${term}%`);
   const minGuests = search.guests ? parseInt(search.guests, 10) : null;
@@ -223,7 +242,7 @@ export async function fetchListingPage(client: SupabaseClient, search: Marketpla
 const PAGE_TTL_MS = 2 * 60 * 1000;
 const pages = new Map<string, { page: ListingPage; at: number }>();
 
-export const pageKey = (search: MarketplaceSearch, offset: number) => JSON.stringify([search.q, search.category, search.guests, offset]);
+export const pageKey = (search: MarketplaceSearch, offset: number) => JSON.stringify([search.q, search.category, search.guests, searchPath(search), offset]);
 
 export function getCachedPage(search: MarketplaceSearch, offset: number, now: number = Date.now()): ListingPage | null {
   const entry = pages.get(pageKey(search, offset));
@@ -246,7 +265,7 @@ export function setCachedPage(search: MarketplaceSearch, offset: number, page: L
 export interface ListSnapshot { listings: MarketplaceListing[]; hasMore: boolean; offset: number; scrollTop: number }
 
 const snapshots = new Map<string, { snapshot: ListSnapshot; at: number }>();
-const snapshotKey = (search: MarketplaceSearch) => JSON.stringify([search.q, search.category, search.guests]);
+const snapshotKey = (search: MarketplaceSearch) => JSON.stringify([search.q, search.category, search.guests, searchPath(search)]);
 
 export function getListSnapshot(search: MarketplaceSearch, now: number = Date.now()): ListSnapshot | null {
   const entry = snapshots.get(snapshotKey(search));
@@ -259,11 +278,13 @@ export function setListSnapshot(search: MarketplaceSearch, snapshot: ListSnapsho
   if (snapshots.size > 20) snapshots.delete(snapshots.keys().next().value as string);
 }
 
-/** What the summary line says about the search, one part per removable filter. */
-export function searchSummary(search: MarketplaceSearch): Array<{ key: 'q' | 'category' | 'guests'; label: string }> {
-  const parts: Array<{ key: 'q' | 'category' | 'guests'; label: string }> = [];
+/**
+ * What the summary line says about the search, one part per removable filter.
+ * The category and its steps are the breadcrumb, not chips.
+ */
+export function searchSummary(search: MarketplaceSearch): Array<{ key: 'q' | 'guests'; label: string }> {
+  const parts: Array<{ key: 'q' | 'guests'; label: string }> = [];
   if (search.q.trim()) parts.push({ key: 'q', label: `“${search.q.trim()}”` });
-  if (search.category !== 'all') parts.push({ key: 'category', label: CATEGORY_LABELS[search.category] || search.category });
   const guests = parseInt(search.guests, 10);
   if (guests > 0) parts.push({ key: 'guests', label: `${guests}+ guests` });
   return parts;
@@ -272,6 +293,7 @@ export function searchSummary(search: MarketplaceSearch): Array<{ key: 'q' | 'ca
 /** The empty state for a search that found nothing. */
 export function emptyMessage(search: MarketplaceSearch): { title: string; text: string } {
   if (search.q.trim()) return { title: 'No places found', text: `Nothing matches “${search.q.trim()}”. Try another word, an area or a city.` };
+  if (searchPath(search).length) return { title: 'No places here yet', text: 'Nothing listed matches every step yet. Go back a step in the trail above.' };
   if (search.category !== 'all' || search.guests) return { title: 'No places here yet', text: 'Try another category, or clear the filters.' };
   return { title: 'No places listed yet', text: 'New places appear here as soon as hosts publish them.' };
 }

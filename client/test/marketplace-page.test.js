@@ -29,7 +29,7 @@ function fakeClient(result) {
 }
 
 test('the search starts from the URL; unknown categories fall back to all', () => {
-  assert.deepEqual({ ...mkt.searchFromQuery({ q: 'Kilimani', category: 'Hotel', guests: '4' }) }, { q: 'Kilimani', category: 'hotel', guests: '4' });
+  assert.deepEqual(JSON.parse(JSON.stringify(mkt.searchFromQuery({ q: 'Kilimani', category: 'Hotel', guests: '4' }))), { q: 'Kilimani', category: 'hotel', guests: '4', path: [] });
   assert.equal(mkt.searchFromQuery({ category: 'castles' }).category, 'all');
   assert.equal(mkt.searchFromQuery({}).q, '');
 });
@@ -177,7 +177,7 @@ test('page: wording; the shared shell sidebar; the shared shell sidebar; the hid
   for (const text of ['Search by area, city or name', 'Listings could not load', 'Load more', 'Marketplace · VaRoom', 'More places could not load.']) {
     assert.ok(page.includes(text), text);
   }
-  assert.match(page, /router\.push\(userId \? href : loginUrl\(href\)\)/, 'visitors sign in first, then return to the listing');
+  assert.match(page, /router\.push\(userId \? target : loginUrl\(target\)\)/, 'visitors sign in first, then return to the listing (with its trail)');
   assert.match(page, /\.appNavigation = true;/);
   assert.doesNotMatch(page, /price-min|verified-only|filters-reset/);
   assert.equal(fs.existsSync(path.join(root, 'components', 'marketplace', 'MarketplaceNav.tsx')), false, 'the role sidebar comes from the shared shell');
@@ -192,7 +192,7 @@ test('page: wording; the shared shell sidebar; the shared shell sidebar; the hid
 
 test('upgrade: one debounced search, removable summary, return to the same place, visitors can sign in', () => {
   const mk = loadTs(path.join(root, 'lib', 'marketplace', 'marketplace.ts'));
-  assert.deepEqual(mk.searchSummary({ q: ' Kilimani ', category: 'hotel', guests: '4' }).map((part) => part.label), ['“Kilimani”', 'Hotels', '4+ guests']);
+  assert.deepEqual(mk.searchSummary({ q: ' Kilimani ', category: 'hotel', guests: '4' }).map((part) => part.label), ['“Kilimani”', '4+ guests'], 'the category is the breadcrumb');
   assert.deepEqual(mk.searchSummary({ q: '', category: 'all', guests: '' }), []);
   assert.equal(mk.emptyMessage({ q: 'zebra', category: 'all', guests: '' }).title, 'No places found');
   assert.doesNotMatch(JSON.stringify(mk.emptyMessage({ q: '', category: 'hotel', guests: '' })), /price/i, 'there is no price filter to widen');

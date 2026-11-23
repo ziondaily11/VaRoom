@@ -20,11 +20,15 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// A property's type: the Marketplace narrows Property by it (migration 000079).
+const PROPERTY_TYPES = ['apartment', 'house', 'bungalow', 'maisonette', 'townhouse', 'villa'];
+
 // Which listing types each structured detail is for (see listing_booking_details).
 const DETAIL_CATEGORIES = {
   units_available: ['property', 'hotel'],
   rooms: ['airbnb', 'hotel'],
   bathrooms: ['property', 'airbnb', 'hotel'],
+  property_type: ['property'],
 };
 
 function canUseListingCategory(hostNiche, category) {
@@ -708,7 +712,7 @@ router.patch('/listings/:id', async (req, res) => {
         'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
         'sale_price_mode', 'units_available', 'bathrooms', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
         'instant_book', 'min_notice_days', 'max_advance_days', 'max_stay_nights',
-        'bedrooms', 'beds', 'seated_capacity', 'standing_capacity',
+        'bedrooms', 'beds', 'seated_capacity', 'standing_capacity', 'property_type',
       ]);
     }
   } catch (error) {
@@ -820,6 +824,8 @@ router.patch('/listings/:id', async (req, res) => {
           throw new ValidationError('available_from is invalid');
         }
         detailUpdate[key] = value;
+      } else if (key === 'property_type') {
+        detailUpdate[key] = value === null ? null : enumValue(value, key, PROPERTY_TYPES);
       } else if (key === 'size_or_type') {
         detailUpdate[key] = value === null ? null : (text(value, key, { required: false, max: 300 }) || null);
       } else if (key === 'policy_storage_path') {
@@ -844,6 +850,9 @@ router.patch('/listings/:id', async (req, res) => {
     const has = (key) => Object.prototype.hasOwnProperty.call(detailUpdate, key) && detailUpdate[key] !== null;
     if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode'].some(has)) {
       throw new ValidationError('Property details are only valid for property listings');
+    }
+    if (!DETAIL_CATEGORIES.property_type.includes(listing.category) && has('property_type')) {
+      throw new ValidationError('A property type is only valid for property listings');
     }
     if (!DETAIL_CATEGORIES.units_available.includes(listing.category) && has('units_available')) {
       throw new ValidationError('Units available is only valid for property and hotel listings');
