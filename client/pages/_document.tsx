@@ -1,6 +1,6 @@
 import Document, { Html, Head, Main, NextScript, type DocumentContext, type DocumentInitialProps } from 'next/document';
 import Script from 'next/script';
-const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
+const { chatsCssHref, chatsThemeCssHref, accountAuthJsHref, accountSwitcherJsHref, googleSignInJsHref } = require('../lib/chatsCssAssets');
 import { themeBootScript as buildThemeBootScript } from '../lib/theme';
 
 // This runs before React or a route's legacy markup is painted.  Keeping the
@@ -40,9 +40,10 @@ export default class VaRoomDocument extends Document<VaRoomDocumentProps> {
         <body>
           <Main />
           <NextScript />
-          <Script src="/js/account-auth.js" strategy="beforeInteractive" />
-          <Script src="/js/account-switcher.js" strategy="beforeInteractive" />
-          <Script src="/js/google-sign-in.js" strategy="beforeInteractive" />
+          {/* Content-hashed copies of public/js (scripts/generate-chats-css-assets.js), cached for a year. */}
+          <Script src={accountAuthJsHref} strategy="beforeInteractive" />
+          <Script src={accountSwitcherJsHref} strategy="beforeInteractive" />
+          <Script src={googleSignInJsHref} strategy="beforeInteractive" />
         </body>
       </Html>
     );

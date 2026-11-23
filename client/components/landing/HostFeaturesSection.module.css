@@ -22,7 +22,7 @@
 /* The small product pieces use the app's interface font; the landing page sets its serif on everything with !important. */
 .section .ui,
 .section .ui * {
-  font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important;
+  font-family: var(--font-landing-sans), 'Segoe UI', Arial, sans-serif !important;
 }
 
 .head {
@@ -34,7 +34,7 @@
 
 .section .eyebrow {
   margin: 0 0 12px;
-  font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important;
+  font-family: var(--font-landing-sans), 'Segoe UI', Arial, sans-serif !important;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.22em;

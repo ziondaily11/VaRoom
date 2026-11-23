@@ -2,18 +2,26 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Copies each file under public/chats-assets/<directory>/<sha256>.<ext>, which
+// vercel.json serves with a one-year immutable cache: a changed file gets a new
+// name, so browsers never keep a stale copy and never revalidate an unchanged one.
 const clientRoot = path.resolve(__dirname, '..');
 const assets = [
   { key: 'chatsCssHref', source: 'public/js/chats.css', directory: 'chats' },
   { key: 'chatsThemeCssHref', source: 'public/js/varoom-dark-theme.css', directory: 'theme' },
+  // The shared account scripts _document loads on every page.
+  { key: 'accountAuthJsHref', source: 'public/js/account-auth.js', directory: 'account-auth' },
+  { key: 'accountSwitcherJsHref', source: 'public/js/account-switcher.js', directory: 'account-switcher' },
+  { key: 'googleSignInJsHref', source: 'public/js/google-sign-in.js', directory: 'google-sign-in' },
 ];
 
 const entries = assets.map(({ key, source, directory }) => {
   const content = fs.readFileSync(path.join(clientRoot, source));
   const hash = crypto.createHash('sha256').update(content).digest('hex');
+  const extension = path.extname(source);
   const outputDirectory = path.join(clientRoot, 'public', 'chats-assets', directory);
   fs.mkdirSync(outputDirectory, { recursive: true });
-  const filename = `${hash}.css`;
+  const filename = `${hash}${extension}`;
   const outputPath = path.join(outputDirectory, filename);
 
   if (!fs.existsSync(outputPath) || !fs.readFileSync(outputPath).equals(content)) {
@@ -21,7 +29,7 @@ const entries = assets.map(({ key, source, directory }) => {
   }
 
   for (const existing of fs.readdirSync(outputDirectory)) {
-    if (existing !== filename && /^[a-f0-9]{64}\.css$/.test(existing)) {
+    if (existing !== filename && /^[a-f0-9]{64}\.(css|js)$/.test(existing)) {
       fs.unlinkSync(path.join(outputDirectory, existing));
     }
   }

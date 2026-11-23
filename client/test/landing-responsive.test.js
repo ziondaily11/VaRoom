@@ -157,8 +157,9 @@ test('landing page 3: the host section, after Spaces, opens sign-up as a host', 
   assert.equal((section.match(/^\s{4}title: '/gm) || []).length, 6);
   assert.match(section, /aria-hidden="true"/);
   assert.match(section, /<Link href="\/pricing"/);
-  // The interface font is loaded with the serif, in one request.
-  assert.match(page, /family=Source\+Serif\+4[^"]*&family=Plus\+Jakarta\+Sans:wght@500;600;700&display=swap/);
+  // The interface font is self-hosted with the serif; the host section uses it by its variable.
+  assert.match(page, /Plus_Jakarta_Sans\(\{ subsets: \['latin'\], variable: '--font-landing-sans', preload: false \}\)/);
+  assert.match(read('components/landing/HostFeaturesSection.module.css'), /font-family: var\(--font-landing-sans\)/);
 });
 
 test('the sign-in panel backdrop draws no border over the page', () => {
