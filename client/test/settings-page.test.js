@@ -191,7 +191,10 @@ test('deactivate / delete: 30 days then deletion as the Privacy Policy says; sig
 test('page: in the shell, legacy wording, phone menu opens the app drawer, legacy page retired', () => {
   const page = read('pages', 'settings.tsx');
   assert.match(page, /window\.dispatchEvent\(new Event\(role === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)\)/);
-  assert.match(page, /wanted === 'notifications'/);
+  assert.match(page, /const view: View = isSection\(wanted\) && \(wanted !== 'plans' \|\| showPlans\) && \(wanted !== 'bookings' \|\| role === 'host'\) \? wanted : 'list';/, '?section= opens any section its owner may see; else the list');
+  assert.match(page, /router\.push\(\{ pathname: '\/settings', query: \{ section: next \} \}, undefined, \{ shallow: true \}\)/, 'a section is a history entry (Back returns to the list)');
+  assert.match(page, /if \(pushedSection\.current\) \{ pushedSection\.current = false; router\.back\(\); \}/, 'back pops the section it pushed');
+  assert.match(read('components', 'settings', 'SettingsIcons.tsx'), /<nav className="detail-crumbs" aria-label="Breadcrumb">[\s\S]*?<li aria-current="page">\{title\}<\/li>/, 'every section has a breadcrumb back to Settings');
   const sections = read('components', 'settings', 'SettingsSections.tsx');
   for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete my account']) {
     assert.ok(sections.includes(text), text);
@@ -274,9 +277,11 @@ test('settings polish: smooth panels, keyboard rows, privacy saves on change, mo
   const styles = read('components', 'settings', 'settingsStyles.ts');
   assert.match(styles, /\.expand-panel\{ display:grid; grid-template-rows:0fr;/);
   assert.match(styles, /\.switch input:checked \+ \.switch-track\{ background:var\(--red\); \}/);
-  assert.match(styles, /nav-forward\.mobile-detail > \[id\^="view-"\]:not\(#view-list\)\{ animation:settings-from-right/);
-  assert.match(styles, /nav-back:not\(\.mobile-detail\) #view-list\{ animation:settings-from-left/);
-  assert.match(styles, /@media \(max-width:860px\)\{[\s\S]*?\.cat-row\.active\{ background:transparent; \}/, 'on phones the list never shows a section as open');
+  assert.match(styles, /nav-forward > \[id\^="view-"\]:not\(#view-list\)\{ animation:settings-from-right/);
+  assert.match(styles, /nav-back #view-list\{ animation:settings-from-left/);
+  assert.match(styles, /#settings-page\.has-selection #view-list\{ display:none !important; \}/, 'one screen at a time: the list or a section');
+  assert.match(styles, /--paper:#FFFFFF;/, 'one white: the sidebar white');
+  assert.doesNotMatch(styles, /\.cat-row\.active|#F7F6F3/, 'no open-row highlight and no second white');
   const reduced = styles.slice(styles.lastIndexOf('@media (prefers-reduced-motion:reduce)'));
   for (const sel of ['.expand-panel', '.switch-track::before', '.btn:active', '#view-list{ animation:none']) assert.ok(reduced.includes(sel.replace('{ animation:none', '')), sel);
 });

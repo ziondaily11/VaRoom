@@ -116,7 +116,7 @@ test('Plans & Billing: hosts only, after Your Account, with every part of the se
   const page = read('pages', 'settings.tsx');
   assert.match(page, /isHost=\{role === 'host'\}/);
   assert.match(page, /view === 'plans' && showPlans/);
-  assert.match(page, /\(wanted === 'plans' && showPlans\) \|\| \(wanted === 'bookings' && role === 'host'\)/);
+  assert.match(page, /\(wanted !== 'plans' \|\| showPlans\) && \(wanted !== 'bookings' \|\| role === 'host'\)/);
   const plans = read('components', 'settings', 'PlansSection.tsx');
   for (const text of ['Subscription', 'Remaining listings', 'Payment Method', 'Billing Information', 'Invoices', 'Danger Zone', 'Cancel subscription', 'Yes, cancel subscription', 'Keep my plan', 'Print or save as PDF', 'Update card']) {
     assert.ok(plans.includes(text), text);
