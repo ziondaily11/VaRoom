@@ -186,6 +186,52 @@ export async function completeGoogleVerification(token: string, fetchFn: typeof 
   return { verified: false, error: (result.error as string) || 'The Google account does not match this VaRoom account.', unlockedUntil: null };
 }
 
+/**
+ * Google re-sign-in for a Google-only account: the server issues a state,
+ * the current session is kept (only to restore this account if Google returns
+ * a different one; it never unlocks anything) and the browser leaves for
+ * Google, coming back to `returnPath` with ?account_verification=google.
+ */
+export async function beginGoogleVerification(client: SupabaseClient, returnPath: string): Promise<void> {
+  const { data } = await client.auth.getSession();
+  const session = data.session;
+  if (!session) throw new Error('Your session has expired. Please sign in again.');
+  await startGoogleVerification(session.access_token);
+  window.sessionStorage.setItem(VERIFICATION_SESSION_KEY, JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }));
+  const separator = returnPath.includes('?') ? '&' : '?';
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}${returnPath}${separator}account_verification=google` },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Back from Google: whether it was the same VaRoom user (server-checked). If
+ * another Google identity replaced the session, the account that started is
+ * put back; when that fails, this browser is signed out to the login page.
+ */
+export async function finishGoogleVerification(client: SupabaseClient, token: string): Promise<{ verified: true; unlockedUntil: string | null } | { verified: false; error: string }> {
+  let saved: { access_token?: string; refresh_token?: string } | null = null;
+  try { saved = JSON.parse(window.sessionStorage.getItem(VERIFICATION_SESSION_KEY) || 'null'); } catch { saved = null; }
+  try {
+    const result = await completeGoogleVerification(token);
+    if (result.verified) return { verified: true, unlockedUntil: result.unlockedUntil };
+    const restored = saved && saved.access_token && saved.refresh_token
+      ? (await client.auth.setSession({ access_token: saved.access_token, refresh_token: saved.refresh_token }), await client.auth.getSession()).data.session
+      : null;
+    if (!restored) {
+      await client.auth.signOut({ scope: 'local' });
+      window.location.href = '/?auth=login&account_verification=failed';
+    }
+    return { verified: false, error: result.error || 'The Google account does not match this VaRoom account.' };
+  } catch {
+    return { verified: false, error: 'Google verification could not be completed. Please try again.' };
+  } finally {
+    try { window.sessionStorage.removeItem(VERIFICATION_SESSION_KEY); } catch { /* ignore */ }
+  }
+}
+
 // ---- Delete account ----
 
 /** As the server accepts them (server.js /api/delete-account). */

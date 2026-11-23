@@ -44,9 +44,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'become-host', topic: 'start', title: 'Become a host',
-    summary: 'Hosts list their spaces on VaRoom. A host account is separate from a client account.',
-    steps: ['In the sidebar, select **Become a Host**.', 'Create your host account and finish the short setup: photo, username, phone and location.', 'Pick what you will list, then add your first listing.'],
-    keywords: 'host account sign up signup become host',
+    summary: 'Hosts list their spaces on VaRoom. Your client account becomes a host account: same email, same sign-in.',
+    steps: ['In the sidebar, select **Become a Host**.', 'Finish the short setup: photo, username, phone and location.', 'Pick what you will list. Your account switches to Host Home, where you add your first listing.'],
+    note: 'Your own bookings stay under Bookings → My trips.',
+    keywords: 'host account sign up signup become host switch convert',
   },
   {
     id: 'dark-mode', topic: 'start', title: 'Turn on dark mode',

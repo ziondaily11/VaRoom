@@ -123,8 +123,9 @@ test('google re-verification: offered by the server; unlocked only when the serv
   await assert.rejects(st.startGoogleVerification('t', async () => json(403, { error: 'Google verification is not available for this account' })), /not available/);
   assert.deepEqual({ ...(await st.completeGoogleVerification('t', async () => json(200, { verified: true, unlockedUntil: '2026-11-06T12:00:00.000Z' }))) }, { verified: true, error: null, unlockedUntil: '2026-11-06T12:00:00.000Z' });
   assert.equal((await st.completeGoogleVerification('t', async () => json(403, { error: 'The Google account does not match this VaRoom account' }))).verified, false);
-  const page = read('pages', 'settings.tsx');
-  assert.match(page, /client\.auth\.setSession\(\{ access_token: saved\.access_token, refresh_token: saved\.refresh_token \}\)/, 'the account that started is restored');
+  // Shared by Settings and Become a Host (lib/settings/settings.ts).
+  assert.match(read('lib', 'settings', 'settings.ts'), /client\.auth\.setSession\(\{ access_token: saved\.access_token, refresh_token: saved\.refresh_token \}\)/, 'the account that started is restored');
+  assert.match(read('pages', 'settings.tsx'), /finishGoogleVerification\(client, token\)\.then/);
 });
 
 test('delete account: a reason (and details for Other), then the server; the server message is shown', async () => {
