@@ -762,6 +762,10 @@ class ElieListing(BaseModel):
     size_or_type: Optional[str] = None
     max_guests: Optional[int] = None
     photo_url: Optional[str] = None
+    photo_path: Optional[str] = None
+    listing_purpose: Optional[str] = None
+    sale_price_amount: Optional[float] = None
+    sale_price_mode: Optional[str] = None
 
 
 class ElieFilters(BaseModel):
@@ -1488,6 +1492,12 @@ def reshape_listing(raw: dict) -> dict:
         "size_or_type": booking.get("size_or_type"),
         "max_guests": booking.get("max_guests"),
         "photo_url": photo_url_from_path(first_photo.get("storage_path")),
+        # The chat's listing card (client) loads the photo by path and prices
+        # it with the Marketplace rules, which need the sale fields.
+        "photo_path": first_photo.get("storage_path"),
+        "listing_purpose": booking.get("listing_purpose"),
+        "sale_price_amount": booking.get("sale_price_amount"),
+        "sale_price_mode": booking.get("sale_price_mode"),
     }
 
 
@@ -1515,7 +1525,7 @@ async def search_listings(
             # Named: listing_likes is a second path from listings to profiles.
             "host:profiles!listings_host_id_fkey(full_name,username,verified),"
             # Inner only when filtering on them: listings without saved details still match other searches.
-            f"booking_details:listing_booking_details{'!inner' if max_price or guests else ''}(price_amount,price_unit,size_or_type,max_guests),"
+            f"booking_details:listing_booking_details{'!inner' if max_price or guests else ''}(price_amount,price_unit,size_or_type,max_guests,listing_purpose,sale_price_amount,sale_price_mode),"
             "photos:listing_photos(storage_path)"
         ),
         "availability_status": "eq.available",

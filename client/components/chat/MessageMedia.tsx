@@ -218,7 +218,8 @@ function listingPhotoUrl(storagePath: string): string {
  * message in the thread (the message reads as a reply to it); compact above
  * the composer before sending. Opens the listing.
  */
-export function ListingEnquiryCard({ listing, compact = false }: { listing: ChatListingSummary; compact?: boolean }) {
+// Elie's search results use it too; `verified` marks a GPS-verified listing.
+export function ListingEnquiryCard({ listing, compact = false, verified = false }: { listing: ChatListingSummary; compact?: boolean; verified?: boolean }) {
   const router = useRouter();
   const photo = listing.listing_photos && listing.listing_photos[0];
   const fallbackUrl = photo ? listingPhotoUrl(photo.storage_path) : '';
@@ -230,7 +231,7 @@ export function ListingEnquiryCard({ listing, compact = false }: { listing: Chat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.id, photo && photo.storage_path]);
   const title = listing.title || 'VaRoom listing';
-  const open = () => { void router.push(`/booking?id=${encodeURIComponent(listing.id)}`); };
+  const open = () => { void router.push(`/booking?listing=${encodeURIComponent(listing.id)}`); };
   return (
     <div
       className={`chat-enquiry-card${compact ? ' is-compact' : ''}`}
@@ -242,6 +243,7 @@ export function ListingEnquiryCard({ listing, compact = false }: { listing: Chat
     >
       <span className="chat-enquiry-media">
         {photoUrl ? <img src={photoUrl} alt="" loading="lazy" /> : <span className="chat-enquiry-empty" aria-hidden="true" />}
+        {verified && <span className="chat-enquiry-badge">GPS verified</span>}
         {!compact && (
           <span className="chat-enquiry-overlay">
             <strong>{title}</strong>
@@ -286,10 +288,10 @@ export function ListingCard({ listing, api, meta }: { listing: ChatListingSummar
       className="chat-listing-card"
       role="link"
       tabIndex={0}
-      onClick={() => { void router.push(`/booking?id=${encodeURIComponent(listing.id)}`); }}
+      onClick={() => { void router.push(`/booking?listing=${encodeURIComponent(listing.id)}`); }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') return;
-        void router.push(`/booking?id=${encodeURIComponent(listing.id)}`);
+        void router.push(`/booking?listing=${encodeURIComponent(listing.id)}`);
       }}
     >
       {video ? (

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VcoinWallet } from './vcoins';
+import type { ChatListingSummary } from '../chatCache';
 
 // Elie, the VaRoom search assistant (ported from public/js/chat-data.js).
 // The request, response and history rules live here; the page renders them.
@@ -16,8 +17,16 @@ export interface ElieListingResult {
   id: string;
   title?: string;
   location_text?: string;
+  category?: string | null;
   size_or_type?: string;
   price_amount?: number | string | null;
+  price_unit?: string | null;
+  listing_purpose?: string | null;
+  sale_price_amount?: number | string | null;
+  sale_price_mode?: string | null;
+  /** The first photo's storage path (photo_url is its public URL). */
+  photo_path?: string | null;
+  photo_url?: string | null;
   verified?: boolean;
 }
 
@@ -57,10 +66,31 @@ export function elieResponseEntries(data: ElieResponse): ElieEntry[] {
   return entries;
 }
 
-/** "Location · size · KSh price" for a listing result. */
-export function elieListingMeta(listing: ElieListingResult): string {
-  const price = listing.price_amount ? `KSh ${Number(listing.price_amount).toLocaleString()}` : '';
-  return [listing.location_text, listing.size_or_type, price].filter(Boolean).join(' · ');
+const PHOTO_BUCKET_PATH = '/storage/v1/object/public/listing-photos/';
+
+/**
+ * A listing Elie found, as the chat's listing card takes it: the photo by its
+ * storage path and the booking details the Marketplace price reads.
+ */
+export function elieListingSummary(listing: ElieListingResult): ChatListingSummary {
+  const fromUrl = listing.photo_url && listing.photo_url.includes(PHOTO_BUCKET_PATH)
+    ? decodeURIComponent(listing.photo_url.split(PHOTO_BUCKET_PATH)[1] || '') : '';
+  const photoPath = listing.photo_path || fromUrl;
+  const hasPrice = listing.price_amount != null || listing.sale_price_amount != null;
+  return {
+    id: listing.id,
+    title: listing.title || null,
+    location_text: listing.location_text || null,
+    category: listing.category || null,
+    listing_photos: photoPath ? [{ storage_path: photoPath }] : [],
+    listing_booking_details: hasPrice ? {
+      price_amount: listing.price_amount ?? null,
+      price_unit: listing.price_unit || null,
+      listing_purpose: listing.listing_purpose || null,
+      sale_price_amount: listing.sale_price_amount ?? null,
+      sale_price_mode: listing.sale_price_mode || null,
+    } : null,
+  };
 }
 
 export class ElieRequestError extends Error {}

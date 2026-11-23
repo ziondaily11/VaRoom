@@ -826,6 +826,7 @@
   .chat-enquiry-overlay strong{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.875rem; font-weight:700; line-height:1.3; }
   .chat-enquiry-overlay small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.7188rem; opacity:.88; }
   .chat-enquiry-price{ display:block; margin-top:3px; font-size:0.8125rem; font-weight:700; }
+  .chat-enquiry-badge{ position:absolute; top:10px; left:10px; z-index:1; padding:3px 8px; border-radius:999px; background:rgba(8,11,14,.6); color:#fff; font-size:0.6563rem; font-weight:700; }
   .chat-enquiry-card.is-compact{ display:flex; align-items:center; gap:10px; width:auto; flex:1; min-width:0; margin:0; border-radius:0; overflow:visible; }
   .chat-enquiry-card.is-compact .chat-enquiry-media{ flex-shrink:0; width:52px; height:52px; aspect-ratio:auto; border-radius:8px; overflow:hidden; }
   .chat-enquiry-text{ display:block; min-width:0; }
@@ -922,6 +923,9 @@
   .elie-results{ align-self:flex-start; display:grid; gap:8px; width:min(100%,560px); margin-top:-8px; }
   .elie-result-card{ display:flex; flex-direction:column; gap:4px; padding:12px 14px; border:1px solid var(--border); border-radius:12px; color:var(--text-dark); text-decoration:none; background:var(--white); }
   .elie-result-card:hover{ background:var(--bg-soft); border-color:var(--mint); }
+  /* Elie's listings: the chat's listing card, two side by side where they fit. */
+  .elie-listing-results{ grid-template-columns:repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+  .elie-listing-results .chat-enquiry-card{ min-width:0; margin:0; border:1px solid var(--border); }
   .elie-result-card strong{ font-size:0.8125rem; }.elie-result-card span{ font-size:0.75rem; color:var(--text-gray-2); }.elie-result-card em{ color:var(--mint-dark); font-size:0.6875rem; font-style:normal; font-weight:700; }
   /* Elie Header Hamburger Button */
   .elie-history-toggle{
