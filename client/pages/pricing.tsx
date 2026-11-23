@@ -212,7 +212,7 @@ export default function PricingPage() {
               )}
             </div>
           )}
-          <div ref={plansRef} onScroll={onPlansScroll} className={`plans${cards && cards.length === 4 ? ' plans--four' : ''}`} aria-busy={cards ? undefined : 'true'}>
+          <div ref={plansRef} onScroll={onPlansScroll} className={`plans${cards && cards.length === 4 ? ' plans--four' : cards && cards.length === 2 ? ' plans--two' : ''}`} aria-busy={cards ? undefined : 'true'}>
             {(cards || []).map((card, index) => {
               const current = card.id === currentId;
               const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;

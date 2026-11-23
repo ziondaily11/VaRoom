@@ -32,6 +32,10 @@ test('Property and Shops & Offices show Silver and Gold, priced per listing by t
   assert.match(page, /card\.perListing \? '\/listing'/, 'priced per listing, not per month');
   assert.match(page, /perListing \? \(/, 'the monthly / yearly switch is hidden for per-listing plans');
   assert.ok(page.includes('the 30 days start when you publish it'));
+  assert.match(page, /cards && cards\.length === 2 \? ' plans--two'/, 'two plans get their own layout');
+  const styles = read('components', 'pricing', 'pricingStyles.ts');
+  assert.match(styles, /@media \(min-width:981px\)\{\s*\.pricing-page \.plans\.plans--two\{ grid-template-columns:repeat\(2, calc\(\(100% - 3\.2em\) \/ 3\)\); justify-content:center; \}/,
+    'Silver and Gold are centred at three-card width on wide screens; phones keep the sideways list');
 });
 
 test('legacy niche plans fill cards in order with the original wording', () => {
