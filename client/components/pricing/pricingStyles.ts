@@ -186,6 +186,11 @@ export const PRICING_STYLES = `
   @media (max-width:1180px){
     .pricing-page .plans.plans--four{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   }
+  /* Property and Shops & Offices have two plans (Silver, Gold): the same card width as three, centred.
+     Wide screens only; phones keep the sideways list. */
+  @media (min-width:981px){
+    .pricing-page .plans.plans--two{ grid-template-columns:repeat(2, calc((100% - 3.2em) / 3)); justify-content:center; }
+  }
   @media (max-width:980px){
     .pricing-page{ font-size:0.9375rem; overflow-x:hidden; overflow-y:auto; }
     .pricing-page .pricing-top{ padding:1.1rem 1.3rem; }
