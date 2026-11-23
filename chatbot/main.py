@@ -81,6 +81,41 @@ GEMINI_EFFORT = GEMINI_CAPACITY
 # Retain GEMINI_MODEL reference for backward compatibility
 GEMINI_MODEL = PRIMARY_GEMINI_MODEL
 
+# OpenRouter: one key, any model. It tries OPENROUTER_MODEL, then the fallback
+# (best from another company, so one outage doesn't take out both).
+OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_MODEL = (os.getenv("OPENROUTER_MODEL") or "anthropic/claude-haiku-5.5").strip()
+OPENROUTER_FALLBACK_MODEL = (os.getenv("OPENROUTER_FALLBACK_MODEL") or "openai/gpt-5.6-luna").strip()
+# Reasoning effort for models that think (none, minimal, low, ...). Unset sends
+# nothing: some models reject the option.
+OPENROUTER_REASONING = (os.getenv("OPENROUTER_REASONING") or "").strip().lower()
+
+# Which service writes Elie's replies. OpenRouter whenever its key is set,
+# unless LLM_PROVIDER=gemini (switch back without a code change).
+LLM_PROVIDER = (os.getenv("LLM_PROVIDER") or ("openrouter" if OPENROUTER_API_KEY else "gemini")).strip().lower()
+if LLM_PROVIDER not in ("openrouter", "gemini"):
+    logger.warning("Unknown LLM_PROVIDER=%s; using gemini", LLM_PROVIDER)
+    LLM_PROVIDER = "gemini"
+
+
+def ai_settings() -> Dict[str, Any]:
+    """The provider and models in use (never the key), for logs, /health and diagnostics."""
+    if LLM_PROVIDER == "openrouter":
+        return {
+            "provider": "openrouter",
+            "primary_model": OPENROUTER_MODEL,
+            "fallback_model": OPENROUTER_FALLBACK_MODEL,
+            "capacity": OPENROUTER_REASONING or None,
+            "ai_configured": bool(OPENROUTER_API_KEY),
+        }
+    return {
+        "provider": "gemini",
+        "primary_model": PRIMARY_GEMINI_MODEL,
+        "fallback_model": FALLBACK_GEMINI_MODEL,
+        "capacity": GEMINI_CAPACITY,
+        "ai_configured": bool(GEMINI_API_KEY),
+    }
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -125,16 +160,18 @@ def get_or_create_correlation_id(request: Optional[Request] = None, header_val: 
     return f"ELIE-{uuid.uuid4().hex[:8].upper()}"
 
 # ── Startup diagnostics (No secret keys logged) ─────────────────────────
+_ai = ai_settings()
 logger.info(
-    "[Elie] Initialized models: primary=%s fallback=%s capacity=%s | key_configured=%s | supabase_configured=%s",
-    PRIMARY_GEMINI_MODEL,
-    FALLBACK_GEMINI_MODEL,
-    GEMINI_CAPACITY,
-    bool(GEMINI_API_KEY),
+    "[Elie] Initialized provider=%s primary=%s fallback=%s capacity=%s | key_configured=%s | supabase_configured=%s",
+    _ai["provider"],
+    _ai["primary_model"],
+    _ai["fallback_model"],
+    _ai["capacity"],
+    _ai["ai_configured"],
     bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
 )
-if not GEMINI_API_KEY:
-    logger.warning("[Elie] ⚠ WARNING: GEMINI_API_KEY is not set — AI calls will fail or use fallbacks.")
+if not _ai["ai_configured"]:
+    logger.warning("[Elie] ⚠ WARNING: no API key for provider %s — AI calls will fail or use fallbacks.", _ai["provider"])
 
 # The values stored in listings.category (server/routes/listingRoutes.js).
 VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
@@ -187,27 +224,28 @@ app.add_middleware(
 
 
 # ============================================================
-# Gemini Error Classification & Core Engine
+# Model Error Classification & Core Engine (Gemini and OpenRouter)
 # ============================================================
 
-class GeminiErrorCategory:
-    AUTH_ERROR = "GEMINI_AUTH_ERROR"
-    MODEL_ERROR = "GEMINI_MODEL_ERROR"
-    QUOTA_ERROR = "GEMINI_QUOTA_ERROR"
-    RATE_LIMIT = "GEMINI_RATE_LIMIT"
-    PROVIDER_5XX = "GEMINI_PROVIDER_5XX"
-    TIMEOUT = "GEMINI_TIMEOUT"
-    NETWORK_ERROR = "GEMINI_NETWORK_ERROR"
-    EMPTY_RESPONSE = "GEMINI_EMPTY_RESPONSE"
-    SAFETY_BLOCK = "GEMINI_SAFETY_BLOCK"
-    INVALID_OUTPUT = "GEMINI_INVALID_OUTPUT"
-    CLIENT_ERROR = "GEMINI_CLIENT_ERROR"
-    UNKNOWN_ERROR = "GEMINI_UNKNOWN_ERROR"
+class LLMErrorCategory:
+    AUTH_ERROR = "LLM_AUTH_ERROR"
+    MODEL_ERROR = "LLM_MODEL_ERROR"
+    QUOTA_ERROR = "LLM_QUOTA_ERROR"
+    RATE_LIMIT = "LLM_RATE_LIMIT"
+    PROVIDER_5XX = "LLM_PROVIDER_5XX"
+    TIMEOUT = "LLM_TIMEOUT"
+    NETWORK_ERROR = "LLM_NETWORK_ERROR"
+    EMPTY_RESPONSE = "LLM_EMPTY_RESPONSE"
+    SAFETY_BLOCK = "LLM_SAFETY_BLOCK"
+    INVALID_OUTPUT = "LLM_INVALID_OUTPUT"
+    CLIENT_ERROR = "LLM_CLIENT_ERROR"
+    CREDITS = "LLM_CREDITS"
+    UNKNOWN_ERROR = "LLM_UNKNOWN_ERROR"
 
 
 class ElieGenerationError(RuntimeError):
-    """Raised when Gemini cannot produce the response Elie needs."""
-    def __init__(self, message: str, category: str = GeminiErrorCategory.UNKNOWN_ERROR, status_code: int = 503):
+    """Raised when the model cannot produce the response Elie needs."""
+    def __init__(self, message: str, category: str = LLMErrorCategory.UNKNOWN_ERROR, status_code: int = 503):
         super().__init__(message)
         self.category = category
         self.status_code = status_code
@@ -240,10 +278,10 @@ async def call_gemini(
     """
     req_id = request_id or get_or_create_correlation_id()
     if not GEMINI_API_KEY:
-        logger.error("request_id=%s stage=%s error=GEMINI_AUTH_ERROR detail=API key not configured", req_id, stage)
+        logger.error("request_id=%s stage=%s error=LLM_AUTH_ERROR detail=API key not configured", req_id, stage)
         raise ElieGenerationError(
             "Gemini API key is not configured.",
-            category=GeminiErrorCategory.AUTH_ERROR,
+            category=LLMErrorCategory.AUTH_ERROR,
             status_code=500,
         )
 
@@ -267,7 +305,7 @@ async def call_gemini(
         models_to_try.append(FALLBACK_GEMINI_MODEL)
 
     start_time = time.monotonic()
-    last_category = GeminiErrorCategory.UNKNOWN_ERROR
+    last_category = LLMErrorCategory.UNKNOWN_ERROR
     last_status = 500
 
     for model_idx, model in enumerate(models_to_try):
@@ -282,7 +320,7 @@ async def call_gemini(
                     "request_id=%s stage=%s model=%s attempt=%d decision=budget_exhausted elapsed_ms=%d",
                     req_id, stage, model, attempt, int(elapsed * 1000)
                 )
-                last_category = GeminiErrorCategory.TIMEOUT
+                last_category = LLMErrorCategory.TIMEOUT
                 last_status = 504
                 break
 
@@ -308,7 +346,7 @@ async def call_gemini(
                         data = response.json()
                         prompt_feedback = data.get("promptFeedback") or {}
                         if prompt_feedback.get("blockReason"):
-                            last_category = GeminiErrorCategory.SAFETY_BLOCK
+                            last_category = LLMErrorCategory.SAFETY_BLOCK
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s block_reason=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category, prompt_feedback.get("blockReason")
@@ -321,7 +359,7 @@ async def call_gemini(
 
                         candidates = data.get("candidates") or []
                         if not candidates:
-                            last_category = GeminiErrorCategory.EMPTY_RESPONSE
+                            last_category = LLMErrorCategory.EMPTY_RESPONSE
                             last_status = 503
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s",
@@ -335,7 +373,7 @@ async def call_gemini(
                         candidate = candidates[0]
                         finish_reason = candidate.get("finishReason")
                         if finish_reason in ("SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT"):
-                            last_category = GeminiErrorCategory.SAFETY_BLOCK
+                            last_category = LLMErrorCategory.SAFETY_BLOCK
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category, finish_reason
@@ -354,7 +392,7 @@ async def call_gemini(
                         ).strip()
 
                         if not text:
-                            last_category = GeminiErrorCategory.EMPTY_RESPONSE
+                            last_category = LLMErrorCategory.EMPTY_RESPONSE
                             last_status = 503
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
@@ -375,7 +413,7 @@ async def call_gemini(
                     status = response.status_code
                     last_status = status
                     if status == 429:
-                        last_category = GeminiErrorCategory.RATE_LIMIT
+                        last_category = LLMErrorCategory.RATE_LIMIT
                         logger.warning(
                             "request_id=%s stage=%s model=%s attempt=%d status=429 duration_ms=%d category=%s",
                             req_id, stage, model, attempt, attempt_duration_ms, last_category
@@ -388,7 +426,7 @@ async def call_gemini(
                         break
 
                     elif status in (401, 403):
-                        last_category = GeminiErrorCategory.AUTH_ERROR
+                        last_category = LLMErrorCategory.AUTH_ERROR
                         logger.error(
                             "request_id=%s stage=%s model=%s attempt=%d status=%d duration_ms=%d category=%s",
                             req_id, stage, model, attempt, status, attempt_duration_ms, last_category
@@ -400,7 +438,7 @@ async def call_gemini(
                         )
 
                     elif status == 404:
-                        last_category = GeminiErrorCategory.MODEL_ERROR
+                        last_category = LLMErrorCategory.MODEL_ERROR
                         logger.error(
                             "request_id=%s stage=%s model=%s attempt=%d status=404 duration_ms=%d category=%s detail=model_not_found",
                             req_id, stage, model, attempt, attempt_duration_ms, last_category
@@ -409,7 +447,7 @@ async def call_gemini(
                         break
 
                     elif 400 <= status < 500:
-                        last_category = GeminiErrorCategory.CLIENT_ERROR
+                        last_category = LLMErrorCategory.CLIENT_ERROR
                         raw_err = response.text[:1000]
                         clean_err = re.sub(r'AIza[0-9A-Za-z-_]{35}', '[REDACTED_API_KEY]', raw_err)
                         logger.error(
@@ -423,7 +461,7 @@ async def call_gemini(
                         )
 
                     elif status >= 500:
-                        last_category = GeminiErrorCategory.PROVIDER_5XX
+                        last_category = LLMErrorCategory.PROVIDER_5XX
                         logger.warning(
                             "request_id=%s stage=%s model=%s attempt=%d status=%d duration_ms=%d category=%s decision=retry",
                             req_id, stage, model, attempt, status, attempt_duration_ms, last_category
@@ -442,9 +480,9 @@ async def call_gemini(
                 attempt_duration_ms = int((time.monotonic() - attempt_start) * 1000)
                 last_status = 504 if isinstance(e, httpx.TimeoutException) else 502
                 last_category = (
-                    GeminiErrorCategory.TIMEOUT
+                    LLMErrorCategory.TIMEOUT
                     if isinstance(e, httpx.TimeoutException)
-                    else GeminiErrorCategory.NETWORK_ERROR
+                    else LLMErrorCategory.NETWORK_ERROR
                 )
                 # A model that timed out is slow right now: a second wait on it
                 # would use up the budget before the other model gets a turn.
@@ -463,7 +501,7 @@ async def call_gemini(
 
             except Exception as e:
                 attempt_duration_ms = int((time.monotonic() - attempt_start) * 1000)
-                last_category = GeminiErrorCategory.UNKNOWN_ERROR
+                last_category = LLMErrorCategory.UNKNOWN_ERROR
                 last_status = 500
                 logger.exception(
                     "request_id=%s stage=%s model=%s attempt=%d status=0 duration_ms=%d category=%s error=%s",
@@ -481,6 +519,149 @@ async def call_gemini(
         category=last_category,
         status_code=last_status if last_status >= 400 else 503,
     )
+
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+# OpenRouter status -> (category, worth another attempt). 402: out of credits;
+# 403: its moderation flagged the input.
+OPENROUTER_ERRORS = {
+    400: (LLMErrorCategory.CLIENT_ERROR, False),
+    401: (LLMErrorCategory.AUTH_ERROR, False),
+    402: (LLMErrorCategory.CREDITS, False),
+    403: (LLMErrorCategory.SAFETY_BLOCK, False),
+    404: (LLMErrorCategory.MODEL_ERROR, False),
+    408: (LLMErrorCategory.TIMEOUT, True),
+    429: (LLMErrorCategory.RATE_LIMIT, True),
+}
+
+
+async def call_openrouter(
+    prompt: str,
+    *,
+    request_id: Optional[str] = None,
+    stage: str = "general",
+    response_json: bool = False,
+    max_output_tokens: Optional[int] = None,
+    max_attempts_per_model: int = 2,
+    total_time_budget: float = 18.0,
+    per_attempt_timeout: float = 8.0,
+    thinking_level: Optional[str] = None,
+) -> str:
+    """
+    Asks OpenRouter, which tries the primary model and then the fallback
+    itself. An attempt worth repeating (timeout, rate limit, outage, empty
+    answer) is sent again with the other model first, within the same time
+    budget as Gemini. thinking_level is Gemini's; OpenRouter uses
+    OPENROUTER_REASONING.
+    """
+    req_id = request_id or get_or_create_correlation_id()
+    if not OPENROUTER_API_KEY:
+        logger.error("request_id=%s stage=%s error=LLM_AUTH_ERROR detail=API key not configured", req_id, stage)
+        raise ElieGenerationError("OpenRouter API key is not configured.", category=LLMErrorCategory.AUTH_ERROR, status_code=500)
+
+    models = list(dict.fromkeys(model for model in (OPENROUTER_MODEL, OPENROUTER_FALLBACK_MODEL) if model))
+    body: Dict[str, Any] = {"messages": [{"role": "user", "content": prompt}]}
+    if response_json:
+        body["response_format"] = {"type": "json_object"}
+    if max_output_tokens is not None:
+        body["max_tokens"] = max_output_tokens
+    if OPENROUTER_REASONING:
+        body["reasoning"] = {"effort": OPENROUTER_REASONING, "exclude": True}
+    headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "X-Title": "VaRoom Elie"}
+
+    start_time = time.monotonic()
+    category, status = LLMErrorCategory.UNKNOWN_ERROR, 503
+    for attempt in range(1, max_attempts_per_model + 1):
+        remaining = total_time_budget - (time.monotonic() - start_time)
+        if remaining <= 1.0:
+            category, status = LLMErrorCategory.TIMEOUT, 504
+            break
+        shift = (attempt - 1) % len(models)
+        order = models[shift:] + models[:shift]
+        timeout = min(per_attempt_timeout, remaining)
+        attempt_start = time.monotonic()
+        log_args = (req_id, stage, ",".join(order), attempt)
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(4.0, timeout))) as client:
+                response = await client.post(OPENROUTER_URL, headers=headers, json={**body, "models": order})
+        except httpx.TransportError as exc:  # timeouts included
+            timed_out = isinstance(exc, httpx.TimeoutException)
+            category, status = (LLMErrorCategory.TIMEOUT, 504) if timed_out else (LLMErrorCategory.NETWORK_ERROR, 502)
+            logger.warning(
+                "request_id=%s stage=%s provider=openrouter models=%s attempt=%d status=0 duration_ms=%d category=%s error=%s",
+                *log_args, int((time.monotonic() - attempt_start) * 1000), category, type(exc).__name__,
+            )
+            continue
+        duration_ms = int((time.monotonic() - attempt_start) * 1000)
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+        data = data if isinstance(data, dict) else {}
+        choice = ((data.get("choices") or [{}])[0] or {}) if response.status_code == 200 else {}
+        error = data.get("error") or choice.get("error")
+        code = response.status_code
+        if code == 200 and error:  # OpenRouter can report a failure inside a 200
+            error_code = error.get("code") if isinstance(error, dict) else None
+            code = error_code if isinstance(error_code, int) and error_code >= 400 else 502
+
+        if code == 200:
+            message = choice.get("message") or {}
+            text = message.get("content")
+            text = text.strip() if isinstance(text, str) else ""
+            finish_reason = choice.get("finish_reason")
+            if finish_reason == "content_filter" or message.get("refusal"):
+                logger.warning(
+                    "request_id=%s stage=%s provider=openrouter models=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
+                    *log_args, duration_ms, LLMErrorCategory.SAFETY_BLOCK, finish_reason,
+                )
+                raise ElieGenerationError("The model declined the request.", category=LLMErrorCategory.SAFETY_BLOCK, status_code=400)
+            if text:
+                answered_by = str(data.get("model") or "")
+                logger.info(
+                    "request_id=%s stage=%s provider=openrouter model=%s attempt=%d status=200 duration_ms=%d result=success finish_reason=%s is_fallback=%s",
+                    req_id, stage, answered_by, attempt, duration_ms, finish_reason, not answered_by.startswith(models[0]),
+                )
+                return text
+            category, status = LLMErrorCategory.EMPTY_RESPONSE, 503
+            logger.warning(
+                "request_id=%s stage=%s provider=openrouter models=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
+                *log_args, duration_ms, category, finish_reason,
+            )
+            continue
+
+        category, retry = OPENROUTER_ERRORS.get(
+            code, (LLMErrorCategory.PROVIDER_5XX, True) if code >= 500 else (LLMErrorCategory.CLIENT_ERROR, False)
+        )
+        status = code
+        detail = error.get("message") if isinstance(error, dict) else ""
+        detail = re.sub(r"sk-or-[\w-]+", "[REDACTED_API_KEY]", str(detail or ""))[:300]
+        (logger.warning if retry else logger.error)(
+            "request_id=%s stage=%s provider=openrouter models=%s attempt=%d status=%d duration_ms=%d category=%s decision=%s detail=%s",
+            *log_args, code, duration_ms, category, "retry" if retry else "stop", detail,
+        )
+        if not retry:
+            raise ElieGenerationError(f"OpenRouter request failed ({category}).", category=category, status_code=code)
+        backoff = min(0.5 * attempt, total_time_budget - (time.monotonic() - start_time) - 1.0)
+        if attempt < max_attempts_per_model and backoff > 0.1:
+            await asyncio.sleep(backoff)
+
+    logger.error(
+        "request_id=%s stage=%s provider=openrouter result=all_attempts_failed category=%s status=%d total_duration_ms=%d",
+        req_id, stage, category, status, int((time.monotonic() - start_time) * 1000),
+    )
+    raise ElieGenerationError(
+        f"OpenRouter generation failed ({category}).",
+        category=category,
+        status_code=status if status >= 400 else 503,
+    )
+
+
+async def call_llm(prompt: str, **options: Any) -> str:
+    """Elie's one way to ask a model; LLM_PROVIDER picks the service."""
+    if LLM_PROVIDER == "openrouter":
+        return await call_openrouter(prompt, **options)
+    return await call_gemini(prompt, **options)
 
 
 # ============================================================
@@ -649,7 +830,7 @@ async def generate_ai_reply(
     try:
         # Express waits up to 60 s for a reply (cold start included); a short
         # reply needs little reasoning.
-        raw = await call_gemini(
+        raw = await call_llm(
             prompt,
             request_id=req_id,
             stage="host_reply",
@@ -1242,7 +1423,7 @@ async def generate_no_results_reply(
             "Respond with ONLY the reply text, nothing else — no quotes, no JSON."
         )
 
-        reply = await call_gemini(
+        reply = await call_llm(
             prompt,
             request_id=req_id,
             stage="no_results",
@@ -1355,11 +1536,11 @@ async def classify_message(
 
     # Sorting a message into chat/search/news needs little reasoning; at the
     # default (medium) attempts ran past their 8 s timeout.
-    raw = await call_gemini(prompt, request_id=req_id, stage="classification", response_json=True, thinking_level="low")
+    raw = await call_llm(prompt, request_id=req_id, stage="classification", response_json=True, thinking_level="low")
     if not raw or not raw.strip():
         raise ElieGenerationError(
-            "Gemini did not return a valid response for classification.",
-            category=GeminiErrorCategory.EMPTY_RESPONSE,
+            "The model did not return a valid response for classification.",
+            category=LLMErrorCategory.EMPTY_RESPONSE,
             status_code=503,
         )
 
@@ -1372,7 +1553,7 @@ async def classify_message(
             return {"intent": "chat", "chat_reply": raw.strip()[:CHAT_REPLY_MAX_CHARS]}
         raise ElieGenerationError(
             "Gemini returned an empty Elie response.",
-            category=GeminiErrorCategory.EMPTY_RESPONSE,
+            category=LLMErrorCategory.EMPTY_RESPONSE,
             status_code=503,
         )
 
@@ -1679,7 +1860,7 @@ async def generate_news_reply(
         f"Question: {query}\nEvidence:\n{evidence_block}\n"
     )
     try:
-        reply = await call_gemini(prompt, request_id=req_id, stage="news_reply")
+        reply = await call_llm(prompt, request_id=req_id, stage="news_reply")
         if reply and reply.strip():
             return reply.strip()
     except Exception as exc:
@@ -1798,7 +1979,7 @@ async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> El
         # Provider details stay in the log (with the request ID, also sent as
         # X-Correlation-ID); the guest only sees a plain message.
         logger.error("request_id=%s stage=classification error=%s status=%d", req_id, exc.category, exc.status_code)
-        if exc.category == GeminiErrorCategory.SAFETY_BLOCK:
+        if exc.category == LLMErrorCategory.SAFETY_BLOCK:
             return ElieSearchResponse(
                 reply="I can't help with that one, but I'm happy to help you find a place to stay, work or hold an event."
             )
@@ -1895,31 +2076,29 @@ async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> El
 
 @app.get("/health")
 def health_check():
-    """Lightweight, offline health check that never generates external Gemini pings."""
+    """Lightweight, offline health check that never calls the model."""
     return {
         "status": "ok",
-        "primary_model": PRIMARY_GEMINI_MODEL,
-        "fallback_model": FALLBACK_GEMINI_MODEL,
-        "capacity": GEMINI_CAPACITY,
-        "ai_configured": bool(GEMINI_API_KEY),
+        **ai_settings(),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
 
 
 @app.get("/elie/diagnostics")
 async def elie_diagnostics(request: Request, authorization: Optional[str] = Header(None)):
-    """Safe, bounded diagnostic probe to verify Gemini connectivity and measure latency."""
+    """Safe, bounded diagnostic probe to verify model connectivity and measure latency."""
     req_id = get_or_create_correlation_id(request)
     start_time = time.monotonic()
     connectivity_ok = False
     error_detail = None
     latency_ms = None
 
-    if not GEMINI_API_KEY:
-        error_detail = "GEMINI_API_KEY is not configured"
+    settings = ai_settings()
+    if not settings["ai_configured"]:
+        error_detail = f"No API key is configured for {settings['provider']}"
     else:
         try:
-            result = await call_gemini(
+            result = await call_llm(
                 "Respond with the word OK.",
                 request_id=req_id,
                 stage="diagnostics",
@@ -1932,7 +2111,7 @@ async def elie_diagnostics(request: Request, authorization: Optional[str] = Head
             if result:
                 connectivity_ok = True
             else:
-                error_detail = "Gemini returned empty or rejected response"
+                error_detail = "The model returned an empty or rejected response"
         except ElieGenerationError as exc:
             latency_ms = int((time.monotonic() - start_time) * 1000)
             error_detail = f"Diagnostic probe failed: {exc.category} (status={exc.status_code})"
@@ -1943,12 +2122,9 @@ async def elie_diagnostics(request: Request, authorization: Optional[str] = Head
     return {
         "status": "ok" if connectivity_ok else "degraded",
         "request_id": req_id,
-        "primary_model": PRIMARY_GEMINI_MODEL,
-        "fallback_model": FALLBACK_GEMINI_MODEL,
-        "capacity": GEMINI_CAPACITY,
-        "ai_configured": bool(GEMINI_API_KEY),
+        **settings,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
-        "gemini_connectivity": connectivity_ok,
+        "ai_connectivity": connectivity_ok,
         "latency_ms": latency_ms,
         "error": error_detail,
     }
