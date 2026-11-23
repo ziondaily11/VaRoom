@@ -1,132 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { getSupabaseClient } from '../../lib/supabase/client';
-import {
-  ElieRequestError,
-  askElie,
-  beginElieQuestion,
-  createElieRecorder,
-  elieEntryId,
-  elieResponseEntries,
-  listElieSessions,
-  loadElieTurns,
-  type ElieEntry,
-  type ElieSessionSummary,
-  type ElieTurn,
-} from '../../lib/chat/elie';
-import { fetchVcoins, type VcoinWallet } from '../../lib/chat/vcoins';
+import { EMPTY_ELIE_STATE, createElieStore, type ElieStore } from '../../lib/chat/elieStore';
 
-// The Elie conversation: thread entries, the history sent with each question,
-// saving turns to the user's search history, and loading past sessions.
-// A newer action (new conversation, loaded session) makes in-flight replies stale.
-// It also keeps the V-Coin wallet: loaded once per account, then updated by each answer.
+// The Elie conversation for the Chats page. It lives in one store for the
+// whole app (lib/chat/elieStore.ts), so leaving Elie, the chat or the page
+// never stops or loses it.
+
+let shared: ElieStore | null = null;
+function elieStore(): ElieStore {
+  if (!shared) {
+    shared = createElieStore({
+      getClient: getSupabaseClient,
+      getStorage: () => (typeof window === 'undefined' ? null : window.localStorage),
+      getToken: async () => {
+        const client = getSupabaseClient();
+        return client ? (await client.auth.getSession()).data.session?.access_token ?? null : null;
+      },
+    });
+  }
+  return shared;
+}
 
 export function useElie(userId: string | null) {
-  const [entries, setEntries] = useState<ElieEntry[]>([]);
-  const [thinking, setThinking] = useState(false);
-  const historyRef = useRef<ElieTurn[]>([]);
-  const generationRef = useRef(0);
-  const recorderRef = useRef(createElieRecorder(null, null));
-  const [wallet, setWallet] = useState<VcoinWallet | null>(null);
-  const [topupSignal, setTopupSignal] = useState(0);
-  const walletUserRef = useRef<string | null>(null);
-  const userRef = useRef(userId);
-  userRef.current = userId;
-
-  const reset = useCallback(() => {
-    generationRef.current += 1;
-    historyRef.current = [];
-    recorderRef.current = createElieRecorder(getSupabaseClient(), userId);
-    setEntries([]);
-    setThinking(false);
-  }, [userId]);
-
-  // A new account starts a new conversation, and never sees the previous account's coins.
-  useEffect(() => { reset(); setWallet(null); walletUserRef.current = null; }, [reset]);
-
-  /** Loads the wallet once per account (Elie opened); answers keep it current after that. */
-  const loadWallet = useCallback(async () => {
-    if (!userId || walletUserRef.current === userId) return;
-    walletUserRef.current = userId;
-    try {
-      const client = getSupabaseClient();
-      const token = client ? (await client.auth.getSession()).data.session?.access_token ?? null : null;
-      if (!token) throw new Error('No session');
-      const result = await fetchVcoins(token);
-      if (walletUserRef.current === userId) setWallet({ balance: result.balance, included: result.included });
-    } catch (error) {
-      if (walletUserRef.current === userId) walletUserRef.current = null;
-      console.warn('Unable to load V-Coins:', error);
-    }
-  }, [userId]);
-
-  // `retry`: ask the same question again without adding it to the thread,
-  // the history or the saved session a second time.
-  const send = useCallback(async (text: string, { retry = false }: { retry?: boolean } = {}) => {
-    const question = text.trim();
-    if (!question) return;
-    const generation = generationRef.current;
-    const asker = userRef.current;
-    const recorder = recorderRef.current;
-    const asked = beginElieQuestion(question, { retry, history: historyRef.current, recorder });
-    if (asked) setEntries((prev) => [...prev, asked]);
-    setThinking(true);
-    try {
-      const client = getSupabaseClient();
-      const token = client ? (await client.auth.getSession()).data.session?.access_token ?? null : null;
-      const data = await askElie({ message: question, history: historyRef.current, token });
-      // A new conversation still shows the coins spent; another account never does.
-      if (data.vcoins && asker === userRef.current) setWallet({ balance: Number(data.vcoins.balance) || 0, included: data.vcoins.included === true });
-      if (generation !== generationRef.current) return;
-      if (data.needs_topup) setTopupSignal((count) => count + 1);
-      if (data.reply) {
-        historyRef.current.push({ role: 'elie', text: data.reply });
-        void recorder.record('elie', data.reply);
-      }
-      if (data.suggestion) void recorder.record('elie', data.suggestion);
-      setEntries((prev) => [...prev, ...elieResponseEntries(data)]);
-    } catch (error) {
-      if (generation !== generationRef.current) return;
-      const message = error instanceof ElieRequestError ? error.message : 'Could not reach Elie. Please check your connection and try again.';
-      setEntries((prev) => [...prev, { id: elieEntryId(), kind: 'error', text: message, retryText: question }]);
-    } finally {
-      if (generation === generationRef.current) setThinking(false);
-    }
-  }, []);
-
-  /** Ask again after an error (the error row is replaced; legacy also repeated the question). */
-  const retry = useCallback((entry: Extract<ElieEntry, { kind: 'error' }>) => {
-    setEntries((prev) => prev.filter((item) => item.id !== entry.id));
-    void send(entry.retryText, { retry: true });
-  }, [send]);
-
-  const listSessions = useCallback(async (): Promise<ElieSessionSummary[]> => {
-    const client = getSupabaseClient();
-    if (!client || !userId) return [];
-    return listElieSessions(client, userId);
-  }, [userId]);
-
-  /** Show a past session; new questions continue it. */
-  const loadSession = useCallback(async (sessionId: string) => {
-    const client = getSupabaseClient();
-    if (!client) return;
-    generationRef.current += 1;
-    const generation = generationRef.current;
-    setThinking(false);
-    setEntries([]);
-    try {
-      const turns = await loadElieTurns(client, sessionId);
-      if (generation !== generationRef.current) return;
-      historyRef.current = turns.slice();
-      recorderRef.current = createElieRecorder(client, userId);
-      recorderRef.current.resume(sessionId);
-      setEntries(turns.map((turn) => ({ id: elieEntryId(), kind: turn.role === 'user' ? 'user' : 'elie', text: turn.text } as ElieEntry)));
-    } catch (error) {
-      console.error('Unable to load the Elie session:', error);
-      if (generation === generationRef.current) {
-        setEntries([{ id: elieEntryId(), kind: 'error', text: 'Unable to load this search. Please try again.', retryText: '' }]);
-      }
-    }
-  }, [userId]);
-
-  return { entries, thinking, send, retry, reset, listSessions, loadSession, wallet, setWallet, loadWallet, topupSignal };
+  const store = elieStore();
+  useEffect(() => { store.setUser(userId); }, [store, userId]);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getServerState);
+  // Until the store has switched, another account's thread is never shown.
+  const current = state.userId === userId ? state : EMPTY_ELIE_STATE;
+  return {
+    entries: current.entries,
+    thinking: current.thinking,
+    wallet: current.wallet,
+    topupSignal: current.topupSignal,
+    send: store.send,
+    retry: store.retry,
+    newSearch: store.newSearch,
+    listSessions: store.listSessions,
+    loadSession: store.loadSession,
+    loadWallet: store.loadWallet,
+    setWallet: store.setWallet,
+  };
 }

@@ -65,7 +65,7 @@ import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
 import VCoinMeter from '../components/chat/VCoinMeter';
-import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
+import { ElieHistoryPanel, ElieSuggestions, ElieThread } from '../components/chat/ElieThread';
 import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
 import ChatSettings, { ChatSettingsStyles } from '../components/chat/ChatSettings';
@@ -165,8 +165,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   // The V-Coin meter's balance loads the first time Elie is opened.
   const loadElieWallet = elie.loadWallet;
   useEffect(() => { if (isElie) void loadElieWallet(); }, [isElie, loadElieWallet]);
-  const elieResetRef = useRef(elie.reset);
-  elieResetRef.current = elie.reset;
+  // Before Elie's first question the composer sits mid-screen, the suggestions below it.
+  const elieFresh = isElie && elie.entries.length === 0 && !elie.thinking;
 
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
@@ -417,8 +417,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     }
 
     if (id === ELIE_ID) {
-      // Elie assistant conversation: a new search each time it is opened.
-      if (!isSameConversation) elieResetRef.current();
+      // Elie keeps its open search (and any answer on its way); "New search" in its history starts another.
       setElieHistoryOpen(false);
       setInfoCollapsed(true);
       if (activeChannelRef.current) {
@@ -1325,7 +1324,6 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         <defs>
           <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.2M8.2 13.2l7.5 4.2"/></symbol>
           <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></symbol>
-          <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
           <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 18 9-18 9 3.5-9L3 3Z"/><path d="M6.5 12H21"/></symbol>
           <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></symbol>
           <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4"/><path d="M3 9h18l-1.2 3.2a2 2 0 0 1-1.9 1.3H6.1a2 2 0 0 1-1.9-1.3L3 9Z"/><path d="M5 13.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5.5"/><path d="M9 20v-4h6v4"/></symbol>
@@ -1575,7 +1573,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         </aside>
 
         {/* 3. CHAT COLUMN */}
-        <main className={layoutClasses.chat}>
+        <main className={`${layoutClasses.chat}${elieFresh ? ' elie-fresh' : ''}`}>
           {/* Header */}
           {/* Header: only with a conversation open (none: the empty state fills the column) */}
           {activeId && (
@@ -1602,7 +1600,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 aria-expanded={elieHistoryOpen}
                 onClick={() => setElieHistoryOpen((prev) => !prev)}
               >
-                <svg className="icon"><use href="#i-menu" /></svg>
+                <svg className="icon"><use href="#i-clock" /></svg>
               </button>
             )}
 
@@ -1659,18 +1657,6 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               >
                 <svg className="icon"><use href="#i-panel" /></svg>
               </button>
-              {isElie ? (
-                <button
-                  type="button"
-                  id="elieHistoryMore"
-                  title="Search history"
-                  aria-label="Search history"
-                  aria-expanded={elieHistoryOpen}
-                  onClick={() => setElieHistoryOpen((prev) => !prev)}
-                >
-                  <svg className="icon"><use href="#i-clock" /></svg>
-                </button>
-              ) : null}
             </div>
           </header>
           )}
@@ -1682,7 +1668,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               onClose={() => setElieHistoryOpen(false)}
               listSessions={elie.listSessions}
               onOpenSession={(sessionId) => { void elie.loadSession(sessionId); }}
-              ignoreSelector="#elieHistoryToggle, #elieHistoryMore"
+              onNewSearch={elie.newSearch}
+              ignoreSelector="#elieHistoryToggle"
             />
           )}
 
@@ -1728,7 +1715,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 )}
               </div>
             ) : isElie ? (
-              <ElieThread entries={elie.entries} thinking={elie.thinking} onPrompt={(prompt) => { void elie.send(prompt); }} onRetry={elie.retry} />
+              <ElieThread entries={elie.entries} thinking={elie.thinking} onRetry={elie.retry} />
             ) : (
               <>
               {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}
@@ -2183,6 +2170,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               }}
             />
           </div>
+
+          {elieFresh && <ElieSuggestions onPrompt={(prompt) => { void elie.send(prompt); }} />}
 
           {/* Report the other person */}
           {!isElie && (

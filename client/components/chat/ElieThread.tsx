@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import ElieIcon from '../ElieIcon';
 import { ListingEnquiryCard } from './MessageMedia';
+import ElieText from './ElieText';
 import {
   ELIE_SUGGESTED_PROMPTS,
   elieListingSummary,
@@ -22,10 +23,20 @@ function ElieAvatar({ working = false }: { working?: boolean }) {
   );
 }
 
-export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
+/** The first questions to try, below the composer before Elie's first question. */
+export function ElieSuggestions({ onPrompt }: { onPrompt: (prompt: string) => void }) {
+  return (
+    <div className="elie-suggestions elie-start-suggestions">
+      {ELIE_SUGGESTED_PROMPTS.map((prompt) => (
+        <button key={prompt} type="button" onClick={() => onPrompt(prompt)}>{prompt}</button>
+      ))}
+    </div>
+  );
+}
+
+export function ElieThread({ entries, thinking, onRetry }: {
   entries: ElieEntry[];
   thinking: boolean;
-  onPrompt: (prompt: string) => void;
   onRetry: (entry: Extract<ElieEntry, { kind: 'error' }>) => void;
 }) {
   return (
@@ -34,11 +45,6 @@ export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
         <section className="elie-intro">
           <h2>Ask Elie to find you a space.</h2>
           <p>Describe what you&apos;re looking for and Elie will search real VaRoom listings, with GPS-verified matches first.</p>
-          <div className="elie-suggestions">
-            {ELIE_SUGGESTED_PROMPTS.map((prompt) => (
-              <button key={prompt} type="button" onClick={() => onPrompt(prompt)}>{prompt}</button>
-            ))}
-          </div>
         </section>
       )}
       {entries.map((entry) => {
@@ -53,7 +59,7 @@ export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
             return (
               <div key={entry.id} className="msg-row in elie-message">
                 <ElieAvatar />
-                <div className="bubble">{entry.text}</div>
+                <div className="bubble"><ElieText text={entry.text} /></div>
               </div>
             );
           case 'news':
@@ -116,11 +122,13 @@ export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
 }
 
 /** The "Search history" panel: the user's last 30 Elie sessions. */
-export function ElieHistoryPanel({ open, onClose, listSessions, onOpenSession, ignoreSelector }: {
+export function ElieHistoryPanel({ open, onClose, listSessions, onOpenSession, onNewSearch, ignoreSelector }: {
   open: boolean;
   onClose: () => void;
   listSessions: () => Promise<ElieSessionSummary[]>;
   onOpenSession: (sessionId: string) => void;
+  /** Elie keeps the open search; a new one starts here. */
+  onNewSearch: () => void;
   /** Presses on these elements (the toggles) do not count as "outside". */
   ignoreSelector: string;
 }) {
@@ -165,6 +173,10 @@ export function ElieHistoryPanel({ open, onClose, listSessions, onOpenSession, i
         </button>
       </div>
       <div className="elie-history-list" id="elieHistoryList">
+        <button type="button" className="elie-history-item elie-history-new" onClick={() => { onClose(); onNewSearch(); }}>
+          <span className="elie-history-item-title">New search</span>
+          <svg className="icon elie-history-item-arrow" aria-hidden="true"><use href="#i-plus" /></svg>
+        </button>
         {state.status === 'loading' && <div className="elie-history-empty">Loading past searches…</div>}
         {state.status === 'error' && <div className="elie-history-empty">Unable to load search history.</div>}
         {state.status === 'ready' && state.sessions.length === 0 && <div className="elie-history-empty">No past searches yet.</div>}

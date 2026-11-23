@@ -85,7 +85,7 @@ test('chat settings: rendered in the desktop information column with its own clo
 
 test('selecting a person opens the information column on desktop; Elie keeps it closed', () => {
   assert.match(source, /if \(window\.matchMedia\('\(min-width: 761px\)'\)\.matches\) setInfoCollapsed\(false\);/);
-  assert.match(source, /if \(!isSameConversation\) elieResetRef\.current\(\);\s*setElieHistoryOpen\(false\);\s*setInfoCollapsed\(true\);/);
+  assert.match(source, /if \(id === ELIE_ID\) \{\s*\/\/[^\n]*\n\s*setElieHistoryOpen\(false\);\s*setInfoCollapsed\(true\);/);
 });
 
 test('rail: Home, Messages, Calendar (Analytics for hosts) with unread badges for messages and bookings', () => {

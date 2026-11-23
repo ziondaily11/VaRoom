@@ -745,6 +745,9 @@ class ElieHistoryTurn(BaseModel):
 class ElieSearchRequest(BaseModel):
     message: str
     history: Optional[List[ElieHistoryTurn]] = None
+    # The caller's Elie session: the answered question is saved to it here,
+    # so the answer is kept even when the page that asked has gone.
+    session_id: Optional[str] = None
 
 
 class ElieHost(BaseModel):
@@ -795,6 +798,8 @@ class ElieSearchResponse(BaseModel):
     regulatory_status_note: Optional[str] = None
     vcoins: Optional["ElieVcoins"] = None
     needs_topup: Optional[bool] = None
+    # True when the question and this answer were saved to the session.
+    saved: Optional[bool] = None
 
 
 class ElieVcoins(BaseModel):
@@ -804,6 +809,9 @@ class ElieVcoins(BaseModel):
 
 
 ElieSearchResponse.model_rebuild()
+
+# Room for a written listing description in a chat reply.
+CHAT_REPLY_MAX_CHARS = 2500
 
 # V-Coins (migration 20261123_000079): charged only after Elie has answered.
 # Chat, searches without results and errors are free. Hosts whose plan
@@ -1304,7 +1312,13 @@ async def classify_message(
         'If general conversation: {"intent": "chat", "chat_reply": a short, '
         'warm reply (1-3 sentences), as Elie — write like a real person '
         'texting, casual and varied, never stiff or repetitive, no corporate '
-        'phrasing, and stay coherent with what was just said}\n'
+        'phrasing, and stay coherent with what was just said. When asked to '
+        'write text the person will use elsewhere (a listing description, a '
+        'summary highlight, a reply to a guest), put each piece in its own '
+        'fenced block whose first line names it, e.g. ```Summary highlight '
+        'then the text then ``` on its own line, with any remark outside the '
+        'blocks; the reply may then be longer. You may use **bold** and '
+        '"- " bullet lists; no other markdown, no HTML}\n'
         'If a property-news request about laws, regulations, land policy, '
         'housing rules, county notices, title/land rates, or asking what '
         'changed: {"intent": "news", "county": a county name or null, '
@@ -1355,7 +1369,7 @@ async def classify_message(
     if not parsed:
         if raw.strip():
             logger.info("request_id=%s stage=classification detail=fallback_non_json_chat", req_id)
-            return {"intent": "chat", "chat_reply": raw.strip()[:1000]}
+            return {"intent": "chat", "chat_reply": raw.strip()[:CHAT_REPLY_MAX_CHARS]}
         raise ElieGenerationError(
             "Gemini returned an empty Elie response.",
             category=GeminiErrorCategory.EMPTY_RESPONSE,
@@ -1368,7 +1382,7 @@ async def classify_message(
         chat_reply = str(parsed.get("chat_reply") or parsed.get("reply") or parsed.get("intro") or "").strip()
         if not chat_reply:
             chat_reply = "Hello! I'm Elie, your VaRoom assistant. How can I help you find a space today?"
-        return {"intent": "chat", "chat_reply": chat_reply[:1000]}
+        return {"intent": "chat", "chat_reply": chat_reply[:CHAT_REPLY_MAX_CHARS]}
 
     if intent == "news":
         days_val = parsed.get("days")
@@ -1446,7 +1460,7 @@ async def classify_message(
 
     # Default fallback to chat
     chat_reply = str(parsed.get("chat_reply") or parsed.get("reply") or "How can I help you find a space?").strip()
-    return {"intent": "chat", "chat_reply": chat_reply[:1000]}
+    return {"intent": "chat", "chat_reply": chat_reply[:CHAT_REPLY_MAX_CHARS]}
 
 
 def sanitize_filter_word(w: str) -> str:
@@ -1700,6 +1714,68 @@ async def elie_search(
 
     check_rate_limit(f"elie:user:{user['id']}", max_requests=20, window_seconds=60)
 
+    result = await answer_elie(payload, user, req_id)
+    if payload.session_id:
+        result.saved = await save_elie_turns(payload.session_id, user["id"], payload.message, result, req_id)
+    return result
+
+
+ELIE_SAVED_NEWS_ITEMS = 8
+
+
+async def save_elie_turns(session_id: str, user_id: str, question: str, result: "ElieSearchResponse", req_id: str) -> bool:
+    """Saves the question and Elie's answer (with its listings and news) to
+    the user's own session. False when it could not: the page saves them then."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return False
+    try:
+        session = str(uuid.UUID(str(session_id)))
+    except ValueError:
+        return False
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+    results: Dict[str, Any] = {}
+    if result.listings:
+        results["listings"] = [listing.model_dump() for listing in result.listings]
+    if result.news:
+        results["news"] = result.news[:ELIE_SAVED_NEWS_ITEMS]
+    answer = "\n\n".join(part for part in (result.reply, result.suggestion) if part)
+    asked_at = datetime.now(timezone.utc)
+    rows = [
+        {"session_id": session, "user_id": user_id, "role": "user", "body": question[:4000], "created_at": asked_at.isoformat()},
+        # A moment later, so the answer always reads after its question.
+        {"session_id": session, "user_id": user_id, "role": "elie", "body": answer, "results": results or None,
+         "created_at": (asked_at + timedelta(milliseconds=1)).isoformat()},
+    ]
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            owned = await client.get(
+                f"{SUPABASE_URL}/rest/v1/elie_sessions",
+                params={"id": f"eq.{session}", "user_id": f"eq.{user_id}", "select": "id"},
+                headers=headers,
+            )
+            owned.raise_for_status()
+            if not owned.json():
+                logger.warning("request_id=%s stage=save_turns error=session_not_owned", req_id)
+                return False
+            (await client.post(f"{SUPABASE_URL}/rest/v1/elie_messages", json=rows, headers=headers)).raise_for_status()
+            await client.patch(
+                f"{SUPABASE_URL}/rest/v1/elie_sessions",
+                params={"id": f"eq.{session}"},
+                json={"updated_at": asked_at.isoformat()},
+                headers=headers,
+            )
+        return True
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.error("request_id=%s stage=save_turns error=%s", req_id, type(exc).__name__)
+        return False
+
+
+async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> ElieSearchResponse:
     profile = await get_profile(user["id"])
     if not profile:
         logger.warning("request_id=%s stage=profile_check error=profile_not_found", req_id)
