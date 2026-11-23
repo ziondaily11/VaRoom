@@ -639,7 +639,7 @@ async function createSignupConfirmation({ email, password, fullName, role, redir
     type: 'signup',
     email,
     password,
-    data: { full_name: fullName, role },
+    data: fullName ? { full_name: fullName, role } : { role },
     options: { redirectTo: authRedirectUrl(redirect) }
   });
   if (error) throw error;
@@ -659,11 +659,13 @@ app.post('/api/auth/sign-up', async (req, res) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const passwordValue = String(password || '');
   const strongPassword = passwordValue.length >= 8 && /[A-Z]/.test(passwordValue) && (/[0-9]/.test(passwordValue) || /[^A-Za-z0-9]/.test(passwordValue));
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !strongPassword || String(fullName || '').trim().length < 2 || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a name, valid email address, and a password with at least 8 characters, an uppercase letter, and a number or special character.');
+  // Hosts set their name in onboarding, so only clients give one here.
+  const name = role === 'client' ? String(fullName || '').trim() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !strongPassword || (role === 'client' && name.length < 2) || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a valid email address, a password with at least 8 characters, an uppercase letter, and a number or special character, and your name for a client account.');
   if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
   if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another verification code.', ERROR_CODES.RATE_LIMITED);
   try {
-    await createSignupConfirmation({ email: normalizedEmail, password, fullName: String(fullName).trim(), role, redirect });
+    await createSignupConfirmation({ email: normalizedEmail, password, fullName: name, role, redirect });
     confirmationRequestTracker.set(normalizedEmail, Date.now());
     return res.status(201).json({ success: true });
   } catch (error) {

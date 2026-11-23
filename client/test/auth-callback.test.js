@@ -138,6 +138,22 @@ test('first Google sign-in creates the profile with the role chosen at sign-up',
   assert.deepEqual(injected.log.replaced, ['/?auth=signup'], 'only host or client');
 });
 
+test('an unnamed host starts with no name, so onboarding is not prefilled with the email; a client keeps the email', async () => {
+  const unnamed = (role) => fakeClient({ sessionResult: { data: { session: session({ user: user({ user_metadata: { role } }) }) }, error: null } });
+  const host = await run('', { client: unnamed('host') });
+  assert.equal(host.client.calls.upsert[0].row.full_name, '');
+  const client = await run('', { client: unnamed('client') });
+  assert.equal(client.client.calls.upsert[0].row.full_name, 'zion@example.com');
+});
+
+test('email sign-up asks only a client for a full name', () => {
+  const form = fs.readFileSync(path.join(root, 'components', 'landing', 'SignupForm.tsx'), 'utf8');
+  assert.match(form, /const asksName = role === 'client';/);
+  assert.match(form, /\{asksName && <div>\s*<label htmlFor="signup-fullname"/);
+  assert.match(form, /fullName: asksName && fullName\.trim\(\)\.length < 2/);
+  assert.match(form, /\.\.\.\(asksName \? \{ fullName: fullName\.trim\(\) \} : \{\}\)/);
+});
+
 test('failures go to sign-in (keeping a safe redirect); no session, profile or setup errors', async () => {
   let r = await run('?redirect=%2Fpricing', { client: fakeClient({ sessionResult: { data: { session: null }, error: null } }) });
   assert.deepEqual(r.log.replaced, ['/?auth=login&redirect=%2Fpricing']);
