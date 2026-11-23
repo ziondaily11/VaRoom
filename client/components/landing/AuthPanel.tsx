@@ -255,6 +255,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, origin, i
         type="button"
         aria-label="Close sign-in panel"
         className="absolute inset-0 m-0 border-0 bg-transparent p-0"
+        // Hidden with the closed panel, so keyboard focus never lands on it.
+        tabIndex={isOpen ? undefined : -1}
         onClick={closePanel}
         style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       />

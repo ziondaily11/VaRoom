@@ -453,6 +453,10 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const path = router.pathname || '';
   const isChatsRoute = path === '/chats' || path === '/elie';
+  // The landing page is always light and is the first page a visitor loads:
+  // it only fetches the dark theme ahead (cached for the next page) instead
+  // of holding up its first paint on it.
+  const isLanding = path === '/';
 
   // Theme rules live in lib/theme.ts (also used by _document's pre-paint
   // script). Apply the target route's theme as navigation starts, before the
@@ -482,8 +486,8 @@ export default function App({ Component, pageProps }: AppProps) {
         {/* One dark-theme file on every route (the long-cached copy), so entering
             Chats does not reload it; other pages fetch Chats' own stylesheet ahead
             of time, so the first visit to Chats finds it cached. */}
-        <link rel="stylesheet" href={chatsThemeCssHref} />
-        {!isChatsRoute && <link rel="prefetch" href={chatsCssHref} as="style" />}
+        <link rel={isLanding ? 'prefetch' : 'stylesheet'} href={chatsThemeCssHref} as={isLanding ? 'style' : undefined} />
+        {!isChatsRoute && !isLanding && <link rel="prefetch" href={chatsCssHref} as="style" />}
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>

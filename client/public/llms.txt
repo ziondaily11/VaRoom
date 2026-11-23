@@ -1,0 +1,18 @@
+# VaRoom
+
+> VaRoom is a Kenyan marketplace for booking spaces: stays, workspaces and venues. Hosts list GPS-verified spaces; guests search, compare and book them, and chat with hosts.
+
+- Every listing has a verified location.
+- Guests book spaces and message hosts in VaRoom; hosts manage their listings and bookings.
+- Prices are in Kenyan shillings (KSh).
+
+## Pages
+
+- [Home](https://varoom.co.ke/): What VaRoom offers guests and hosts, with featured spaces and reviews.
+- [Marketplace](https://varoom.co.ke/marketplace): Browse and search the spaces listed on VaRoom.
+- [Pricing](https://varoom.co.ke/pricing): Plans for hosts who list spaces.
+
+## Policies
+
+- [Terms of Service](https://varoom.co.ke/terms): The terms for using VaRoom.
+- [Privacy Policy](https://varoom.co.ke/privacy): How VaRoom collects and uses personal data.

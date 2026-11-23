@@ -89,8 +89,11 @@ test('arriving from another page, Chats stays hidden until its stylesheet applie
   assert.match(source, /const stylesReady = !hydrated \|\| stylesLoaded \|\| chatsStylesheetApplied\(\);/);
   assert.match(source, /useEffect\(\(\) => \(\) => \{ addedStylesheetRef\.current\?\.remove\(\); \}, \[\]\);/, 'chat styles do not leak onto other pages');
   const app = read('pages', '_app.tsx');
-  assert.match(app, /<link rel="stylesheet" href=\{chatsThemeCssHref\} \/>/, 'one dark-theme file on every route: nothing reloads entering Chats');
-  assert.match(app, /\{!isChatsRoute && <link rel="prefetch" href=\{chatsCssHref\} as="style" \/>\}/);
+  // One dark-theme file on every route (nothing reloads entering Chats); the
+  // always-light landing page only fetches it ahead, so it never blocks that first paint.
+  assert.match(app, /const isLanding = path === '\/';/);
+  assert.match(app, /<link rel=\{isLanding \? 'prefetch' : 'stylesheet'\} href=\{chatsThemeCssHref\} as=\{isLanding \? 'style' : undefined\} \/>/, 'one dark-theme file on every route: nothing reloads entering Chats');
+  assert.match(app, /\{!isChatsRoute && !isLanding && <link rel="prefetch" href=\{chatsCssHref\} as="style" \/>\}/);
   assert.match(read('pages', '_document.tsx'), /<link rel="stylesheet" href=\{chatsCssHref\} \/>/, 'opened directly, the document carries it');
 });
 

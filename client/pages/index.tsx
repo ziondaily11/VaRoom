@@ -17,6 +17,15 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 import { normalizeSignupRole } from '../lib/auth/authFlow';
 import { originOf } from '../lib/landing/useTriggerReveal';
 import type { RevealOrigin } from '../lib/landing/useTriggerReveal';
+import { Plus_Jakarta_Sans, Source_Serif_4 } from 'next/font/google';
+import heroDesktop from '../assets/landing/hero-desktop.webp';
+import heroPhone from '../assets/landing/hero-phone.webp';
+
+// Self-hosted with the page's assets (long-cached, no third-party stylesheet
+// blocking the first paint). The serif is the hero's font, so it is preloaded;
+// the sans only dresses the product pieces further down.
+const landingSerif = Source_Serif_4({ subsets: ['latin'], style: ['normal', 'italic'], variable: '--font-landing-serif' });
+const landingSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-landing-sans', preload: false });
 
 interface LandingPageProps {
   spaces: FeaturedSpace[];
@@ -90,17 +99,6 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
         <meta
           name="description"
           content="Discover stays, spaces and experiences from real people across Kenya. GPS verified locations, trusted hosts, secure bookings."
-        />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32_1.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,200..900;1,200..900&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
-          rel="stylesheet"
         />
         <style>{`
           html, body {
@@ -261,8 +259,19 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           .hero-eyebrow {
             animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
           }
+          /* The headline is the page's largest content: it rises in but is never
+             invisible, so browsers can measure when the page has painted
+             (fully transparent text does not count as content). */
+          @keyframes heroRise {
+            from {
+              transform: translate3d(0, 22px, 0);
+            }
+            to {
+              transform: translate3d(0, 0, 0);
+            }
+          }
           .hero-headline {
-            animation: heroFadeUp 820ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+            animation: heroRise 820ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
           }
           .hero-subtitle {
             animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 230ms both;
@@ -327,12 +336,12 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           }
           .landing-page,
           .landing-page * {
-            font-family: 'Source Serif 4', Georgia, serif !important;
+            font-family: var(--font-landing-serif), Georgia, serif !important;
           }
         `}</style>
       </Head>
 
-      <main className="landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
+      <main className={`${landingSerif.variable} ${landingSans.variable} landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white`}>
         {/* Hero stage */}
         <div className="relative w-full">
           {/* Nairobi illustration background pinned behind the hero */}
@@ -341,9 +350,9 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             aria-hidden="true"
           >
             <picture className="absolute inset-0 block">
-              <source media="(max-width: 767px)" srcSet="/assets/phonelanding.jpg" />
+              <source media="(max-width: 767px)" srcSet={heroPhone.src} />
               <img
-                src="/assets/landing.jpg"
+                src={heroDesktop.src}
                 alt="VaRoom Nairobi Skyline"
                 className="hero-background-image w-full h-full object-cover object-top"
                 fetchPriority="high"
