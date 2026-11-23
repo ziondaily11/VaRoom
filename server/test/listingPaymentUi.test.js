@@ -16,8 +16,9 @@ const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts'].map(clientFi
 const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
 test('Silver and Gold are bought by tier from pricing; monthly plans by plan id; neither sends a price', () => {
-  assert.match(pricingPage, /card\.perListing\s*\? await startListingTierCheckout\(token, card\.id as ListingTier\)\s*: await startCheckout\(token, card\.id\)/);
-  assert.match(pricingPage, /'\/api\/billing\/listing-checkout', token, \{ tier,/);
+  assert.match(pricingPage, /card\.perListing \? startListingTierCheckout\(signedInToken\(\), card\.id as ListingTier, payment\) : startCheckout\(signedInToken\(\), card\.id\)/);
+  assert.match(pricingPage, /'\/api\/billing\/listing-checkout', token, \{\s*tier, channel: payment\.channel,/);
+  assert.doesNotMatch(pricingPage, /window\.location\.assign\(url\)/, 'checkout opens in VaRoom\'s window, not a full-page redirect');
   assert.match(pricingPage, /reference && payment && payment\.status === 'succeeded'/);
   assert.doesNotMatch(pricingPage, /subscription=return|returnTo|pointer\.listingId/, 'Go Pro (a monthly plan bought from the wizard) is gone');
 });

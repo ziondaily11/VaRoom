@@ -78,21 +78,84 @@ test('the office/shop choice marks only the chosen kind as selected', () => {
 });
 
 test('the Silver / Gold choice: both plans with their prices, Gold first in focus, a way back home', () => {
-  const render = (props) => renderToStaticMarkup(React.createElement(ListingTierChoice, { busy: null, error: null, onChoose: noop, ...props }));
-  const html = render();
+  const html = renderToStaticMarkup(React.createElement(ListingTierChoice, { onChoose: noop }));
   assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="tier-choice-title"/);
   assert.match(html, /<h2 id="tier-choice-title">Choose your listing plan<\/h2>/);
   assert.match(html, /It stays live for 30 days from when you publish it\./);
   assert.deepEqual([...html.matchAll(/class="tier-choice-name">(\w+)</g)].map((match) => match[1]), ['Silver', 'Gold']);
-  assert.deepEqual([...html.matchAll(/<button type="button">(Pay KSh [\d,]+)<\/button>/g)].map((match) => match[1]), ['Pay KSh 1,000', 'Pay KSh 2,000']);
+  assert.deepEqual([...html.matchAll(/<button type="button">Pay KSh (?:<!-- -->)?([\d,]+)<\/button>/g)].map((match) => match[1]), ['1,000', '2,000']);
   assert.match(html, /tier-choice-option featured[\s\S]*Gold/, 'Gold is the highlighted plan');
   assert.match(html, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
-  assert.doesNotMatch(html, /tier-choice-error/);
+});
 
-  const busy = render({ busy: 'gold' });
-  assert.equal((busy.match(/disabled=""/g) || []).length, 2, 'both buttons wait while checkout opens');
-  assert.match(busy, />Opening secure checkout…<\/button>/);
-  assert.match(render({ error: 'Unable to start payment.' }), /<p class="tier-choice-error" role="alert">Unable to start payment\.<\/p>/);
+const { CheckoutWindow, CHECKOUT_STYLES } = loadTsx('components/billing/CheckoutWindow.tsx');
+const gold = { name: 'Gold listing', priceKes: 2000, per: '/listing', lines: ['One listing live for 30 days', 'Eligible for the landing page; featuring is not guaranteed'] };
+const checkout = (props) => renderToStaticMarkup(React.createElement(CheckoutWindow, {
+  open: true, item: gold, allowMpesa: true, paidText: 'Ready.', start: async () => ({}), confirm: async () => 'pending', onPaid: noop, onClose: noop, ...props,
+}));
+const text = (html) => html.replace(/<!-- -->/g, '');
+
+test('the checkout window: VaRoom summary and M-Pesa first, Card second, never a Paystack page', () => {
+  const html = text(checkout());
+  assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="vr-checkout-title"/);
+  assert.match(html, /<span class="va">Va<\/span>Room checkout/);
+  assert.match(html, /Gold listing/);
+  assert.match(html, /<h2 id="vr-checkout-title">Pay KSh 2,000<\/h2>/);
+  assert.deepEqual([...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([\w-]+)</g)].map((match) => [match[2], match[1]]), [['M-Pesa', 'true'], ['Card', 'false']]);
+  assert.match(html, /<label for="vr-checkout-phone">M-Pesa number<\/label>/);
+  assert.match(html, /type="tel"[^>]*placeholder="0712 345 678"/);
+  assert.match(html, /You&#x27;ll get a prompt on your phone to enter your M-Pesa PIN\./);
+  assert.match(html, />Pay KSh 2,000 with M-Pesa<\/button>/);
+  assert.match(html, /Payments are processed securely by Paystack\./);
+  assert.doesNotMatch(html, /iframe|checkout\.paystack\.com/);
+  assert.equal(checkout({ open: false }), '');
+
+  const plan = text(checkout({ allowMpesa: false, item: { ...gold, name: 'Pro plan', per: '/month' } }));
+  assert.doesNotMatch(plan, /role="tablist"|M-Pesa number/, 'monthly plans renew on cards only');
+  assert.match(plan, />Pay KSh 2,000 by card<\/button>/);
+  assert.match(plan, /A secure Paystack card window opens on top of this one\. You stay on VaRoom\./);
+});
+
+test('the checkout window is dark like the auth panel, above the page, full screen on phones; the server confirms every payment', () => {
+  assert.match(CHECKOUT_STYLES, /\.vr-checkout\{ position:fixed; inset:0; z-index:9000;/);
+  assert.match(CHECKOUT_STYLES, /backdrop-filter:blur\(10px\)/);
+  assert.match(CHECKOUT_STYLES, /\.vr-checkout-card\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(CHECKOUT_STYLES, /@media \(max-width:760px\)\{[\s\S]*\.vr-checkout-card\{ grid-template-columns:minmax\(0,1fr\);[^}]*min-height:100dvh/);
+  const source = fs.readFileSync(path.join(root, 'components', 'billing', 'CheckoutWindow.tsx'), 'utf8');
+  // M-Pesa: the window waits for the server, which verifies with Paystack, through the 180 s PIN window and a grace period.
+  assert.match(source, /await confirm\(started\.reference, elapsed < MPESA_WINDOW_MS \+ MPESA_GRACE_MS\)/);
+  assert.match(source, /if \(state === 'paid'\) \{ finish\(mine, started\.reference\); return; \}/);
+  // Card: Paystack's popup; a popup "success" is confirmed by the server before anything unlocks.
+  assert.match(source, /if \(result\.outcome === 'success'\) \{ await confirmCard\(mine, started\.reference\); return; \}/);
+  // A blocked popup offers Paystack's own page, after the caller saves what it needs.
+  assert.match(source, /try \{ await onFallback\?\.\(\); \}[\s\S]*window\.location\.assign\(fallbackUrl\)/);
+  assert.match(source, /createPortal\(layer, document\.body\)/);
+});
+
+const { ReviewHero } = loadTsx('components/listWizard/ReviewStep.tsx');
+
+test('the review carousel shows every chosen photo and video, with arrows, dots and a count', () => {
+  const media = [{ url: 'blob:a', video: false }, { url: 'blob:b', video: true }, { url: 'blob:c', video: false }];
+  const html = text(renderToStaticMarkup(React.createElement(ReviewHero, { media, index: 1, onIndex: noop })));
+  assert.match(html, /aria-roledescription="carousel"/);
+  assert.equal((html.match(/class="review-gallery-slide"/g) || []).length, 3);
+  assert.match(html, /<img src="blob:a" alt="Listing cover photo"\/>/);
+  assert.match(html, /<video src="blob:b" muted="" playsinline="" controls="">/);
+  assert.match(html, /class="review-gallery-count" aria-live="polite">2 \/ 3<\/span>/);
+  assert.equal((html.match(/class="review-gallery-dot( active)?"/g) || []).length, 3);
+  assert.match(html, /class="review-gallery-dot active" aria-label="Show photo 2" aria-current="true"/);
+  assert.match(html, /aria-label="Previous photo"[\s\S]*aria-label="Next photo"/);
+
+  const single = renderToStaticMarkup(React.createElement(ReviewHero, { media: media.slice(0, 1), index: 0, onIndex: noop }));
+  assert.doesNotMatch(single, /review-gallery-arrow|review-gallery-count/, 'one photo needs no controls');
+  const none = renderToStaticMarkup(React.createElement(ReviewHero, { media: [], index: 0, onIndex: noop }));
+  assert.match(none, /step-5\.jpg/, 'no media keeps the step picture');
+
+  const styles = fs.readFileSync(path.join(root, 'components', 'listWizard', 'listWizardStyles.ts'), 'utf8');
+  const wide = styles.slice(0, styles.indexOf('@media (max-width:900px)'));
+  assert.match(wide, /#listing-page \.review-gallery\{ position:absolute; inset:0;/, 'on every screen size, not phones only');
+  const listPage = fs.readFileSync(path.join(root, 'pages', 'list.tsx'), 'utf8');
+  assert.match(listPage, /cover=\{reviewMedia\[Math\.min\(reviewIndex, reviewMedia\.length - 1\)\] \|\| null\}/, 'the review card thumbnail follows the carousel');
 });
 
 // ---------- The page's handlers (minimal source checks) ----------
@@ -103,7 +166,7 @@ const between = (start, end) => {
   assert.ok(from >= 0, `${start} is in list.tsx`);
   return page.slice(from, page.indexOf(end, from));
 };
-const payForTier = between('const payForTier = async', '// ---------- Publish');
+const tierPayment = between('// ---------- Silver / Gold ----------', '// ---------- Publish');
 const publishFlow = between('const publish = async', '// ---------- Review');
 
 test('the review has only Publish; Pay to list and Go Pro are gone', () => {
@@ -121,14 +184,16 @@ test('the Silver / Gold choice covers the showing step until a paid listing is t
   assert.match(page, /'Choose Silver or Gold before publishing this listing\.'/);
 });
 
-test('paying for Silver / Gold finishes the draft save, then opens Paystack in the same tab and returns to this draft', () => {
-  assert.match(payForTier, /if \(paying\.current \|\| publishing\.current\) return/);
-  assert.ok(payForTier.indexOf('await current.settled()') < payForTier.indexOf('current.checkoutHandoff = true'));
-  assert.ok(payForTier.indexOf('current.checkoutHandoff = true') < payForTier.indexOf('startListingTierCheckout('));
-  assert.match(payForTier, /startListingTierCheckout\(accessToken, tier, \{ draft, edit: editMode \? editListingId : null \}\)/);
-  assert.match(payForTier, /window\.location\.assign\(url\);\s*redirected = true/);
-  assert.match(payForTier, /if \(current\) current\.checkoutHandoff = false;/, 'autosave comes back if checkout did not open');
-  assert.doesNotMatch(payForTier, /window\.open|requestSubmit|saveListing\(|uploadListing/);
+test('paying for Silver / Gold happens in the VaRoom window over the wizard; the draft carries on', () => {
+  assert.match(page, /<ListingTierChoice onChoose=\{setCheckoutTier\} \/>/);
+  assert.match(page, /<CheckoutWindow open=\{checkoutTier !== null\} allowMpesa/);
+  assert.match(tierPayment, /startListingTierCheckout\(accessToken, checkoutTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
+  assert.match(tierPayment, /return checkListingPayment\(accessToken, reference, \{ waitingForPin \}\)/);
+  assert.match(tierPayment, /listingCredits: \{ \.\.\.previous\.listingCredits, \[tier\]: previous\.listingCredits\[tier\] \+ 1 \}/, 'the confirmed payment unlocks the wizard in place');
+  // Only Paystack's own page (the fallback) leaves: the draft save finishes and autosave stops first.
+  assert.ok(tierPayment.indexOf('await current.settled()') < tierPayment.indexOf('current.checkoutHandoff = true'));
+  assert.doesNotMatch(page, /window\.location\.assign/, 'the wizard never leaves for Paystack by itself');
+  assert.doesNotMatch(tierPayment, /requestSubmit|saveListing\(|uploadListing/);
 });
 
 test('only Save as draft creates the listing shell', () => {

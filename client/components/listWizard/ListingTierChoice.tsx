@@ -3,15 +3,11 @@ import Link from 'next/link';
 import { formatPrice, LISTING_TIER_CARDS, type ListingTier } from '../../lib/billing/pricing';
 
 // Property and Shops & Offices: before the host fills in a listing they pick
-// Silver or Gold and pay on Paystack, which brings them back here to carry
-// on. Shown over the step card (the amenities library's overlay pattern)
-// until the host has a paid listing to use.
+// Silver or Gold. Choosing one opens VaRoom's checkout window (M-Pesa or
+// card) over the page. Shown over the step card (the amenities library's
+// overlay pattern) until the host has a paid listing to use.
 
-export function ListingTierChoice({ busy, error, onChoose }: {
-  busy: ListingTier | null;
-  error: string | null;
-  onChoose: (tier: ListingTier) => void;
-}) {
+export function ListingTierChoice({ onChoose }: { onChoose: (tier: ListingTier) => void }) {
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
   return (
@@ -29,13 +25,12 @@ export function ListingTierChoice({ busy, error, onChoose }: {
               <ul>
                 {card.features.map((feature) => <li key={feature}><span className="check" aria-hidden="true">✓</span>{feature}</li>)}
               </ul>
-              <button type="button" ref={card.featured ? first : undefined} disabled={busy !== null} onClick={() => onChoose(card.id as ListingTier)}>
-                {busy === card.id ? 'Opening secure checkout…' : `Pay KSh ${formatPrice(card.monthly)}`}
+              <button type="button" ref={card.featured ? first : undefined} onClick={() => onChoose(card.id as ListingTier)}>
+                Pay KSh {formatPrice(card.monthly)}
               </button>
             </div>
           ))}
         </div>
-        {error && <p className="tier-choice-error" role="alert">{error}</p>}
         <Link href="/host-home" className="tier-choice-back">Not now, back to Home</Link>
       </div>
     </div>

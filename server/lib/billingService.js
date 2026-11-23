@@ -5,7 +5,8 @@ const { createNotification } = require('./notifications');
 function paystackStatus(data) {
   const status = String(data && data.status || '').toLowerCase();
   if (status === 'success') return 'succeeded';
-  if (status === 'pending' || status === 'ongoing' || status === 'processing') return 'pending';
+  // pay_offline / send_*: a direct charge (M-Pesa) still waiting for the customer, not a failure.
+  if (['pending', 'ongoing', 'processing', 'queued', 'pay_offline', 'send_otp', 'send_pin', 'send_phone', 'open_url'].includes(status)) return 'pending';
   if (status === 'abandoned') return 'abandoned';
   if (status === 'reversed' || status === 'refunded') return 'refunded';
   return 'failed';

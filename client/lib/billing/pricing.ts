@@ -189,29 +189,72 @@ export function currentPlanId(entitlements: Entitlements | null): string | null 
 
 // ---- Checkout ----
 
-async function postCheckout(url: string, token: string, body: Record<string, string>, fetchFn: FetchFn): Promise<string> {
+/**
+ * A started payment. Card: Paystack's popup opens with `accessCode`;
+ * `authorizationUrl` is the full-page fallback. M-Pesa: the PIN prompt is on
+ * the phone and `displayText` says so.
+ */
+export type CheckoutStart =
+  | { channel: 'card'; reference: string; accessCode: string | null; authorizationUrl: string }
+  | { channel: 'mpesa'; reference: string; displayText: string };
+
+async function postCheckout(url: string, token: string, body: Record<string, string>, fetchFn: FetchFn): Promise<CheckoutStart> {
   const response = await fetchFn(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(body),
   });
   const result = await readJson(response);
-  if (!response.ok || !result.authorization_url) throw new Error((result.error as string) || 'Unable to start checkout.');
-  return result.authorization_url as string;
+  const reference = typeof result.reference === 'string' ? result.reference : '';
+  if (response.ok && reference && result.channel === 'mpesa') {
+    return { channel: 'mpesa', reference, displayText: typeof result.display_text === 'string' ? result.display_text : 'Check your phone and enter your M-Pesa PIN.' };
+  }
+  if (!response.ok || !reference || typeof result.authorization_url !== 'string') throw new Error((result.error as string) || 'Unable to start checkout.');
+  return { channel: 'card', reference, accessCode: typeof result.access_code === 'string' ? result.access_code : null, authorizationUrl: result.authorization_url };
 }
 
-/** Start a monthly plan's Paystack checkout (only the plan id is sent, never a price); resolves the URL to send the browser to. */
+/** Start a monthly plan's card checkout (only the plan id is sent, never a price). Paystack renews plans on cards only. */
 export const startCheckout = (token: string, planId: string, fetchFn: FetchFn = fetch) => postCheckout('/api/billing/checkout', token, { plan: planId }, fetchFn);
 
 export type ListingTier = 'silver' | 'gold';
 
-/** Where Paystack returns the host on /list: the saved draft being continued, or the listing being edited. */
+/** Where the card fallback (Paystack's full page) returns the host on /list: the draft being continued, or the listing being edited. */
 export interface ListingReturn { draft?: string | null; edit?: string | null }
 
-/** Pay for one Silver or Gold listing; Paystack then returns the host to /list. */
-export const startListingTierCheckout = (token: string, tier: ListingTier, back: ListingReturn = {}, fetchFn: FetchFn = fetch) => postCheckout(
-  '/api/billing/listing-checkout', token, { tier, ...(back.draft ? { draft: back.draft } : {}), ...(back.edit ? { edit: back.edit } : {}) }, fetchFn,
+/** How the host pays for Silver or Gold: M-Pesa to this phone, or card. */
+export type ListingPayment = { channel: 'mpesa'; phone: string } | { channel: 'card' };
+
+/** Pay for one Silver or Gold listing (only the tier is sent, never a price). */
+export const startListingTierCheckout = (token: string, tier: ListingTier, payment: ListingPayment, back: ListingReturn = {}, fetchFn: FetchFn = fetch) => postCheckout(
+  '/api/billing/listing-checkout', token, {
+    tier, channel: payment.channel, ...(payment.channel === 'mpesa' ? { phone: payment.phone } : {}),
+    ...(back.draft ? { draft: back.draft } : {}), ...(back.edit ? { edit: back.edit } : {}),
+  }, fetchFn,
 );
+
+/** A Safaricom number written the way hosts type it (07…, 01…, +254…, spaces): valid or not. The server normalises it. */
+export const isMpesaPhone = (value: string) => /^(?:\+?254|0)?[71]\d{8}$/.test(value.replace(/[\s\-()]/g, ''));
+
+/** M-Pesa gives the host 180 seconds to enter the PIN. */
+export const MPESA_WINDOW_MS = 180 * 1000;
+
+export type PaymentState = 'paid' | 'failed' | 'pending';
+
+/**
+ * One server check of a listing payment (Silver / Gold). The server verifies
+ * it with Paystack; only `paid` unlocks anything. While M-Pesa waits for the
+ * PIN, Paystack may report an unpaid charge as abandoned, so that counts as
+ * failed only once the 180 seconds are over.
+ */
+export async function checkListingPayment(token: string, reference: string, { waitingForPin = false } = {}, fetchFn: FetchFn = fetch): Promise<PaymentState> {
+  const response = await fetchFn(`/api/billing/payments/${encodeURIComponent(reference)}`, { headers: authHeaders(token) });
+  const result = await readJson(response);
+  if (!response.ok) throw new Error((result.error as string) || 'Unable to verify payment');
+  const status = (result.payment as { status?: string } | undefined)?.status || '';
+  if (status === 'succeeded') return 'paid';
+  if (status === 'failed' || status === 'refunded' || (status === 'abandoned' && !waitingForPin)) return 'failed';
+  return 'pending';
+}
 
 // ---- Return from Paystack (?billing=return&reference=…) ----
 

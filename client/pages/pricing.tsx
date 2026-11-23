@@ -6,9 +6,10 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { loginUrl } from '../lib/safeRedirect';
 import {
   applyPlans, cardsForNiche, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
-  RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout, startListingTierCheckout,
-  readCachedPlans, writeCachedPlans, yearlyReady, type ListingTier, type PlanCard,
+  RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout, startListingTierCheckout, checkListingPayment,
+  readCachedPlans, writeCachedPlans, yearlyReady, type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
 } from '../lib/billing/pricing';
+import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
 import { clearHostBillingCache } from '../lib/billing/hostBilling';
 
@@ -47,7 +48,8 @@ export default function PricingPage() {
   const plansRef = useRef<HTMLDivElement>(null);
   const startedAtRef = useRef(false);
   const cardsRef = useRef<PlanCard[] | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  /** The plan being paid for in the checkout window. */
+  const [checkoutCard, setCheckoutCard] = useState<PlanCard | null>(null);
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = session?.access_token || null;
   cardsRef.current = cards;
@@ -132,22 +134,32 @@ export default function PricingPage() {
     setBilling((current) => next || (current === 'monthly' ? 'yearly' : 'monthly'));
   };
 
-  const choose = async (card: PlanCard) => {
-    setBusyId(card.id);
-    setNotice({ tone: 'busy', text: `Opening secure checkout for ${card.name}…` });
-    try {
-      const token = tokenRef.current;
-      if (!token || !userId) throw new Error('Please log in again to continue.');
-      // Silver / Gold: Paystack returns the host to /list to publish the listing.
-      const url = card.perListing
-        ? await startListingTierCheckout(token, card.id as ListingTier)
-        : await startCheckout(token, card.id);
-      // Paystack's hosted checkout is a separate site.
-      window.location.assign(url);
-    } catch (error) {
-      setNotice({ tone: 'bad', text: (error as Error).message || 'Unable to start checkout. Please try again.' });
-      setBusyId(null);
-    }
+  // VaRoom's checkout window over the page. Silver / Gold: M-Pesa or card,
+  // then on to /list to list the space. Monthly plans: card only (Paystack
+  // renews plans on cards), confirmed here.
+  const signedInToken = () => {
+    const token = tokenRef.current;
+    if (!token || !userId) throw new Error('Please log in again to continue.');
+    return token;
+  };
+  const startPayment = (payment: ListingPayment) => {
+    const card = checkoutCard as PlanCard;
+    return card.perListing ? startListingTierCheckout(signedInToken(), card.id as ListingTier, payment) : startCheckout(signedInToken(), card.id);
+  };
+  const confirmPayment = async (reference: string, waitingForPin: boolean): Promise<PaymentState> => {
+    if (checkoutCard?.perListing) return checkListingPayment(signedInToken(), reference, { waitingForPin });
+    const result = await checkReturnedPayment(signedInToken(), reference);
+    return result.kind === 'active' ? 'paid' : result.kind === 'failed' ? 'failed' : 'pending';
+  };
+  const paid = (reference: string) => {
+    const card = checkoutCard;
+    setCheckoutCard(null);
+    if (!card) return;
+    if (card.perListing) { void router.push(`/list?payment=verified&reference=${encodeURIComponent(reference)}`); return; }
+    // The new plan replaces what Settings and Host Home remembered.
+    clearHostBillingCache();
+    setCurrentId(card.id);
+    setNotice({ tone: 'good', text: `Your ${card.name} plan is active.` });
   };
 
   // Phones show the plans as a sideways list: the dots follow it, and it opens
@@ -231,8 +243,8 @@ export default function PricingPage() {
                     className={`plan-cta${card.featured ? ' plan-cta--primary' : ''}`}
                     aria-describedby={nameId}
                     aria-current={current ? 'true' : undefined}
-                    disabled={current || busyId === card.id}
-                    onClick={() => choose(card)}
+                    disabled={current || checkoutCard !== null}
+                    onClick={() => { setNotice(null); setCheckoutCard(card); }}
                   >
                     {current ? 'Current Plan' : card.cta}
                   </button>
@@ -279,6 +291,13 @@ export default function PricingPage() {
           </>)}
         </div>
       </div>
+      {checkoutCard && (
+        <CheckoutWindow open allowMpesa={Boolean(checkoutCard.perListing)}
+          item={{ name: checkoutCard.perListing ? `${checkoutCard.name} listing` : `${checkoutCard.name} plan`, priceKes: checkoutCard.monthly,
+            per: checkoutCard.perListing ? '/listing' : '/month', lines: checkoutCard.features }}
+          paidText={checkoutCard.perListing ? 'Taking you to list your space…' : `Your ${checkoutCard.name} plan is active.`}
+          start={startPayment} confirm={confirmPayment} onPaid={paid} onClose={() => setCheckoutCard(null)} />
+      )}
     </>
   );
 }

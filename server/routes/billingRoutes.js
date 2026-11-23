@@ -7,7 +7,7 @@ const { createPaystackClient } = require('../lib/paystackClient');
 const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
-const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans } = require('../lib/listingTiers');
+const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans, mpesaPhone } = require('../lib/listingTiers');
 
 // Monthly plans still sold. Property and Shops & Offices sell Silver and Gold
 // per listing instead (/billing/listing-checkout).
@@ -322,19 +322,26 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   // Silver or Gold: one listing credit for Property or Shops & Offices. The
   // next listing the host publishes uses it (activate_listing_with_entitlement),
-  // so the host pays first and Paystack brings them back to /list. The row is
-  // recorded before Paystack is called, so a paid transaction is never unmatched.
+  // so the host pays first. M-Pesa: Paystack sends the PIN prompt to the
+  // host's phone and VaRoom's window waits for it. Card: the window opens
+  // Paystack's popup with the access code (its authorization URL, back to
+  // /list, is the fallback). The row is recorded before Paystack is called, so
+  // a paid transaction is never unmatched.
   router.post('/billing/listing-checkout', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
     const body = req.body || {};
     let tier = null;
     try {
-      assertAllowedKeys(body, ['tier', 'draft', 'edit']);
+      assertAllowedKeys(body, ['tier', 'draft', 'edit', 'channel', 'phone']);
       // The draft being continued or the listing being edited: /list reopens it on return (and checks it is the host's).
       ['draft', 'edit'].forEach((key) => { if (body[key] !== undefined) uuid(body[key], key); });
+      if (body.channel !== undefined && !['card', 'mpesa'].includes(body.channel)) throw new ValidationError('Unknown payment method');
       if (Object.prototype.hasOwnProperty.call(LISTING_TIERS, body.tier)) tier = LISTING_TIERS[body.tier];
     } catch { tier = null; }
     if (!tier) return res.status(400).json({ error: 'Choose Silver or Gold' });
+    const mpesa = body.channel === 'mpesa';
+    const phone = mpesa ? mpesaPhone(body.phone) : null;
+    if (mpesa && !phone) return res.status(400).json({ error: 'Enter a Safaricom number, for example 0712 345 678.' });
     const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
     if (profileError) return res.status(503).json({ error: 'Unable to verify your listing category' });
     const niche = billingNicheFor(Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null);
@@ -345,11 +352,26 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       provider_reference: reference, amount_minor: tier.amount_minor, currency: 'KES', status: 'initialized', provider_payload: {},
     });
     if (insertError) return res.status(500).json({ error: 'Unable to record listing payment' });
+    const metadata = { host_id: user.id, niche, billing_interval: 'one_time', payment_kind: 'listing', listing_tier: tier.id, varoom_billing: true };
+    if (mpesa) {
+      let charged;
+      try {
+        charged = await paystack.charge({ email: user.email, amount: tier.amount_minor, currency: 'KES', reference,
+          mobile_money: { phone, provider: 'mpesa' }, metadata });
+      } catch (error) {
+        console.error('Paystack M-Pesa charge failed', { tier: tier.id, reference, message: error.message });
+        return res.status(502).json({ error: error.message || 'M-Pesa could not be reached. Please try again.' });
+      }
+      return res.status(201).json({
+        reference, channel: 'mpesa',
+        display_text: (charged && typeof charged.display_text === 'string' && charged.display_text) || 'Check your phone and enter your M-Pesa PIN.',
+      });
+    }
     let initialized;
     try {
       initialized = await paystack.initializeTransaction({ email: user.email, amount: tier.amount_minor, currency: 'KES', reference,
         callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference, draft: body.draft, edit: body.edit }),
-        metadata: { host_id: user.id, niche, billing_interval: 'one_time', payment_kind: 'listing', listing_tier: tier.id, varoom_billing: true } });
+        metadata });
     } catch (error) {
       console.error('Paystack listing checkout initialization failed', { tier: tier.id, reference, message: error.message });
       return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
@@ -357,7 +379,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const { error: urlError } = await supabaseAdmin.from('billing_payments')
       .update({ provider_payload: { authorization_url: initialized.authorization_url } }).eq('provider_reference', reference);
     if (urlError) console.error('Unable to save Paystack listing checkout URL', { reference, message: urlError.message });
-    return res.status(201).json({ reference, authorization_url: initialized.authorization_url });
+    return res.status(201).json({ reference, channel: 'card', authorization_url: initialized.authorization_url, access_code: initialized.access_code });
   });
   router.get('/billing/payments/:reference', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;

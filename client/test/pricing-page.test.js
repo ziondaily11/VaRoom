@@ -121,20 +121,49 @@ test('plans, entitlements and checkout send the token; errors carry the server m
   assert.equal(pricing.currentPlanId({ active: false, subscription: { plan_id: 'x' } }), null);
 
   let request;
-  const paystack = async (u, init) => { request = { u, init }; return json(200, { authorization_url: 'https://checkout.paystack.com/x' }); };
-  const url = await pricing.startCheckout('tok', 'airbnb_pro', paystack);
-  assert.equal(url, 'https://checkout.paystack.com/x');
+  let reply = { reference: 'ref-1', channel: 'card', authorization_url: 'https://checkout.paystack.com/x', access_code: 'ac-1' };
+  const paystack = async (u, init) => { request = { u, init }; return json(201, reply); };
+  const card = await pricing.startCheckout('tok', 'airbnb_pro', paystack);
+  assert.deepEqual({ ...card }, { channel: 'card', reference: 'ref-1', accessCode: 'ac-1', authorizationUrl: 'https://checkout.paystack.com/x' });
   assert.equal(request.u, '/api/billing/checkout');
   assert.equal(request.init.headers.Authorization, 'Bearer tok');
   assert.deepEqual(JSON.parse(request.init.body), { plan: 'airbnb_pro' }, 'only the plan id, never a price');
   await assert.rejects(pricing.startCheckout('t', 'p', async () => json(409, { error: 'An upgrade payment is already being processed.' })), /already being processed/);
 
-  await pricing.startListingTierCheckout('tok', 'gold', {}, paystack);
+  await pricing.startListingTierCheckout('tok', 'gold', { channel: 'card' }, {}, paystack);
   assert.equal(request.u, '/api/billing/listing-checkout');
-  assert.deepEqual(JSON.parse(request.init.body), { tier: 'gold' }, 'only the tier, never a price');
-  await pricing.startListingTierCheckout('tok', 'silver', { draft: 'd1', edit: null }, paystack);
-  assert.deepEqual(JSON.parse(request.init.body), { tier: 'silver', draft: 'd1' }, 'the draft to come back to');
-  await assert.rejects(pricing.startListingTierCheckout('t', 'gold', {}, async () => json(403, { error: 'Silver and Gold are available for Property and Shops & Offices' })), /Silver and Gold/);
+  assert.deepEqual(JSON.parse(request.init.body), { tier: 'gold', channel: 'card' }, 'only the tier, never a price');
+  await pricing.startListingTierCheckout('tok', 'silver', { channel: 'card' }, { draft: 'd1', edit: null }, paystack);
+  assert.deepEqual(JSON.parse(request.init.body), { tier: 'silver', channel: 'card', draft: 'd1' }, 'the draft the card fallback comes back to');
+
+  reply = { reference: 'ref-2', channel: 'mpesa', display_text: 'Please complete authorization process on your mobile phone' };
+  const mpesa = await pricing.startListingTierCheckout('tok', 'gold', { channel: 'mpesa', phone: '0712 345 678' }, {}, paystack);
+  assert.deepEqual(JSON.parse(request.init.body), { tier: 'gold', channel: 'mpesa', phone: '0712 345 678' });
+  assert.deepEqual({ ...mpesa }, { channel: 'mpesa', reference: 'ref-2', displayText: 'Please complete authorization process on your mobile phone' });
+  await assert.rejects(pricing.startListingTierCheckout('t', 'gold', { channel: 'card' }, {}, async () => json(403, { error: 'Silver and Gold are available for Property and Shops & Offices' })), /Silver and Gold/);
+});
+
+test('M-Pesa numbers and listing payment checks', async () => {
+  for (const ok of ['0712345678', '0712 345 678', '+254712345678', '254 110 123 456', '712345678']) assert.equal(pricing.isMpesaPhone(ok), true, ok);
+  for (const bad of ['', '0812345678', '07123', '+255712345678', 'phone']) assert.equal(pricing.isMpesaPhone(bad), false, bad);
+  assert.equal(pricing.MPESA_WINDOW_MS, 180000);
+
+  const answer = (status) => async (url) => { assert.equal(url, '/api/billing/payments/ref%201'); return json(200, { payment: { status } }); };
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', {}, answer('succeeded')), 'paid');
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', {}, answer('pending')), 'pending');
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', {}, answer('initialized')), 'pending');
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', {}, answer('failed')), 'failed');
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', {}, answer('abandoned')), 'failed');
+  assert.equal(await pricing.checkListingPayment('t', 'ref 1', { waitingForPin: true }, answer('abandoned')), 'pending', 'unpaid while the PIN prompt is still open');
+  await assert.rejects(pricing.checkListingPayment('t', 'ref 1', {}, async () => json(502, { error: 'Unable to verify payment' })), /Unable to verify payment/);
+});
+
+test('Paystack card popup: its script loads once, only when someone pays by card', () => {
+  const popup = read('lib', 'billing', 'paystackPopup.ts');
+  assert.match(popup, /PAYSTACK_INLINE_SRC = 'https:\/\/js\.paystack\.co\/v2\/inline\.js'/);
+  assert.match(popup, /if \(loading\) return loading;/);
+  assert.match(popup, /new PaystackPop\(\)\.resumeTransaction\(accessCode, \{/);
+  assert.doesNotMatch(read('pages', '_document.tsx'), /paystack/i, 'not loaded on every page');
 });
 
 test('return from Paystack: active only for a succeeded payment of the active plan', async () => {
@@ -163,14 +192,18 @@ test('pricing is dark unless the user chose Light, from the first paint', () => 
   assert.match(boot, /\["\/pricing"\]\.indexOf\(path\) >= 0 && saved !== 'light'\) saved = 'dark';/);
 });
 
-test('page: hosts only, legacy wording, checkout leaves for Paystack, polling stops on unmount', () => {
+test('page: hosts only, legacy wording, checkout in VaRoom\'s window, polling stops on unmount', () => {
   const page = read('pages', 'pricing.tsx');
-  for (const text of ['Host plans', 'Pricing', '← Back to dashboard', 'Yearly billing is coming soon. Prices shown are per month.', 'Current Plan', 'Opening secure checkout for', 'Please log in again to continue.']) {
+  for (const text of ['Host plans', 'Pricing', '← Back to dashboard', 'Yearly billing is coming soon. Prices shown are per month.', 'Current Plan', 'Please log in again to continue.']) {
     assert.ok(page.includes(text), text);
   }
   assert.match(page, /router\.replace\(loginUrl\('\/pricing'\)\)/);
   assert.match(page, /router\.replace\('\/client-home'\)/);
-  assert.match(page, /window\.location\.assign\(url\)/);
+  assert.doesNotMatch(page, /window\.location\.assign/, 'checkout no longer replaces the page');
+  assert.match(page, /onClick=\{\(\) => \{ setNotice\(null\); setCheckoutCard\(card\); \}\}/);
+  assert.match(page, /<CheckoutWindow open allowMpesa=\{Boolean\(checkoutCard\.perListing\)\}/, 'M-Pesa for Silver / Gold; monthly plans renew on cards only');
+  assert.match(page, /if \(card\.perListing\) \{ void router\.push\(`\/list\?payment=verified&reference=\$\{encodeURIComponent\(reference\)\}`\); return; \}/, 'paid Silver / Gold goes on to list the space');
+  assert.match(page, /return result\.kind === 'active' \? 'paid' : result\.kind === 'failed' \? 'failed' : 'pending';/, 'a monthly plan counts only once the server reports it active');
   assert.match(page, /return \(\) => \{ stopped = true; window\.clearTimeout\(timer\); \};/);
   assert.doesNotMatch(page, /getSession\(|from\('profiles'\)/, 'identity comes from AuthProvider');
 });
