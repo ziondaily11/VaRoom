@@ -64,6 +64,7 @@ import { readStored, resolveSettings, writeStored } from '../lib/chat/chatSettin
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
+import VCoinMeter from '../components/chat/VCoinMeter';
 import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
 import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
@@ -161,6 +162,9 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   const [elieHistoryOpen, setElieHistoryOpen] = useState<boolean>(false);
   // Elie is the signed-in person's own assistant, also while working as a company.
   const elie = useElie(session?.user.id || null);
+  // The V-Coin meter's balance loads the first time Elie is opened.
+  const loadElieWallet = elie.loadWallet;
+  useEffect(() => { if (isElie) void loadElieWallet(); }, [isElie, loadElieWallet]);
   const elieResetRef = useRef(elie.reset);
   elieResetRef.current = elie.reset;
 
@@ -2119,6 +2123,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               </div>
 
               <div className="attach-icons" data-chat-composer-actions>
+                {isElie && <VCoinMeter wallet={elie.wallet} onWallet={elie.setWallet} openSignal={elie.topupSignal} />}
                 <ChatComposerActions
                   isElie={isElie}
                   canSend={!!composerText.trim() || (!!pendingFile && !isElie)}

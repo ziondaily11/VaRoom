@@ -1,6 +1,7 @@
 'use strict';
 
 const { createNotification } = require('./notifications');
+const { creditVcoinPurchase } = require('./vcoins');
 
 function paystackStatus(data) {
   const status = String(data && data.status || '').toLowerCase();
@@ -16,7 +17,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const reference = transaction && transaction.reference;
   if (!reference) throw new Error('Verified Paystack transaction has no reference');
   const { data: payment, error } = await supabaseAdmin.from('billing_payments')
-    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,paid_at,listing_id,listing_tier,payment_kind,niche,billing_interval,provider_payload')
+    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,paid_at,listing_id,listing_tier,payment_kind,vcoins,niche,billing_interval,provider_payload')
     .eq('provider_reference', reference).maybeSingle();
   if (error) throw new Error('Unable to load billing payment');
   // Paystack creates a fresh transaction reference for each recurring charge.
@@ -24,6 +25,8 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   // subscription code returned by the server-side transaction verification.
   if (!payment) return applyVerifiedRenewal(supabaseAdmin, transaction);
 
+  // payment_kind is never null in the table (default 'subscription').
+  const kind = payment.payment_kind || 'subscription';
   let status = paystackStatus(transaction);
   const amountMatches = Number(transaction.amount) === Number(payment.amount_minor);
   const currencyMatches = transaction.currency === payment.currency;
@@ -34,9 +37,13 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   // A Silver / Gold credit is bought before its listing exists (publishing
   // fills listing_id later), so it is matched by its tier instead.
   const listingMatches = payment.listing_tier ? metadata.listing_tier === payment.listing_tier : metadata.listing_id === payment.listing_id;
-  const ownershipMatches = metadata.host_id === payment.host_id && (payment.payment_kind === 'listing'
-    ? scopeMatches && listingMatches && metadata.payment_kind === 'listing'
-    : scopeMatches && metadata.plan_id === payment.plan_id && (!payment.listing_id || metadata.listing_id === payment.listing_id));
+  const kindMatches = {
+    // A V-Coin pack: the coins it buys are fixed when the payment row is recorded.
+    vcoins: () => metadata.payment_kind === 'vcoins' && Number(metadata.vcoins) === Number(payment.vcoins),
+    listing: () => scopeMatches && listingMatches && metadata.payment_kind === 'listing',
+    subscription: () => scopeMatches && metadata.plan_id === payment.plan_id && (!payment.listing_id || metadata.listing_id === payment.listing_id),
+  }[kind];
+  const ownershipMatches = metadata.host_id === payment.host_id && Boolean(kindMatches && kindMatches());
   if (status === 'succeeded' && (!amountMatches || !currencyMatches || !ownershipMatches)) {
     throw new Error('Verified Paystack transaction does not match the VaRoom payment');
   }
@@ -63,7 +70,9 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   }
   verifiedPaidAt = verifiedPaidAt || paymentUpdate.paid_at;
 
-  if (status === 'succeeded' && payment.payment_kind === 'listing') {
+  if (status === 'succeeded' && kind === 'vcoins') {
+    await creditVcoinPurchase(supabaseAdmin, payment);
+  } else if (status === 'succeeded' && payment.payment_kind === 'listing') {
     // A Silver / Gold credit waits for the host to publish a listing; its 30
     // days start then (activate_listing_with_entitlement). An older
     // pay-as-you-list payment was bound to its listing, whose term starts now.
@@ -75,7 +84,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
       }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
       if (listingError) throw new Error('Unable to activate paid listing');
     }
-  } else if (status === 'succeeded') {
+  } else if (status === 'succeeded' && kind === 'subscription') {
     const paidAt = verifiedPaidAt;
     const periodEnd = new Date(paidAt);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
@@ -94,7 +103,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     Object.keys(subscriptionUpdate).forEach((key) => subscriptionUpdate[key] === undefined && delete subscriptionUpdate[key]);
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
-  } else if (payment.payment_kind !== 'listing' && ['failed', 'abandoned', 'refunded'].includes(status)) {
+  } else if (kind === 'subscription' && ['failed', 'abandoned', 'refunded'].includes(status)) {
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
     if (subscriptionError) throw new Error('Unable to close failed pending subscription');
   }
@@ -108,8 +117,21 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   if (['succeeded', 'failed', 'abandoned'].includes(status)) {
     const notificationType = status === 'succeeded' ? 'payment_success' : 'payment_failed';
     const isListing = payment.payment_kind === 'listing';
+    const isVcoins = kind === 'vcoins';
     try {
-      await createNotification({
+      await createNotification(isVcoins ? {
+        recipientUserId: payment.host_id,
+        type: notificationType,
+        title: status === 'succeeded' ? 'V-Coins added' : 'V-Coin payment failed',
+        message: status === 'succeeded'
+          ? `${payment.vcoins} V-Coins were added to your Elie balance.`
+          : 'Your V-Coin payment was not completed. You have not been charged; you can try again.',
+        relatedEntityType: 'payment',
+        relatedEntityId: payment.id,
+        metadata: { payment_id: payment.id, payment_kind: 'vcoins', status },
+        eventKey: `billing:${payment.id}:${status}`,
+        supabase: supabaseAdmin,
+      } : {
         recipientUserId: payment.host_id,
         type: notificationType,
         title: isListing

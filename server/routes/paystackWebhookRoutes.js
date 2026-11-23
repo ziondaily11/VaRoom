@@ -24,7 +24,7 @@ function createPaystackWebhookRoutes({ supabaseAdmin = supabaseDefault, paystack
         if (!reference) throw new Error('charge.success is missing a reference');
         // Never trust the signed event alone: verify its transaction with Paystack.
         const applied = await applyVerifiedTransaction(supabaseAdmin, await paystack.verifyTransaction(reference));
-        if (applied.payment && applied.payment.status === 'succeeded' && applied.payment.payment_kind !== 'listing') {
+        if (applied.payment && applied.payment.status === 'succeeded' && !['listing', 'vcoins'].includes(applied.payment.payment_kind)) {
           await cancelReplacedSubscription(supabaseAdmin, paystack, applied.payment);
         }
       } else if (['invoice.payment_failed', 'subscription.not_renew', 'subscription.disable'].includes(event.event)) {

@@ -102,11 +102,14 @@ function billingHistoryEntry(row) {
   const planName = row.billing_plans && row.billing_plans.display_name || null;
   const listingTitle = row.listings && row.listings.title || null;
   const isListing = row.payment_kind === 'listing';
+  const isVcoins = row.payment_kind === 'vcoins';
   const tier = row.listing_tier && LISTING_TIERS[row.listing_tier];
   return {
     id: row.id,
-    kind: isListing ? 'listing' : 'subscription',
-    description: isListing
+    kind: isVcoins ? 'vcoins' : isListing ? 'listing' : 'subscription',
+    description: isVcoins
+      ? `${row.vcoins} V-Coins for Elie`
+      : isListing
       ? `${tier ? `${tier.display_name} listing` : 'Pay as you list'}${listingTitle ? ` — ${listingTitle}` : ''}`
       : `${planName || 'VaRoom'} plan — monthly`,
     plan_name: planName,
@@ -391,7 +394,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       try { verifiedPayment = (await applyVerifiedTransaction(supabaseAdmin, await paystack.verifyTransaction(reference))).payment; }
       catch (error) { return res.status(502).json({ error: error.message || 'Unable to verify payment' }); }
     }
-    if (verifiedPayment.status === 'succeeded' && verifiedPayment.payment_kind !== 'listing') {
+    if (verifiedPayment.status === 'succeeded' && !['listing', 'vcoins'].includes(verifiedPayment.payment_kind)) {
       try { await cancelReplacedSubscription(supabaseAdmin, paystack, verifiedPayment); }
       catch (error) { return res.status(502).json({ error: error.message || 'Unable to complete subscription upgrade' }); }
     }
@@ -399,12 +402,12 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const { provider_payload: _privateProviderPayload, ...safePayment } = refreshed || verifiedPayment;
     return res.json({ payment: safePayment });
   });
-  // Subscription and listing (Silver, Gold, pay-as-you-list) payments, newest first, with the
+  // Subscription, listing (Silver, Gold, pay-as-you-list) and V-Coin payments, newest first, with the
   // payment method of the latest successful one. Unfinished checkouts are left out.
   router.get('/billing/payments', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
     const { data, error } = await supabaseAdmin.from('billing_payments')
-      .select('id,payment_kind,listing_tier,amount_minor,currency,status,paid_at,created_at,provider_reference,verified_authorization:provider_payload->last_verification->authorization,renewal_authorization:provider_payload->authorization,billing_plans(display_name),listings(title)')
+      .select('id,payment_kind,listing_tier,vcoins,amount_minor,currency,status,paid_at,created_at,provider_reference,verified_authorization:provider_payload->last_verification->authorization,renewal_authorization:provider_payload->authorization,billing_plans(display_name),listings(title)')
       .eq('host_id', user.id).in('status', HISTORY_STATUSES)
       .order('created_at', { ascending: false }).limit(100);
     if (error) return res.status(500).json({ error: 'Unable to load billing history' });

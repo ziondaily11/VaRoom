@@ -28,6 +28,7 @@ const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
+const { createVcoinRoutes } = require('./routes/vcoinRoutes');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
@@ -87,7 +88,7 @@ app.use('/api', (req, res, next) => {
   return next();
 });
 
-app.use(['/api/chat', '/api/billing', '/admin'], (_req, res, next) => {
+app.use(['/api/chat', '/api/billing', '/api/vcoins', '/admin'], (_req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
@@ -106,6 +107,7 @@ app.use('/api', hotelReservationRoutes);
 app.use('/api', createAccountGroupRoutes(supabaseAdmin));
 app.use('/api', createAccountRoutes({ supabaseAdmin }));
 app.use('/api', createBillingRoutes());
+app.use('/api', createVcoinRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');
