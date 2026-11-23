@@ -446,11 +446,15 @@ async def call_gemini(
                     if isinstance(e, httpx.TimeoutException)
                     else GeminiErrorCategory.NETWORK_ERROR
                 )
+                # A model that timed out is slow right now: a second wait on it
+                # would use up the budget before the other model gets a turn.
+                timed_out = isinstance(e, httpx.TimeoutException)
                 logger.warning(
-                    "request_id=%s stage=%s model=%s attempt=%d status=0 duration_ms=%d category=%s error=%s decision=retry",
-                    req_id, stage, model, attempt, attempt_duration_ms, last_category, type(e).__name__
+                    "request_id=%s stage=%s model=%s attempt=%d status=0 duration_ms=%d category=%s error=%s decision=%s",
+                    req_id, stage, model, attempt, attempt_duration_ms, last_category, type(e).__name__,
+                    "next_model" if timed_out else "retry",
                 )
-                if attempt < max_attempts_per_model:
+                if not timed_out and attempt < max_attempts_per_model:
                     backoff = min(0.4 * attempt, total_time_budget - (time.monotonic() - start_time))
                     if backoff > 0.1:
                         await asyncio.sleep(backoff)
