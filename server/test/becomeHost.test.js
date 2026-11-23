@@ -73,19 +73,23 @@ test('the form is checked as onboarding checks it; the phone is saved as +254…
   assert.match(parseHostSetup({ ...FORM, city: 'N' }, USER).error, /city/);
   assert.match(parseHostSetup({ ...FORM, niche: 'castle' }, USER).error, /category/);
   assert.match(parseHostSetup({ ...FORM, discoverName: 'x'.repeat(41) }, USER).error, /2 and 40/);
-  assert.equal(parseHostSetup({ ...FORM, avatarPath: `${USER}/avatar_123.jpg` }, USER).avatarPath, `${USER}/avatar_123.jpg`);
+  // Avatars upload to R2 under photos/<env>/avatars/<user>/ (POST /photos/upload-complete).
+  const own = `photos/production/avatars/${USER}/1700000000-abc.jpg`;
+  assert.equal(parseHostSetup({ ...FORM, avatarPath: own }, USER, 'production').avatarPath, own);
   assert.equal(parseHostSetup({ ...FORM, avatarPath: null }, USER).avatarPath, null);
-  assert.match(parseHostSetup({ ...FORM, avatarPath: 'someone-else/avatar_1.jpg' }, USER).error, /photo/, 'only the account’s own folder');
+  for (const path of [`photos/production/avatars/u-2/x.jpg`, `photos/development/avatars/${USER}/x.jpg`, `photos/production/avatars/${USER}/`, `photos/production/avatars/${USER}/../u-2/x.jpg`, `${USER}/avatar_1.jpg`]) {
+    assert.match(parseHostSetup({ ...FORM, avatarPath: path }, USER, 'production').error, /photo/, path);
+  }
 });
 
 test('a client becomes a host in one update, and the sign-up role follows', async () => {
   const admin = fakeAdmin([client(), { id: 'u-2', role: 'host', username: 'other' }]);
-  const result = await post(admin, fresh, { ...FORM, avatarPath: `${USER}/avatar_9.jpg` });
+  const result = await post(admin, fresh, { ...FORM, avatarPath: `photos/${process.env.NODE_ENV || 'development'}/avatars/${USER}/9.jpg` });
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { success: true, role: 'host' });
   assert.deepEqual(admin.updates, [{
     role: 'host', username: 'palm_view', phone: '+254712345678', city: 'Nairobi, Kenya', listing_categories: ['airbnb'],
-    full_name: 'Palm View Apartments', onboarding_completed: true, avatar_url: `${USER}/avatar_9.jpg`,
+    full_name: 'Palm View Apartments', onboarding_completed: true, avatar_url: `photos/${process.env.NODE_ENV || 'development'}/avatars/${USER}/9.jpg`,
   }]);
   assert.deepEqual(admin.metadata, [[USER, { user_metadata: { role: 'host', full_name: 'Amina' } }]]);
 });
