@@ -73,6 +73,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
   const criteria = passwordCriteria(password);
   const passwordIsStrong = isStrongPassword(password);
   const canSubmit = passwordIsStrong && !isLoading;
+  // Hosts name their account in onboarding, so only clients are asked here.
+  const asksName = role === 'client';
   const googleClient = typeof window === 'undefined'
     ? null
     : (window as Window & { supabaseClient?: SupabaseClient }).supabaseClient || null;
@@ -88,7 +90,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
   // Each step starts with focus on its first control.
   useEffect(() => {
     if (!active || step === 'start') return;
-    const id = step === 'role' ? `signup-role-${role}` : 'signup-fullname';
+    const id = step === 'role' ? `signup-role-${role}` : asksName ? 'signup-fullname' : 'signup-email';
     window.requestAnimationFrame(() => document.getElementById(id)?.focus({ preventScroll: true }));
     // Only when the step changes, not on every role click.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +122,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
     setAlert('');
 
     const nextErrors = {
-      fullName: fullName.trim().length < 2 ? 'Please enter your full name' : '',
+      fullName: asksName && fullName.trim().length < 2 ? 'Please enter your full name' : '',
       email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'Please enter a valid email address' : '',
       password: !passwordIsStrong ? 'Password must be at least 8 characters' : '',
     };
@@ -141,7 +143,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
         body: JSON.stringify({
           email: email.trim(),
           password,
-          fullName: fullName.trim(),
+          ...(asksName ? { fullName: fullName.trim() } : {}),
           role,
           redirect: redirect || null,
         }),
@@ -347,7 +349,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
       ) : (
         <>
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            <div>
+            {asksName && <div>
               <label htmlFor="signup-fullname" className="mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-[#d4cdbd]/70">Full name</label>
               <div className="relative">
                 <User className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
@@ -366,7 +368,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
                 />
               </div>
               {fieldErrors.fullName && <p className="mt-1 text-xs text-[#f3c0b6]">{fieldErrors.fullName}</p>}
-            </div>
+            </div>}
 
             <div>
               <label htmlFor="signup-email" className="mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-[#d4cdbd]/70">Email address</label>

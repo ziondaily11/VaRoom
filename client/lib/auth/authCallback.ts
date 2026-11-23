@@ -207,7 +207,8 @@ export async function runAuthCallback(env: AuthCallbackEnv): Promise<void> {
     finish('/?auth=signup');
     return;
   }
-  const fullName = metadata.full_name || metadata.name || user.email;
+  // A host names their account in onboarding, which prefills from this, so never use the email.
+  const fullName = metadata.full_name || metadata.name || (intendedRole === 'client' ? user.email : '');
   const { error: upsertError } = await env.client
     .from('profiles')
     .upsert({ id: user.id, role: intendedRole as Role, full_name: fullName }, { onConflict: 'id' });
