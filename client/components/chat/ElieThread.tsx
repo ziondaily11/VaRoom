@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import ElieIcon from '../ElieIcon';
+import { ListingEnquiryCard } from './MessageMedia';
 import {
   ELIE_SUGGESTED_PROMPTS,
-  elieListingMeta,
+  elieListingSummary,
   formatElieHistoryDate,
   type ElieEntry,
   type ElieSessionSummary,
@@ -68,13 +69,10 @@ export function ElieThread({ entries, thinking, onPrompt, onRetry }: {
             );
           case 'listings':
             return (
-              <div key={entry.id} className="elie-results">
+              // The same card as a listing asked about in a chat.
+              <div key={entry.id} className="elie-results elie-listing-results">
                 {entry.items.map((listing) => (
-                  <a key={listing.id} className="elie-result-card elie-listing-card" href={`/booking?listing=${encodeURIComponent(listing.id)}`}>
-                    <strong>{listing.title || 'Listing'}</strong>
-                    <span>{elieListingMeta(listing)}</span>
-                    {listing.verified && <em>GPS verified</em>}
-                  </a>
+                  <ListingEnquiryCard key={listing.id} listing={elieListingSummary(listing)} verified={Boolean(listing.verified)} />
                 ))}
               </div>
             );

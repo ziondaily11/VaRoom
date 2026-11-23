@@ -70,9 +70,24 @@ test('a response becomes reply, news, listings, then suggestion (legacy order)',
   assert.deepEqual(elie.elieResponseEntries({}), []);
 });
 
-test('listing meta and history dates', () => {
-  assert.equal(elie.elieListingMeta({ id: 'x', location_text: 'Kilimani', size_or_type: '2 bed', price_amount: 85000 }), `Kilimani · 2 bed · KSh ${Number(85000).toLocaleString()}`);
-  assert.equal(elie.elieListingMeta({ id: 'x', location_text: 'Westlands' }), 'Westlands');
+test('an Elie listing becomes the chat card: photo by path, Marketplace price fields', () => {
+  assert.deepEqual(elie.elieListingSummary({
+    id: 'l1', title: 'Loft', location_text: 'Kilimani', category: 'airbnb', price_amount: 5000, price_unit: 'night', photo_path: 'h/l1/a.jpg', verified: true,
+  }), {
+    id: 'l1', title: 'Loft', location_text: 'Kilimani', category: 'airbnb', listing_photos: [{ storage_path: 'h/l1/a.jpg' }],
+    listing_booking_details: { price_amount: 5000, price_unit: 'night', listing_purpose: null, sale_price_amount: null, sale_price_mode: null },
+  });
+  // An older Elie service sends only the public URL: the path is read from it.
+  const fromUrl = elie.elieListingSummary({ id: 'l2', photo_url: 'https://x.supabase.co/storage/v1/object/public/listing-photos/h/l2/b%20c.jpg' });
+  assert.deepEqual(fromUrl.listing_photos, [{ storage_path: 'h/l2/b c.jpg' }]);
+  assert.equal(fromUrl.listing_booking_details, null, 'no price: "Price on request"');
+  assert.deepEqual(elie.elieListingSummary({ id: 'l3' }).listing_photos, []);
+  const enquiry = loadTs(path.join(root, 'lib', 'chat', 'listingEnquiry.ts'));
+  assert.equal(enquiry.listingPriceText(elie.elieListingSummary({ id: 'p', category: 'property', price_amount: 9000000, listing_purpose: 'sale', sale_price_amount: 9000000, sale_price_mode: 'starting' })), 'From KSh 9,000,000');
+  assert.equal(enquiry.listingPriceText(elie.elieListingSummary({ id: 'o', category: 'office', price_amount: 350, price_unit: 'day' })), 'KSh 350 / day');
+});
+
+test('history dates', () => {
   const now = new Date('2026-11-02T15:00:00');
   assert.match(elie.formatElieHistoryDate('2026-11-02T09:14:00', now), /^Today, /);
   assert.match(elie.formatElieHistoryDate('2026-11-01T09:14:00', now), /^Yesterday, /);
@@ -150,8 +165,11 @@ test('the Elie thread: questions, replies, news and listings (GPS verified), err
   assert.doesNotMatch(html, /Ask Elie to find you a space/);
   assert.match(html, /<div class="msg-row out elie-message"><div class="bubble">Two bedroom in Kilimani<\/div><\/div>/);
   assert.match(html, /<a class="elie-result-card" href="https:\/\/news\.example\/a" target="_blank" rel="noopener noreferrer"><strong>Rates rise<\/strong>/);
-  assert.match(html, /<a class="elie-result-card elie-listing-card" href="\/booking\?listing=l%201"><strong>Garden flat<\/strong><span>Kilimani<\/span><em>GPS verified<\/em><\/a>/);
-  assert.match(html, /href="\/booking\?listing=l2"><strong>Loft<\/strong><span><\/span><\/a>/, 'no badge when not verified');
+  // Listings use the chat's listing card (photo, title, place · kind, price), GPS-verified ones labelled.
+  assert.match(html, /<div class="elie-results elie-listing-results"><div class="chat-enquiry-card" role="link" tabindex="0" aria-label="Listing: Garden flat">/);
+  assert.match(html, /<span class="chat-enquiry-badge">GPS verified<\/span><span class="chat-enquiry-overlay"><strong>Garden flat<\/strong><small>Kilimani · [^<]+<\/small><span class="chat-enquiry-price">Price on request<\/span>/);
+  assert.match(html, /aria-label="Listing: Loft"><span class="chat-enquiry-media"><span class="chat-enquiry-empty" aria-hidden="true"><\/span><span class="chat-enquiry-overlay">/, 'no badge when not verified');
+  assert.doesNotMatch(html, /elie-listing-card/);
   assert.match(html, /<div>Search index offline<\/div><button type="button" class="elie-retry-btn" aria-label="Retry searching with Elie"/);
   assert.match(html, /role="status" aria-label="Elie is thinking"/);
   const intro = render(ElieThread, { entries: [], thinking: false, onPrompt() {}, onRetry() {} });

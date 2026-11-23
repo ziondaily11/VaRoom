@@ -49,8 +49,11 @@ test('Chats: the listing card waits above the composer, goes with the next messa
   assert.match(source, /listingId: currentEnquiry \? currentEnquiry\.listing\.id : undefined,/);
   assert.match(source, /if \(currentEnquiry\) dropEnquiry\(\);/);
   assert.match(source, /\{m\.listing && <ListingEnquiryCard listing=\{m\.listing\} \/>\}\s*\{replyReference\}/);
-  // Opening the card goes to the listing.
-  assert.match(read('components', 'chat', 'MessageMedia.tsx'), /router\.push\(`\/booking\?id=\$\{encodeURIComponent\(listing\.id\)\}`\)/);
+  // Opening a card goes to the listing: /booking reads ?listing= (never ?id=).
+  const media = read('components', 'chat', 'MessageMedia.tsx');
+  assert.equal((media.match(/router\.push\(`\/booking\?listing=\$\{encodeURIComponent\(listing\.id\)\}`\)/g) || []).length, 3);
+  assert.doesNotMatch(media, /booking\?id=/);
+  assert.match(read('pages', 'booking.tsx'), /router\.query\.listing/);
 });
 
 test('in the thread the listing fills the bubble in a thin frame, its price on the photo; only the message keeps padding', () => {

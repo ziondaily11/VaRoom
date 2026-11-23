@@ -608,6 +608,8 @@ def test_listing_query_names_the_host_relationship_and_keeps_listings_without_de
         assert "listing_booking_details!inner(" in filtered["select"]
         assert filtered["listing_booking_details.price_amount"] == "lte.5000"
         assert filtered["order"] == "verified.desc,created_at.desc"
+        # The chat card's Marketplace price needs the sale fields.
+        assert "listing_purpose,sale_price_amount,sale_price_mode" in plain
 
     asyncio.run(run())
 
@@ -795,3 +797,17 @@ async def _search_with_real_wallet():
     with patch("main.verify_supabase_user", new_callable=AsyncMock, return_value={"id": "user-9"}), \
          patch("main.get_profile", new_callable=AsyncMock, return_value={"role": "client"}):
         return await main.elie_search(main.ElieSearchRequest(message="x"), request, response, authorization="Bearer t")
+
+
+def test_listing_results_carry_what_the_chat_card_needs():
+    shaped = main.reshape_listing({
+        "id": "l1", "title": "Plot", "category": "property", "location_text": "Karen",
+        "booking_details": [{"price_amount": 9000000, "listing_purpose": "sale", "sale_price_amount": 9000000, "sale_price_mode": "starting"}],
+        "photos": [{"storage_path": "host/l1/a.jpg"}],
+    })
+    assert shaped["photo_path"] == "host/l1/a.jpg"
+    assert shaped["photo_url"].endswith("/host/l1/a.jpg")
+    assert (shaped["listing_purpose"], shaped["sale_price_amount"], shaped["sale_price_mode"]) == ("sale", 9000000, "starting")
+    assert main.ElieListing(**shaped).photo_path == "host/l1/a.jpg"
+    empty = main.reshape_listing({"id": "l2", "title": "Room", "booking_details": [], "photos": []})
+    assert empty["photo_path"] is None and empty["listing_purpose"] is None
