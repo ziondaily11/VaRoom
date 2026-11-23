@@ -132,6 +132,23 @@ test('the checkout window is dark like the auth panel, above the page, full scre
   assert.match(source, /createPortal\(layer, document\.body\)/);
 });
 
+test('a blocked Paystack card window never traps the host (Brave Shields)', () => {
+  const source = fs.readFileSync(path.join(root, 'components', 'billing', 'CheckoutWindow.tsx'), 'utf8');
+  const card = source.slice(source.indexOf('const payCard = async'), source.indexOf('const leaveForPaystack'));
+  // Paystack's own page is offered from the moment its card window is asked for, not only after an error.
+  const opening = card.slice(card.indexOf("setStage('card');"), card.indexOf('await payByCard('));
+  assert.match(opening, /setFallbackUrl\(started\.authorizationUrl\);/);
+  // No sign of the card window within 8 s: say so (it may be blocked) instead of waiting for ever.
+  assert.match(source, /const POPUP_SHOW_MS = 8000;/);
+  assert.match(card, /if \(!shown && attempt\.current === mine\) setError\(BLOCKED_TEXT\);/);
+  assert.match(source, /Brave Shields or an ad blocker may be stopping it\. Open Paystack in this tab instead/);
+  // Close always works; the window never disables it.
+  assert.match(source, /const close = useCallback\(\(\) => \{ attempt\.current \+= 1; onClose\(\); \}, \[onClose\]\);/);
+  assert.doesNotMatch(source, /aria-label="Close"[^>]*disabled/);
+  const popup = fs.readFileSync(path.join(root, 'lib', 'billing', 'paystackPopup.ts'), 'utf8');
+  assert.match(popup, /resumeTransaction\(accessCode, \{\s*onLoad,/, 'Paystack tells us when its window has actually shown');
+});
+
 const { ReviewHero } = loadTsx('components/listWizard/ReviewStep.tsx');
 
 test('the review carousel shows every chosen photo and video, with arrows, dots and a count', () => {
