@@ -222,10 +222,11 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           .hero-nav-link {
             position: relative;
             padding: 6px 0;
-            font-size: 0.9375rem;
+            font-size: 0.875rem;
             font-weight: 500;
-            color: #f5efe7;
+            color: rgba(245, 239, 231, 0.82);
             text-decoration: none !important;
+            transition: color 150ms cubic-bezier(0.22, 1, 0.36, 1);
             white-space: nowrap;
             animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
           }
@@ -246,7 +247,12 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             transition: scale 200ms var(--ease-out);
           }
           .hero-nav-link:focus-visible { outline: 2px solid #f5efe7; outline-offset: 4px; border-radius: 4px; }
-          /* The top bar sits on the night photo: light buttons, white "Get started". */
+          /* The top bar sits on the night photo: light buttons, white "Get started",
+             pill-shaped like the bar that holds them. */
+          .hero-header .landing-cta,
+          .hero-header .landing-cta-secondary {
+            border-radius: 9999px !important;
+          }
           .hero-header .landing-cta-secondary {
             color: #f5efe7 !important;
             border-color: rgba(245, 239, 231, 0.35) !important;
@@ -267,6 +273,7 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           }
           .hero-header button:focus-visible { outline-color: #f5efe7; }
           @media (hover: hover) and (pointer: fine) {
+            .hero-nav-link:hover { color: #ffffff; }
             .hero-nav-link:hover::after { scale: 1 1; }
           }
           .menu-nav-link:focus-visible { outline: 2px solid #f5efe7; outline-offset: 4px; }
@@ -276,9 +283,6 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           .hero-header-actions > :nth-child(2) { animation-delay: 200ms; }
           .hero-header-mobile > :nth-child(1) { animation-delay: 150ms; }
           .hero-header-mobile > :nth-child(2) { animation-delay: 200ms; }
-          .hero-eyebrow {
-            animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
-          }
           /* The headline is the page's largest content: it rises in but is never
              invisible, so browsers can measure when the page has painted
              (fully transparent text does not count as content). */
@@ -348,7 +352,6 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             .hero-subtitle,
             .hero-cta,
             .hero-proof,
-            .hero-eyebrow,
             .hero-animated-content {
               animation: none !important;
               transform: none !important;

@@ -158,7 +158,7 @@ test('Hero copy is one left-aligned block on every screen size', () => {
   const heroTsx = fs.readFileSync(path.join(clientRoot, 'components', 'landing', 'HeroSection.tsx'), 'utf8');
   assert.match(heroTsx, /hero-animated-content[^"]*items-start text-left"/, 'Hero copy must align left');
   assert.doesNotMatch(heroTsx, /max-\[639px\]:(text-center|items-center|justify-center)/, 'Mobile must not re-centre the hero copy');
-  for (const part of ['hero-eyebrow', 'hero-headline', 'hero-subtitle', 'hero-cta']) assert.match(heroTsx, new RegExp(part));
+  for (const part of ['hero-headline', 'hero-subtitle', 'hero-cta']) assert.match(heroTsx, new RegExp(part));
 
   const indexTsx = fs.readFileSync(path.join(clientRoot, 'pages', 'index.tsx'), 'utf8');
   assert.doesNotMatch(indexTsx, /text-align:\s*center !important/, 'index.tsx must not centre the hero on mobile');

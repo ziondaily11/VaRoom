@@ -44,11 +44,22 @@ test('the kind of space opens a frosted list (not the system select), upwards, f
 
 test('the headline and the line under it are small and in one face; the search is compact', () => {
   const hero = read('components', 'landing', 'HeroSection.tsx');
-  assert.match(hero, /hero-headline m-0 mt-3 max-w-\[440px\] font-serif font-medium text-\[26px\] sm:text-\[clamp\(28px,2\.4vw,38px\)\]/);
+  // No width cap: each stays on one line wherever the screen is wide enough.
+  assert.match(hero, /hero-headline m-0 font-serif font-medium text-\[26px\] sm:text-\[clamp\(28px,2\.4vw,38px\)\]/);
   assert.match(hero, />\s*Every kind of space, one place to book&nbsp;it\.\s*</, 'no italic word: one style');
-  assert.match(hero, /hero-subtitle m-0 mt-3 max-w-\[400px\] font-serif font-normal text-\[14px\] sm:text-\[15px\]/);
+  assert.match(hero, /hero-subtitle m-0 mt-3 font-serif font-normal text-\[14px\] sm:text-\[15px\]/);
+  assert.doesNotMatch(hero, /hero-eyebrow|Stays · Workspaces · Venues/, 'no line above the headline');
   assert.match(hero, /hero-search flex w-full max-w-\[480px\]/);
   assert.match(hero, /landing-cta landing-cta-primary landing-cta-compact/);
+});
+
+test('the top bar is a floating frosted pill; the phone menu stays outside its blur', () => {
+  const nav = read('components', 'landing', 'Navbar.tsx');
+  assert.match(nav, /className="hero-header-bar relative flex items-center justify-between rounded-full border border-white\/15 bg-\[rgba\(14,15,20,0\.5\)\][^"]*backdrop-blur-md/);
+  // The bar closes before the menu: a blurred ancestor would hold the fixed, full-screen menu inside it.
+  assert.match(nav, /<Menu size=\{20\} \/>\s*<\/button>\s*<\/div>\s*<\/div>[\s\S]*id="mobile-navigation-menu"/, 'menu after the bar');
+  assert.match(nav, /landing-cta-secondary landing-cta-compact/);
+  assert.match(read('pages', 'index.tsx'), /\.hero-header \.landing-cta,\s*\.hero-header \.landing-cta-secondary \{\s*border-radius: 9999px !important;/);
 });
 
 test('the night hero: light top bar, dark fallback colour, phone crop', () => {
