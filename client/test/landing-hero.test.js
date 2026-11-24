@@ -13,13 +13,42 @@ test('the hero search opens the marketplace with its own filters (place and kind
   assert.match(hero, /if \(category !== 'all'\) query\.category = category;/);
   assert.match(hero, /void router\.push\(\{ pathname: '\/marketplace', query \}\);/, 'client-side, no full reload');
   // The kinds of space are the marketplace's own, so every choice filters something real.
-  assert.match(hero, /Object\.entries\(CATEGORY_LABELS\)\.map/);
+  assert.match(hero, /const SPACE_TYPES: \[string, string\]\[\] = \[\['all', 'Any space'\], \.\.\.Object\.entries\(CATEGORY_LABELS\)\];/);
   assert.match(read('lib', 'marketplace', 'marketplace.ts'), /return \{ q: one\('q'\), category, guests: one\('guests'\)/);
   // Each field is labelled; the headline stays the largest content.
   assert.match(hero, /<span className=\{fieldLabel\}>Where<\/span>/);
   assert.match(hero, /<span className=\{fieldLabel\}>Type of space<\/span>/);
   assert.match(hero, /<h1 className="hero-headline /);
   assert.match(hero, /GPS-verified listings, trusted hosts\./);
+});
+
+test('the kind of space opens a frosted list (not the system select), upwards, from the keyboard too', () => {
+  const hero = read('components', 'landing', 'HeroSection.tsx');
+  assert.doesNotMatch(hero, /<select/);
+  assert.match(hero, /aria-haspopup="listbox"\s+aria-expanded=\{open\}/);
+  assert.match(hero, /role="listbox"[\s\S]*?aria-activedescendant=/);
+  assert.match(hero, /role="option"\s+aria-selected=\{index === selected\}/);
+  // The shared animated menu (animation.md §8.2), opening above: the hero clips below the search.
+  assert.match(hero, /<AnimatedMenu\s+open=\{open\}\s+placement="above-start"/);
+  assert.match(hero, /style=\{menuItemStyle\(index\)\}/);
+  // The active row is grey, never the system blue.
+  assert.match(hero, /index === active \? 'bg-white\/\[0\.12\] text-white' : 'text-white\/80'/);
+  assert.match(hero, /transition-transform duration-200 ease-out motion-reduce:transition-none \$\{open \? 'rotate-180' : ''\}/);
+  const menu = read('components', 'chat', 'AnimatedMenu.tsx');
+  assert.match(menu, /scale\(\.95\)/, 'menus start at .95 (animation.md B10)');
+  assert.doesNotMatch(menu, /scale\(\.9\)/);
+  for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape', 'Enter']) assert.match(hero, new RegExp(key));
+  assert.match(hero, /document\.addEventListener\('pointerdown', outside\)/);
+  assert.match(hero, /return \(\) => document\.removeEventListener\('pointerdown', outside\);/);
+});
+
+test('the headline and the line under it are small and in one face; the search is compact', () => {
+  const hero = read('components', 'landing', 'HeroSection.tsx');
+  assert.match(hero, /hero-headline m-0 mt-3 max-w-\[440px\] font-serif font-medium text-\[26px\] sm:text-\[clamp\(28px,2\.4vw,38px\)\]/);
+  assert.match(hero, />\s*Every kind of space, one place to book&nbsp;it\.\s*</, 'no italic word: one style');
+  assert.match(hero, /hero-subtitle m-0 mt-3 max-w-\[400px\] font-serif font-normal text-\[14px\] sm:text-\[15px\]/);
+  assert.match(hero, /hero-search flex w-full max-w-\[480px\]/);
+  assert.match(hero, /landing-cta landing-cta-primary landing-cta-compact/);
 });
 
 test('the night hero: light top bar, dark fallback colour, phone crop', () => {

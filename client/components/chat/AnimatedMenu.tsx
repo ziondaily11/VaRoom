@@ -16,14 +16,14 @@ export function useMenuPresence(open: boolean): { mounted: boolean; closing: boo
 }
 
 export const MENU_STYLES = `
-.vr-menu { position:absolute; z-index:40; animation:vr-menu-in ${MENU_OPEN_MS}ms cubic-bezier(.2,.9,.3,1) both; }
+.vr-menu { position:absolute; z-index:40; animation:vr-menu-in ${MENU_OPEN_MS}ms cubic-bezier(.22,1,.36,1) both; }
 .vr-menu--below-end { top:calc(100% + 6px); right:0; transform-origin:top right; --vr-from:-6px; }
 .vr-menu--above-start { bottom:calc(100% + 8px); left:0; transform-origin:bottom left; --vr-from:6px; }
 .vr-menu.is-closing { animation:vr-menu-out ${MENU_CLOSE_MS}ms cubic-bezier(.4,0,1,1) both; pointer-events:none; }
-.vr-menu-item { animation:vr-menu-item-in 180ms ease-out both; animation-delay:calc(var(--i, 0) * ${MENU_STAGGER_MS}ms); }
+.vr-menu-item { animation:vr-menu-item-in 180ms cubic-bezier(.22,1,.36,1) both; animation-delay:calc(var(--i, 0) * ${MENU_STAGGER_MS}ms); }
 .vr-menu.is-closing .vr-menu-item { animation:none; }
-@keyframes vr-menu-in { from { opacity:0; transform:translateY(var(--vr-from)) scale(.9); } to { opacity:1; transform:none; } }
-@keyframes vr-menu-out { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(var(--vr-from)) scale(.9); } }
+@keyframes vr-menu-in { from { opacity:0; transform:translateY(var(--vr-from)) scale(.95); } to { opacity:1; transform:none; } }
+@keyframes vr-menu-out { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(var(--vr-from)) scale(.95); } }
 @keyframes vr-menu-item-in { from { opacity:0; transform:translateY(var(--vr-from)); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .vr-menu, .vr-menu.is-closing, .vr-menu-item { animation-duration:1ms; animation-delay:0ms; } }
 `;
