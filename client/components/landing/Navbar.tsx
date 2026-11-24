@@ -97,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
           Va
         </span>
         <span
-          className="text-[#181513]"
+          className="text-[#f5efe7]"
           style={{ textDecoration: 'none' }}
         >
           Room
@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
             setMenuOrigin(originOf(e.currentTarget));
             setMobileMenuOpen(true);
           }}
-          className="p-2 text-[#181513] rounded-full hover:bg-black/5 transition"
+          className="p-2 text-[#f5efe7] rounded-full hover:bg-white/10 transition"
           aria-label="Open navigation menu"
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-navigation-menu"

@@ -224,7 +224,7 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             padding: 6px 0;
             font-size: 0.9375rem;
             font-weight: 500;
-            color: #181513;
+            color: #f5efe7;
             text-decoration: none !important;
             white-space: nowrap;
             animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -245,7 +245,27 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             transform-origin: left center;
             transition: scale 200ms var(--ease-out);
           }
-          .hero-nav-link:focus-visible { outline: 2px solid #bd2337; outline-offset: 4px; border-radius: 4px; }
+          .hero-nav-link:focus-visible { outline: 2px solid #f5efe7; outline-offset: 4px; border-radius: 4px; }
+          /* The top bar sits on the night photo: light buttons, white "Get started". */
+          .hero-header .landing-cta-secondary {
+            color: #f5efe7 !important;
+            border-color: rgba(245, 239, 231, 0.35) !important;
+          }
+          .hero-header .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+            background: rgba(245, 239, 231, 0.1) !important;
+            color: #ffffff !important;
+          }
+          .hero-header .landing-cta.landing-cta-primary {
+            background: #f5efe7 !important;
+            border-color: #f5efe7 !important;
+            color: #151310 !important;
+          }
+          .hero-header .landing-cta.landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
+            background: #ffffff !important;
+            border-color: #ffffff !important;
+            color: #151310 !important;
+          }
+          .hero-header button:focus-visible { outline-color: #f5efe7; }
           @media (hover: hover) and (pointer: fine) {
             .hero-nav-link:hover::after { scale: 1 1; }
           }
@@ -295,6 +315,19 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
           .hero-cta .landing-cta:hover .hero-cta-arrow {
             transform: translateX(3px);
           }
+          /* The search is one pill: its button follows the pill's shape. */
+          .hero-search .landing-cta {
+            border-radius: 9999px !important;
+          }
+          .hero-search:focus-within {
+            border-color: rgba(245, 239, 231, 0.4);
+          }
+          .hero-search-input::-webkit-search-cancel-button {
+            -webkit-appearance: none;
+          }
+          .hero-proof {
+            animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+          }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -314,6 +347,7 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
             .hero-headline,
             .hero-subtitle,
             .hero-cta,
+            .hero-proof,
             .hero-eyebrow,
             .hero-animated-content {
               animation: none !important;
@@ -344,26 +378,28 @@ export default function LandingPage({ spaces, reviews }: LandingPageProps) {
       <main className={`${landingSerif.variable} ${landingSans.variable} landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white`}>
         {/* Hero stage */}
         <div className="relative w-full">
-          {/* Nairobi illustration background pinned behind the hero */}
+          {/* A Nairobi apartment at night, the city through its window, pinned behind the hero.
+              The night colour shows until the photo arrives, so the white text is always readable. */}
           <div
-            className="sticky top-0 h-[100dvh] w-full -mb-[100dvh] pointer-events-none select-none overflow-hidden z-0"
+            className="sticky top-0 h-[100dvh] w-full -mb-[100dvh] pointer-events-none select-none overflow-hidden z-0 bg-[#12141c]"
             aria-hidden="true"
           >
             <picture className="absolute inset-0 block">
               <source media="(max-width: 767px)" srcSet={heroPhone.src} />
               <img
                 src={heroDesktop.src}
-                alt="VaRoom Nairobi Skyline"
-                className="hero-background-image w-full h-full object-cover object-top"
+                alt="A living room overlooking Nairobi at night"
+                className="hero-background-image w-full h-full object-cover object-center"
                 fetchPriority="high"
               />
             </picture>
-            {/* Darkens the bottom-left, where the white hero and auth copy sit */}
+            {/* Darkens the top (the top bar) and the bottom-left (the copy and search);
+                the lamp and the city stay bright. */}
             <div
               className={`absolute inset-0 pointer-events-none ${
                 isAuthOpen
-                  ? 'bg-[linear-gradient(to_top,rgba(8,9,9,0.66)_0%,rgba(8,9,9,0.2)_38%,transparent_62%)]'
-                  : 'bg-[linear-gradient(to_top_right,rgba(8,9,9,0.68)_0%,rgba(8,9,9,0.36)_34%,rgba(8,9,9,0.12)_58%,rgba(247,243,236,0.24)_100%)] max-[639px]:bg-[linear-gradient(to_top,rgba(8,9,9,0.78)_0%,rgba(8,9,9,0.45)_40%,transparent_70%)]'
+                  ? 'bg-[linear-gradient(to_top,rgba(8,9,12,0.7)_0%,rgba(8,9,12,0.25)_40%,transparent_65%)]'
+                  : 'bg-[linear-gradient(to_bottom,rgba(8,9,12,0.5)_0%,transparent_18%),linear-gradient(to_top_right,rgba(8,9,12,0.82)_0%,rgba(8,9,12,0.5)_32%,rgba(8,9,12,0.12)_58%,transparent_75%)] max-[767px]:bg-[linear-gradient(to_bottom,rgba(8,9,12,0.45)_0%,transparent_16%),linear-gradient(to_top,rgba(8,9,12,0.9)_0%,rgba(8,9,12,0.6)_42%,transparent_68%)]'
               }`}
             />
           </div>
