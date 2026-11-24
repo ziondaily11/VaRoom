@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowRight, ChevronDown, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, MapPin, ShieldCheck } from 'lucide-react';
 import { Navbar } from './Navbar';
 import type { LandingSection } from '../../lib/landing/sections';
 import { CATEGORY_LABELS } from '../../lib/marketplace/marketplace';
+import AnimatedMenu, { menuItemStyle } from '../chat/AnimatedMenu';
 
 interface HeroSectionProps {
   isAuthOpen: boolean;
@@ -13,8 +14,94 @@ interface HeroSectionProps {
   sections: LandingSection[];
 }
 
-const fieldLabel = 'block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60';
-const fieldInput = 'hero-search-input mt-0.5 block w-full border-0 bg-transparent p-0 text-[15px] text-white outline-none placeholder:text-white/45';
+const fieldLabel = 'block text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55';
+const fieldValue = 'block w-full truncate border-0 bg-transparent p-0 text-[13px] leading-5 text-white outline-none placeholder:text-white/45';
+// The marketplace's own kinds of space, so every choice filters something real.
+const SPACE_TYPES: [string, string][] = [['all', 'Any space'], ...Object.entries(CATEGORY_LABELS)];
+
+// The kind of space, as a list in the search's own frosted style (a native
+// select opens the system's white list with a blue highlight). It is the
+// shared AnimatedMenu (animation.md §8.2): grows out of its trigger in 200 ms,
+// rows 30 ms apart, closes in 150 ms. It opens upwards: the hero clips
+// anything below the search. The row under the pointer or keys is grey.
+const SpaceTypePicker: React.FC<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const selected = Math.max(0, SPACE_TYPES.findIndex(([key]) => key === value));
+
+  const show = (index = selected) => { setActive(index); setOpen(true); };
+  const close = (refocus: boolean) => { setOpen(false); if (refocus) buttonRef.current?.focus(); };
+  const choose = (index: number) => { onChange(SPACE_TYPES[index][0]); close(true); };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    document.getElementById('hero-space-types')?.focus();
+    const outside = (event: PointerEvent) => { if (!rootRef.current?.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
+
+  const onListKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const last = SPACE_TYPES.length - 1;
+    const moves: Record<string, number> = { ArrowDown: Math.min(last, active + 1), ArrowUp: Math.max(0, active - 1), Home: 0, End: last };
+    if (event.key in moves) { event.preventDefault(); setActive(moves[event.key]); }
+    else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(active); }
+    else if (event.key === 'Escape') { event.preventDefault(); close(true); }
+    else if (event.key === 'Tab') setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative min-w-0 sm:w-[150px] sm:flex-none">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="hero-space-types"
+        onClick={() => (open ? close(false) : show())}
+        onKeyDown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); show(); } }}
+        className="flex w-full items-center gap-2 rounded-full border-0 bg-transparent px-3.5 py-1.5 text-left transition-[background-color,transform] duration-150 ease-out hover:bg-white/5 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+      >
+        <span className="min-w-0 flex-1">
+          <span className={fieldLabel}>Type of space</span>
+          <span className={fieldValue}>{SPACE_TYPES[selected][1]}</span>
+        </span>
+        <ChevronDown size={14} className={`shrink-0 text-white/60 transition-transform duration-200 ease-out motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      <AnimatedMenu
+        open={open}
+        placement="above-start"
+        id="hero-space-types"
+        role="listbox"
+        aria-label="Type of space"
+        tabIndex={-1}
+        aria-activedescendant={`hero-space-type-${SPACE_TYPES[active][0]}`}
+        onKeyDown={onListKey}
+        className="w-[200px] rounded-2xl border border-white/10 bg-[rgba(22,23,28,0.96)] p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.85)] outline-none backdrop-blur-md"
+      >
+        {SPACE_TYPES.map(([key, label], index) => (
+          <div
+            key={key}
+            id={`hero-space-type-${key}`}
+            role="option"
+            aria-selected={index === selected}
+            onClick={() => choose(index)}
+            onPointerMove={() => setActive(index)}
+            style={menuItemStyle(index)}
+            className={`vr-menu-item flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors duration-150 ease-out ${
+              index === active ? 'bg-white/[0.12] text-white' : 'text-white/80'
+            } ${index === selected ? 'font-semibold' : ''}`}
+          >
+            {label}
+            {index === selected && <Check size={14} className="text-white/70" aria-hidden="true" />}
+          </div>
+        ))}
+      </AnimatedMenu>
+    </div>
+  );
+};
 
 // Opens the marketplace with the place (matched on title, location and type)
 // and the kind of space, the same filters as its own search bar.
@@ -34,10 +121,10 @@ const HeroSearch: React.FC = () => {
       role="search"
       aria-label="Find a space"
       onSubmit={submit}
-      className="hero-search flex w-full max-w-[620px] flex-col gap-1 rounded-[22px] border border-white/15 bg-[rgba(14,15,20,0.55)] p-2 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.8)] backdrop-blur-md sm:flex-row sm:items-center sm:gap-0 sm:rounded-full"
+      className="hero-search flex w-full max-w-[480px] flex-col gap-1 rounded-[18px] border border-white/15 bg-[rgba(14,15,20,0.55)] p-1.5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.8)] backdrop-blur-md sm:flex-row sm:items-center sm:gap-0 sm:rounded-full"
     >
-      <label className="flex min-w-0 flex-1 cursor-text items-center gap-3 rounded-full px-4 py-2.5 transition-colors hover:bg-white/5">
-        <MapPin size={18} className="shrink-0 text-white/70" aria-hidden="true" />
+      <label className="flex min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-full px-3.5 py-1.5 transition-colors hover:bg-white/5">
+        <MapPin size={15} className="shrink-0 text-white/65" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className={fieldLabel}>Where</span>
           <input
@@ -48,32 +135,18 @@ const HeroSearch: React.FC = () => {
             placeholder="Westlands, Diani, Naivasha…"
             autoComplete="off"
             enterKeyHint="search"
-            className={fieldInput}
+            className={`hero-search-input ${fieldValue}`}
           />
         </span>
       </label>
-      <span className="mx-1 hidden h-8 w-px shrink-0 bg-white/15 sm:block" aria-hidden="true" />
-      <label className="relative flex min-w-0 cursor-pointer items-center gap-3 rounded-full px-4 py-2.5 transition-colors hover:bg-white/5 sm:w-[190px] sm:flex-none">
-        <span className="min-w-0 flex-1">
-          <span className={fieldLabel}>Type of space</span>
-          <select
-            name="category"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            className={`${fieldInput} cursor-pointer appearance-none pr-6 [&>option]:text-[#151310]`}
-          >
-            <option value="all">Any space</option>
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </span>
-        <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/60" aria-hidden="true" />
-      </label>
+      <span className="mx-0.5 hidden h-7 w-px shrink-0 bg-white/15 sm:block" aria-hidden="true" />
+      <SpaceTypePicker value={category} onChange={setCategory} />
       <button
         type="submit"
-        className="landing-cta landing-cta-primary landing-cta-large mt-1 inline-flex w-full shrink-0 items-center justify-center gap-2.5 px-6 text-[15px] font-semibold sm:mt-0 sm:w-auto"
+        className="landing-cta landing-cta-primary landing-cta-compact mt-1 inline-flex w-full shrink-0 items-center justify-center gap-2 px-4 text-[13px] font-semibold sm:mt-0 sm:w-auto"
       >
         <span>Find a space</span>
-        <ArrowRight size={17} className="hero-cta-arrow" aria-hidden="true" />
+        <ArrowRight size={15} className="hero-cta-arrow" aria-hidden="true" />
       </button>
     </form>
   );
@@ -88,24 +161,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
         <Navbar onOpenAuth={onOpenAuth} onOpenSignup={onOpenSignup} sections={sections} />
 
         <div className="hero-animated-content relative z-30 mt-auto w-full max-w-full box-border px-[clamp(20px,4.2vw,72px)] pb-[clamp(28px,7vh,80px)] pt-8 flex flex-col items-start text-left">
-          <p className="hero-eyebrow m-0 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/85">
+          <p className="hero-eyebrow m-0 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">
             Stays · Workspaces · Venues
           </p>
 
-          <h1 className="hero-headline m-0 mt-4 max-w-[560px] font-serif font-semibold text-[clamp(30px,8vw,34px)] sm:text-[clamp(36px,3.6vw,56px)] text-white tracking-[-0.035em] leading-[1.03] [text-shadow:0_2px_24px_rgba(0,0,0,0.35)]">
-            Every kind of space, <em className="font-normal italic">one</em> place to book&nbsp;it.
+          {/* One face and weight for the headline and the line under it. */}
+          <h1 className="hero-headline m-0 mt-3 max-w-[440px] font-serif font-medium text-[26px] sm:text-[clamp(28px,2.4vw,38px)] text-white tracking-[-0.025em] leading-[1.12] [text-shadow:0_2px_20px_rgba(0,0,0,0.35)]">
+            Every kind of space, one place to book&nbsp;it.
           </h1>
 
-          <p className="hero-subtitle m-0 mt-4 sm:mt-5 max-w-[480px] text-[15px] sm:text-lg text-white/85 leading-[1.5] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+          <p className="hero-subtitle m-0 mt-3 max-w-[400px] font-serif font-normal text-[14px] sm:text-[15px] text-white/80 leading-[1.55] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
             Search, compare and book spaces across Kenya, with locations you can trust.
           </p>
 
-          <div className="hero-cta mt-7 w-full">
+          <div className="hero-cta mt-6 w-full">
             <HeroSearch />
           </div>
 
-          <p className="hero-proof m-0 mt-4 inline-flex items-center gap-2 text-[13px] text-white/80 xl:absolute xl:bottom-[clamp(28px,7vh,80px)] xl:right-[clamp(20px,4.2vw,72px)] xl:mt-0 xl:rounded-full xl:border xl:border-white/15 xl:bg-[rgba(14,15,20,0.5)] xl:px-4 xl:py-2.5 xl:backdrop-blur-md">
-            <ShieldCheck size={16} className="shrink-0 text-white/75" aria-hidden="true" />
+          <p className="hero-proof m-0 mt-3 inline-flex items-center gap-2 text-[12px] text-white/75 xl:absolute xl:bottom-[clamp(28px,7vh,80px)] xl:right-[clamp(20px,4.2vw,72px)] xl:mt-0 xl:rounded-full xl:border xl:border-white/15 xl:bg-[rgba(14,15,20,0.5)] xl:px-3.5 xl:py-2 xl:backdrop-blur-md">
+            <ShieldCheck size={14} className="shrink-0 text-white/70" aria-hidden="true" />
             GPS-verified listings, trusted hosts.
           </p>
         </div>
