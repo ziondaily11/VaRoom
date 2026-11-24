@@ -129,17 +129,36 @@ PROPERTY_NEWS_API_URL = (
 # straight into public URLs, no signed URLs needed.
 LISTING_PHOTOS_BUCKET = "listing-photos"
 
-# Sliding-window in-memory rate limiter
+# Sliding-window in-memory rate limiter. The per-account limit is the real
+# guard (an account is needed for anything that calls a model). The address
+# limit only slows anonymous requests: Render's proxy and Cloudflare sit in
+# front, so the address is the one the visitor's side reports and may be
+# shared (offices, mobile networks), hence a generous ceiling.
 _rate_limit_records: dict[str, deque[float]] = defaultdict(deque)
+RATE_LIMIT_PRUNE_SECONDS = 300  # longer than any window
+_rate_limit_pruned_at = 0.0
+
 
 def get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.split(",")[0].strip()[:64]
     return request.client.host if request.client else "unknown"
+
+
+def prune_rate_limits(now: float) -> None:
+    """Forgets keys with no request in the last few minutes, so memory doesn't grow."""
+    global _rate_limit_pruned_at
+    if now - _rate_limit_pruned_at < RATE_LIMIT_PRUNE_SECONDS:
+        return
+    _rate_limit_pruned_at = now
+    for key in [key for key, history in _rate_limit_records.items() if not history or now - history[-1] > RATE_LIMIT_PRUNE_SECONDS]:
+        del _rate_limit_records[key]
+
 
 def check_rate_limit(key: str, max_requests: int = 25, window_seconds: int = 60) -> None:
     now = time.monotonic()
+    prune_rate_limits(now)
     history = _rate_limit_records[key]
     while history and now - history[0] > window_seconds:
         history.popleft()
@@ -202,24 +221,29 @@ app = FastAPI(
     version="0.6.0",
 )
 
+# ENVIRONMENT=production drops the localhost origins (unset keeps them, so a
+# local client can still call the deployed service).
+ENVIRONMENT = (os.getenv("ENVIRONMENT") or "").strip().lower()
 raw_cors = (os.getenv("CORS_ORIGINS") or "").strip()
 allowed_origins = [o.strip() for o in raw_cors.split(",") if o.strip()] if raw_cors else [
     "https://varoom.co.ke",
     "https://www.varoom.co.ke",
     "https://elie1-0.onrender.com",
     "https://property-news-pnsj.onrender.com",
+] + ([] if ENVIRONMENT == "production" else [
     "http://localhost:3000",
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
-]
+])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins != ["*"] else ["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    # What the page sends (client/lib/chat/elie.ts); the internal key is server to server.
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
 
@@ -698,7 +722,7 @@ class InternalReplyResponse(BaseModel):
 
 def require_internal_key(provided: Optional[str]) -> None:
     if not CHATBOT_INTERNAL_API_KEY:
-        raise HTTPException(status_code=503, detail="Internal replies are not configured.")
+        raise HTTPException(status_code=503, detail="Internal endpoints are not configured.")
     if not provided or not hmac.compare_digest(provided.encode(), CHATBOT_INTERNAL_API_KEY.encode()):
         raise HTTPException(status_code=401, detail="Unauthorized.")
 
@@ -2108,7 +2132,7 @@ async def elie_search(
     req_id = get_or_create_correlation_id(request)
     response.headers["X-Correlation-ID"] = req_id
     client_ip = get_client_ip(request)
-    check_rate_limit(f"elie:ip:{client_ip}", max_requests=25, window_seconds=60)
+    check_rate_limit(f"elie:ip:{client_ip}", max_requests=60, window_seconds=60)
 
     if not authorization or not authorization.lower().startswith("bearer "):
         logger.warning("request_id=%s stage=auth_check error=missing_header", req_id)
@@ -2320,13 +2344,16 @@ def health_check():
     return {
         "status": "ok",
         **ai_settings(),
+        "property_news_mounted": PROPERTY_NEWS_MOUNTED,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
 
 
-@app.get("/elie/diagnostics")
-async def elie_diagnostics(request: Request, authorization: Optional[str] = Header(None)):
-    """Safe, bounded diagnostic probe to verify model connectivity and measure latency."""
+@app.get("/elie/diagnostics", dependencies=[Depends(internal_key_dependency)])
+async def elie_diagnostics(request: Request):
+    """Bounded probe of model connectivity and latency. It spends a model call,
+    so it needs X-Elie-Internal-Key (CHATBOT_INTERNAL_API_KEY) and is limited."""
+    check_rate_limit("elie:diagnostics", max_requests=6, window_seconds=60)
     req_id = get_or_create_correlation_id(request)
     start_time = time.monotonic()
     connectivity_ok = False
@@ -2370,10 +2397,23 @@ async def elie_diagnostics(request: Request, authorization: Optional[str] = Head
     }
 
 
-# Mount the isolated Property News service if present
-_property_news_directory = Path(__file__).resolve().parent.parent / "property-news"
-if _property_news_directory.is_dir():
-    sys.path.insert(0, str(_property_news_directory))
-    from app.api import create_app as create_property_news_app
+PROPERTY_NEWS_DIRECTORY = Path(__file__).resolve().parent.parent / "property-news"
 
-    app.mount("/", create_property_news_app())
+
+def mount_property_news(target: FastAPI, directory: Path = PROPERTY_NEWS_DIRECTORY) -> bool:
+    """Mounts the Property News service when present. If it fails to load,
+    Elie and auto-reply keep running without it."""
+    if not directory.is_dir():
+        return False
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
+    try:
+        from app.api import create_app as create_property_news_app
+        target.mount("/", create_property_news_app())
+        return True
+    except Exception:
+        logger.exception("[Elie] Property News failed to load; Elie and auto-reply keep running without it.")
+        return False
+
+
+PROPERTY_NEWS_MOUNTED = mount_property_news(app)

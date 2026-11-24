@@ -546,7 +546,7 @@ def test_diagnostics_endpoint_ok():
 
         with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = "OK"
-            res = await main.elie_diagnostics(mock_request, authorization=None)
+            res = await main.elie_diagnostics(mock_request)
             assert res["status"] == "ok"
             assert res["ai_connectivity"] is True
             assert res["primary_model"] == "gemini-3.8-flash"
