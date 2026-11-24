@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) implemented on `elie-vcoins` (2026-11-23) · Phase 2c (Host Elie) next
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) on `elie-phase4-hardening` 2026-11-24 · Next: Phase 2c (Host Elie), then 3, then 5
 
 This plan makes the two chatbot features production ready:
 
@@ -209,6 +209,13 @@ Branch `elie-phase4-hardening`.
 - Rate limiter: per-user limit is primary; the IP key uses the right-most `X-Forwarded-For` entry (added by Render), and empty buckets are pruned.
 - CORS: `allow_headers` limited to `Authorization`, `Content-Type`, `X-Correlation-ID`; localhost origins only when `ENVIRONMENT != production`.
 - Guard the Property News mount: on import failure log an error and keep serving Elie and auto-reply. Add a startup test that simulates the failure.
+
+**Results (2026-11-24):**
+- `/elie/diagnostics` needs `X-Elie-Internal-Key` (the `CHATBOT_INTERNAL_API_KEY`) and allows 6 calls a minute; without the key it is 401 and no model is called.
+- Rate limiter, changed from the plan: the right-most `X-Forwarded-For` entry is not used. `elie1-0` sits behind Render's proxy and Cloudflare, so that entry is likely a proxy shared by many visitors and would block them together. The per-account limit (20 a minute) stays the guard; the per-address limit, which only slows requests before sign-in, rises to 60 a minute. Buckets idle for 5 minutes are dropped.
+- CORS allows only `Authorization`, `Content-Type` and `X-Correlation-ID`. `ENVIRONMENT=production` drops the localhost origins; unset keeps them, so a local client can still call the deployed service.
+- A Property News load failure is logged and Elie keeps serving; `/health` reports `property_news_mounted`.
+- 5 new chatbot tests.
 
 ### Phase 5 — Operations
 
