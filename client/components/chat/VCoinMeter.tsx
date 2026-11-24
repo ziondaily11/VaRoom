@@ -104,6 +104,8 @@ export default function VCoinMeter({ wallet, onWallet, openSignal }: {
           <circle cx="10" cy="10" r="8" className="vcoin-fill" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fill)} />
         </svg>
         <span className="vcoin-count">{wallet ? (wallet.included ? '∞' : wallet.balance) : '–'}</span>
+        {/* Says the meter buys coins: "Top up" once the balance runs low. */}
+        {!wallet?.included && <span className="vcoin-topup" aria-hidden="true">{level === 'red' && wallet ? 'Top up' : '+'}</span>}
       </button>
 
       {open && (
@@ -120,9 +122,14 @@ export default function VCoinMeter({ wallet, onWallet, openSignal }: {
             <ul className="vcoin-packs">
               {packs.map((pack) => (
                 <li key={pack.id}>
-                  <button type="button" onClick={() => { setOpen(false); setBuying(pack); }}>
-                    <span className="vcoin-pack-coins">{pack.coins.toLocaleString()} coins</span>
+                  <button type="button" aria-label={`Buy ${pack.coins.toLocaleString()} coins for KSh ${pack.price_kes.toLocaleString()}`}
+                    onClick={() => { setOpen(false); setBuying(pack); }}>
+                    <span className="vcoin-pack-info">
+                      <span className="vcoin-pack-coins">{pack.coins.toLocaleString()} coins</span>
+                      <span className="vcoin-pack-note">About {Math.floor(pack.coins / VCOIN_SEARCH_COST)} searches</span>
+                    </span>
                     <span className="vcoin-pack-price">KSh {pack.price_kes.toLocaleString()}</span>
+                    <span className="vcoin-pack-buy">Buy</span>
                   </button>
                 </li>
               ))}
@@ -175,6 +182,8 @@ const VCOIN_STYLES = `
   .vcoin-track{ fill:none; stroke:rgba(127,127,127,.3); stroke-width:3; }
   .vcoin-fill{ fill:none; stroke:var(--vcoin); stroke-width:3; stroke-linecap:round; transition:stroke-dashoffset 300ms ease-out, stroke 300ms ease-out; }
   .vcoin-count{ font-variant-numeric:tabular-nums; }
+  .vcoin-topup{ display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 .3rem; margin-left:.1rem;
+    border-radius:999px; background:#C41E3A; color:#fff; font-size:.7rem; font-weight:700; line-height:1; }
   .vcoin-sheet{ position:absolute; right:0; bottom:calc(100% + 10px); z-index:50; width:min(290px, calc(100vw - 32px)); padding:.9rem; border-radius:16px;
     border:1px solid #e2e5ea; background:#fff; color:#1f2937; box-shadow:0 18px 50px -20px rgba(0,0,0,.45); text-align:left; }
   [data-theme="dark"] .vcoin-sheet{ border-color:rgba(255,255,255,.12); background:#18181b; color:#f4f4f5; }
@@ -182,11 +191,15 @@ const VCOIN_STYLES = `
   .vcoin-sheet-text{ margin:0 0 .6rem; font-size:.8rem; line-height:1.45; opacity:.8; }
   .vcoin-sheet-error{ margin:0 0 .6rem; font-size:.8rem; color:#d8343f; }
   .vcoin-packs{ display:grid; gap:.4rem; margin:0; padding:0; list-style:none; }
-  .chat-input-area .attach-icons .vcoin-packs button{ display:flex; width:100%; height:auto; justify-content:space-between; align-items:center; padding:.6rem .75rem;
+  .chat-input-area .attach-icons .vcoin-packs button{ display:flex; width:100%; height:auto; gap:.6rem; align-items:center; padding:.55rem .55rem .55rem .75rem;
     border:1px solid rgba(127,127,127,.3); border-radius:12px; background:transparent; color:inherit; font:inherit; font-size:.85rem; cursor:pointer; }
   .chat-input-area .attach-icons .vcoin-packs button:hover{ border-color:#C41E3A; background:transparent; color:inherit; }
+  .vcoin-pack-info{ display:flex; flex:1; min-width:0; flex-direction:column; gap:.1rem; }
   .vcoin-pack-coins{ font-weight:600; }
-  .vcoin-pack-price{ opacity:.75; }
+  .vcoin-pack-note{ font-size:.72rem; opacity:.65; }
+  .vcoin-pack-price{ opacity:.75; white-space:nowrap; }
+  .vcoin-pack-buy{ padding:.35rem .8rem; border-radius:999px; background:#C41E3A; color:#fff; font-size:.78rem; font-weight:700; }
+  .chat-input-area .attach-icons .vcoin-packs button:hover .vcoin-pack-buy{ background:#a3172f; }
   /* Phones: the meter takes its own cell between the text and the send button. */
   @media (max-width:760px){
     .chat-input-area.is-elie.is-elie{ grid-template-columns:minmax(0,1fr) auto 52px; }

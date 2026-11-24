@@ -35,7 +35,8 @@ const LABELS = {
   increases: { none: 'None', annual: 'Annual escalation', stepped: 'Stepped', index_linked: 'Index-linked', not_confirmed: 'Not confirmed' },
 } satisfies Record<string, Labels>;
 
-const TRUE_AMENITIES: Labels = {
+/** The office/shop services a host can tick, as the booking page labels them. */
+export const COMMERCIAL_AMENITY_LABELS: Labels = {
   mains_supply: 'Mains supply', backup_generator: 'Backup generator', ups: 'UPS', fibre: 'Fibre available', wifi_included: 'Wi-Fi included in rent', tenant_internet: 'Tenant arranges internet',
   reliable_water: 'Reliable water supply', borehole: 'Borehole', private_washroom: 'Private washroom', shared_washroom: 'Shared washroom', drainage: 'Drainage connection',
   guards: 'Guards', cctv: 'CCTV', controlled_entry: 'Controlled entry', alarm: 'Alarm', lighting: 'Lighting', lift: 'Lift', accessibility: 'Accessibility features',
@@ -144,7 +145,7 @@ export function commercialDetails(
       { label: 'Nearby anchors', value: !isOffice ? text(space.nearby_anchors) : null },
     ]),
     layout: Array.isArray(layout) ? (layout as unknown[]).map(String) : [],
-    amenities: Object.keys(TRUE_AMENITIES).filter((key) => amenities[key] === true).map((key) => TRUE_AMENITIES[key]),
+    amenities: Object.keys(COMMERCIAL_AMENITY_LABELS).filter((key) => amenities[key] === true).map((key) => COMMERCIAL_AMENITY_LABELS[key]),
     amenityNotes: gridItems([
       { label: 'After-hours access', value: openingHours(amenities.after_hours, amenities.operational_accessible_hours) },
       { label: 'Power note', value: text(amenities.power_note) },
