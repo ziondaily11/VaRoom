@@ -120,7 +120,7 @@ def test_suggests_the_hosts_other_listings_when_asked():
 
 def test_the_prompt_names_the_listings_being_shared():
     shared = [{"id": "x", "title": "Cosy Studio", "listing_booking_details": [{"price_amount": 6000, "price_unit": "night"}]}]
-    with patch("main.call_gemini", new_callable=AsyncMock, return_value='{"reply": "ok"}') as gemini:
+    with patch("main.call_llm", new_callable=AsyncMock, return_value='{"reply": "ok"}') as gemini:
         import asyncio
         result = asyncio.run(main.generate_ai_reply("Anything cheaper?", None, "", False, shared_listings=shared))
 

@@ -37,7 +37,7 @@ from main import (
     get_or_create_correlation_id,
     normalize_category_filter,
     build_deterministic_no_results_reply,
-    GeminiErrorCategory,
+    LLMErrorCategory,
     ElieGenerationError,
     ListingDatabaseError,
     PRIMARY_GEMINI_MODEL,
@@ -53,6 +53,7 @@ def reset_models():
     main.FALLBACK_GEMINI_MODEL = "gemini-3.6-flash"
     main.GEMINI_CAPACITY = "medium"
     main.GEMINI_API_KEY = "test-gemini-key-12345"
+    main.LLM_PROVIDER = "gemini"
 
 
 # ── 0. Model & Capacity Configuration Verification ────────────────────────
@@ -189,7 +190,7 @@ def test_call_gemini_400_client_error_no_retry():
             mock_post.return_value = resp_400
             with pytest.raises(ElieGenerationError) as exc_info:
                 await call_gemini("Test 400", request_id="TEST-004-CLIENT", stage="test")
-            assert exc_info.value.category == GeminiErrorCategory.CLIENT_ERROR
+            assert exc_info.value.category == LLMErrorCategory.CLIENT_ERROR
             assert exc_info.value.status_code == 400
             assert mock_post.call_count == 1
 
@@ -206,7 +207,7 @@ def test_call_gemini_permanent_401_no_retry():
             mock_post.return_value = resp_401
             with pytest.raises(ElieGenerationError) as exc_info:
                 await call_gemini("Test 401", request_id="TEST-004", stage="test")
-            assert exc_info.value.category == GeminiErrorCategory.AUTH_ERROR
+            assert exc_info.value.category == LLMErrorCategory.AUTH_ERROR
             assert exc_info.value.status_code == 401
             assert mock_post.call_count == 1
 
@@ -221,7 +222,7 @@ def test_call_gemini_permanent_403_no_retry():
             mock_post.return_value = resp_403
             with pytest.raises(ElieGenerationError) as exc_info:
                 await call_gemini("Test 403", request_id="TEST-005", stage="test")
-            assert exc_info.value.category == GeminiErrorCategory.AUTH_ERROR
+            assert exc_info.value.category == LLMErrorCategory.AUTH_ERROR
             assert exc_info.value.status_code == 403
             assert mock_post.call_count == 1
 
@@ -272,7 +273,7 @@ def test_call_gemini_safety_block_handled():
             mock_post.return_value = resp_safety
             with pytest.raises(ElieGenerationError) as exc_info:
                 await call_gemini("Test safety", request_id="TEST-007", stage="test")
-            assert exc_info.value.category == GeminiErrorCategory.SAFETY_BLOCK
+            assert exc_info.value.category == LLMErrorCategory.SAFETY_BLOCK
             assert exc_info.value.status_code == 400
 
     asyncio.run(run())
@@ -311,7 +312,7 @@ def test_call_gemini_both_models_get_a_turn_when_each_times_out():
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, side_effect=[timeout_exc, timeout_exc]) as mock_post:
             with pytest.raises(ElieGenerationError) as exc_info:
                 await call_gemini("Test timeout", request_id="TEST-008b", stage="test")
-        assert exc_info.value.category == GeminiErrorCategory.TIMEOUT
+        assert exc_info.value.category == LLMErrorCategory.TIMEOUT
         assert mock_post.call_count == 2
         assert main.FALLBACK_GEMINI_MODEL in str(mock_post.call_args_list[1][0][0])
 
@@ -338,7 +339,7 @@ def test_elie_search_handles_400_vs_503():
         with patch("main.classify_message", new_callable=AsyncMock) as mock_classify:
             mock_classify.side_effect = ElieGenerationError(
                 "Gemini client error (400): provider detail AIzaSecret",
-                category=GeminiErrorCategory.CLIENT_ERROR,
+                category=LLMErrorCategory.CLIENT_ERROR,
                 status_code=400,
             )
             with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
@@ -366,8 +367,8 @@ def test_elie_search_handles_400_vs_503():
         # Test 2: Gemini 503 raises HTTP 503 in elie/search
         with patch("main.classify_message", new_callable=AsyncMock) as mock_classify:
             mock_classify.side_effect = ElieGenerationError(
-                "Gemini generation failed (GEMINI_PROVIDER_5XX)",
-                category=GeminiErrorCategory.PROVIDER_5XX,
+                "Gemini generation failed (LLM_PROVIDER_5XX)",
+                category=LLMErrorCategory.PROVIDER_5XX,
                 status_code=503,
             )
             with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
@@ -407,7 +408,7 @@ def test_classify_message_valid_search():
             "intro": "Found nice places in Kilimani:"
         })
 
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = gemini_json
             res = await classify_message("Find airbnbs in Kilimani under 4500 for 2 people", request_id="TEST-009")
             assert res["intent"] == "search"
@@ -430,7 +431,7 @@ def test_classify_message_category_normalization():
             "guests": "50",
         })
 
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = gemini_json
             res = await classify_message("Venues in Nakuru under 15k", request_id="TEST-010")
             assert res["intent"] == "search"
@@ -447,7 +448,7 @@ def test_classify_message_markdown_json():
     async def run():
         raw_markdown = "```json\n{\n  \"intent\": \"chat\",\n  \"chat_reply\": \"Mambo! I can help you find stays.\"\n}\n```"
 
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = raw_markdown
             res = await classify_message("Mambo", request_id="TEST-011")
             assert res["intent"] == "chat"
@@ -460,7 +461,7 @@ def test_classify_message_plain_text_fallback():
     async def run():
         plain_text = "Niaje! Niko hapa kukusaidia kupata nyumba nzuri."
 
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = plain_text
             res = await classify_message("Niaje", request_id="TEST-012")
             assert res["intent"] == "chat"
@@ -473,7 +474,7 @@ def test_classify_message_plain_text_fallback():
 
 def test_generate_no_results_reply_deterministic_fallback():
     async def run():
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = None  # Gemini failed
             reply = await generate_no_results_reply(
                 message="Show villas in Diani under 2000",
@@ -543,11 +544,11 @@ def test_diagnostics_endpoint_ok():
         mock_request = MagicMock()
         mock_request.headers = {"x-correlation-id": "DIAG-123"}
 
-        with patch("main.call_gemini", new_callable=AsyncMock) as mock_call:
+        with patch("main.call_llm", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = "OK"
             res = await main.elie_diagnostics(mock_request, authorization=None)
             assert res["status"] == "ok"
-            assert res["gemini_connectivity"] is True
+            assert res["ai_connectivity"] is True
             assert res["primary_model"] == "gemini-3.8-flash"
             assert res["fallback_model"] == "gemini-3.6-flash"
             assert res["capacity"] == "medium"
@@ -616,7 +617,7 @@ def test_listing_query_names_the_host_relationship_and_keeps_listings_without_de
 
 def test_classification_uses_low_thinking():
     async def run():
-        with patch("main.call_gemini", new_callable=AsyncMock, return_value='{"intent": "chat", "chat_reply": "Hi!"}') as gemini:
+        with patch("main.call_llm", new_callable=AsyncMock, return_value='{"intent": "chat", "chat_reply": "Hi!"}') as gemini:
             await classify_message("hi", request_id="TEST-P2")
         assert gemini.await_args.kwargs["thinking_level"] == "low"
 
@@ -633,7 +634,7 @@ def test_every_stored_category_is_searchable():
 def test_safety_block_gets_a_polite_reply_not_an_error():
     async def run():
         with patch("main.classify_message", new_callable=AsyncMock,
-                   side_effect=ElieGenerationError("blocked", category=GeminiErrorCategory.SAFETY_BLOCK, status_code=400)):
+                   side_effect=ElieGenerationError("blocked", category=LLMErrorCategory.SAFETY_BLOCK, status_code=400)):
             result = await _search_as_client()
         assert "can't help with that" in result.reply
         assert result.listings is None
@@ -893,7 +894,7 @@ def test_chat_replies_have_room_for_a_written_description():
     raw = json.dumps({"intent": "chat", "chat_reply": long_reply})
 
     async def run():
-        with patch("main.call_gemini", new_callable=AsyncMock, return_value=raw):
+        with patch("main.call_llm", new_callable=AsyncMock, return_value=raw):
             result = await main.classify_message("write me a description", request_id="T")
         assert len(result["chat_reply"]) == main.CHAT_REPLY_MAX_CHARS
 
