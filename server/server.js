@@ -29,6 +29,7 @@ const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
 const { createVcoinRoutes } = require('./routes/vcoinRoutes');
+const { createElieHostRoutes } = require('./routes/elieHostRoutes');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
@@ -108,6 +109,7 @@ app.use('/api', createAccountGroupRoutes(supabaseAdmin));
 app.use('/api', createAccountRoutes({ supabaseAdmin }));
 app.use('/api', createBillingRoutes());
 app.use('/api', createVcoinRoutes());
+app.use('/api', createElieHostRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');

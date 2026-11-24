@@ -46,7 +46,8 @@ test('legacy niche plans fill cards in order with the original wording', () => {
   ]);
   assert.deepEqual(cards.map((c) => [c.id, c.name, c.cta]), [['starter', 'Starter', 'Get Started'], ['growth', 'Growth', 'Upgrade to Growth'], ['pro', 'Pro', 'Upgrade to Pro']]);
   assert.equal(cards[1].description, 'More visibility and better listing capabilities');
-  assert.equal(cards[2].features[1], 'Elie');
+  assert.equal(cards[2].features[1], pricing.ELIE_FEATURE);
+  assert.equal(pricing.ELIE_FEATURE, 'Elie (300 actions a month)');
 });
 
 test('Airbnb, Hotel and Venue plans use their own cards, priced and listed by the server', () => {

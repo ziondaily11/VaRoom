@@ -5,6 +5,10 @@
 // reference as succeeded and that plan as the active subscription.
 // Import-free so it can be tested directly.
 
+// The plans with Elie: away answers, @reply, reply drafts and "Write with
+// Elie", 300 a month (server/lib/elieHost.js ELIE_HOST_ACTION_LIMIT).
+export const ELIE_FEATURE = 'Elie (300 actions a month)';
+
 export interface BillingPlan {
   id: string;
   display_name: string;
@@ -34,7 +38,7 @@ export interface PlanCard {
 export const DEFAULT_PLAN_CARDS: PlanCard[] = [
   { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access'], cta: 'Get Started', monthly: 800, yearly: null, featured: false },
   { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video listings', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, yearly: null, featured: true },
-  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', 'Elie', 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
+  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
 ];
 
 // Property and Shops & Offices pay per listing: Silver or Gold keeps one
@@ -64,7 +68,7 @@ export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
     nicheCard('airbnb_pro', 'Pro', 3500, 'For growing hosts who want more guests to find them.',
       ['Up to 6 active listings', 'Everything in Starter', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
     nicheCard('airbnb_business', 'Business', 7500, 'For operators running a portfolio of short-stay units.',
-      ['Up to 15 active listings', 'Everything in Pro', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Business'),
+      ['Up to 15 active listings', 'Everything in Pro', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Business'),
   ],
   hotel: [
     nicheCard('hotel_dining', 'Dining', 2000, 'For hotel restaurants taking table reservations only.',
@@ -74,7 +78,7 @@ export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
     nicheCard('hotel_standard', 'Hotel', 8000, 'For mid-size hotels that want more direct bookings.',
       ['21 to 60 rooms', 'Everything in Boutique', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Choose Hotel', true),
     nicheCard('hotel_plus', 'Hotel Plus', 15000, 'For large hotels with maximum visibility.',
-      ['61 rooms or more', 'Everything in Hotel', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Hotel Plus'),
+      ['61 rooms or more', 'Everything in Hotel', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Hotel Plus'),
   ],
   venue: [
     nicheCard('venue_basic', 'Venue', 2500, 'For venues with one or two bookable spaces.',
@@ -82,7 +86,7 @@ export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
     nicheCard('venue_pro', 'Venue Pro', 5000, 'For venues that want more events booked.',
       ['Up to 5 bookable spaces', 'Everything in Venue', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
     nicheCard('venue_premium', 'Venue Premium', 10000, 'For large venues and multi-space event centres.',
-      ['Up to 12 bookable spaces', 'Everything in Venue Pro', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Premium'),
+      ['Up to 12 bookable spaces', 'Everything in Venue Pro', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Premium'),
   ],
 };
 

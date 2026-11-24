@@ -1,6 +1,9 @@
 'use strict';
 
-// Elie auto-replies: Away mode and the host's @reply command.
+// Elie auto-replies: Away mode and the host's @reply command, plus reply
+// drafts. Elie's answers are for hosts whose plan includes Elie and use one
+// of their monthly Elie actions (lib/elieHost.js); the host's own away
+// message goes out for every host.
 //
 // Express owns every chat message write because only it holds the message
 // encryption key. The chatbot service (CHATBOT_API_URL) only writes the reply
@@ -12,6 +15,7 @@ const { notifyNewMessage } = require('./chatNotifications');
 const { hostAwayNow } = require('./businessHours');
 const { accountCanCreateActivity } = require('./accountAccess');
 const { encryptMessage, decryptMessage } = require('./messageEncryptionService');
+const { ChatbotError, ElieHostDenied, postToChatbot, withHostAction } = require('./elieHost');
 
 const HISTORY_LIMIT = 30;
 // The chatbot service sleeps when idle; these allow for its cold start plus
@@ -32,10 +36,6 @@ class AutoReplyError extends Error {
     this.stage = stage;
     this.status = status;
   }
-}
-
-function chatbotApiUrl() {
-  return (process.env.CHATBOT_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
 }
 
 function awayRepliesEnabled() {
@@ -107,35 +107,23 @@ function historyForPrompt(history, conversation) {
 }
 
 async function requestGeneration({ conversation, trigger, guestMessage, guestEnquiry, history, correlationId, timeoutMs }) {
-  const key = process.env.CHATBOT_INTERNAL_API_KEY;
-  if (!key) throw new AutoReplyError('CHATBOT_INTERNAL_API_KEY is not configured', { stage: 'config' });
-  let response;
+  let body;
   try {
-    response = await fetch(`${chatbotApiUrl()}/internal/reply/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Elie-Internal-Key': key,
-        'X-Correlation-ID': correlationId,
-      },
-      body: JSON.stringify({
-        conversation_id: conversation.id,
-        host_id: conversation.host_id,
-        listing_id: enquiryListingId(history, conversation),
-        trigger,
-        guest_message: guestMessage,
-        guest_enquiry: guestEnquiry,
-        history: historyForPrompt(history, conversation),
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    body = await postToChatbot('/internal/reply/generate', {
+      conversation_id: conversation.id,
+      host_id: conversation.host_id,
+      listing_id: enquiryListingId(history, conversation),
+      trigger,
+      guest_message: guestMessage,
+      guest_enquiry: guestEnquiry,
+      history: historyForPrompt(history, conversation),
+    }, { correlationId, timeoutMs });
   } catch (error) {
-    const timedOut = error && (error.name === 'TimeoutError' || error.name === 'AbortError');
-    throw new AutoReplyError(timedOut ? 'The chatbot service timed out' : 'The chatbot service is unreachable', { stage: 'generate' });
+    if (error instanceof ChatbotError) throw new AutoReplyError(error.message, { stage: error.stage });
+    throw error;
   }
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || typeof body.reply !== 'string' || !body.reply.trim()) {
-    throw new AutoReplyError(`The chatbot service failed (${response.status})`, { stage: 'generate' });
+  if (typeof body.reply !== 'string' || !body.reply.trim()) {
+    throw new AutoReplyError('The chatbot service failed (200)', { stage: 'generate' });
   }
   return {
     reply: body.reply.trim().slice(0, 1000),
@@ -246,27 +234,49 @@ function awayMessageSent(history, conversation, text) {
   return false;
 }
 
-/** The host typed @reply: answer the guest's messages now. */
-async function replyOnCommand(conversation, { correlationId = newCorrelationId() } = {}) {
+const NO_ENQUIRY = 'There is no guest enquiry to reply to yet.';
+
+/**
+ * Elie's answer to the guest's messages, written on the host's request
+ * (@reply sends it; a draft goes to the host's composer). Uses one Elie
+ * action; nothing is used when there is no guest message to answer.
+ */
+async function answerForHost(conversation, trigger, correlationId, deliver) {
   const history = await loadHistory(conversation.id);
   const guestMessages = history.filter((row) => row.sender_id === conversation.client_id && row.message_type === 'text' && row.text);
   if (!guestMessages.length) {
-    log('info', 'skipped', { conversationId: conversation.id, correlationId, trigger: 'command', reason: 'no guest enquiry' });
-    return { reply: 'There is no guest enquiry to reply to yet.', skipped: true, message: null, messages: [] };
+    log('info', 'skipped', { conversationId: conversation.id, correlationId, trigger, reason: 'no guest enquiry' });
+    return null;
   }
-  const generated = await requestGeneration({
-    conversation,
-    trigger: 'command',
-    guestMessage: guestMessages[guestMessages.length - 1].text,
-    guestEnquiry: guestMessages.map((row) => row.text).join('\n'),
-    history,
-    correlationId,
-    timeoutMs: COMMAND_TIMEOUT_MS,
+  return withHostAction(conversation.host_id, trigger === 'command' ? 'reply' : 'draft', async () => {
+    const generated = await requestGeneration({
+      conversation,
+      trigger,
+      guestMessage: guestMessages[guestMessages.length - 1].text,
+      guestEnquiry: guestMessages.map((row) => row.text).join('\n'),
+      history,
+      correlationId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+    });
+    log('info', 'generated', { conversationId: conversation.id, correlationId, trigger });
+    return deliver(generated);
   });
-  log('info', 'generated', { conversationId: conversation.id, correlationId, trigger: 'command' });
-  const messages = await persistReply(conversation, generated, correlationId);
-  log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'command', messages: messages.length });
-  return { reply: generated.reply, skipped: false, message: messages[0], messages };
+}
+
+/** The host typed @reply: answer the guest's messages now. */
+async function replyOnCommand(conversation, { correlationId = newCorrelationId() } = {}) {
+  const result = await answerForHost(conversation, 'command', correlationId, async (generated) => {
+    const messages = await persistReply(conversation, generated, correlationId);
+    log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'command', messages: messages.length });
+    return { reply: generated.reply, skipped: false, message: messages[0], messages };
+  });
+  return result || { reply: NO_ENQUIRY, skipped: true, message: null, messages: [] };
+}
+
+/** The host asked for a draft: the same answer as @reply, for them to edit and send. */
+async function draftReply(conversation, { correlationId = newCorrelationId() } = {}) {
+  const result = await answerForHost(conversation, 'draft', correlationId, async (generated) => ({ reply: generated.reply, skipped: false }));
+  return result || { reply: NO_ENQUIRY, skipped: true };
 }
 
 // Away mode runs in the background, one run per conversation at a time.
@@ -323,19 +333,29 @@ async function awayReplyOnce(conversation, state, correlationId) {
     return skip('elie disabled');
   }
 
-  const generated = await requestGeneration({
-    conversation,
-    trigger: 'away',
-    guestMessage: unanswered.map((row) => row.text).join('\n'),
-    guestEnquiry: unanswered.map((row) => row.text).join('\n'),
-    history,
-    correlationId,
-    timeoutMs: AWAY_TIMEOUT_MS,
-  });
-  log('info', 'generated', { conversationId: conversation.id, correlationId, trigger: 'away' });
-  const messages = await persistReply(conversation, generated, correlationId);
+  try {
+    await withHostAction(conversation.host_id, 'away', async () => {
+      const generated = await requestGeneration({
+        conversation,
+        trigger: 'away',
+        guestMessage: unanswered.map((row) => row.text).join('\n'),
+        guestEnquiry: unanswered.map((row) => row.text).join('\n'),
+        history,
+        correlationId,
+        timeoutMs: AWAY_TIMEOUT_MS,
+      });
+      log('info', 'generated', { conversationId: conversation.id, correlationId, trigger: 'away' });
+      const messages = await persistReply(conversation, generated, correlationId);
+      log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'away', messages: messages.length });
+    });
+  } catch (error) {
+    if (!(error instanceof ElieHostDenied)) throw error;
+    // The away message went out; Elie's answer needs a plan with Elie and
+    // actions left this month.
+    state.answeredUpTo = unanswered[unanswered.length - 1].created_at;
+    return skip(error.reason === 'limit' ? 'monthly elie limit reached' : 'plan without elie');
+  }
   state.answeredUpTo = unanswered[unanswered.length - 1].created_at;
-  log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'away', messages: messages.length });
   return null;
 }
 
@@ -401,5 +421,6 @@ module.exports = {
   HOURLY_CAP,
   handleGuestMessage,
   replyOnCommand,
+  draftReply,
   _awayState: awayState,
 };

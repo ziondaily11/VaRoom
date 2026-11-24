@@ -11,6 +11,7 @@ import QuickRepliesEditor from './QuickRepliesEditor';
 import BusinessHoursEditor from './BusinessHoursEditor';
 import { outsideBusinessHours, type BusinessHours } from '../../lib/chat/businessHours';
 import { CHAT_THEMES, chatThemeStyle, type ChatThemeId } from '../../lib/chat/chatThemes';
+import { elieUsageText, fetchElieHostUsage, type ElieHostUsage } from '../../lib/elieHost';
 
 // The chat settings (legacy VaroomChatSettings.mount): away mode for hosts,
 // notifications, privacy and archived conversations. Shown in the desktop
@@ -197,6 +198,15 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
     return () => { cancelled = true; };
   }, [userId]);
 
+  // Hosts: whether Elie answers while they're away, and this month's Elie actions.
+  const [elieUsage, setElieUsage] = useState<ElieHostUsage | null>(null);
+  useEffect(() => {
+    if (role !== 'host' || !userId) return undefined;
+    let cancelled = false;
+    fetchElieHostUsage().then((usage) => { if (!cancelled) setElieUsage(usage); }).catch(() => { /* The row stays hidden. */ });
+    return () => { cancelled = true; };
+  }, [role, userId]);
+
   const setToggle = (key: ToggleKey, value: boolean) => {
     setSettings((current) => ({ ...current, [key]: value }));
     void saveProfileSetting(getSupabaseClient(), userId, key, value, storage());
@@ -239,6 +249,9 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
         <Section title="Away Mode">
           <ToggleRow anchor="cs-away-mode" label="Away Mode" description={settings.awayMode ? COPY.awayOn : outsideHours ? COPY.awayOutsideHours : COPY.awayOff} checked={settings.awayMode} onChange={(v) => setToggle('awayMode', v)} />
           <NavRow anchor="cs-away-message" label="Away message" description={settings.awayMessage} onClick={editAwayMessage} />
+          {elieUsage && (
+            <NavRow anchor="cs-elie" label="Elie answers" description={elieUsageText(elieUsage)} onClick={() => { window.location.assign(elieUsage.plansUrl); }} />
+          )}
           <ToggleRow
             anchor="cs-business-hours"
             label="Business hours"

@@ -168,7 +168,9 @@ test('composer: the formatting buttons, the attachment menu and its icons', () =
   const composer = section(html, '<div class="chat-input-area', '<input type="file"');
   assert.match(composer, /<button type="button" class="fmt-b" aria-label="Bold">B<\/button><button type="button" class="fmt-i" aria-label="Italic">I<\/button><button type="button" class="fmt-u" aria-label="Underline">U<\/button><span class="divider"><\/span><button type="button" class="fmt-ul" aria-label="Bulleted list"><svg class="icon"><use href="#i-list-dot"><\/use><\/svg><\/button><button type="button" class="fmt-ol" aria-label="Numbered list"><svg class="icon"><use href="#i-list-sq"><\/use><\/svg><\/button>/);
   assert.match(composer, /<div class="mobile-attach-menu" id="mobileAttachMenu" role="menu" aria-label="Attach" hidden="">/, 'closed until the + is tapped');
-  assert.equal((composer.match(/class="mobile-attach-item"/g) || []).length, 3);
+  // Photos, Files, Listing, and (hosts) Draft with Elie.
+  assert.equal((composer.match(/class="mobile-attach-item"/g) || []).length, 4);
+  assert.match(composer, /data-attach="elie"[^>]*>.*Draft with Elie<\/button>/);
   assert.match(composer, /class="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true"/, 'nothing to send yet');
   for (const icon of ['i-list-dot', 'i-list-sq', 'i-image', 'i-file-text', 'i-store']) assert.match(html, new RegExp(`<symbol id="${icon}"`), icon);
   // The send button's click event is never sent as the message text.
