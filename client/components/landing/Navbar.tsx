@@ -80,14 +80,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
 
   return (
     <header
-      className={`hero-header relative w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between ${
+      className={`hero-header relative w-full max-w-full box-border px-[clamp(12px,2.2vw,32px)] pt-3 md:pt-4 ${
         menuShown ? 'z-40' : 'z-20'
       }`}
     >
+      {/* A floating frosted bar in the search's style. The phone menu stays
+          outside it: its blur would otherwise hold the full-screen menu inside the bar. */}
+      <div className="hero-header-bar relative flex items-center justify-between rounded-full border border-white/15 bg-[rgba(14,15,20,0.5)] py-1.5 pl-5 pr-1.5 shadow-[0_18px_44px_-26px_rgba(0,0,0,0.85)] backdrop-blur-md md:py-2 md:pl-6 md:pr-2">
       {/* Brand Wordmark - completely free of any underline or text decoration */}
       <Link
         href="/"
-        className="hero-header-logo varoom-logo no-underline hover:no-underline focus:no-underline group inline-flex items-baseline text-2xl md:text-3xl font-serif font-bold tracking-tight select-none shrink-0"
+        className="hero-header-logo varoom-logo no-underline hover:no-underline focus:no-underline group inline-flex items-baseline text-xl md:text-2xl font-serif font-bold tracking-tight select-none shrink-0"
         style={{ textDecoration: 'none', borderBottom: 'none' }}
       >
         <span
@@ -120,14 +123,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
         <button
           type="button"
           onClick={(e) => onOpenAuth(e.currentTarget)}
-          className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
+          className="landing-cta-secondary landing-cta-compact text-[13px] font-medium px-4 no-underline whitespace-nowrap"
         >
           Sign in
         </button>
         <button
           type="button"
           onClick={(e) => onOpenSignup(e.currentTarget)}
-          className="landing-cta landing-cta-primary text-sm font-semibold px-5 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+          className="landing-cta landing-cta-primary landing-cta-compact text-[13px] font-semibold px-4 flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Get started</span>
         </button>
@@ -153,8 +156,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-navigation-menu"
         >
-          <Menu size={22} />
+          <Menu size={20} />
         </button>
+      </div>
       </div>
 
       {/* Mobile menu: a full-screen panel that grows out of the menu button and folds back into it */}

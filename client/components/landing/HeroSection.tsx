@@ -152,8 +152,8 @@ const HeroSearch: React.FC = () => {
   );
 };
 
-// One left-aligned editorial block on every screen size: eyebrow, headline,
-// support line, then the search. The proof sits apart, bottom-right on wide screens.
+// One left-aligned editorial block on every screen size: headline, support
+// line, then the search. The proof sits apart, bottom-right on wide screens.
 export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onOpenSignup, sections }) => (
   <section className="hero-section relative min-h-[100dvh] w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
     {!isAuthOpen && (
@@ -161,16 +161,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
         <Navbar onOpenAuth={onOpenAuth} onOpenSignup={onOpenSignup} sections={sections} />
 
         <div className="hero-animated-content relative z-30 mt-auto w-full max-w-full box-border px-[clamp(20px,4.2vw,72px)] pb-[clamp(28px,7vh,80px)] pt-8 flex flex-col items-start text-left">
-          <p className="hero-eyebrow m-0 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">
-            Stays · Workspaces · Venues
-          </p>
-
-          {/* One face and weight for the headline and the line under it. */}
-          <h1 className="hero-headline m-0 mt-3 max-w-[440px] font-serif font-medium text-[26px] sm:text-[clamp(28px,2.4vw,38px)] text-white tracking-[-0.025em] leading-[1.12] [text-shadow:0_2px_20px_rgba(0,0,0,0.35)]">
+          {/* One face and weight for the headline and the line under it; each
+              stays on one line wherever the screen is wide enough. */}
+          <h1 className="hero-headline m-0 font-serif font-medium text-[26px] sm:text-[clamp(28px,2.4vw,38px)] text-white tracking-[-0.025em] leading-[1.12] [text-shadow:0_2px_20px_rgba(0,0,0,0.35)]">
             Every kind of space, one place to book&nbsp;it.
           </h1>
 
-          <p className="hero-subtitle m-0 mt-3 max-w-[400px] font-serif font-normal text-[14px] sm:text-[15px] text-white/80 leading-[1.55] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+          <p className="hero-subtitle m-0 mt-3 font-serif font-normal text-[14px] sm:text-[15px] text-white/80 leading-[1.55] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
             Search, compare and book spaces across Kenya, with locations you can trust.
           </p>
 
