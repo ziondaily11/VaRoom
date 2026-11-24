@@ -5,6 +5,7 @@ import {
   createElieSession,
   elieEntryId,
   elieResponseEntries,
+  elieShownListingIds,
   elieTurnEntries,
   listElieSessions,
   loadElieTurns,
@@ -174,7 +175,13 @@ export function createElieStore(deps: ElieStoreDeps) {
         }
         askedIn = mine === generation ? sessionId : null;
         if (askedIn) remember(userId, { question, askedAt: now() });
-        const data = await ask({ message: question, history: history.slice(), token: await deps.getToken(), sessionId: askedIn });
+        const data = await ask({
+          message: question,
+          history: history.slice(),
+          token: await deps.getToken(),
+          sessionId: askedIn,
+          listingIds: elieShownListingIds(state.entries),
+        });
         if (state.userId !== userId) return;
         if (data.vcoins) set({ wallet: { balance: Number(data.vcoins.balance) || 0, included: data.vcoins.included === true } });
         if (askedIn && !data.saved && client) {

@@ -947,6 +947,18 @@
   .chat-col.elie-fresh .elie-intro{ align-self:center; max-width:520px; padding:0 0 4px; text-align:center; }
   .chat-col.elie-fresh .elie-start-suggestions{ flex:1 1 0; min-height:0; align-content:flex-start; justify-content:center; margin:14px 28px 0; }
   @media (max-width:760px){ .chat-col.elie-fresh .elie-start-suggestions{ margin:12px 14px 0; } }
+  /* Elie's composer (desktop): a rounder box, centred by auto margins so its
+     width can animate. Before the first question it is a compact single line,
+     the meter and send button inside it on the right; once the text needs a
+     second line it grows to full size. */
+  @media (min-width:761px){
+    .chat-input-area.is-elie{ width:calc(100% - 56px); margin-left:auto; margin-right:auto; border-radius:24px;
+      transition:width .3s ease, padding .3s ease; }
+    .chat-input-area.is-elie.elie-compact{ display:flex; align-items:center; gap:10px; width:min(560px, calc(100% - 56px)); padding:8px 8px 8px 18px; }
+    .chat-input-area.is-elie.elie-compact .desktop-composer-editor{ flex:1; min-width:0; }
+    .chat-input-area.is-elie.elie-compact .input-toolbar{ margin-top:0; flex-shrink:0; }
+  }
+  @media (min-width:761px) and (prefers-reduced-motion:reduce){ .chat-input-area.is-elie{ transition:none; } }
   /* Elie's search history button (left of the header) */
   .elie-history-toggle{
     display:none;

@@ -28,7 +28,12 @@ export interface ElieListingResult {
   photo_path?: string | null;
   photo_url?: string | null;
   verified?: boolean;
+  /** Booking-page amenity keys (offices and shops: the services ticked). */
+  amenities?: string[];
 }
+
+/** An answer about amenities: each listing's grid shows, these keys first. */
+export interface ElieAmenityView { highlight: string[] }
 
 export interface ElieResponse {
   reply?: string;
@@ -42,17 +47,20 @@ export interface ElieResponse {
   needs_topup?: boolean;
   /** The Elie service saved the question and this answer to the session. */
   saved?: boolean;
+  /** Show each listing's amenities, the highlighted ones first. */
+  show_amenities?: boolean | null;
+  highlight_amenities?: string[] | null;
 }
 
 /** What an answer showed besides its text, kept with it in elie_messages.results. */
-export interface ElieResults { listings?: ElieListingResult[]; news?: ElieNewsResult[] }
+export interface ElieResults { listings?: ElieListingResult[]; news?: ElieNewsResult[]; amenities?: ElieAmenityView }
 
 /** One item in the Elie thread. */
 export type ElieEntry =
   | { id: string; kind: 'user'; text: string }
   | { id: string; kind: 'elie'; text: string }
   | { id: string; kind: 'news'; items: ElieNewsResult[] }
-  | { id: string; kind: 'listings'; items: ElieListingResult[] }
+  | { id: string; kind: 'listings'; items: ElieListingResult[]; amenities?: ElieAmenityView }
   | { id: string; kind: 'error'; text: string; retryText: string };
 
 let entryCounter = 0;
@@ -66,9 +74,20 @@ export function elieResponseEntries(data: ElieResponse): ElieEntry[] {
   const entries: ElieEntry[] = [];
   if (data.reply) entries.push({ id: elieEntryId(), kind: 'elie', text: data.reply });
   if (data.news && data.news.length) entries.push({ id: elieEntryId(), kind: 'news', items: data.news });
-  if (data.listings && data.listings.length) entries.push({ id: elieEntryId(), kind: 'listings', items: data.listings });
+  if (data.listings && data.listings.length) {
+    entries.push({ id: elieEntryId(), kind: 'listings', items: data.listings, ...(data.show_amenities ? { amenities: { highlight: data.highlight_amenities || [] } } : {}) });
+  }
   if (data.suggestion) entries.push({ id: elieEntryId(), kind: 'elie', text: data.suggestion });
   return entries;
+}
+
+export const ELIE_SHOWN_LISTINGS = 12;
+
+/** The listings the thread shows, latest search first and each in its order:
+ *  Elie answers questions about them ("does the first one have Wi-Fi?"). */
+export function elieShownListingIds(entries: ElieEntry[]): string[] {
+  const ids = entries.slice().reverse().flatMap((entry) => (entry.kind === 'listings' ? entry.items.map((item) => item.id) : []));
+  return Array.from(new Set(ids)).slice(0, ELIE_SHOWN_LISTINGS);
 }
 
 const PHOTO_BUCKET_PATH = '/storage/v1/object/public/listing-photos/';
@@ -105,12 +124,14 @@ export class ElieRequestError extends Error {}
  * six turns including it). Rejects with ElieRequestError carrying the text to
  * show the user.
  */
-export async function askElie({ message, history, token, sessionId = null, fetchFn = fetch, timeoutMs = ELIE_TIMEOUT_MS }: {
+export async function askElie({ message, history, token, sessionId = null, listingIds = [], fetchFn = fetch, timeoutMs = ELIE_TIMEOUT_MS }: {
   message: string;
   history: ElieTurn[];
   token: string | null;
   /** The session the Elie service saves the question and answer to. */
   sessionId?: string | null;
+  /** The listings already shown (elieShownListingIds). */
+  listingIds?: string[];
   fetchFn?: typeof fetch;
   timeoutMs?: number;
 }): Promise<ElieResponse> {
@@ -126,7 +147,12 @@ export async function askElie({ message, history, token, sessionId = null, fetch
         Authorization: `Bearer ${token}`,
         'X-Correlation-ID': `CLIENT-${Date.now().toString(36).toUpperCase()}`,
       },
-      body: JSON.stringify({ message, history: history.slice(-ELIE_HISTORY_TURNS), ...(sessionId ? { session_id: sessionId } : {}) }),
+      body: JSON.stringify({
+        message,
+        history: history.slice(-ELIE_HISTORY_TURNS),
+        ...(sessionId ? { session_id: sessionId } : {}),
+        ...(listingIds.length ? { listing_ids: listingIds } : {}),
+      }),
       signal: controller.signal,
     });
   } catch (error) {
@@ -190,7 +216,13 @@ export async function loadElieTurns(client: SupabaseClient, sessionId: string): 
 export function elieTurnEntries(turns: ElieStoredTurn[]): ElieEntry[] {
   return turns.flatMap((turn): ElieEntry[] => (turn.role === 'user'
     ? [{ id: elieEntryId(), kind: 'user', text: turn.text }]
-    : elieResponseEntries({ reply: turn.text, listings: turn.results?.listings, news: turn.results?.news })));
+    : elieResponseEntries({
+      reply: turn.text,
+      listings: turn.results?.listings,
+      news: turn.results?.news,
+      show_amenities: Boolean(turn.results?.amenities),
+      highlight_amenities: turn.results?.amenities?.highlight,
+    })));
 }
 
 /** A new Elie session, titled by its first question. */
@@ -214,6 +246,7 @@ export async function saveElieTurns(client: SupabaseClient, { sessionId, userId,
   const results: ElieResults = {};
   if (data.listings && data.listings.length) results.listings = data.listings;
   if (data.news && data.news.length) results.news = data.news;
+  if (data.show_amenities && results.listings) results.amenities = { highlight: data.highlight_amenities || [] };
   const hasResults = Boolean(results.listings || results.news);
   const rows = [
     { session_id: sessionId, user_id: userId, role: 'user', body: question, created_at: new Date(now).toISOString() },

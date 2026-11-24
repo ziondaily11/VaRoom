@@ -3,6 +3,7 @@ import { ThinkingOrb } from 'thinking-orbs';
 import ElieIcon from '../ElieIcon';
 import { ListingEnquiryCard } from './MessageMedia';
 import ElieText from './ElieText';
+import ElieAmenities from './ElieAmenities';
 import {
   ELIE_SUGGESTED_PROMPTS,
   elieListingSummary,
@@ -75,11 +76,18 @@ export function ElieThread({ entries, thinking, onRetry }: {
             );
           case 'listings':
             return (
-              // The same card as a listing asked about in a chat.
+              // The same card as a listing asked about in a chat; an answer
+              // about amenities adds the booking page's amenity grid under it.
               <div key={entry.id} className="elie-results elie-listing-results">
-                {entry.items.map((listing) => (
-                  <ListingEnquiryCard key={listing.id} listing={elieListingSummary(listing)} verified={Boolean(listing.verified)} />
-                ))}
+                {entry.items.map((listing) => {
+                  const card = <ListingEnquiryCard key={listing.id} listing={elieListingSummary(listing)} verified={Boolean(listing.verified)} />;
+                  return entry.amenities ? (
+                    <div key={listing.id} className="elie-listing-detail">
+                      {card}
+                      <ElieAmenities listing={listing} highlight={entry.amenities.highlight} />
+                    </div>
+                  ) : card;
+                })}
               </div>
             );
           case 'error':

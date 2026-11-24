@@ -170,6 +170,11 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
 
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
+  // On Elie's first screen the composer starts compact; once the text needs a
+  // second line it grows to full size, and stays so until it is emptied.
+  const [elieWide, setElieWide] = useState(false);
+  useEffect(() => { if (!composerText.trim()) setElieWide(false); }, [composerText]);
+  const elieCompact = elieFresh && !elieWide;
   const [mobileAttachMenuOpen, setMobileAttachMenuOpen] = useState(false);
   // A non-image file picked on a phone waits here and is sent with the text (legacy).
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -1961,7 +1966,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
           <div
             ref={composerRef}
             hidden={participantDeactivated}
-            className={`chat-input-area ${isElie ? 'is-elie' : ''} ${composerText.trim() ? 'has-text' : ''} ${composerText.trim() || (pendingFile && !isElie) ? 'can-send' : ''}`}
+            className={`chat-input-area ${isElie ? 'is-elie' : ''}${elieCompact ? ' elie-compact' : ''} ${composerText.trim() ? 'has-text' : ''} ${composerText.trim() || (pendingFile && !isElie) ? 'can-send' : ''}`}
             style={participantDeactivated ? { position: 'relative', display: 'none' } : { position: 'relative' }}
             onMouseDown={(e) => {
               // Phones: tapping composer buttons keeps the keyboard open.
@@ -1987,6 +1992,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               onInput={(e: React.FormEvent<HTMLDivElement>) => {
                 const text = e.currentTarget.textContent || '';
                 setComposerText(text);
+                if (elieCompact && e.currentTarget.scrollHeight > 30) setElieWide(true);
                 if (text.trim()) announceTyping();
               }}
               onKeyDown={(e) => {
