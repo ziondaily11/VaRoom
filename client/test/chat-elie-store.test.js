@@ -4,8 +4,9 @@ const path = require('node:path');
 const { loadTs } = require('./helpers/loadTs');
 
 const root = path.join(__dirname, '..');
-const { createElieStore, elieStorageKey, ELIE_PENDING_MS } = loadTs(path.join(root, 'lib', 'chat', 'elieStore.ts'));
 const elie = loadTs(path.join(root, 'lib', 'chat', 'elie.ts'));
+// The store shares this copy of elie.ts, so the errors the tests throw are its own.
+const { createElieStore, elieStorageKey, ELIE_PENDING_MS } = loadTs(path.join(root, 'lib', 'chat', 'elieStore.ts'), { mocks: { './elie': elie } });
 
 // Supabase as the store uses it: sessions, messages (with or without the results column).
 function fakeClient({ rows = [], missingResults = false } = {}) {
@@ -40,8 +41,8 @@ function memoryStorage(initial = {}) {
   return { getItem: (key) => (items.has(key) ? items.get(key) : null), setItem: (key, value) => items.set(key, String(value)), removeItem: (key) => items.delete(key), items };
 }
 
-function makeStore({ client = fakeClient().client, storage = memoryStorage(), ask, now = () => 1000, wait = async () => {} } = {}) {
-  return createElieStore({ getClient: () => client, getStorage: () => storage, getToken: async () => 'tok', ask, now, wait, fetchWallet: async () => ({ balance: 50, included: false }) });
+function makeStore({ client = fakeClient().client, storage = memoryStorage(), ask, now = () => 1000, wait = async () => {}, wake = () => {}, fetchWallet = async () => ({ balance: 50, included: false }) } = {}) {
+  return createElieStore({ getClient: () => client, getStorage: () => storage, getToken: async () => 'tok', ask, now, wait, wake, fetchWallet });
 }
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -174,4 +175,103 @@ test('saved turns become the thread: questions, answers, news and listing cards'
     { role: 'elie', text: 'Plain answer', results: null },
   ]);
   assert.deepEqual(entries.map((entry) => entry.kind), ['user', 'elie', 'news', 'elie']);
+});
+
+
+// --- Phase 3: the Elie service sleeps when idle -----------------------------------
+
+test('signing in wakes the Elie service, at most every five minutes', async () => {
+  let time = 0;
+  let wakes = 0;
+  const store = makeStore({ now: () => time, wake: () => { wakes += 1; } });
+  store.setUser('u1');
+  store.setUser('u2');
+  assert.equal(wakes, 1);
+  time += 5 * 60 * 1000 + 1;
+  store.setUser('u1');
+  assert.equal(wakes, 2);
+  store.setUser(null);
+  assert.equal(wakes, 2, 'signing out wakes nothing');
+});
+
+test('a question that never reached Elie is asked once more, with a longer wait, while Elie wakes up', async () => {
+  const asked = [];
+  let store;
+  const ask = async (request) => {
+    asked.push(request);
+    if (asked.length === 1) throw new elie.ElieRequestError('Could not reach Elie.', 'waking');
+    assert.equal(store.getState().waking, true, 'shown as waking up');
+    return { reply: 'Here you go.', saved: true };
+  };
+  store = makeStore({ ask });
+  store.setUser('u1');
+  await settle();
+  await store.send('lofts');
+  assert.equal(asked.length, 2);
+  assert.equal(asked[1].timeoutMs, elie.ELIE_WAKING_TIMEOUT_MS);
+  assert.equal(asked[1].message, 'lofts');
+  assert.deepEqual(store.getState().entries.map((entry) => entry.kind), ['user', 'elie']);
+  assert.equal(store.getState().waking, false);
+});
+
+test('a question that timed out is never asked (or paid for) twice: the saved answer is awaited', async () => {
+  const { client, db } = fakeClient();
+  let asks = 0;
+  let wallets = 0;
+  const store = makeStore({
+    client,
+    ask: async () => { asks += 1; throw new elie.ElieRequestError('Elie is taking longer than expected.', 'timeout'); },
+    wait: async () => { db.rows.push({ role: 'user', body: 'venues', results: null }, { role: 'elie', body: 'Two venues.', results: null }); },
+    fetchWallet: async () => { wallets += 1; return { balance: 40, included: false }; },
+  });
+  store.setUser('u1');
+  await settle();
+  await store.send('venues');
+  await settle();
+  assert.equal(asks, 1);
+  assert.deepEqual(store.getState().entries.map((entry) => entry.kind), ['user', 'elie']);
+  assert.equal(store.getState().entries[1].text, 'Two venues.');
+  assert.equal(store.getState().wallet.balance, 40, 'the balance is refreshed after the charge');
+  assert.equal(wallets, 1);
+  assert.equal(store.getState().thinking, false);
+});
+
+test('a timed-out answer that never arrives, and an error from Elie, end with Ask again', async () => {
+  let time = 1000;
+  const late = makeStore({
+    client: fakeClient().client,
+    now: () => time,
+    wait: async () => { time += ELIE_PENDING_MS; },
+    ask: async () => { throw new elie.ElieRequestError('Elie is taking longer than expected.', 'timeout'); },
+  });
+  late.setUser('u1');
+  await settle();
+  await late.send('venues');
+  const last = late.getState().entries.at(-1);
+  assert.equal(last.kind, 'error');
+  assert.equal(last.retryText, 'venues');
+
+  let asks = 0;
+  const failing = makeStore({ ask: async () => { asks += 1; throw new elie.ElieRequestError('Elie is temporarily unavailable.'); } });
+  failing.setUser('u1');
+  await settle();
+  await failing.send('offices');
+  assert.equal(asks, 1, 'an error Elie gave is not retried');
+  assert.equal(failing.getState().entries.at(-1).text, 'Elie is temporarily unavailable.');
+});
+
+test('askElie says why a question failed', async () => {
+  const reason = async (fetchFn) => {
+    try { await elie.askElie({ message: 'x', history: [], token: 't', fetchFn, timeoutMs: 5 }); } catch (error) { return error.reason; }
+    return 'ok';
+  };
+  const abort = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
+  assert.equal(await reason(async () => { throw abort(); }), 'timeout');
+  assert.equal(await reason(async () => { throw new TypeError('fetch failed'); }), 'waking');
+  assert.equal(await reason(async () => ({ ok: false, status: 502, json: async () => { throw new Error('html'); } })), 'waking');
+  assert.equal(await reason(async () => ({ ok: false, status: 503, json: async () => ({ detail: 'Elie is temporarily unavailable.' }) })), 'error');
+  assert.equal(elie.ELIE_HEALTH_URL, 'https://elie1-0.onrender.com/health');
+  let woke;
+  elie.wakeElie(async (url) => { woke = url; return {}; });
+  assert.equal(woke, elie.ELIE_HEALTH_URL);
 });

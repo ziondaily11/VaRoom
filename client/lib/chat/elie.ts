@@ -5,8 +5,13 @@ import type { ChatListingSummary } from '../chatCache';
 // Elie, the VaRoom search assistant (ported from public/js/chat-data.js).
 // The request, response and history rules live here; the page renders them.
 
-export const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
+// The Elie service (Render `elie1-0`); NEXT_PUBLIC_ELIE_API_URL points elsewhere.
+const ELIE_BASE_URL = (process.env.NEXT_PUBLIC_ELIE_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
+export const ELIE_API_URL = `${ELIE_BASE_URL}/elie/search`;
+export const ELIE_HEALTH_URL = `${ELIE_BASE_URL}/health`;
 export const ELIE_TIMEOUT_MS = 25000;
+/** A second try after the service was asleep: it may still be starting. */
+export const ELIE_WAKING_TIMEOUT_MS = 60000;
 export const ELIE_HISTORY_TURNS = 6;
 export const ELIE_SUGGESTED_PROMPTS = ['Airbnbs in Nairobi', 'Event venues in Nakuru', 'Offices in Westlands'];
 
@@ -117,7 +122,26 @@ export function elieListingSummary(listing: ElieListingResult): ChatListingSumma
   };
 }
 
-export class ElieRequestError extends Error {}
+/**
+ * Why a question failed: `timeout` (Elie may still answer and save it),
+ * `waking` (it never reached Elie: asleep, starting, or offline), or `error`
+ * (Elie answered with an error to show).
+ */
+export type ElieFailure = 'timeout' | 'waking' | 'error';
+
+export class ElieRequestError extends Error {
+  readonly reason: ElieFailure;
+
+  constructor(message: string, reason: ElieFailure = 'error') {
+    super(message);
+    this.reason = reason;
+  }
+}
+
+/** Wakes the Elie service (it sleeps when idle) while the person reads or types. */
+export function wakeElie(fetchFn: typeof fetch = fetch): void {
+  fetchFn(ELIE_HEALTH_URL).catch(() => { /* Only a wake-up call. */ });
+}
 
 /**
  * Ask Elie. `history` already includes this question (legacy sends the last
@@ -156,13 +180,17 @@ export async function askElie({ message, history, token, sessionId = null, listi
       signal: controller.signal,
     });
   } catch (error) {
-    if (error && (error as Error).name === 'AbortError') throw new ElieRequestError('Elie is taking longer than expected. Please try again.');
-    throw new ElieRequestError('Could not reach Elie. Please check your connection and try again.');
+    if (error && (error as Error).name === 'AbortError') throw new ElieRequestError('Elie is taking longer than expected. Please try again.', 'timeout');
+    throw new ElieRequestError('Could not reach Elie. Please check your connection and try again.', 'waking');
   } finally {
     clearTimeout(timer);
   }
   const data = (await response.json().catch(() => ({}))) as ElieResponse;
-  if (!response.ok) throw new ElieRequestError(data.detail || 'Something went wrong reaching Elie. Please try again.');
+  if (!response.ok) {
+    // Render's proxy answers 502-504 without Elie's JSON while the service starts.
+    const waking = [502, 503, 504].includes(response.status) && !data.detail;
+    throw new ElieRequestError(data.detail || 'Something went wrong reaching Elie. Please try again.', waking ? 'waking' : 'error');
+  }
   return data;
 }
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  ELIE_WAKING_TIMEOUT_MS,
   ElieRequestError,
   askElie,
   createElieSession,
@@ -10,7 +11,9 @@ import {
   listElieSessions,
   loadElieTurns,
   saveElieTurns,
+  wakeElie,
   type ElieEntry,
+  type ElieResponse,
   type ElieSessionSummary,
   type ElieStoredTurn,
   type ElieTurn,
@@ -29,12 +32,16 @@ export interface ElieState {
   userId: string | null;
   entries: ElieEntry[];
   thinking: boolean;
+  /** The Elie service was asleep: the question is being retried or its saved answer awaited. */
+  waking: boolean;
   wallet: VcoinWallet | null;
   /** Counts Elie's top-up requests: the V-Coin meter opens on a change. */
   topupSignal: number;
 }
 
-export const EMPTY_ELIE_STATE: ElieState = Object.freeze({ userId: null, entries: [], thinking: false, wallet: null, topupSignal: 0 }) as ElieState;
+export const EMPTY_ELIE_STATE: ElieState = Object.freeze({ userId: null, entries: [], thinking: false, waking: false, wallet: null, topupSignal: 0 }) as ElieState;
+/** The service is woken at most this often (it sleeps after about 15 idle minutes). */
+export const ELIE_WAKE_EVERY_MS = 5 * 60 * 1000;
 /** How long an answer asked for before a reload is waited for. */
 export const ELIE_PENDING_MS = 90 * 1000;
 export const ELIE_POLL_MS = 3000;
@@ -50,6 +57,8 @@ export interface ElieStoreDeps {
   getToken: () => Promise<string | null>;
   ask?: typeof askElie;
   fetchWallet?: (token: string) => Promise<VcoinWallet>;
+  /** Wakes the Elie service (GET /health). */
+  wake?: () => void;
   now?: () => number;
   wait?: (ms: number) => Promise<void>;
 }
@@ -79,6 +88,8 @@ export function createElieStore(deps: ElieStoreDeps) {
   // A new question ends waiting for an answer asked before a reload.
   let restoreRun = 0;
   let walletFor: string | null = null;
+  let wokenAt = -Infinity;
+  const wake = deps.wake || (() => wakeElie());
 
   const set = (patch: Partial<ElieState>) => {
     state = { ...state, ...patch };
@@ -106,6 +117,22 @@ export function createElieStore(deps: ElieStoreDeps) {
     set({ entries: elieTurnEntries(turns) });
   };
 
+  /** Waits for an answer the Elie service saves to the session; null if it never comes. */
+  async function savedAnswer(session: string, question: string, askedAt: number, stale: () => boolean): Promise<ElieStoredTurn[] | null> {
+    const client = deps.getClient();
+    if (!client) return null;
+    while (now() - askedAt < ELIE_PENDING_MS) {
+      await wait(ELIE_POLL_MS);
+      if (stale()) return null;
+      try {
+        const next = await loadElieTurns(client, session);
+        if (stale()) return null;
+        if (answered(next, question)) return next;
+      } catch { /* Checked again. */ }
+    }
+    return null;
+  }
+
   async function restore(userId: string, mine: number) {
     const saved = readSaved(userId);
     const client = deps.getClient();
@@ -121,16 +148,10 @@ export function createElieStore(deps: ElieStoreDeps) {
     const run = ++restoreRun;
     history.push({ role: 'user', text: pending.question });
     set({ entries: [...state.entries, userEntry(pending.question)], thinking: true });
-    while (now() - pending.askedAt < ELIE_PENDING_MS) {
-      await wait(ELIE_POLL_MS);
-      if (mine !== generation || run !== restoreRun) return;
-      try {
-        const next = await loadElieTurns(client, saved.sessionId);
-        if (mine !== generation || run !== restoreRun) return;
-        if (answered(next, pending.question)) { show(next); set({ thinking: false }); remember(userId); return; }
-      } catch { /* Checked again. */ }
-    }
-    if (mine !== generation || run !== restoreRun) return;
+    const stale = () => mine !== generation || run !== restoreRun;
+    const next = await savedAnswer(saved.sessionId, pending.question, pending.askedAt, stale);
+    if (stale()) return;
+    if (next) { show(next); set({ thinking: false }); remember(userId); return; }
     set({ thinking: false, entries: [...state.entries, errorEntry("Elie's answer didn't arrive. Please ask again.", pending.question)] });
     remember(userId);
   }
@@ -149,7 +170,9 @@ export function createElieStore(deps: ElieStoreDeps) {
       sessionId = null;
       walletFor = null;
       set({ ...EMPTY_ELIE_STATE, userId });
-      if (userId) void restore(userId, generation);
+      if (!userId) return;
+      if (now() - wokenAt > ELIE_WAKE_EVERY_MS) { wokenAt = now(); wake(); }
+      void restore(userId, generation);
     },
 
     /** `retry`: ask the same question again without adding it to the thread a second time. */
@@ -174,14 +197,37 @@ export function createElieStore(deps: ElieStoreDeps) {
           } catch (error) { console.warn('Elie session creation failed:', error); }
         }
         askedIn = mine === generation ? sessionId : null;
-        if (askedIn) remember(userId, { question, askedAt: now() });
-        const data = await ask({
+        const askedAt = now();
+        if (askedIn) remember(userId, { question, askedAt });
+        const request = {
           message: question,
           history: history.slice(),
           token: await deps.getToken(),
           sessionId: askedIn,
           listingIds: elieShownListingIds(state.entries),
-        });
+        };
+        let data: ElieResponse;
+        try {
+          data = await ask(request);
+        } catch (error) {
+          if (!(error instanceof ElieRequestError) || error.reason === 'error' || mine !== generation) throw error;
+          if (error.reason === 'timeout' && !askedIn) throw error;
+          set({ waking: true });
+          if (error.reason === 'waking') {
+            // It never reached Elie: ask once more while the service starts.
+            data = await ask({ ...request, timeoutMs: ELIE_WAKING_TIMEOUT_MS });
+          } else {
+            // Elie still answers and saves it to the session: wait for that, never ask (and pay) twice.
+            const turns = await savedAnswer(askedIn as string, question, askedAt, () => mine !== generation);
+            if (mine !== generation || state.userId !== userId) return;
+            if (!turns) throw new ElieRequestError("Elie's answer didn't arrive. Please ask again.");
+            show(turns);
+            remember(userId);
+            walletFor = null;
+            void store.loadWallet();
+            return;
+          }
+        }
         if (state.userId !== userId) return;
         if (data.vcoins) set({ wallet: { balance: Number(data.vcoins.balance) || 0, included: data.vcoins.included === true } });
         if (askedIn && !data.saved && client) {
@@ -201,7 +247,7 @@ export function createElieStore(deps: ElieStoreDeps) {
         const message = error instanceof ElieRequestError ? error.message : 'Could not reach Elie. Please check your connection and try again.';
         set({ entries: [...state.entries, errorEntry(message, question)] });
       } finally {
-        if (mine === generation && state.userId === userId) set({ thinking: false });
+        if (mine === generation && state.userId === userId) set({ thinking: false, waking: false });
       }
     },
 

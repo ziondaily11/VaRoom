@@ -35,9 +35,11 @@ export function ElieSuggestions({ onPrompt }: { onPrompt: (prompt: string) => vo
   );
 }
 
-export function ElieThread({ entries, thinking, onRetry }: {
+export function ElieThread({ entries, thinking, waking = false, onRetry }: {
   entries: ElieEntry[];
   thinking: boolean;
+  /** The Elie service was asleep and is starting. */
+  waking?: boolean;
   onRetry: (entry: Extract<ElieEntry, { kind: 'error' }>) => void;
 }) {
   return (
@@ -118,9 +120,9 @@ export function ElieThread({ entries, thinking, onRetry }: {
         <div className="msg-row in elie-message">
           <ElieAvatar working />
           <div className="bubble elie-thinking-bubble">
-            <div className="elie-thinking-pill" role="status" aria-label="Elie is thinking">
+            <div className="elie-thinking-pill" role="status" aria-label={waking ? 'Elie is waking up' : 'Elie is thinking'}>
               <span className="elie-thinking-orb-wrap" aria-hidden="true"><ThinkingOrb state="searching" size={20} theme="dark" /></span>
-              <span className="elie-thinking-text">Thinking....</span>
+              <span className="elie-thinking-text">{waking ? 'Elie is waking up…' : 'Thinking....'}</span>
             </div>
           </div>
         </div>
