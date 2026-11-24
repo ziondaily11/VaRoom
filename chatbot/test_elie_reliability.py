@@ -822,15 +822,15 @@ SESSION = "5f0c6a0e-6f4b-4a43-9a51-1f7b8e2b9c11"
 def _saving_client(owned=True):
     calls = []
 
-    async def get(url, params=None, headers=None):
+    async def get(url, params=None, headers=None, timeout=None):
         calls.append(("GET", url, params, None))
         return httpx.Response(200, json=[{"id": SESSION}] if owned else [], request=httpx.Request("GET", url))
 
-    async def post(url, json=None, headers=None):
+    async def post(url, json=None, headers=None, timeout=None):
         calls.append(("POST", url, None, json))
         return httpx.Response(201, request=httpx.Request("POST", url))
 
-    async def patch(url, params=None, json=None, headers=None):
+    async def patch(url, params=None, json=None, headers=None, timeout=None):
         calls.append(("PATCH", url, params, json))
         return httpx.Response(204, request=httpx.Request("PATCH", url))
 

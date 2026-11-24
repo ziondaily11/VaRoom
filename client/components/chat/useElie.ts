@@ -30,6 +30,7 @@ export function useElie(userId: string | null) {
   return {
     entries: current.entries,
     thinking: current.thinking,
+    waking: current.waking,
     wallet: current.wallet,
     topupSignal: current.topupSignal,
     send: store.send,

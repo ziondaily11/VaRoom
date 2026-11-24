@@ -1755,7 +1755,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 )}
               </div>
             ) : isElie ? (
-              <ElieThread entries={elie.entries} thinking={elie.thinking} onRetry={elie.retry} />
+              <ElieThread entries={elie.entries} thinking={elie.thinking} waking={elie.waking} onRetry={elie.retry} />
             ) : (
               <>
               {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}

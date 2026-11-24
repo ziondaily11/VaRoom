@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) merged (PR #723) 2026-11-24 · Phase 2c (Host Elie) on `elie-host-tools` 2026-11-25, needs migration 000081 · Next: Phase 3, then 5
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) merged (PR #723) 2026-11-24 · Phase 2c (Host Elie) merged (PR #724) and migration 000081 run 2026-11-25 · Phase 3 (latency, cold starts) on `elie-phase3-latency` · Next: Phase 5
 
 This plan makes the two chatbot features production ready:
 
@@ -207,6 +207,17 @@ Branch `elie-phase3-latency`.
   - **Warm-up ping:** when Chats loads, `useElie` sends one `GET /health` to the Elie service (no auth, no Gemini call, ignored if it fails), so the service is waking while the user reads or types.
   - **Waking-up retry:** if a question times out or gets a 502/503 from Render's proxy, the thread shows "Elie is waking up…" and retries once automatically with a 60 s timeout before showing the error.
 - Client: `NEXT_PUBLIC_ELIE_API_URL` with the current URL as default; abort the in-flight request on reset, session load and unmount.
+
+**Results (2026-11-25), changed from the plan where noted:**
+- One 20 s deadline per `/elie/search` question (`ELIE_REQUEST_SECONDS`): every model call gets only the time left, and none starts with under 1.5 s. Saving the answer runs after it. Host replies and "Write with Elie" keep their own budgets.
+- Not done: per-stage thinking levels. OpenRouter uses `OPENROUTER_REASONING`; classification and replies already ask Gemini for `low`.
+- One shared connection pool (`shared_http`) for Supabase, OpenRouter, Gemini and Property News, so later calls reuse connections.
+- Sign-in checks remembered for 60 s by a SHA-256 of the token, never past the token's own expiry, at most 1,000; a refused token is never remembered. One profile select (the fallback is gone). The profile, the V-Coin wallet and the listings already shown load together.
+- Cold starts: signing in to Chats wakes the service (`GET /health`, at most every 5 minutes). A question that never reached Elie (no connection, or Render's 502-504 while it starts) is asked once more with a 60 s wait, shown as "Elie is waking up…".
+- Changed from the plan: a question that times out is not asked again. Since Phase 2b's saved answers, Elie still answers and saves it, so the page waits for the saved answer (up to 90 s, the same wait as after a reload) and refreshes the V-Coin balance: never asked, or paid for, twice.
+- Not done: aborting on reset, session load and unmount. The shared Elie store (PR #719) keeps an answer coming when Elie is left, and ignores one that belongs to an older search.
+- `NEXT_PUBLIC_ELIE_API_URL` (default `https://elie1-0.onrender.com`).
+- Tests: chatbot 6 new, client 5 new.
 
 ### Phase 4 — Hardening and isolation (F12, F13, F15)
 

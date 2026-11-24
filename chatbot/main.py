@@ -27,12 +27,15 @@ import sys
 import re
 import hmac
 import json
+import base64
+import hashlib
+import contextvars
 import uuid
 import asyncio
 import logging
 import time
 from urllib.parse import urlencode
-from collections import defaultdict, deque
+from collections import OrderedDict, defaultdict, deque
 import httpx
 from pathlib import Path
 from datetime import datetime, timezone, date, timedelta
@@ -49,6 +52,46 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
 )
 logger = logging.getLogger("varoom.elie")
+
+_pool: Optional[httpx.AsyncClient] = None
+_pool_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _pooled_client() -> httpx.AsyncClient:
+    """The shared connection pool, one per event loop (the service runs one)."""
+    global _pool, _pool_loop
+    loop = asyncio.get_running_loop()
+    if _pool is None or _pool_loop is not loop or getattr(_pool, "is_closed", False):
+        _pool = httpx.AsyncClient(limits=httpx.Limits(max_connections=40, max_keepalive_connections=20, keepalive_expiry=30.0))
+        _pool_loop = loop
+    return _pool
+
+
+class _PooledSession:
+    """Calls on the shared pool with one timeout; leaving it closes nothing."""
+
+    def __init__(self, timeout: Any):
+        self._client = _pooled_client()
+        self._timeout = timeout
+
+    async def __aenter__(self) -> "_PooledSession":
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> bool:
+        return False
+
+    async def get(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        return await self._client.get(*args, timeout=kwargs.pop("timeout", self._timeout), **kwargs)
+
+    async def post(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        return await self._client.post(*args, timeout=kwargs.pop("timeout", self._timeout), **kwargs)
+
+    async def patch(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        return await self._client.patch(*args, timeout=kwargs.pop("timeout", self._timeout), **kwargs)
+
+
+def shared_http(timeout: Any = 8.0) -> _PooledSession:
+    return _PooledSession(timeout)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -358,7 +401,7 @@ async def call_gemini(
 
             attempt_start = time.monotonic()
             try:
-                async with httpx.AsyncClient(timeout=client_timeout) as client:
+                async with shared_http(timeout=client_timeout) as client:
                     response = await client.post(
                         url,
                         params={"key": GEMINI_API_KEY},
@@ -606,7 +649,7 @@ async def call_openrouter(
         attempt_start = time.monotonic()
         log_args = (req_id, stage, ",".join(order), attempt)
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(4.0, timeout))) as client:
+            async with shared_http(timeout=httpx.Timeout(timeout, connect=min(4.0, timeout))) as client:
                 response = await client.post(OPENROUTER_URL, headers=headers, json={**body, "models": order})
         except httpx.TransportError as exc:  # timeouts included
             timed_out = isinstance(exc, httpx.TimeoutException)
@@ -681,8 +724,21 @@ async def call_openrouter(
     )
 
 
+ELIE_REQUEST_SECONDS = 20.0
+_request_deadline: contextvars.ContextVar[Optional[float]] = contextvars.ContextVar("elie_request_deadline", default=None)
+
+
 async def call_llm(prompt: str, **options: Any) -> str:
-    """Elie's one way to ask a model; LLM_PROVIDER picks the service."""
+    """Elie's one way to ask a model; LLM_PROVIDER picks the service. Inside
+    an Elie question the call gets only the time left before its deadline."""
+    deadline = _request_deadline.get()
+    if deadline is not None:
+        remaining = deadline - time.monotonic() - 0.5
+        if remaining < 1.5:
+            logger.warning("request_id=%s stage=%s decision=deadline_reached", options.get("request_id"), options.get("stage"))
+            raise ElieGenerationError("No time left for the model in this request.", category=LLMErrorCategory.TIMEOUT, status_code=504)
+        options["total_time_budget"] = min(options.get("total_time_budget", 18.0), remaining)
+        options["per_attempt_timeout"] = min(options.get("per_attempt_timeout", 8.0), remaining)
     if LLM_PROVIDER == "openrouter":
         return await call_openrouter(prompt, **options)
     return await call_gemini(prompt, **options)
@@ -1110,7 +1166,7 @@ async def call_vcoin_rpc(name: str, args: dict) -> dict:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         raise VcoinError("Supabase is not configured")
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.post(
                 f"{SUPABASE_URL}/rest/v1/rpc/{name}",
                 json=args,
@@ -1158,11 +1214,44 @@ def vcoin_topup_response(wallet: ElieVcoins, cost: int) -> "ElieSearchResponse":
     )
 
 
+TOKEN_CACHE_SECONDS = 60.0
+TOKEN_CACHE_MAX = 1000
+_token_cache: "OrderedDict[str, tuple]" = OrderedDict()
+
+
+def token_expires_at(access_token: str) -> Optional[float]:
+    """The token's own expiry (`exp`, Unix seconds), read without verifying it."""
+    try:
+        payload = access_token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        return float(claims["exp"])
+    except (IndexError, KeyError, TypeError, ValueError):
+        return None
+
+
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
+    key = hashlib.sha256(access_token.encode()).hexdigest()
+    cached = _token_cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        _token_cache.move_to_end(key)
+        return cached[1]
+    _token_cache.pop(key, None)
+    user = await fetch_supabase_user(access_token)
+    if user:
+        expires = token_expires_at(access_token)
+        lifetime = min(TOKEN_CACHE_SECONDS, expires - time.time()) if expires else TOKEN_CACHE_SECONDS
+        if lifetime > 0:
+            _token_cache[key] = (time.monotonic() + lifetime, user)
+            while len(_token_cache) > TOKEN_CACHE_MAX:
+                _token_cache.popitem(last=False)
+    return user
+
+
+async def fetch_supabase_user(access_token: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         return None
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/auth/v1/user",
                 headers={
@@ -1180,37 +1269,16 @@ async def verify_supabase_user(access_token: str) -> Optional[dict]:
 async def get_profile(user_id: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    }
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
                 params={"id": f"eq.{user_id}", "select": "role,city,full_name,away_mode"},
-                headers=headers,
+                headers={"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"},
             )
             response.raise_for_status()
             rows = response.json()
             return rows[0] if rows else None
-    except Exception:
-        pass
-
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{user_id}", "select": "role,city,full_name"},
-                headers=headers,
-            )
-            response.raise_for_status()
-            rows = response.json()
-            if not rows:
-                return None
-            row = rows[0]
-            row["away_mode"] = False
-            return row
     except Exception as error:
         logger.warning("Elie profile lookup failed (user_id=%s, error=%s)", user_id, type(error).__name__)
         return None
@@ -1270,7 +1338,7 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/listings",
                 params={
@@ -1349,7 +1417,7 @@ async def get_host_alternative_listings(
         params["id"] = f"neq.{current_listing_id}"
 
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/listings",
                 params=params,
@@ -2028,7 +2096,7 @@ async def query_listings(params: dict, req_id: str, stage: str = "listing_search
     params = {**params, "availability_status": "eq.available"}
     start_time = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             response = await client.get(f"{SUPABASE_URL}/rest/v1/listings", params=params, headers=LISTING_HEADERS())
             if response.is_error and "availability_status" in str(response.text):
                 fallback_params = dict(params)
@@ -2143,7 +2211,7 @@ async def search_property_news(query: str, county: Optional[str], regulatory_sta
     if days:
         params["date"] = str(days)
     url = f"{PROPERTY_NEWS_API_URL}/api/elie/news-search?{urlencode(params)}"
-    async with httpx.AsyncClient(timeout=12.0) as client:
+    async with shared_http(timeout=12.0) as client:
         response = await client.get(url, headers={"Accept": "application/json"})
         response.raise_for_status()
         payload = response.json()  # ValueError on a malformed body
@@ -2211,7 +2279,11 @@ async def elie_search(
 
     check_rate_limit(f"elie:user:{user['id']}", max_requests=20, window_seconds=60)
 
-    result = await answer_elie(payload, user, req_id)
+    deadline = _request_deadline.set(time.monotonic() + ELIE_REQUEST_SECONDS)
+    try:
+        result = await answer_elie(payload, user, req_id)
+    finally:
+        _request_deadline.reset(deadline)
     if payload.session_id:
         result.saved = await save_elie_turns(payload.session_id, user["id"], payload.message, result, req_id)
     return result
@@ -2251,7 +2323,7 @@ async def save_elie_turns(session_id: str, user_id: str, question: str, result: 
          "created_at": (asked_at + timedelta(milliseconds=1)).isoformat()},
     ]
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with shared_http(timeout=8.0) as client:
             owned = await client.get(
                 f"{SUPABASE_URL}/rest/v1/elie_sessions",
                 params={"id": f"eq.{session}", "user_id": f"eq.{user_id}", "select": "id"},
@@ -2275,23 +2347,34 @@ async def save_elie_turns(session_id: str, user_id: str, question: str, result: 
 
 
 async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> ElieSearchResponse:
-    profile = await get_profile(user["id"])
+    async def wallet_or_error() -> Any:
+        try:
+            return await get_vcoin_wallet(user["id"])
+        except VcoinError as exc:
+            return exc
+
+    async def no_listings() -> list:
+        return []
+
+    # Looked up together: one wait instead of three.
+    profile, wallet, shown = await asyncio.gather(
+        get_profile(user["id"]),
+        wallet_or_error(),
+        fetch_shown_listings(payload.listing_ids, req_id) if payload.listing_ids else no_listings(),
+    )
     if not profile:
         logger.warning("request_id=%s stage=profile_check error=profile_not_found", req_id)
         raise HTTPException(status_code=404, detail="Profile not found for this account.")
 
     # Every account searches with V-Coins; a plan that includes Elie covers it.
-    try:
-        wallet = await get_vcoin_wallet(user["id"])
-    except VcoinError as exc:
-        logger.error("request_id=%s stage=vcoin_wallet error=%s", req_id, exc)
-        raise HTTPException(status_code=503, detail="Elie is temporarily unavailable. Please try again shortly.") from exc
+    if isinstance(wallet, VcoinError):
+        logger.error("request_id=%s stage=vcoin_wallet error=%s", req_id, wallet)
+        raise HTTPException(status_code=503, detail="Elie is temporarily unavailable. Please try again shortly.") from wallet
     if not wallet.included and wallet.balance < VCOIN_SEARCH_COST:
         logger.info("request_id=%s stage=access_check error=vcoins_low", req_id)
         return vcoin_topup_response(wallet, VCOIN_SEARCH_COST)
 
     history_dicts = [{"role": t.role, "text": t.text} for t in payload.history] if payload.history else None
-    shown = await fetch_shown_listings(payload.listing_ids, req_id) if payload.listing_ids else []
     try:
         classification = await classify_message(payload.message, history_dicts, request_id=req_id, shown=shown)
     except ElieGenerationError as exc:
