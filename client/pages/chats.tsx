@@ -56,7 +56,7 @@ import {
 } from '../lib/chat/thread';
 import {
   clearActiveFormatting, composerKeyAction, copyText, fileDestination, newAlbumId, optimisticUpload, pendingFileLabel,
-  postListingMessage, previewUrlFor, releasePreviewUrls, saveAttachmentMessages, sendComposerMessage, uploadAttachment,
+  postListingMessage, previewUrlFor, releasePreviewUrls, REPLY_COMMAND, saveAttachmentMessages, sendComposerMessage, uploadAttachment,
   uploadContent,
 } from '../lib/chat/composer';
 import { awaitStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
@@ -73,6 +73,8 @@ import { useCounts } from '../lib/counts/countsStore';
 import { isModifiedClick } from '../lib/navigation/clicks';
 import { useChatViewport } from '../components/chat/useChatViewport';
 import { keepsKeyboardOpen } from '../lib/chat/chatViewport';
+import { ApiError } from '../lib/api';
+import { elieHostDenial, requestElieDraft } from '../lib/elieHost';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
@@ -139,6 +141,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   const enteringMessages = entranceTracker.current.entering(activeId, messages.map((m) => messageKey(m as OptimisticChatMessage)));
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string>('');
+  // A link shown with the note: the plans, when Elie needs one.
+  const [statusLink, setStatusLink] = useState<string | null>(null);
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
   const [chatSettingsEmbedded, setChatSettingsEmbedded] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -244,7 +248,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
       },
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Request failed');
+    // ApiError keeps the body, e.g. why Elie refused (lib/elieHost.ts).
+    if (!res.ok) throw new ApiError(body.error || 'Request failed', res.status, body);
     return body;
   }, []);
 
@@ -797,6 +802,11 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
       if (sent.length) bumpConversation(conversationId, sent[sent.length - 1]);
     } catch (err) {
       console.error('Failed to send chat message:', err);
+      // @reply: Elie's own reason (no plan with Elie, the month's actions used, Elie unavailable).
+      if (plainText.trim().toLowerCase() === REPLY_COMMAND && err instanceof ApiError) {
+        showStatusNote(err.message, 6000, elieHostDenial(err)?.plansUrl);
+        return;
+      }
       showStatusNote('Message not sent. Please try again.', 3500);
     } finally {
       sendingRef.current = false;
@@ -1016,19 +1026,43 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   useEffect(() => { if (slash === null) setSlashDismissed(false); }, [slash]);
   useEffect(() => { setQuickPickerOpen(false); }, [activeId]);
   const closeQuickReplies = () => { setQuickPickerOpen(false); setSlashDismissed(true); };
-  const pickQuickReply = (reply: QuickReply) => {
-    setQuickPickerOpen(false);
-    setComposerText(reply.body);
+  /** Fills the composer with text to edit before sending (a quick reply, Elie's draft). */
+  const fillComposer = (text: string) => {
+    setComposerText(text);
     const editor = desktopEditorRef.current;
     const onDesktop = window.matchMedia('(min-width: 761px)').matches;
     if (editor && onDesktop) {
-      editor.textContent = reply.body;
+      editor.textContent = text;
       editor.focus();
       const selection = window.getSelection();
       selection?.selectAllChildren(editor);
       selection?.collapseToEnd();
     } else {
       window.requestAnimationFrame(() => { mobileTextareaRef.current?.focus(); updateComposerUI(); });
+    }
+  };
+  const pickQuickReply = (reply: QuickReply) => {
+    setQuickPickerOpen(false);
+    fillComposer(reply.body);
+  };
+
+  // Elie drafts a reply to the guest in the host's composer (plans with Elie).
+  const [elieDrafting, setElieDrafting] = useState(false);
+  const draftWithElie = async () => {
+    const conversationId = activeId;
+    if (!conversationId || isElie || elieDrafting) return;
+    setElieDrafting(true);
+    showStatusNote('Elie is writing a reply…', 60000);
+    try {
+      const draft = await requestElieDraft(conversationId);
+      if (!mountedRef.current || activeIdRef.current !== conversationId) return;
+      if (draft.skipped) { showStatusNote(draft.reply, 3500); return; }
+      showStatusNote('Elie’s draft is ready to edit.', 2500);
+      fillComposer(draft.reply);
+    } catch (error) {
+      showStatusNote(error instanceof Error ? error.message : 'Elie couldn’t write a draft right now.', 6000, elieHostDenial(error)?.plansUrl);
+    } finally {
+      if (mountedRef.current) setElieDrafting(false);
     }
   };
   /** ↑ ↓ Enter Escape while the quick replies are open; true when the key was theirs. */
@@ -1205,10 +1239,11 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     scrollToMessage(messageId);
   };
 
-  const showStatusNote = (text: string, ms = 2000) => {
+  const showStatusNote = (text: string, ms = 2000, link: string | null = null) => {
     if (statusNoteTimerRef.current) window.clearTimeout(statusNoteTimerRef.current);
     setStatusNote(text);
-    statusNoteTimerRef.current = window.setTimeout(() => setStatusNote(''), ms);
+    setStatusLink(link);
+    statusNoteTimerRef.current = window.setTimeout(() => { setStatusNote(''); setStatusLink(null); }, ms);
   };
 
   const copyMessage = async (message: ChatMessage) => {
@@ -2113,6 +2148,13 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                   onClick={() => { setSlashDismissed(true); setQuickPickerOpen((was) => !was); }}>
                   <svg className="icon"><use href="#i-bolt" /></svg>
                 </button>
+                {isHost && (
+                  <button type="button" className="fmt-elie" aria-label="Draft a reply with Elie" title="Draft a reply with Elie" aria-busy={elieDrafting} disabled={elieDrafting}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { void draftWithElie(); }}>
+                    <ElieIcon size={18} state={elieDrafting ? 'working' : 'default'} />
+                  </button>
+                )}
               </div>
 
               <div className="attach-icons" data-chat-composer-actions>
@@ -2146,6 +2188,10 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                     <button type="button" className="mobile-attach-item" role="menuitem" hidden={!isHost} data-attach="listing"
                       onClick={() => { setMobileAttachMenuOpen(false); setShareSheetOpen(true); }}>
                       <span className="ico ico-listing"><svg className="icon"><use href="#i-store" /></svg></span>Listing
+                    </button>
+                    <button type="button" className="mobile-attach-item" role="menuitem" hidden={!isHost} data-attach="elie" disabled={elieDrafting}
+                      onClick={() => { setMobileAttachMenuOpen(false); void draftWithElie(); }}>
+                      <span className="ico ico-elie"><ElieIcon size={20} /></span>Draft with Elie
                     </button>
                   </div>
                 )}
@@ -2319,7 +2365,10 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
       )}
 
       {/* Short status notes ("Copied", send failures), announced to screen readers */}
-      <div className="chat-status-note" role="status" aria-live="polite" hidden={!statusNote}>{statusNote}</div>
+      <div className="chat-status-note" role="status" aria-live="polite" hidden={!statusNote}>
+        {statusNote}
+        {statusLink && <a href={statusLink}>See plans</a>}
+      </div>
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (

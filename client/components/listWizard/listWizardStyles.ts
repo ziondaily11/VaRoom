@@ -88,6 +88,15 @@ export const LIST_WIZARD_STYLES = `
   #listing-page :is(input, select, textarea):focus{ outline:none; border-color:var(--ink); background:var(--card); box-shadow:0 0 0 4px rgba(196,30,58,.12); }
   #listing-page :is(input, select, textarea, button)[aria-invalid="true"]{ border-color:var(--red) !important; box-shadow:0 0 0 4px rgba(196,30,58,.16); }
   #listing-page textarea{ resize:vertical; min-height:96px; line-height:1.5; }
+  /* "Write with Elie" under the summary highlight and the description */
+  #listing-page .elie-write{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; }
+  #listing-page .elie-write-button{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border:1px solid var(--line); border-radius:999px;
+    background:var(--card); color:var(--ink); font:inherit; font-size:.8rem; font-weight:600; cursor:pointer; }
+  #listing-page .elie-write-button:hover{ border-color:var(--ink); }
+  #listing-page .elie-write-button:disabled{ cursor:progress; opacity:.8; }
+  #listing-page .elie-write-undo{ padding:4px 6px; border:0; background:none; color:var(--muted); font:inherit; font-size:.8rem; text-decoration:underline; cursor:pointer; }
+  #listing-page .elie-write-note{ flex-basis:100%; margin:0; font-size:.78rem; color:var(--muted); }
+  #listing-page .elie-write-note a{ color:var(--ink); font-weight:600; }
   #listing-page #property-description{ min-height:150px; }
   #listing-page input[type="checkbox"], #listing-page input[type="radio"]{ accent-color:var(--red); width:1.05rem; height:1.05rem; flex-shrink:0; }
   #listing-page .checkbox-row{ display:flex; align-items:center; gap:.6rem; }

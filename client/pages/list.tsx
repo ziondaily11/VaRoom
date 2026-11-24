@@ -29,6 +29,7 @@ import { checkListingPayment, LISTING_TIER_CARDS, startListingTierCheckout, type
 import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import type { Flags, Message } from '../lib/listWizard/startup';
 import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../lib/listWizard/amenities';
+import { elieListingFacts } from '../lib/listWizard/elieFacts';
 import { LIST_WIZARD_STYLES } from '../components/listWizard/listWizardStyles';
 import { INITIAL_SAVE_STATUS, PanelActions, StepAlert, StepFrame, StepPhoto, WizardProgress } from '../components/listWizard/StepFrame';
 import type { SaveStatus } from '../components/listWizard/StepFrame';
@@ -828,7 +829,7 @@ export default function ListPage() {
               {officeShop ? <OfficeShopDetails {...officeProps} /> : <div className="office-shop-section" id="office-shop-details-fields" />}
               <HotelModeChoice category={category} mode={form.hotelListingMode} onChoose={(mode: HotelMode) => update({ hotelListingMode: mode })} />
               <PropertyPurposeChoice category={category} purpose={form.propertyPurpose} onChoose={(purpose: PropertyPurpose) => update({ propertyPurpose: purpose })} />
-              <IntroFields binding={binding} copy={copy} tableOnly={tableOnly} />
+              <IntroFields binding={binding} copy={copy} tableOnly={tableOnly} elie={{ category, facts: () => elieListingFacts(form, category) }} />
               <PanelActions next="Continue to location" onNext={next} alert={stepError && stepError.step === 1 ? stepError.text : null} />
             </StepFrame>
 

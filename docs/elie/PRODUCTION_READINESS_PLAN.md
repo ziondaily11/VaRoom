@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) on `elie-phase4-hardening` 2026-11-24 · Next: Phase 2c (Host Elie), then 3, then 5
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) merged (PR #723) 2026-11-24 · Phase 2c (Host Elie) on `elie-host-tools` 2026-11-25, needs migration 000081 · Next: Phase 3, then 5
 
 This plan makes the two chatbot features production ready:
 
@@ -187,6 +187,13 @@ Branch `elie-vcoins`. Approved 2026-11-23: prices as proposed, 50 welcome coins,
 ### Phase 2c — Host Elie (top plans)
 
 Branch `elie-host-tools`, after 2b. Away answers and `@reply` for plan holders (the host's own away message stays for everyone), a reply draft in the host composer, and "Write with Elie" for the listing summary highlight and description; 300 host actions a month.
+
+**Results (2026-11-25):**
+- Migration `20261125_000081_elie_host_actions.sql`: `elie_host_actions` (one row per action), `elie_host_included` (the one plan rule, now also used by `elie_vcoin_wallet`), `elie_use_host_action` (reserves an action under a per-host lock; refuses without a plan with Elie or past the limit), `elie_release_host_action` (gives back an action Elie could not complete) and `elie_host_usage`. The month starts on the 1st, Nairobi time.
+- Server: `server/lib/elieHost.js` (the 300 limit, refusals with a plans link, one way to call the chatbot). Away answers, `@reply` and the new `POST /api/chat/conversations/:id/draft` each use one action; a host without Elie, or out of actions, still sends the away message and Elie stays quiet. `GET /api/elie/host` and `POST /api/elie/write` (`server/routes/elieHostRoutes.js`).
+- Chatbot: trigger `draft` (written like `@reply`, no listing cards) and `/internal/listing/write`.
+- Client: an Elie button in a host's composer toolbar and "Draft with Elie" in the phone attach menu fill the composer; `@reply` and drafts explain a refusal with a "See plans" link. Chat Settings shows "Elie answers" with this month's actions. The wizard has "Write with Elie" / "Improve with Elie" with Undo under the summary highlight and the description. Pricing cards say "Elie (300 actions a month)".
+- Tests: server 7 new, chatbot 5 new, client 6 new.
 
 ### Phase 3 — Latency and cold starts (F6, F16, F18)
 

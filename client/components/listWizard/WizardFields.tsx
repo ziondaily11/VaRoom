@@ -5,6 +5,7 @@ import type { WizardCopy } from '../../lib/listWizard/copy';
 import { priceUnitOptions } from '../../lib/listWizard/copy';
 import { ADVANCE_OPTIONS, NOTICE_OPTIONS } from '../../lib/settings/bookingDefaults';
 import { PROPERTY_TYPES } from '../../lib/marketplace/drilldown';
+import ElieWrite, { type ElieWriteSource } from './ElieWrite';
 
 // The listing wizard's own fields for steps 1, 2 and 4 (ids, names,
 // classes and wording unchanged from legacy-pages/list.html). The office/shop
@@ -80,7 +81,7 @@ export function PropertyPurposeChoice({ category, purpose, onChoose }: { categor
   );
 }
 
-export function IntroFields({ binding, copy, tableOnly }: { binding: FieldBinding; copy: WizardCopy; tableOnly: boolean }) {
+export function IntroFields({ binding, copy, tableOnly, elie }: { binding: FieldBinding; copy: WizardCopy; tableOnly: boolean; elie: ElieWriteSource }) {
   return (
     <div className="step-fields">
       <div className="field">
@@ -90,10 +91,12 @@ export function IntroFields({ binding, copy, tableOnly }: { binding: FieldBindin
       <div className="field">
         <label htmlFor="caption" id="caption-label">{copy.captionLabel}</label>
         <textarea {...bind(binding, 'caption')} name="caption" required maxLength={500} placeholder={copy.captionPlaceholder} />
+        <ElieWrite field="summary" fieldId="caption" binding={binding} source={elie} maxLength={500} />
       </div>
       <div className="field" id="property-description-field" style={{ display: tableOnly ? 'none' : undefined }}>
         <label htmlFor="property-description" id="description-label">{copy.descriptionLabel}</label>
         <textarea {...bind(binding, 'property-description')} name="property_description" required={!tableOnly} placeholder={copy.descriptionPlaceholder} />
+        <ElieWrite field="description" fieldId="property-description" binding={binding} source={elie} />
       </div>
     </div>
   );

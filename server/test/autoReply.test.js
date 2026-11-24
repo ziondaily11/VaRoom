@@ -26,8 +26,12 @@ const FOREIGN_LISTING = '77777777-7777-4777-8777-777777777777';
 
 // --- In-memory Supabase ------------------------------------------------------
 
-function makeDb({ awayMode = true, hostStatus = 'active', failProfiles = false } = {}) {
+// `elie`: the host's plan includes Elie ('included'), doesn't ('plan'), or
+// this month's Elie actions are used up ('limit').
+function makeDb({ awayMode = true, hostStatus = 'active', failProfiles = false, elie = 'included' } = {}) {
   return {
+    elie,
+    elieActions: [],
     conversations: [{ id: CONVERSATION, host_id: HOST, client_id: GUEST, listing_id: LISTING, created_at: '2026-11-01T00:00:00.000Z' }],
     profiles: [
       { id: HOST, full_name: 'Host Person', away_mode: awayMode },
@@ -109,6 +113,25 @@ function makeQuery(db, table) {
   return query;
 }
 
+// The Elie action functions (migration 20261125_000081).
+function elieRpc(db) {
+  return async (name, params) => {
+    if (name === 'elie_use_host_action') {
+      if (db.elie !== 'included') {
+        return { data: { allowed: false, reason: db.elie, used: db.elie === 'limit' ? params.p_limit : 0, limit: params.p_limit }, error: null };
+      }
+      const id = db.elieActions.length + 1;
+      db.elieActions.push({ id, host_id: params.p_host_id, kind: params.p_kind });
+      return { data: { allowed: true, action_id: id, used: db.elieActions.length, limit: params.p_limit }, error: null };
+    }
+    if (name === 'elie_release_host_action') {
+      db.elieActions = db.elieActions.filter((action) => action.id !== params.p_action_id);
+      return { data: null, error: null };
+    }
+    return { data: null, error: { message: `unexpected rpc ${name}` } };
+  };
+}
+
 // --- Chatbot stub -------------------------------------------------------------
 
 function makeChatbot(handler) {
@@ -130,8 +153,9 @@ function jsonResponse(status, body) {
 }
 
 async function withServer(db, chatbotHandler, run) {
-  const saved = { from: supabaseAdmin.from, getUser: supabaseAdmin.auth.getUser };
+  const saved = { from: supabaseAdmin.from, rpc: supabaseAdmin.rpc, getUser: supabaseAdmin.auth.getUser };
   supabaseAdmin.from = (table) => makeQuery(db, table);
+  supabaseAdmin.rpc = elieRpc(db);
   supabaseAdmin.auth.getUser = async (token) => {
     const id = token === 'host-token' ? HOST : token === 'guest-token' ? GUEST : token === 'other-token' ? OTHER_HOST : null;
     return id ? { data: { user: { id } }, error: null } : { data: { user: null }, error: { message: 'invalid' } };
@@ -158,6 +182,7 @@ async function withServer(db, chatbotHandler, run) {
     chatbot.restore();
     server.close();
     supabaseAdmin.from = saved.from;
+    supabaseAdmin.rpc = saved.rpc;
     supabaseAdmin.auth.getUser = saved.getUser;
   }
 }
@@ -479,5 +504,81 @@ test('outside the host\'s business hours, a guest gets the away message and Elie
     await waitForIdle();
     assert.equal(chatbot.calls.length, 1);
     assert.deepEqual(autoReplies(db).map(plain), [autoReply.DEFAULT_AWAY_MESSAGE, 'Elie here.']);
+  });
+});
+
+
+// --- Host Elie: plans with Elie, monthly actions, drafts -------------------------
+
+test('away mode: every answer by Elie uses one Elie action; a failed one is given back', async () => {
+  const db = makeDb();
+  await withServer(db, () => jsonResponse(200, { reply: 'Yes.', alternative_listing_ids: [] }), async ({ call }) => {
+    await sendAsGuest(call, 'Is it free?');
+    await waitForIdle();
+    assert.deepEqual(db.elieActions.map((action) => [action.host_id, action.kind]), [[HOST, 'away']]);
+  });
+  const failing = makeDb();
+  await withServer(failing, () => jsonResponse(503, { detail: 'down' }), async ({ call }) => {
+    await sendAsGuest(call, 'Hello?');
+    await waitForIdle();
+    assert.equal(elieReplies(failing).length, 0);
+    assert.deepEqual(failing.elieActions, [], 'given back');
+  });
+});
+
+test('a host without Elie, or out of actions, still sends the away message; Elie stays quiet', async () => {
+  for (const elie of ['plan', 'limit']) {
+    const db = makeDb({ elie });
+    await withServer(db, () => jsonResponse(200, { reply: 'unused' }), async ({ call, chatbot }) => {
+      assert.equal((await sendAsGuest(call, 'Hello')).status, 201);
+      await waitForIdle();
+      assert.equal(awayMessages(db).length, 1, elie);
+      assert.equal(elieReplies(db).length, 0, elie);
+      assert.equal(chatbot.calls.length, 0, elie);
+      // A later message is not retried against the same refusal.
+      await sendAsGuest(call, 'Anyone?');
+      await waitForIdle();
+      assert.equal(chatbot.calls.length, 0, elie);
+    });
+  }
+});
+
+test('@reply needs a plan with Elie and actions left, and says which is missing', async () => {
+  for (const [elie, status, pattern] of [['plan', 403, /plans that include Elie/], ['limit', 429, /300 Elie actions this month/]]) {
+    const db = makeDb({ elie });
+    seedMessage(db, { sender: GUEST, text: 'Hello', minutesAgo: 5 });
+    await withServer(db, () => jsonResponse(200, { reply: 'unused' }), async ({ call, chatbot }) => {
+      const result = await commandReply(call, 'host-token');
+      assert.equal(result.status, status);
+      assert.match(result.body.error, pattern);
+      assert.equal(result.body.elie.reason, elie);
+      assert.equal(result.body.elie.plansUrl, '/pricing');
+      assert.equal(chatbot.calls.length, 0);
+      assert.equal(autoReplies(db).length, 0);
+    });
+  }
+});
+
+test('a draft is Elie\'s reply for the host to edit: nothing is sent, one action is used', async () => {
+  const db = makeDb({ awayMode: false });
+  seedMessage(db, { sender: GUEST, text: 'Is parking free?', minutesAgo: 5 });
+  await withServer(db, () => jsonResponse(200, { reply: 'Yes, parking is free.', alternative_listing_ids: [OWN_ALTERNATIVE] }), async ({ call, chatbot }) => {
+    const draft = await call(`/chat/conversations/${CONVERSATION}/draft`, 'host-token', {});
+    assert.equal(draft.status, 200);
+    assert.deepEqual(draft.body, { reply: 'Yes, parking is free.', skipped: false });
+    assert.equal(chatbot.calls[0].body.trigger, 'draft');
+    assert.equal(db.messages.filter((row) => row.sender_id === HOST).length, 0, 'nothing sent, no listing shared');
+    assert.deepEqual(db.elieActions.map((action) => action.kind), ['draft']);
+
+    const guest = await call(`/chat/conversations/${CONVERSATION}/draft`, 'guest-token', {});
+    assert.equal(guest.status, 403);
+    assert.equal((await call(`/chat/conversations/${CONVERSATION}/draft`, 'host-token', { extra: 1 })).status, 400);
+  });
+  const empty = makeDb({ awayMode: false });
+  await withServer(empty, () => jsonResponse(200, { reply: 'unused' }), async ({ call, chatbot }) => {
+    const draft = await call(`/chat/conversations/${CONVERSATION}/draft`, 'host-token', {});
+    assert.deepEqual(draft.body, { reply: 'There is no guest enquiry to reply to yet.', skipped: true });
+    assert.equal(chatbot.calls.length, 0);
+    assert.deepEqual(empty.elieActions, [], 'no action used when there is nothing to answer');
   });
 });

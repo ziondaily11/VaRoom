@@ -6,6 +6,7 @@ const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('.
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 const autoReply = require('../lib/autoReply');
+const { ElieHostDenied } = require('../lib/elieHost');
 const { markDelivered, readReceiptsShared, withVisibleReceipts } = require('../lib/chatReceipts');
 const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
 const mediaStorageService = require('../lib/mediaStorageService');
@@ -580,29 +581,52 @@ router.post('/chat/conversations/:conversationId/read', async (req, res) => {
   }
 });
 
-router.post('/chat/conversations/:conversationId/reply', async (req, res) => {
-  try {
-    const user = await authenticatedUser(req);
-    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
-    if (await rejectSuspendedActivity(res, user.id)) return;
-    const conversationId = uuid(req.params.conversationId, 'conversation id');
-    const conversation = await memberConversation(conversationId, user.id);
-    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    assertAllowedKeys(req.body, ['command']);
-    const command = text(req.body.command, 'command', { max: 20 });
-    if (command.toLowerCase() !== '@reply') {
-      throw new ValidationError('Only the @reply command is supported');
+/**
+ * Elie writing for the host in one of their conversations: @reply sends the
+ * answer, a draft returns it for the host's composer. Plans without Elie and
+ * a used-up month get their own message (lib/elieHost.js).
+ */
+function hostElieRoute(kind, { keys, check, run, refused, failed }) {
+  return async (req, res) => {
+    try {
+      const user = await authenticatedUser(req);
+      if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+      if (await rejectSuspendedActivity(res, user.id)) return;
+      const conversationId = uuid(req.params.conversationId, 'conversation id');
+      const conversation = await memberConversation(conversationId, user.id);
+      if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      assertAllowedKeys(body, keys);
+      if (check) check(body);
+      if (conversation.host_id !== user.id) return res.status(403).json({ error: refused });
+      return res.json(await run(conversation));
+    } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+      if (error instanceof ElieHostDenied) return res.status(error.status).json(error.body());
+      console.error(`Chatbot ${kind} request failed:`, { stage: error.stage || null, error: error.message });
+      return res.status(503).json({ error: failed });
     }
-    if (conversation.host_id !== user.id) {
-      return res.status(403).json({ error: 'Only the host can use the @reply command.' });
-    }
-    return res.json(await autoReply.replyOnCommand(conversation));
-  } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
-    console.error('Chatbot @reply request failed:', { stage: error.stage || null, error: error.message });
-    return res.status(503).json({ error: 'Elie couldn’t write a reply right now. Please try again.' });
-  }
-});
+  };
+}
+
+router.post('/chat/conversations/:conversationId/reply', hostElieRoute('@reply', {
+  keys: ['command'],
+  check(body) {
+    const command = text(body.command, 'command', { max: 20 });
+    if (command.toLowerCase() !== '@reply') throw new ValidationError('Only the @reply command is supported');
+  },
+  run: (conversation) => autoReply.replyOnCommand(conversation),
+  refused: 'Only the host can use the @reply command.',
+  failed: 'Elie couldn’t write a reply right now. Please try again.',
+}));
+
+// A reply for the host to edit and send themselves.
+router.post('/chat/conversations/:conversationId/draft', hostElieRoute('draft', {
+  keys: [],
+  run: (conversation) => autoReply.draftReply(conversation),
+  refused: 'Only the host can ask Elie for a reply.',
+  failed: 'Elie couldn’t write a draft right now. Please try again.',
+}));
 
 router.post('/chat/conversations/:conversationId/messages', async (req, res) => {
   try {
