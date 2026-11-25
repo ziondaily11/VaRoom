@@ -40,6 +40,23 @@ export interface ElieListingResult {
 /** An answer about amenities: each listing's grid shows, these keys first. */
 export interface ElieAmenityView { highlight: string[] }
 
+// Guided search (chatbot/main.py guided_search): above 8 matches Elie asks a
+// question whose options come from the matching listings; the page sends the
+// answer back with the search state, and "Show more" pages through the rest.
+export type ElieQuestionField = 'category' | 'area' | 'budget' | 'guests';
+export interface ElieFilters {
+  category?: string | null; location?: string | null; area?: string | null;
+  max_price?: number | null; min_price?: number | null; price_unit?: string | null; guests?: number | null;
+}
+export interface ElieAnswer { field: ElieQuestionField; value?: string | null; text?: string | null; skip?: boolean }
+export interface ElieRefine {
+  filters: ElieFilters; wants: string[]; query: string; asked: ElieQuestionField[]; shown: string[]; more: boolean;
+  answer?: ElieAnswer | null;
+}
+export interface ElieQuestionOption { label: string; value: string; count?: number | null }
+export interface ElieQuestion { field: ElieQuestionField; text: string; step: number; options: ElieQuestionOption[]; other?: string | null }
+export interface ElieMore { refine: ElieRefine; remaining: number }
+
 export interface ElieResponse {
   reply?: string;
   suggestion?: string;
@@ -55,18 +72,28 @@ export interface ElieResponse {
   /** Show each listing's amenities, the highlighted ones first. */
   show_amenities?: boolean | null;
   highlight_amenities?: string[] | null;
+  /** Guided search: a question to answer, with the state to send back; more listings to show. */
+  question?: ElieQuestion | null;
+  refine?: ElieRefine | null;
+  more?: ElieMore | null;
+  /** Short replies to tap ("Yes", "No"). */
+  quick_replies?: string[] | null;
 }
 
 /** What an answer showed besides its text, kept with it in elie_messages.results. */
-export interface ElieResults { listings?: ElieListingResult[]; news?: ElieNewsResult[]; amenities?: ElieAmenityView }
+export interface ElieResults {
+  listings?: ElieListingResult[]; news?: ElieNewsResult[]; amenities?: ElieAmenityView;
+  question?: ElieQuestion; refine?: ElieRefine; more?: ElieMore; quick_replies?: string[];
+}
 
 /** One item in the Elie thread. */
 export type ElieEntry =
   | { id: string; kind: 'user'; text: string }
-  | { id: string; kind: 'elie'; text: string }
+  | { id: string; kind: 'elie'; text: string; quickReplies?: string[] }
+  | { id: string; kind: 'question'; question: ElieQuestion; refine: ElieRefine }
   | { id: string; kind: 'news'; items: ElieNewsResult[] }
-  | { id: string; kind: 'listings'; items: ElieListingResult[]; amenities?: ElieAmenityView }
-  | { id: string; kind: 'error'; text: string; retryText: string };
+  | { id: string; kind: 'listings'; items: ElieListingResult[]; amenities?: ElieAmenityView; more?: ElieMore }
+  | { id: string; kind: 'error'; text: string; retryText: string; retryRefine?: ElieRefine };
 
 let entryCounter = 0;
 export function elieEntryId(): string {
@@ -77,10 +104,16 @@ export function elieEntryId(): string {
 /** Thread entries for one response, in legacy order: reply, news, listings, suggestion. */
 export function elieResponseEntries(data: ElieResponse): ElieEntry[] {
   const entries: ElieEntry[] = [];
-  if (data.reply) entries.push({ id: elieEntryId(), kind: 'elie', text: data.reply });
+  const quickReplies = data.quick_replies && data.quick_replies.length ? data.quick_replies : null;
+  if (data.reply) entries.push({ id: elieEntryId(), kind: 'elie', text: data.reply, ...(quickReplies ? { quickReplies } : {}) });
+  if (data.question && data.refine) entries.push({ id: elieEntryId(), kind: 'question', question: data.question, refine: data.refine });
   if (data.news && data.news.length) entries.push({ id: elieEntryId(), kind: 'news', items: data.news });
   if (data.listings && data.listings.length) {
-    entries.push({ id: elieEntryId(), kind: 'listings', items: data.listings, ...(data.show_amenities ? { amenities: { highlight: data.highlight_amenities || [] } } : {}) });
+    entries.push({
+      id: elieEntryId(), kind: 'listings', items: data.listings,
+      ...(data.show_amenities ? { amenities: { highlight: data.highlight_amenities || [] } } : {}),
+      ...(data.more && data.more.remaining > 0 ? { more: data.more } : {}),
+    });
   }
   if (data.suggestion) entries.push({ id: elieEntryId(), kind: 'elie', text: data.suggestion });
   return entries;
@@ -148,7 +181,7 @@ export function wakeElie(fetchFn: typeof fetch = fetch): void {
  * six turns including it). Rejects with ElieRequestError carrying the text to
  * show the user.
  */
-export async function askElie({ message, history, token, sessionId = null, listingIds = [], fetchFn = fetch, timeoutMs = ELIE_TIMEOUT_MS }: {
+export async function askElie({ message, history, token, sessionId = null, listingIds = [], refine = null, fetchFn = fetch, timeoutMs = ELIE_TIMEOUT_MS }: {
   message: string;
   history: ElieTurn[];
   token: string | null;
@@ -156,6 +189,8 @@ export async function askElie({ message, history, token, sessionId = null, listi
   sessionId?: string | null;
   /** The listings already shown (elieShownListingIds). */
   listingIds?: string[];
+  /** A guided search: an answer to Elie's question, or "Show more". */
+  refine?: ElieRefine | null;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
 }): Promise<ElieResponse> {
@@ -176,6 +211,7 @@ export async function askElie({ message, history, token, sessionId = null, listi
         history: history.slice(-ELIE_HISTORY_TURNS),
         ...(sessionId ? { session_id: sessionId } : {}),
         ...(listingIds.length ? { listing_ids: listingIds } : {}),
+        ...(refine ? { refine } : {}),
       }),
       signal: controller.signal,
     });
@@ -250,6 +286,10 @@ export function elieTurnEntries(turns: ElieStoredTurn[]): ElieEntry[] {
       news: turn.results?.news,
       show_amenities: Boolean(turn.results?.amenities),
       highlight_amenities: turn.results?.amenities?.highlight,
+      question: turn.results?.question,
+      refine: turn.results?.refine,
+      more: turn.results?.more,
+      quick_replies: turn.results?.quick_replies,
     })));
 }
 
@@ -275,7 +315,10 @@ export async function saveElieTurns(client: SupabaseClient, { sessionId, userId,
   if (data.listings && data.listings.length) results.listings = data.listings;
   if (data.news && data.news.length) results.news = data.news;
   if (data.show_amenities && results.listings) results.amenities = { highlight: data.highlight_amenities || [] };
-  const hasResults = Boolean(results.listings || results.news);
+  if (data.question && data.refine) { results.question = data.question; results.refine = data.refine; }
+  if (data.more) results.more = data.more;
+  if (data.quick_replies && data.quick_replies.length) results.quick_replies = data.quick_replies;
+  const hasResults = Object.keys(results).length > 0;
   const rows = [
     { session_id: sessionId, user_id: userId, role: 'user', body: question, created_at: new Date(now).toISOString() },
     { session_id: sessionId, user_id: userId, role: 'elie', body: elieAnswerText(data), created_at: new Date(now + 1).toISOString(), ...(hasResults ? { results } : {}) },

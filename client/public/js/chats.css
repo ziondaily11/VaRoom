@@ -881,6 +881,45 @@
   .elie-message-avatar > [data-elie-bot-avatar]{ display:block; width:36px; height:36px; }
   /* Elie's replies use the incoming bubble, so they read on every theme and wallpaper. */
   .msg-row.elie-message.in .bubble{ min-width:0; font-weight:400; }
+  .elie-message-body{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-width:0; }
+  /* Quick replies under Elie's latest message */
+  .elie-quick-replies{ display:flex; flex-wrap:wrap; gap:6px; }
+  .elie-quick-replies button{ padding:6px 14px; border:1px solid var(--border); border-radius:999px; background:var(--white); color:var(--text-dark);
+    font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; }
+  .elie-quick-replies button:hover{ border-color:var(--text-dark); }
+  /* "Show more" under a search's listings */
+  .elie-more{ display:flex; justify-content:center; margin:4px 0 12px; }
+  .elie-more button{ padding:8px 18px; border:1px solid var(--border); border-radius:999px; background:var(--white); color:var(--text-dark);
+    font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; }
+  .elie-more button:disabled{ opacity:.6; cursor:progress; }
+  /* Elie's question in the composer's place */
+  .elie-question-dock{ margin:12px 28px 20px; animation:elie-card-in .22s ease-out both; }
+  @media (max-width:760px){ .elie-question-dock{ margin:8px 10px 10px; } }
+  @keyframes elie-card-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion:reduce){ .elie-question-dock{ animation:none; } }
+  .elie-question-card{ padding:14px; border:1px solid var(--border); border-radius:24px; background:var(--white); box-shadow:0 8px 28px rgba(20,22,28,.08); }
+  .elie-question-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 4px 10px; }
+  .elie-question-title{ font-size:0.9375rem; font-weight:700; color:var(--text-dark); }
+  .elie-question-step{ flex-shrink:0; font-size:0.75rem; color:var(--text-gray); }
+  .elie-question-options{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+  .elie-question-option{ display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:14px;
+    background:var(--bg-soft); color:var(--text-dark); font:inherit; font-size:0.875rem; font-weight:600; text-align:left; cursor:pointer; }
+  .elie-question-option:hover,.elie-question-option:focus-visible{ border-color:var(--text-dark); outline:none; }
+  .elie-option-key{ display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:22px; height:22px; border-radius:7px;
+    background:var(--white); color:var(--text-gray-2); font-size:0.75rem; font-weight:700; }
+  .elie-option-label{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .elie-option-count{ flex-shrink:0; color:var(--text-gray); font-size:0.75rem; font-weight:600; font-variant-numeric:tabular-nums; }
+  .elie-question-option.is-other{ background:transparent; border-style:dashed; color:var(--text-gray-2); }
+  .elie-question-other{ display:flex; gap:8px; margin-top:8px; }
+  .elie-question-other input{ flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:14px; background:var(--white);
+    color:var(--text-dark); font:inherit; font-size:0.875rem; outline:none; }
+  .elie-question-other input:focus{ border-color:var(--text-dark); }
+  .elie-question-other button{ padding:0 16px; border:0; border-radius:14px; background:var(--text-dark); color:var(--white); font:inherit; font-weight:700; cursor:pointer; }
+  .elie-question-other button:disabled{ opacity:.5; cursor:default; }
+  .elie-question-actions{ display:flex; justify-content:flex-end; gap:14px; margin:10px 4px 0; }
+  .elie-question-actions button{ padding:0; border:0; background:none; color:var(--text-gray-2); font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; }
+  .elie-question-actions button:hover{ color:var(--text-dark); text-decoration:underline; }
+  @media (max-width:400px){ .elie-question-options{ grid-template-columns:minmax(0,1fr); } }
   .msg-row.system{ align-self:flex-start; max-width:80%; }
   .bubble{ padding:12px 16px; font-size:0.875rem; line-height:1.5; color:var(--text-dark); font-weight:500; font-style:normal; }
   /* Bubble colours follow the chosen theme (Chat Settings → Theme; lib/chat/chatThemes):

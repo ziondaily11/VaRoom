@@ -35,7 +35,7 @@ import asyncio
 import logging
 import time
 from urllib.parse import urlencode
-from collections import OrderedDict, defaultdict, deque
+from collections import Counter, OrderedDict, defaultdict, deque
 import httpx
 from pathlib import Path
 from datetime import datetime, timezone, date, timedelta
@@ -1077,6 +1077,9 @@ class ElieSearchRequest(BaseModel):
     # Listings already shown in this conversation, the latest search first and
     # each in the order shown: Elie answers questions about them.
     listing_ids: List[str] = []
+    # A guided search in progress: an answer to Elie's question, or "Show more".
+    # The search then runs from this state, with no model call to read it.
+    refine: Optional["ElieRefine"] = None
 
 
 class ElieHost(BaseModel):
@@ -1111,6 +1114,50 @@ class ElieFilters(BaseModel):
     location: Optional[str] = None
     max_price: Optional[float] = None
     guests: Optional[int] = None
+    # Narrowed by Elie's questions.
+    area: Optional[str] = None
+    min_price: Optional[float] = None
+    price_unit: Optional[str] = None
+
+
+QuestionField = Literal["category", "area", "budget", "guests"]
+
+
+class ElieAnswer(BaseModel):
+    field: QuestionField
+    value: Optional[str] = None  # a tapped option
+    text: Optional[str] = None  # "Somewhere else…" / "Other amount", typed
+    skip: bool = False
+
+
+class ElieRefine(BaseModel):
+    """A guided search: the filters so far, what was asked, and what was shown."""
+    filters: ElieFilters = ElieFilters()
+    wants: List[str] = []
+    query: str = ""  # the first message, for a search with no category or place
+    asked: List[QuestionField] = []
+    shown: List[str] = []  # listing ids already shown ("Show more" continues after them)
+    more: bool = False
+    answer: Optional[ElieAnswer] = None
+
+
+class ElieQuestionOption(BaseModel):
+    label: str
+    value: str
+    count: Optional[int] = None
+
+
+class ElieQuestion(BaseModel):
+    field: QuestionField
+    text: str
+    step: int
+    options: List[ElieQuestionOption]
+    other: Optional[str] = None  # the placeholder of the typed option, when there is one
+
+
+class ElieMore(BaseModel):
+    refine: ElieRefine
+    remaining: int
 
 
 class ElieNewsFilters(BaseModel):
@@ -1134,6 +1181,13 @@ class ElieSearchResponse(BaseModel):
     # Show each listing's amenities (the booking page's grid), these first.
     show_amenities: Optional[bool] = None
     highlight_amenities: Optional[List[str]] = None
+    # Guided search: a question to answer (the page shows its options instead
+    # of the composer) with the state to send back, or more listings to show.
+    question: Optional[ElieQuestion] = None
+    refine: Optional[ElieRefine] = None
+    more: Optional[ElieMore] = None
+    # Short replies the guest can tap ("Yes", "No").
+    quick_replies: Optional[List[str]] = None
 
 
 class ElieVcoins(BaseModel):
@@ -1143,6 +1197,7 @@ class ElieVcoins(BaseModel):
 
 
 ElieSearchResponse.model_rebuild()
+ElieSearchRequest.model_rebuild()
 
 # Room for a written listing description in a chat reply.
 CHAT_REPLY_MAX_CHARS = 2500
@@ -1682,7 +1737,9 @@ async def classify_message(
         'fenced block whose first line names it, e.g. ```Summary highlight '
         'then the text then ``` on its own line, with any remark outside the '
         'blocks; the reply may then be longer. You may use **bold** and '
-        '"- " bullet lists; no other markdown, no HTML}\n'
+        '"- " bullet lists; no other markdown, no HTML; "quick_replies": when '
+        'your reply asks the guest a question, up to 3 short answers they can '
+        'tap instead of typing (e.g. ["Yes", "No"]), otherwise []}\n'
         'If a property-news request about laws, regulations, land policy, '
         'housing rules, county notices, title/land rates, or asking what '
         'changed: {"intent": "news", "county": a county name or null, '
@@ -1752,7 +1809,9 @@ async def classify_message(
         chat_reply = str(parsed.get("chat_reply") or parsed.get("reply") or parsed.get("intro") or "").strip()
         if not chat_reply:
             chat_reply = "Hello! I'm Elie, your VaRoom assistant. How can I help you find a space today?"
-        return {"intent": "chat", "chat_reply": chat_reply[:CHAT_REPLY_MAX_CHARS]}
+        raw_replies = parsed.get("quick_replies") if isinstance(parsed.get("quick_replies"), list) else []
+        quick = [str(item).strip()[:30] for item in raw_replies if str(item).strip()][:3]
+        return {"intent": "chat", "chat_reply": chat_reply[:CHAT_REPLY_MAX_CHARS], "quick_replies": quick}
 
     if intent == "news":
         days_val = parsed.get("days")
@@ -1779,23 +1838,7 @@ async def classify_message(
         category = normalize_category_filter(parsed.get("category"))
         location = str(parsed.get("location")).strip()[:100] if parsed.get("location") else None
 
-        # Price parsing
-        max_price: Optional[float] = None
-        raw_price = parsed.get("max_price")
-        if raw_price is not None:
-            try:
-                if isinstance(raw_price, str):
-                    raw_price_clean = raw_price.lower().replace("ksh", "").replace(",", "").strip()
-                    if raw_price_clean.endswith("k"):
-                        max_price = float(raw_price_clean[:-1]) * 1000
-                    else:
-                        max_price = float(raw_price_clean)
-                else:
-                    max_price = float(raw_price)
-                if max_price <= 0 or max_price > 100_000_000:
-                    max_price = None
-            except (ValueError, TypeError):
-                max_price = None
+        max_price = parse_price(parsed.get("max_price"))
 
         # Guests parsing
         guests: Optional[int] = None
@@ -1835,6 +1878,21 @@ async def classify_message(
     # Default fallback to chat
     chat_reply = str(parsed.get("chat_reply") or parsed.get("reply") or "How can I help you find a space?").strip()
     return {"intent": "chat", "chat_reply": chat_reply[:CHAT_REPLY_MAX_CHARS]}
+
+
+def parse_price(raw: Any) -> Optional[float]:
+    """A budget in Kenyan Shillings: 5000, "5,000", "5k", "KSh 5000"; None when unclear."""
+    if raw is None:
+        return None
+    try:
+        if isinstance(raw, str):
+            clean = re.sub(r"[^0-9.k]", "", raw.lower().replace("ksh", "").replace("kes", ""))
+            price = float(clean[:-1]) * 1000 if clean.endswith("k") else float(clean)
+        else:
+            price = float(raw)
+    except (ValueError, TypeError):
+        return None
+    return price if 0 < price <= 100_000_000 else None
 
 
 def sanitize_filter_word(w: str) -> str:
@@ -1891,6 +1949,8 @@ def reshape_listing(raw: dict) -> dict:
         "sale_price_amount": booking.get("sale_price_amount"),
         "sale_price_mode": booking.get("sale_price_mode"),
         "amenities": listing_amenities(raw.get("category"), booking),
+        # For guided search only (ElieListing leaves it out).
+        "area": listing_area(raw),
         # For Elie's ranking and answers only: ElieListing leaves these out.
         "about": str(raw.get("property_description") or raw.get("description") or "")[:ELIE_ABOUT_CHARS],
         "details": office_shop_facts(booking.get("office_shop_details")),
@@ -1899,7 +1959,23 @@ def reshape_listing(raw: dict) -> dict:
 
 ELIE_ABOUT_CHARS = 700
 ELIE_SEARCH_SHOWN = 8
-ELIE_SEARCH_POOL = 30
+# Guided search: matches are counted in a pool this big; above ELIE_ASK_ABOVE
+# Elie asks (at most ELIE_MAX_QUESTIONS questions) before showing listings.
+ELIE_POOL_LIMIT = 200
+ELIE_ASK_ABOVE = 8
+ELIE_MAX_QUESTIONS = 3
+
+
+def listing_area(raw: dict) -> Optional[str]:
+    """The neighbourhood: its own column, else the first part of the location."""
+    area = (raw.get("neighborhood") or "").strip()
+    location = str(raw.get("location_text") or "")
+    if not area and "," in location:
+        area = location.split(",")[0].strip()
+    if not area or area.lower() == str(raw.get("city") or "").strip().lower():
+        return None
+    area = area[:80]
+    return area if any(ch.isupper() for ch in area) else area.title()  # "CBD" stays, "kilimani" becomes "Kilimani"
 ELIE_CONTEXT_LISTINGS = 12
 
 
@@ -2020,7 +2096,7 @@ async def write_search_reply(message: str, history: Optional[List[dict]], listin
     best = picked_listings(parsed, candidates)
     ordered = best + [listing for listing in listings if listing not in best]
     reply = str(parsed.get("reply") or "").strip()[:CHAT_REPLY_MAX_CHARS]
-    return reply or intro, ordered[:ELIE_SEARCH_SHOWN]
+    return reply or intro, ordered
 
 
 LISTING_QUESTION_FAILED = "I couldn't check those listings just now. Please ask me again in a moment."
@@ -2077,7 +2153,7 @@ LISTING_HEADERS = lambda: {"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization":
 
 def listing_select(inner_details: bool = False) -> str:
     return (
-        "id,title,description,property_description,category,location_text,verified,host_id,"
+        "id,title,description,property_description,category,location_text,city,neighborhood,verified,host_id,"
         # Named: listing_likes is a second path from listings to profiles.
         "host:profiles!listings_host_id_fkey(full_name,username,verified),"
         # Inner only when filtering on them: listings without saved details still match other searches.
@@ -2314,6 +2390,12 @@ async def save_elie_turns(session_id: str, user_id: str, question: str, result: 
         results["news"] = result.news[:ELIE_SAVED_NEWS_ITEMS]
     if result.show_amenities:
         results["amenities"] = {"highlight": result.highlight_amenities or []}
+    for key in ("question", "refine", "more"):
+        value = getattr(result, key)
+        if value is not None:
+            results[key] = value.model_dump()
+    if result.quick_replies:
+        results["quick_replies"] = result.quick_replies
     answer = "\n\n".join(part for part in (result.reply, result.suggestion) if part)
     asked_at = datetime.now(timezone.utc)
     rows = [
@@ -2370,11 +2452,16 @@ async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> El
     if isinstance(wallet, VcoinError):
         logger.error("request_id=%s stage=vcoin_wallet error=%s", req_id, wallet)
         raise HTTPException(status_code=503, detail="Elie is temporarily unavailable. Please try again shortly.") from wallet
-    if not wallet.included and wallet.balance < VCOIN_SEARCH_COST:
+    # "Show more" is free; everything else needs enough coins for a search.
+    showing_more = bool(payload.refine and payload.refine.more)
+    if not wallet.included and wallet.balance < VCOIN_SEARCH_COST and not showing_more:
         logger.info("request_id=%s stage=access_check error=vcoins_low", req_id)
         return vcoin_topup_response(wallet, VCOIN_SEARCH_COST)
 
     history_dicts = [{"role": t.role, "text": t.text} for t in payload.history] if payload.history else None
+    if payload.refine is not None:
+        # A tapped answer or "Show more": no model call is needed to read it.
+        return await guided_search(payload.message, payload.refine, history_dicts, user, wallet, req_id)
     try:
         classification = await classify_message(payload.message, history_dicts, request_id=req_id, shown=shown)
     except ElieGenerationError as exc:
@@ -2391,7 +2478,10 @@ async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> El
         ) from exc
 
     if classification["intent"] == "chat":
-        return ElieSearchResponse(reply=classification["chat_reply"], listings=None, vcoins=wallet)
+        return ElieSearchResponse(
+            reply=classification["chat_reply"], listings=None, vcoins=wallet,
+            quick_replies=classification.get("quick_replies") or None,
+        )
 
     if classification["intent"] == "listing_question":
         return await answer_listing_question(payload.message, history_dicts, shown, wallet, req_id)
@@ -2435,54 +2525,201 @@ async def answer_elie(payload: ElieSearchRequest, user: dict, req_id: str) -> El
             ),
         )
 
-    category = classification.get("category")
-    location = classification.get("location")
-    max_price = classification.get("max_price")
-    guests = classification.get("guests")
-    wants = classification.get("wants") or []
+    refine = ElieRefine(
+        filters=ElieFilters(
+            category=classification.get("category"),
+            location=classification.get("location"),
+            max_price=classification.get("max_price"),
+            guests=classification.get("guests"),
+        ),
+        wants=classification.get("wants") or [],
+        query=payload.message[:300],
+    )
+    return await guided_search(payload.message, refine, history_dicts, user, wallet, req_id, intro=classification.get("intro"))
 
+
+CATEGORY_NOUNS = {"airbnb": "Airbnbs", "hotel": "hotels", "venue": "venues", "office": "offices", "shop": "shops", "property": "properties"}
+CATEGORY_LABELS = {"airbnb": "Airbnbs", "hotel": "Hotels", "venue": "Event venues", "office": "Offices", "shop": "Shops", "property": "Property"}
+
+
+def apply_answer(refine: ElieRefine) -> ElieRefine:
+    """The search state after the guest's answer (or skip) to Elie's question."""
+    state = refine.model_copy(deep=True)
+    answer, state.answer = state.answer, None
+    state.filters.area = (state.filters.area or "")[:80] or None
+    state.wants = [str(want)[:40] for want in state.wants][:8]
+    state.shown = state.shown[:ELIE_POOL_LIMIT]
+    if not answer:
+        return state
+    state.more, state.shown = False, []
+    if answer.field not in state.asked:
+        state.asked.append(answer.field)
+    raw = (answer.value or answer.text or "").strip()[:80]
+    if answer.skip or not raw:
+        return state
+    f = state.filters
+    if answer.field == "category":
+        f.category = normalize_category_filter(raw) or f.category
+    elif answer.field == "area":
+        f.area = raw
+    elif answer.field == "budget":
+        tapped = re.fullmatch(r"(\d*)-(\d*)\|(\w{1,20})", answer.value or "")
+        if tapped:
+            f.min_price = float(tapped.group(1)) if tapped.group(1) else None
+            f.max_price = float(tapped.group(2)) if tapped.group(2) else None
+            f.price_unit = tapped.group(3)
+        else:
+            f.max_price = parse_price(raw) or f.max_price
+    elif answer.field == "guests":
+        digits = re.search(r"\d+", raw)
+        if digits and 1 <= int(digits.group()) <= 5000:
+            f.guests = int(digits.group())
+    return state
+
+
+def fits(listing: dict, f: ElieFilters) -> bool:
+    """The filters the database query leaves to us: the area, the lowest price and its unit."""
+    if f.area:
+        place = f.area.lower()
+        if place not in str(listing.get("area") or "").lower() and place not in str(listing.get("location_text") or "").lower():
+            return False
+    if f.min_price or f.price_unit:
+        try:
+            price = float(listing.get("price_amount"))
+        except (TypeError, ValueError):
+            return False
+        if f.price_unit and listing.get("price_unit") != f.price_unit:
+            return False
+        if f.min_price and price < f.min_price:
+            return False
+    return True
+
+
+def nice_price(value: float) -> int:
+    step = 100 if value < 1000 else 500 if value < 10_000 else 1000 if value < 100_000 else 5000
+    return max(step, int(round(value / step) * step))
+
+
+def unit_words(unit: str) -> str:
+    return unit.replace("_", " ").replace("sq ft", "sq ft").strip()
+
+
+def budget_options(pool: list) -> tuple:
+    """Three price ranges from the matches' own prices, in their main unit."""
+    units = Counter(listing.get("price_unit") for listing in pool if listing.get("price_unit") and listing.get("price_amount") is not None)
+    if not units:
+        return None, []
+    unit = units.most_common(1)[0][0]
+    prices = sorted(float(listing["price_amount"]) for listing in pool if listing.get("price_unit") == unit and listing.get("price_amount") is not None)
+    if len(prices) < 4:
+        return unit, []
+    low, high = nice_price(prices[len(prices) // 3]), nice_price(prices[(2 * len(prices)) // 3])
+    if low >= high:
+        return unit, []
+    ranges = [
+        (f"Under KSh {low:,}", f"-{low}|{unit}", sum(1 for price in prices if price <= low)),
+        (f"KSh {low:,}–{high:,}", f"{low}-{high}|{unit}", sum(1 for price in prices if low <= price <= high)),
+        (f"Over KSh {high:,}", f"{high}-|{unit}", sum(1 for price in prices if price >= high)),
+    ]
+    return unit, [ElieQuestionOption(label=label, value=value, count=count) for label, value, count in ranges if count]
+
+
+def next_question(pool: list, f: ElieFilters, asked: List[str]) -> Optional[ElieQuestion]:
+    """The first useful question not yet asked: type, area, budget, then guests.
+    Every option has matching listings; at least two options are offered."""
+    step = len(asked) + 1
+    for field in ("category", "area", "budget", "guests"):
+        if field in asked:
+            continue
+        if field == "category" and not f.category:
+            counts = Counter(listing.get("category") for listing in pool if listing.get("category") in CATEGORY_LABELS)
+            options = [ElieQuestionOption(label=CATEGORY_LABELS[key], value=key, count=n) for key, n in counts.most_common(4)]
+            if len(options) >= 2:
+                return ElieQuestion(field="category", text="What kind of place?", step=step, options=options)
+        elif field == "area" and not f.area:
+            counts = Counter(listing["area"] for listing in pool if listing.get("area"))
+            options = [ElieQuestionOption(label=area, value=area, count=n) for area, n in counts.most_common(3)]
+            if len(counts) >= 2:
+                where = f"Where in {f.location.title()}?" if f.location else "Which area?"
+                return ElieQuestion(field="area", text=where, step=step, options=options, other="Somewhere else…")
+        elif field == "budget" and not (f.min_price or f.max_price):
+            unit, options = budget_options(pool)
+            if len(options) >= 2:
+                per = f" per {unit_words(unit)}" if unit else ""
+                return ElieQuestion(field="budget", text=f"What's your budget{per}?", step=step, options=options, other="Other amount")
+        elif field == "guests" and not f.guests and f.category in ("airbnb", "hotel", "venue"):
+            sizes = (50, 100, 200) if f.category == "venue" else (2, 4, 6)
+            options = []
+            for index, size in enumerate(sizes):
+                count = sum(1 for listing in pool if (listing.get("max_guests") or 0) >= size)
+                label = f"{size}+ guests" if index == len(sizes) - 1 else f"{size} guests"
+                if count:
+                    options.append(ElieQuestionOption(label=label, value=str(size), count=count))
+            if len(options) >= 2 and len({option.count for option in options}) > 1:
+                return ElieQuestion(field="guests", text="How many guests?", step=step, options=options, other="Another number")
+    return None
+
+
+def found_phrase(count: int, f: ElieFilters) -> str:
+    noun = CATEGORY_NOUNS.get(f.category or "", "places")
+    if count == 1:
+        noun = {"properties": "property"}.get(noun, noun[:-1] if noun.endswith("s") else noun)
+    where = f.area or (f.location.title() if f.location else "")
+    more = "+" if count >= ELIE_POOL_LIMIT else ""
+    return f"I found {count}{more} {noun}{' in ' + where if where else ''}."
+
+
+async def guided_search(message: str, refine: ElieRefine, history: Optional[List[dict]], user: dict,
+                        wallet: "ElieVcoins", req_id: str, intro: Optional[str] = None) -> ElieSearchResponse:
+    """Counts the matching listings. Above ELIE_ASK_ABOVE, Elie asks a question
+    built from them (free); otherwise it shows them, ELIE_SEARCH_SHOWN at a time.
+    Only the first page of a search is charged."""
+    state = apply_answer(refine)
+    f = state.filters
     try:
-        raw_listings = await search_listings(
-            category, location, payload.message, max_price, guests, request_id=req_id,
-            limit=ELIE_SEARCH_POOL if wants else ELIE_SEARCH_SHOWN,
+        pool = await search_listings(
+            f.category, f.location, "" if (f.category or f.location) else (state.query or message),
+            f.max_price, f.guests, request_id=req_id, limit=ELIE_POOL_LIMIT,
         )
     except ListingDatabaseError as exc:
         logger.error("request_id=%s stage=search_listings_failed category=DATABASE_ERROR", req_id)
-        raise HTTPException(
-            status_code=503,
-            detail="Listing search is temporarily unavailable. Please try again shortly.",
-        ) from exc
+        raise HTTPException(status_code=503, detail="Listing search is temporarily unavailable. Please try again shortly.") from exc
+    pool = [listing for listing in pool if fits(listing, f)]
 
-    filters = ElieFilters(category=category, location=location, max_price=max_price, guests=guests)
+    if not pool:
+        reply = await generate_no_results_reply(
+            message, history, category=f.category, location=f.area or f.location,
+            max_price=f.max_price, guests=f.guests, request_id=req_id,
+        )
+        return ElieSearchResponse(reply=reply, filters=f, vcoins=wallet)
 
-    if not raw_listings:
-        no_results_reply = await generate_no_results_reply(
-            payload.message,
-            history_dicts,
-            category=category,
-            location=location,
-            max_price=max_price,
-            guests=guests,
-            request_id=req_id,
-        )
-        return ElieSearchResponse(
-            reply=no_results_reply,
-            listings=None,
-            filters=filters,
-            vcoins=wallet,
-        )
+    if not state.more and len(pool) > ELIE_ASK_ABOVE and len(state.asked) < ELIE_MAX_QUESTIONS:
+        question = next_question(pool, f, state.asked)
+        if question:
+            logger.info("request_id=%s stage=guided_question field=%s matches=%d", req_id, question.field, len(pool))
+            # Elie's message says what it found; the card asks only the question.
+            return ElieSearchResponse(reply=f"{found_phrase(len(pool), f)} {question.text}", question=question,
+                                      refine=state, filters=f, vcoins=wallet)
 
-    intro = classification.get("intro") or "Here are some matching listings for you:"
-    reply, listings = intro, raw_listings[:ELIE_SEARCH_SHOWN]
-    if wants:
-        reply, listings = await write_search_reply(
-            payload.message, history_dicts, rank_listings(raw_listings, wants), wants, intro, req_id
-        )
+    ranked = rank_listings(pool, state.wants) if state.wants else pool
+    if state.more:
+        seen = set(state.shown)
+        ranked = [listing for listing in ranked if listing.get("id") not in seen]
+        reply = f"Here are {min(len(ranked), ELIE_SEARCH_SHOWN)} more."
+    else:
+        reply = intro or f"{found_phrase(len(pool), f)} Here they are:"
+        if state.wants:
+            reply, ranked = await write_search_reply(message, history, ranked, state.wants, reply, req_id)
+    page = ranked[:ELIE_SEARCH_SHOWN]
+    shown = (state.shown + [str(listing.get("id")) for listing in page])[:ELIE_POOL_LIMIT]
+    remaining = len(ranked) - len(page)
+    more = ElieMore(refine=state.model_copy(update={"shown": shown, "more": True}), remaining=remaining) if remaining > 0 else None
     return ElieSearchResponse(
         reply=reply,
-        listings=listings,
-        filters=filters,
-        vcoins=await spend_vcoins(user["id"], wallet, "search", req_id),
+        listings=page,
+        filters=f,
+        more=more,
+        vcoins=wallet if state.more else await spend_vcoins(user["id"], wallet, "search", req_id),
     )
 
 

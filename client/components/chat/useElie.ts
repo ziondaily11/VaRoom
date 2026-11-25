@@ -35,6 +35,8 @@ export function useElie(userId: string | null) {
     topupSignal: current.topupSignal,
     send: store.send,
     retry: store.retry,
+    answer: store.answer,
+    showMore: store.showMore,
     newSearch: store.newSearch,
     listSessions: store.listSessions,
     loadSession: store.loadSession,
