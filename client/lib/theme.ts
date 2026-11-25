@@ -3,6 +3,11 @@
 
 export type Theme = 'light' | 'dark';
 
+/** The one light-mode white (global light theme). Pages without modes keep their own whites. */
+export const LIGHT_WHITE = '#FAFAFA';
+/** Set on <html> for forced-light routes: they have no modes, so the global light theme leaves them alone. */
+export const FIXED_THEME_ATTR = 'data-theme-fixed';
+
 /** Pages that always render light, whatever the saved preference. (Property News follows the theme: it has its own dark newspaper.) */
 export const FORCED_LIGHT_ROUTES = ['/', '/payments', '/privacy', '/terms'];
 const FORCED_LIGHT_PREFIXES: string[] = [];
@@ -40,10 +45,12 @@ export function applyTheme(path: string, doc: Document = document): boolean {
     // Storage or matchMedia unavailable: fall back to the defaults.
   }
   const theme = resolveTheme(path, saved, prefersDark);
+  const fixed = isForcedLight(path);
   const root = doc.documentElement;
-  if (root.getAttribute('data-theme') === theme && root.style.colorScheme === theme) return false;
+  if (root.getAttribute('data-theme') === theme && root.style.colorScheme === theme && root.hasAttribute(FIXED_THEME_ATTR) === fixed) return false;
   root.setAttribute('data-theme', theme);
   root.style.colorScheme = theme;
+  if (fixed) root.setAttribute(FIXED_THEME_ATTR, ''); else root.removeAttribute(FIXED_THEME_ATTR);
   return true;
 }
 
@@ -64,6 +71,7 @@ export function themeBootScript(): string {
     theme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.colorScheme = theme;
+    if (isForced) document.documentElement.setAttribute('${FIXED_THEME_ATTR}', '');
   } catch (error) {}
 })();`;
 }

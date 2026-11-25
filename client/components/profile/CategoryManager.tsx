@@ -58,7 +58,7 @@ function useDialogFocus(open: boolean, panel: React.RefObject<HTMLElement | null
 
 export const CATEGORY_MANAGER_STYLES = `
 .vcm{
-  --vcm-bg:#fff; --vcm-surface:#f5f5f7; --vcm-raised:#e8e8ed; --vcm-line:#d2d2d7; --vcm-ink:#1d1d1f; --vcm-muted:#6e6e73;
+  --vcm-bg:var(--va-light); --vcm-surface:#f5f5f7; --vcm-raised:#e8e8ed; --vcm-line:#d2d2d7; --vcm-ink:#1d1d1f; --vcm-muted:#6e6e73;
   --vcm-fill:rgba(118,118,128,.12); --vcm-accent:#e5384f; --vcm-danger:#c41e3a; --vcm-shadow:0 24px 60px rgba(0,0,0,.22);
   position:fixed; inset:0; z-index:1200; display:flex; align-items:center; justify-content:center; padding:24px;
   background:rgba(0,0,0,.4); backdrop-filter:blur(12px) saturate(140%); -webkit-backdrop-filter:blur(12px) saturate(140%);
@@ -152,7 +152,7 @@ html[data-theme="dark"] .vcm, html[data-theme="dark"] .vcm-menu{
   .vcm-link:hover{ text-decoration:underline; }
 }
 .vcm-menu{
-  --vcm-bg:#fff; --vcm-ink:#1d1d1f; --vcm-fill:rgba(118,118,128,.12); --vcm-danger:#c41e3a; --vcm-accent:#e5384f; --vcm-shadow:0 12px 32px rgba(0,0,0,.16);
+  --vcm-bg:var(--va-light); --vcm-ink:#1d1d1f; --vcm-fill:rgba(118,118,128,.12); --vcm-danger:#c41e3a; --vcm-accent:#e5384f; --vcm-shadow:0 12px 32px rgba(0,0,0,.16);
   position:fixed; z-index:1300; min-width:160px; padding:5px; border-radius:14px; background:var(--vcm-bg); color:var(--vcm-ink); box-shadow:var(--vcm-shadow);
   font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; transform-origin:top left;
   animation:vcm-menu-in var(--motion-quick) var(--ease-out) both;

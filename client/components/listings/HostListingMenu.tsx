@@ -17,7 +17,7 @@ const STYLES = `
   .vr-listing-menu-wrap{ position:relative; }
   .vr-listing-menu-btn{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.2rem; cursor:pointer; }
   .vr-listing-menu{ position:fixed; z-index:1000; min-width:180px; max-width:calc(100vw - 16px); padding:.4rem; overflow-y:auto; overscroll-behavior:contain;
-    background:#fff; color:#24211E; border:1px solid #E4E1DA; border-radius:12px; box-shadow:0 12px 30px rgba(26,18,16,.2); }
+    background:var(--va-light); color:#24211E; border:1px solid #E4E1DA; border-radius:12px; box-shadow:0 12px 30px rgba(26,18,16,.2); }
   .vr-listing-menu .card-menu-item{ display:block; width:100%; text-align:left; padding:.55rem .7rem; border-radius:8px; color:inherit; font-size:.8rem; background:transparent; border:0; cursor:pointer; font-family:inherit; }
   .vr-listing-menu .card-menu-item:hover{ background:rgba(196,30,58,.08); }
   .vr-listing-menu .card-menu-item:disabled{ opacity:.6; cursor:default; }
@@ -27,7 +27,7 @@ const STYLES = `
   html[data-theme="dark"] .vr-listing-menu{ background:#141212; color:#E7E9EA; border-color:rgba(255,255,255,.11); box-shadow:0 12px 30px rgba(0,0,0,.6); }
   html[data-theme="dark"] .vr-listing-menu .card-menu-item.destructive{ color:#ff7186; border-top-color:rgba(255,255,255,.11); }
   .vr-listing-confirm{ position:fixed; inset:0; z-index:1100; display:flex; align-items:center; justify-content:center; padding:1.5rem; background:rgba(26,18,16,.5); }
-  .vr-listing-confirm-card{ background:#F7F6F3; color:#24211E; border-radius:20px; max-width:460px; width:100%; padding:2rem 1.8rem; box-shadow:0 40px 80px -30px rgba(26,18,16,.5); }
+  .vr-listing-confirm-card{ background:var(--va-light); color:#24211E; border-radius:20px; max-width:460px; width:100%; padding:2rem 1.8rem; box-shadow:0 40px 80px -30px rgba(26,18,16,.5); }
   .vr-listing-confirm-card h2{ font-family:'Helvetica Neue', Arial, sans-serif; font-weight:600; font-size:1.3rem; margin:0 0 1.4rem; }
   .vr-listing-confirm-card p{ margin:0; line-height:1.5; }
   .vr-listing-confirm-actions{ display:flex; gap:.8rem; margin-top:1.4rem; }

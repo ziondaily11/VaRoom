@@ -25,7 +25,7 @@ test('Host Home styles stay inside the page and leave the shared sidebar alone',
 
 test('the shared phone bar has its own colours', () => {
   const shell = read('components', 'shell', 'shellStyles.ts');
-  assert.match(shell, /\.varoom-mobile-nav\{--mn-bg:#FFFFFF;--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;\}/);
+  assert.match(shell, /\.varoom-mobile-nav\{--mn-bg:var\(--va-light\);--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;\}/);
   assert.match(shell, /html\[data-theme="dark"\] \.varoom-mobile-nav\{--mn-bg:#000000;/);
   assert.doesNotMatch(shell, /color:var\(--ink,var\(--muted,#666\)\)/);
 });

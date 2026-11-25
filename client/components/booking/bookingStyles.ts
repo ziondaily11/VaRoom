@@ -14,7 +14,7 @@
 
 export const BOOKING_STYLES = `
   .booking-page{
-    --red:#C41E3A; --red-deep:#8F1229; --paper:#F7F6F3; --card:#FFFFFF; --ink:#24211E; --muted:#6B665E;
+    --red:#C41E3A; --red-deep:#8F1229; --paper:var(--va-light); --card:var(--va-light); --ink:#24211E; --muted:#6B665E;
     --line:rgba(26,18,16,.1); --line-strong:rgba(26,18,16,.18); --soft:#F1EFEA; --soft-2:#E9E7E2;
     --green:#2E9B54; --green-deep:#1E6B3A; --green-tint:rgba(46,155,84,.12); --green-tint-strong:rgba(46,155,84,.22);
     --red-tint:rgba(196,30,58,.1); --range:rgba(196,30,58,.1);

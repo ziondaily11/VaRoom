@@ -17,7 +17,7 @@ import { getListingFeedCache } from '../lib/listingFeedCache';
 import { installAccountActions } from '../lib/account/accountActions';
 import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
 import { installAppLinks } from '../lib/navigation/appLinks';
-import { applyTheme } from '../lib/theme';
+import { applyTheme, LIGHT_WHITE } from '../lib/theme';
 import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRail } from '../lib/accountRoleLayout';
 import '../styles/admin.css';
 import '../styles/spinner.css';
@@ -41,6 +41,8 @@ if (typeof window !== 'undefined') {
 
 const designTokensStyle = `
   :root {
+    /* Global light theme: the one light-mode white (lib/theme.ts LIGHT_WHITE). */
+    --va-light: ${LIGHT_WHITE};
     --color-bg: #f7f3ec;
     --color-surface: #fffdfb;
     --color-surface-muted: #f4efe9;
@@ -384,6 +386,16 @@ const designTokensStyle = `
 
   html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #__next {
     background: #000000;
+  }
+
+  /* Global light theme: pages with modes use the one light white; forced-light pages (data-theme-fixed) keep their own. */
+  html[data-theme="light"]:not([data-theme-fixed]) {
+    --color-bg: var(--va-light);
+    --color-surface: var(--va-light);
+  }
+
+  html[data-theme="light"]:not([data-theme-fixed]), html[data-theme="light"]:not([data-theme-fixed]) body {
+    background: var(--va-light);
   }
 `;
 

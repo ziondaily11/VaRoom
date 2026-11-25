@@ -5,10 +5,10 @@
 
 export const PROFILE_STYLES = `
   .profile-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --ink:#24211E; --paper:var(--va-light); --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --card-border:#E4E1DA;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
-    --shell-bg:rgba(255,255,255,0.96); --sidebar-bg:#ffffff; --main-bg:#F7F6F3; --rail-bg:#FFFFFF; --card-bg:#ffffff;
+    --shell-bg:rgba(255,255,255,0.96); --sidebar-bg:var(--va-light); --main-bg:var(--va-light); --rail-bg:var(--va-light); --card-bg:var(--va-light);
   }
   html[data-theme="dark"] .profile-page{
     --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --card-border:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.14);
@@ -291,7 +291,7 @@ export const PROFILE_STYLES = `
   .profile-page .btn-solid:hover{ background:var(--red-deep); }
   .profile-page .btn-solid svg{ width:14px; height:14px; }
   .profile-page .profile-header-actions .profile-actions .btn-outline{background:rgba(255,255,255,.76);color:#171615;border-color:rgba(23,22,21,.28)}
-  .profile-page .profile-header-actions .profile-actions .btn-outline:hover{background:#fff;border-color:var(--red);color:var(--red)}
+  .profile-page .profile-header-actions .profile-actions .btn-outline:hover{background:var(--va-light);border-color:var(--red);color:var(--red)}
   .profile-page .profile-header-actions #owner-actions .btn-outline:last-child, .profile-page .profile-header-actions #visitor-actions .btn-outline{background:var(--red);border-color:var(--red);color:#fff}
   .profile-page .profile-header-actions #owner-actions .btn-outline:last-child:hover, .profile-page .profile-header-actions #visitor-actions .btn-outline:hover{background:var(--red-deep);color:#fff}
   

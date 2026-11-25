@@ -4,7 +4,7 @@
 
 export const MAP_STYLES = `
   .map-page {
-    --red:#C41E3A; --ink:#24211E; --paper:#F7F6F3; --line:#E4E1DA;
+    --red:#C41E3A; --ink:#24211E; --paper:var(--va-light); --line:#E4E1DA;
     --font-brand:'Fraunces', serif;
     display:flex; flex-direction:column; height:100vh; height:100dvh; background:var(--paper); color:var(--ink);
   }

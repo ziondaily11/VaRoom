@@ -5,7 +5,7 @@
 
 export const HOST_HOME_STYLES = `
   .host-home-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#0F1419; --paper:#FFFFFF;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --ink:#0F1419; --paper:var(--va-light);
     --surface-card:#F7F9F9;
     --muted:#536471;
     --font-display:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -29,7 +29,7 @@ export const HOST_HOME_STYLES = `
     /* Apple-style surfaces, shared with client home. */
     --home-fill:rgba(118,118,128,.12);
     --home-surface:#F5F5F7;
-    --home-raised:#FFFFFF;
+    --home-raised:var(--va-light);
     --home-shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
     --home-ease:cubic-bezier(.25,.1,.25,1);
   }
@@ -64,7 +64,7 @@ export const HOST_HOME_STYLES = `
   html[data-theme="light"] .host-home-page .app-shell,
   html[data-theme="light"] .host-home-page .main-col,
   html[data-theme="light"] .host-home-page .topbar,
-  html[data-theme="light"] .host-home-page .dash-main{ background:#fff; }
+  html[data-theme="light"] .host-home-page .dash-main{ background:var(--va-light); }
 
   html[data-theme="dark"] .host-home-page .app-shell,
   html[data-theme="dark"] .host-home-page .main-col,
@@ -716,7 +716,7 @@ export const HOST_HOME_STYLES = `
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem;
     font-size:.82rem; font-weight:600;
   }
-  .host-home-page .card-media-loading{ background:#fff; }
+  .host-home-page .card-media-loading{ background:var(--va-light); }
   @keyframes discover-media-spin{ to{ transform:rotate(360deg); } }
 
   /* Discover media follows the source's own proportions. */
@@ -734,7 +734,7 @@ export const HOST_HOME_STYLES = `
   .host-home-page #feed-list.discover-media-feed .media-slide-track{ height:100%; }
   .host-home-page #feed-list.discover-media-feed .media-slide{ height:100%; display:flex; align-items:center; justify-content:center; position:relative; background:transparent; }
   .host-home-page #feed-list.discover-media-feed .media-slide img{ max-width:100%; height:auto; object-fit:initial; }
-  .host-home-page .media-image-skeleton{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .host-home-page .media-image-skeleton{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:var(--va-light); }
   .host-home-page .card-media-loading::before,
   .host-home-page .media-image-skeleton::after,
   .host-home-page .media-loading-indicator::after{
@@ -742,7 +742,7 @@ export const HOST_HOME_STYLES = `
     background:var(--varoom-spinner) center / contain no-repeat;
     animation:discover-media-spin .8s steps(8) infinite;
   }
-  .host-home-page .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .host-home-page .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:var(--va-light); }
   html[data-theme="dark"] .host-home-page .card-media-loading,
   html[data-theme="dark"] .host-home-page .media-image-skeleton,
   html[data-theme="dark"] .host-home-page .media-loading-indicator{ background:#000; }
@@ -763,7 +763,7 @@ export const HOST_HOME_STYLES = `
   }
   .host-home-page #feed-list.discover-media-feed .card-media-loading{
     height:auto; aspect-ratio:4 / 3; min-height:0; padding:0; margin-left:var(--discover-content-inset); width:min(414px, calc(100% - var(--discover-content-inset))); max-width:calc(100% - var(--discover-content-inset));
-    display:flex; align-items:center; justify-content:center; background:#fff; color:transparent;
+    display:flex; align-items:center; justify-content:center; background:var(--va-light); color:transparent;
   }
   html[data-theme="dark"] .host-home-page #feed-list.discover-media-feed .card-media-loading{ background:#000; }
   .host-home-page #feed-list.discover-media-feed .card-media-unavailable{

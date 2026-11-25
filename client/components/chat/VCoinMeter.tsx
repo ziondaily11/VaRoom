@@ -185,7 +185,7 @@ const VCOIN_STYLES = `
   .vcoin-topup{ display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 .3rem; margin-left:.1rem;
     border-radius:999px; background:#C41E3A; color:#fff; font-size:.7rem; font-weight:700; line-height:1; }
   .vcoin-sheet{ position:absolute; right:0; bottom:calc(100% + 10px); z-index:50; width:min(290px, calc(100vw - 32px)); padding:.9rem; border-radius:16px;
-    border:1px solid #e2e5ea; background:#fff; color:#1f2937; box-shadow:0 18px 50px -20px rgba(0,0,0,.45); text-align:left; }
+    border:1px solid #e2e5ea; background:var(--va-light); color:#1f2937; box-shadow:0 18px 50px -20px rgba(0,0,0,.45); text-align:left; }
   [data-theme="dark"] .vcoin-sheet{ border-color:rgba(255,255,255,.12); background:#18181b; color:#f4f4f5; }
   .vcoin-sheet-title{ margin:0 0 .3rem; font-weight:700; }
   .vcoin-sheet-text{ margin:0 0 .6rem; font-size:.8rem; line-height:1.45; opacity:.8; }

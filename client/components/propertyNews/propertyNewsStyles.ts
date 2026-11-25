@@ -5,7 +5,7 @@
 
 export const PROPERTY_NEWS_STYLES = `
         .property-news-root {
-          --newspaper-white: #ffffff;
+          --newspaper-white: var(--va-light);
           --newspaper-ink: #111111;
           --newspaper-body: #1c1c1c;
           --newspaper-muted: #555555;

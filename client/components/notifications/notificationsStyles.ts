@@ -9,9 +9,9 @@
 
 export const NOTIFICATIONS_STYLES = `
   .notifications-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --paper:var(--va-light);
     --ink:#0F1419; --muted:#536471; --line:rgba(26,18,16,.12);
-    --card:#FFFFFF; --card-line:rgba(26,18,16,.08); --row-hover:rgba(26,18,16,.035); --row-unread:rgba(196,30,58,.035);
+    --card:var(--va-light); --card-line:rgba(26,18,16,.08); --row-hover:rgba(26,18,16,.035); --row-unread:rgba(196,30,58,.035);
     --card-shadow:0 1px 2px rgba(26,18,16,.04), 0 6px 20px -14px rgba(26,18,16,.22);
     --search-line:rgba(26,18,16,.2); --skeleton:rgba(26,18,16,.07);
     --green:#1B8A5A; --green-soft:#E7F7EE; --red-soft:#FBE9EC; --amber:#B45309; --amber-soft:#FFF4E1;

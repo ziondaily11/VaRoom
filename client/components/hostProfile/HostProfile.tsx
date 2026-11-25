@@ -548,7 +548,7 @@ export default function HostProfile({ hostKey }: {
       <style jsx global>{`
         /* Apple-style neutrals, matching client home and host home. */
         :root {
-          --host-profile-page: #fff;
+          --host-profile-page: var(--va-light);
           --host-profile-surface: #f5f5f7;
           --host-profile-surface-raised: #e8e8ed;
           --host-profile-border: #d2d2d7;
@@ -561,7 +561,7 @@ export default function HostProfile({ hostKey }: {
           --host-profile-banner-ink: #1d1d1f;
           --host-profile-banner-muted: rgba(29,29,31,.78);
           --host-profile-fill: rgba(118,118,128,.12);
-          --host-profile-selected: #fff;
+          --host-profile-selected: var(--va-light);
           --host-profile-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
         }
         html[data-theme="dark"] {

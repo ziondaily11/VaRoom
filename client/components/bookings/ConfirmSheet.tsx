@@ -15,7 +15,7 @@ const EXIT_MS = exitMs(DURATION.standard);
 
 export const CONFIRM_SHEET_STYLES = `
 .cfs{
-  --cfs-bg:#fff; --cfs-ink:#1d1d1f; --cfs-muted:#6e6e73; --cfs-fill:rgba(118,118,128,.12); --cfs-danger:#c41e3a;
+  --cfs-bg:var(--va-light); --cfs-ink:#1d1d1f; --cfs-muted:#6e6e73; --cfs-fill:rgba(118,118,128,.12); --cfs-danger:#c41e3a;
   position:fixed; inset:0; z-index:1300; display:flex; align-items:center; justify-content:center; padding:20px;
   background:rgba(0,0,0,.4); backdrop-filter:blur(12px) saturate(140%); -webkit-backdrop-filter:blur(12px) saturate(140%);
   font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
