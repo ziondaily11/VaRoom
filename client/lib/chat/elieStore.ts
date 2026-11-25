@@ -12,7 +12,10 @@ import {
   loadElieTurns,
   saveElieTurns,
   wakeElie,
+  type ElieAnswer,
   type ElieEntry,
+  type ElieQuestionOption,
+  type ElieRefine,
   type ElieResponse,
   type ElieSessionSummary,
   type ElieStoredTurn,
@@ -64,7 +67,9 @@ export interface ElieStoreDeps {
 }
 
 const userEntry = (text: string): ElieEntry => ({ id: elieEntryId(), kind: 'user', text });
-const errorEntry = (text: string, retryText: string): ElieEntry => ({ id: elieEntryId(), kind: 'error', text, retryText });
+const errorEntry = (text: string, retryText: string, retryRefine?: ElieRefine | null): ElieEntry => ({
+  id: elieEntryId(), kind: 'error', text, retryText, ...(retryRefine ? { retryRefine } : {}),
+});
 const textTurns = (turns: ElieStoredTurn[]): ElieTurn[] => turns.map(({ role, text }) => ({ role, text }));
 /** The pending question was answered: it and an answer are the last two saved turns. */
 const answered = (turns: ElieStoredTurn[], question: string) => turns.length >= 2
@@ -175,8 +180,11 @@ export function createElieStore(deps: ElieStoreDeps) {
       void restore(userId, generation);
     },
 
-    /** `retry`: ask the same question again without adding it to the thread a second time. */
-    async send(text: string, { retry = false }: { retry?: boolean } = {}) {
+    /**
+     * `retry`: ask the same question again without adding it to the thread a
+     * second time. `refine`: a guided-search answer or "Show more".
+     */
+    async send(text: string, { retry = false, refine = null }: { retry?: boolean; refine?: ElieRefine | null } = {}) {
       const question = text.trim();
       const userId = state.userId;
       if (!question || !userId) return;
@@ -205,6 +213,7 @@ export function createElieStore(deps: ElieStoreDeps) {
           token: await deps.getToken(),
           sessionId: askedIn,
           listingIds: elieShownListingIds(state.entries),
+          refine,
         };
         let data: ElieResponse;
         try {
@@ -245,7 +254,7 @@ export function createElieStore(deps: ElieStoreDeps) {
         if (askedIn && askedIn === sessionId) remember(userId);
         if (mine !== generation) return;
         const message = error instanceof ElieRequestError ? error.message : 'Could not reach Elie. Please check your connection and try again.';
-        set({ entries: [...state.entries, errorEntry(message, question)] });
+        set({ entries: [...state.entries, errorEntry(message, question, refine)] });
       } finally {
         if (mine === generation && state.userId === userId) set({ thinking: false, waking: false });
       }
@@ -254,7 +263,27 @@ export function createElieStore(deps: ElieStoreDeps) {
     /** Ask again after an error (the error row is replaced). */
     retry(entry: Extract<ElieEntry, { kind: 'error' }>) {
       set({ entries: state.entries.filter((item) => item.id !== entry.id) });
-      if (entry.retryText) void store.send(entry.retryText, { retry: history.some((turn) => turn.role === 'user' && turn.text === entry.retryText) });
+      if (entry.retryText) {
+        void store.send(entry.retryText, { retry: history.some((turn) => turn.role === 'user' && turn.text === entry.retryText), refine: entry.retryRefine || null });
+      }
+    },
+
+    /** Answers Elie's question: a tapped option, typed text, or a skip. */
+    answer(entry: Extract<ElieEntry, { kind: 'question' }>, choice: { option?: ElieQuestionOption; text?: string; skip?: boolean }) {
+      const answer: ElieAnswer = { field: entry.question.field, value: choice.option?.value ?? null, text: choice.text ?? null, skip: Boolean(choice.skip) };
+      const said = choice.skip ? 'Skip' : choice.option ? choice.option.label : (choice.text || '').trim();
+      if (!said) return Promise.resolve();
+      return store.send(said, { refine: { ...entry.refine, answer } });
+    },
+
+    /** The next listings of a search (free); the button leaves its results. */
+    showMore(entry: Extract<ElieEntry, { kind: 'listings' }>) {
+      // The thread's own copy: a second tap finds its button already gone.
+      const current = state.entries.find((item) => item.id === entry.id);
+      if (!current || current.kind !== 'listings' || !current.more || state.thinking) return Promise.resolve();
+      const refine = current.more.refine;
+      set({ entries: state.entries.map((item) => (item.id === entry.id ? { ...current, more: undefined } : item)) });
+      return store.send('Show more', { refine });
     },
 
     /** A new, empty search. */

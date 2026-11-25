@@ -65,6 +65,8 @@ import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
 import VCoinMeter from '../components/chat/VCoinMeter';
+import ElieQuestionCard from '../components/chat/ElieQuestionCard';
+import type { ElieEntry } from '../lib/chat/elie';
 import { ElieHistoryPanel, ElieSuggestions, ElieThread } from '../components/chat/ElieThread';
 import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
@@ -171,6 +173,22 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   useEffect(() => { if (isElie) void loadElieWallet(); }, [isElie, loadElieWallet]);
   // Before Elie's first question the composer sits mid-screen, the suggestions below it.
   const elieFresh = isElie && elie.entries.length === 0 && !elie.thinking;
+
+  // Guided search: Elie's open question takes the composer's place. Back shows
+  // the question before it; "Type instead" brings the composer back for it.
+  type QuestionEntry = Extract<ElieEntry, { kind: 'question' }>;
+  const [elieQuestionShown, setElieQuestionShown] = useState<string | null>(null);
+  const [elieTypingFor, setElieTypingFor] = useState<string | null>(null);
+  const lastElieEntry = elie.entries[elie.entries.length - 1];
+  const openQuestion = isElie && !elie.thinking && lastElieEntry && lastElieEntry.kind === 'question' ? lastElieEntry : null;
+  useEffect(() => { setElieQuestionShown(null); }, [openQuestion?.id]);
+  const questionEntries = elie.entries.filter((entry): entry is QuestionEntry => entry.kind === 'question');
+  const elieQuestion = openQuestion && elieTypingFor !== openQuestion.id
+    ? questionEntries.find((entry) => entry.id === elieQuestionShown) || openQuestion
+    : null;
+  const elieQuestionBefore = elieQuestion
+    ? questionEntries.slice(0, questionEntries.indexOf(elieQuestion)).reverse().find((entry) => entry.question.step === elieQuestion.question.step - 1) || null
+    : null;
 
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
@@ -1755,7 +1773,8 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 )}
               </div>
             ) : isElie ? (
-              <ElieThread entries={elie.entries} thinking={elie.thinking} waking={elie.waking} onRetry={elie.retry} />
+              <ElieThread entries={elie.entries} thinking={elie.thinking} waking={elie.waking} onRetry={elie.retry}
+                onQuickReply={(text) => { void elie.send(text); }} onShowMore={(entry) => { void elie.showMore(entry); }} />
             ) : (
               <>
               {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}
@@ -1997,12 +2016,26 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
             </div>
           )}
 
+          {/* Elie's question, in the composer's place (guided search) */}
+          {elieQuestion && (
+            <div className="elie-question-dock" key={elieQuestion.id}>
+              <ElieQuestionCard
+                question={elieQuestion.question}
+                onChoose={(option) => { void elie.answer(elieQuestion, { option }); }}
+                onOther={(text) => { void elie.answer(elieQuestion, { text }); }}
+                onSkip={() => { void elie.answer(elieQuestion, { skip: true }); }}
+                onType={() => { if (openQuestion) setElieTypingFor(openQuestion.id); }}
+                onBack={elieQuestionBefore ? () => setElieQuestionShown(elieQuestionBefore.id) : undefined}
+              />
+            </div>
+          )}
+
           {/* Composer Input Area */}
           <div
             ref={composerRef}
-            hidden={participantDeactivated}
+            hidden={participantDeactivated || Boolean(elieQuestion)}
             className={`chat-input-area ${isElie ? 'is-elie' : ''}${elieCompact ? ' elie-compact' : ''} ${composerText.trim() ? 'has-text' : ''} ${composerText.trim() || (pendingFile && !isElie) ? 'can-send' : ''}`}
-            style={participantDeactivated ? { position: 'relative', display: 'none' } : { position: 'relative' }}
+            style={participantDeactivated || elieQuestion ? { position: 'relative', display: 'none' } : { position: 'relative' }}
             onMouseDown={(e) => {
               // Phones: tapping composer buttons keeps the keyboard open.
               if (keepsKeyboardOpen(window.matchMedia('(max-width: 760px)').matches, e.target as Element)) e.preventDefault();

@@ -85,7 +85,7 @@ def test_a_search_for_features_reads_details_and_explains_the_best_fit():
         "search_reply": {"reply": "**Westlands Office** has a backup generator.", "ids": [B]},
     })
     result, spend, search, _ = ask("office with a backup generator", llm=llm, listings=[OFFICE_A, OFFICE_B])
-    assert search.await_args.kwargs["limit"] == main.ELIE_SEARCH_POOL
+    assert search.await_args.kwargs["limit"] == main.ELIE_POOL_LIMIT
     assert result.reply == "**Westlands Office** has a backup generator."
     assert [item.id for item in result.listings] == [B, A]
     assert "backup_generator" in llm.prompts["search_reply"] and "Quiet floor near the CBD." in llm.prompts["search_reply"]
@@ -95,7 +95,7 @@ def test_a_search_for_features_reads_details_and_explains_the_best_fit():
 def test_a_plain_search_skips_the_extra_call_and_a_failed_reply_keeps_the_ranking():
     llm = by_stage({"classification": {"intent": "search", "category": "office", "location": "Westlands", "wants": [], "intro": "Offices"}})
     result, _, search, call = ask("offices in westlands", llm=llm, listings=[OFFICE_A, OFFICE_B])
-    assert search.await_args.kwargs["limit"] == main.ELIE_SEARCH_SHOWN
+    assert search.await_args.kwargs["limit"] == main.ELIE_POOL_LIMIT, "every search counts its matches"
     assert call.await_count == 1 and result.reply == "Offices"
 
     async def failing(prompt, **options):

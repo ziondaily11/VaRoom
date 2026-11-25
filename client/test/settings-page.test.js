@@ -185,7 +185,8 @@ test('deactivate / delete: 30 days then deletion as the Privacy Policy says; sig
   assert.match(read('components', 'landing', 'AuthPanel.tsx'), /deactivationNotice\(router\.query\)/);
   const chats = read('pages', 'chats.tsx');
   assert.match(chats, /const participantDeactivated = Boolean\(!isElie && activeConversation\?\.participant\?\.deactivated\);/);
-  assert.match(chats, /hidden=\{participantDeactivated\}/, 'the composer stays mounted (its refs), only hidden');
+  // Also hidden (still mounted) while Elie's question card takes its place.
+  assert.match(chats, /hidden=\{participantDeactivated \|\| Boolean\(elieQuestion\)\}/, 'the composer stays mounted (its refs), only hidden');
 });
 
 test('page: in the shell, legacy wording, phone menu opens the app drawer, legacy page retired', () => {

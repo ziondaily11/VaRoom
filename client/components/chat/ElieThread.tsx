@@ -35,13 +35,18 @@ export function ElieSuggestions({ onPrompt }: { onPrompt: (prompt: string) => vo
   );
 }
 
-export function ElieThread({ entries, thinking, waking = false, onRetry }: {
+export function ElieThread({ entries, thinking, waking = false, onRetry, onQuickReply, onShowMore }: {
   entries: ElieEntry[];
   thinking: boolean;
   /** The Elie service was asleep and is starting. */
   waking?: boolean;
   onRetry: (entry: Extract<ElieEntry, { kind: 'error' }>) => void;
+  /** A tapped quick reply ("Yes"), sent as the next message. */
+  onQuickReply?: (text: string) => void;
+  /** "Show more" under a search's listings. */
+  onShowMore?: (entry: Extract<ElieEntry, { kind: 'listings' }>) => void;
 }) {
+  const last = entries[entries.length - 1];
   return (
     <>
       {entries.length === 0 && !thinking && (
@@ -62,9 +67,20 @@ export function ElieThread({ entries, thinking, waking = false, onRetry }: {
             return (
               <div key={entry.id} className="msg-row in elie-message">
                 <ElieAvatar />
-                <div className="bubble"><ElieText text={entry.text} /></div>
+                <div className="elie-message-body">
+                  <div className="bubble"><ElieText text={entry.text} /></div>
+                  {/* Tap instead of typing; only under Elie's latest message. */}
+                  {entry.quickReplies && entry === last && !thinking && onQuickReply && (
+                    <div className="elie-quick-replies">
+                      {entry.quickReplies.map((reply) => <button type="button" key={reply} onClick={() => onQuickReply(reply)}>{reply}</button>)}
+                    </div>
+                  )}
+                </div>
               </div>
             );
+          case 'question':
+            // Asked in Elie's message above; answered in the card in place of the composer.
+            return null;
           case 'news':
             return (
               <div key={entry.id} className="elie-results">
@@ -80,17 +96,26 @@ export function ElieThread({ entries, thinking, waking = false, onRetry }: {
             return (
               // The same card as a listing asked about in a chat; an answer
               // about amenities adds the booking page's amenity grid under it.
-              <div key={entry.id} className="elie-results elie-listing-results">
-                {entry.items.map((listing) => {
-                  const card = <ListingEnquiryCard key={listing.id} listing={elieListingSummary(listing)} verified={Boolean(listing.verified)} />;
-                  return entry.amenities ? (
-                    <div key={listing.id} className="elie-listing-detail">
-                      {card}
-                      <ElieAmenities listing={listing} highlight={entry.amenities.highlight} />
-                    </div>
-                  ) : card;
-                })}
-              </div>
+              <React.Fragment key={entry.id}>
+                <div className="elie-results elie-listing-results">
+                  {entry.items.map((listing) => {
+                    const card = <ListingEnquiryCard key={listing.id} listing={elieListingSummary(listing)} verified={Boolean(listing.verified)} />;
+                    return entry.amenities ? (
+                      <div key={listing.id} className="elie-listing-detail">
+                        {card}
+                        <ElieAmenities listing={listing} highlight={entry.amenities.highlight} />
+                      </div>
+                    ) : card;
+                  })}
+                </div>
+                {entry.more && onShowMore && (
+                  <div className="elie-more">
+                    <button type="button" disabled={thinking} onClick={() => onShowMore(entry)}>
+                      Show {Math.min(8, entry.more.remaining)} more
+                    </button>
+                  </div>
+                )}
+              </React.Fragment>
             );
           case 'error':
             return (
