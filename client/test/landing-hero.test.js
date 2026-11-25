@@ -45,12 +45,30 @@ test('the kind of space opens a frosted list (not the system select), upwards, f
 test('the headline and the line under it are small and in one face; the search is compact', () => {
   const hero = read('components', 'landing', 'HeroSection.tsx');
   // No width cap: each stays on one line wherever the screen is wide enough.
-  assert.match(hero, /hero-headline m-0 font-serif font-medium text-\[26px\] sm:text-\[clamp\(28px,2\.4vw,38px\)\]/);
+  // Hierarchy: a firmer, tighter headline with balanced breaks; a lighter, airier line under it.
+  assert.match(hero, /hero-headline m-0 font-serif font-semibold text-\[27px\] sm:text-\[clamp\(30px,2\.6vw,42px\)\] text-white tracking-\[-0\.03em\] leading-\[1\.08\] \[text-wrap:balance\]/);
   assert.match(hero, />\s*Every kind of space, one place to book&nbsp;it\.\s*</, 'no italic word: one style');
-  assert.match(hero, /hero-subtitle m-0 mt-3 font-serif font-normal text-\[14px\] sm:text-\[15px\]/);
+  assert.match(hero, /hero-subtitle m-0 mt-2\.5 sm:mt-3 font-serif font-normal text-\[14px\] sm:text-\[15px\] text-white\/70 tracking-\[0\.005em\] leading-\[1\.6\] \[text-wrap:pretty\]/);
   assert.doesNotMatch(hero, /hero-eyebrow|Stays · Workspaces · Venues/, 'no line above the headline');
-  assert.match(hero, /hero-search flex w-full max-w-\[480px\]/);
+  assert.match(hero, /hero-search flex w-full max-w-\[500px\]/);
   assert.match(hero, /landing-cta landing-cta-primary landing-cta-compact/);
+});
+
+test('phone search: aligned rows with icons and a divider, thumb-sized, no zoom on tap', () => {
+  const hero = read('components', 'landing', 'HeroSection.tsx');
+  assert.match(hero, /const fieldValue = '[^']*text-base sm:text-\[13px\]/, 'iPhones zoom into fields under 16px');
+  assert.match(hero, /const fieldRow = 'flex w-full min-w-0 items-center gap-3 rounded-\[14px\] px-3\.5 py-2\.5/);
+  assert.match(hero, /<MapPin size=\{15\} className=\{fieldIcon\}/);
+  assert.match(hero, /<Building2 size=\{15\} className=\{fieldIcon\}/);
+  assert.match(hero, /className="mx-3\.5 h-px shrink-0 bg-white\/10 sm:mx-0\.5 sm:h-7 sm:w-px/);
+  assert.match(hero, /!min-h-\[46px\] w-full/);
+  assert.match(hero, /className="w-full sm:w-\[200px\] rounded-2xl/, 'the list spans the card on phones');
+});
+
+test('the phone menu button is visible without hover (its own transparent background)', () => {
+  const nav = read('components', 'landing', 'Navbar.tsx');
+  assert.match(nav, /className="flex h-10 w-10 items-center justify-center rounded-full border border-white\/15 bg-white\/5 p-0 text-\[#f5efe7\]/);
+  assert.match(nav, /aria-label="Open navigation menu"/);
 });
 
 test('the top bar is a floating frosted pill; the phone menu stays outside its blur', () => {

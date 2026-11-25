@@ -151,7 +151,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenSignup, sectio
             setMenuOrigin(originOf(e.currentTarget));
             setMobileMenuOpen(true);
           }}
-          className="p-2 text-[#f5efe7] rounded-full hover:bg-white/10 transition"
+          // Preflight is off: without its own background the browser paints a light
+          // button behind the light icon, which then shows only on hover.
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 p-0 text-[#f5efe7] transition-[background-color,transform] duration-150 ease-out hover:bg-white/10 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
           aria-label="Open navigation menu"
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-navigation-menu"
