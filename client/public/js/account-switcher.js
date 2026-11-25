@@ -547,7 +547,7 @@
       '.add-account-input-group{position:relative;width:100%;}',
       '.add-account-input{width:100%;height:48px;padding:0 16px;border-radius:10px;border:1px solid rgba(0,0,0,0.14);background:rgba(0,0,0,0.02);font-size:14.5px;color:#0F1419;outline:none;transition:border-color 0.15s,box-shadow 0.15s,background-color 0.15s;box-sizing:border-box;font-family:inherit;}',
       '.add-account-input::placeholder{color:rgba(15,20,25,0.45);}',
-      '.add-account-input:focus{border-color:#0F1419;box-shadow:0 0 0 2px rgba(15,20,25,0.08);background:#FFFFFF;}',
+      '.add-account-input:focus{border-color:#0F1419;box-shadow:0 0 0 2px rgba(15,20,25,0.08);background:var(--va-light);}',
       'html[data-theme="dark"] .add-account-input{border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.04);color:#FFFFFF;}',
       'html[data-theme="dark"] .add-account-input::placeholder{color:rgba(255,255,255,0.45);}',
       'html[data-theme="dark"] .add-account-input:focus{border-color:#FFFFFF;box-shadow:0 0 0 2px rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);}',

@@ -8,7 +8,7 @@ export const LIST_WIZARD_STYLES = `
   #listing-page, .listing-leave-dialog, .lw-checking{
     --red:#C41E3A; --red-deep:#8F1229; --red-tint:rgba(196,30,58,.08); --ok:#1e7a4a;
     --ink:#24211E; --muted:#6b665e; --line:rgba(36,33,30,.12); --line-strong:rgba(36,33,30,.22);
-    --page:#F7F6F3; --card:#FFFFFF; --field:#F7F6F3; --chip:#F1EEE9;
+    --page:var(--va-light); --card:var(--va-light); --field:#F7F6F3; --chip:#F1EEE9;
     --shadow:0 1px 2px rgba(36,33,30,.04), 0 18px 48px -28px rgba(36,33,30,.35);
     font-family:Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; color:var(--ink);
   }

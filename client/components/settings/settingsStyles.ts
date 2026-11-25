@@ -7,14 +7,14 @@
 
 export const SETTINGS_STYLES = `
   .settings-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#FFFFFF; --nav-active-bg:#E9E7E2;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --ink:#24211E; --paper:var(--va-light); --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --line:rgba(26,18,16,.12); --row-hover:rgba(26,18,16,.035);
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Sidebar tokens shared with /client-home and /host-home. */
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
     --glass-shadow:0 24px 55px #E4E1DA;
-    --plan-box:#FFFFFF; --plan-box-head:#F3F1ED; --plan-box-line:rgba(26,18,16,.08); --search-line:rgba(26,18,16,.2);
+    --plan-box:var(--va-light); --plan-box-head:#F3F1ED; --plan-box-line:rgba(26,18,16,.08); --search-line:rgba(26,18,16,.2);
     --card-shadow:0 1px 2px rgba(26,18,16,.04), 0 6px 20px -14px rgba(26,18,16,.22);
   }
   html[data-theme="dark"] .settings-page{

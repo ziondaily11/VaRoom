@@ -196,7 +196,7 @@ test('video loading permits playback interaction and listens for real readiness 
   assert.match(gallery, /!\s*videoReady && <span className=\{styles\.videoLoadingOverlay\}/);
   assert.match(styles, /\.videoLoadingOverlay \{[\s\S]*?pointer-events: none/);
   // The placeholder follows the theme, as on Host Home: white in light mode, black in dark mode.
-  assert.match(styles, /\.videoLoadingOverlay \{[\s\S]*?background: #fff;/);
+  assert.match(styles, /\.videoLoadingOverlay \{[\s\S]*?background: var\(--va-light\);/);
   assert.match(styles, /:global\(html\[data-theme="dark"\]\) \.videoLoadingOverlay \{\s*background: #000;/);
   assert.match(styles, /:global\(html\[data-theme="dark"\]\) \.mediaLoading \{\s*background: #000;/);
 });

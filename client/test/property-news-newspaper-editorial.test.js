@@ -150,7 +150,7 @@ test('Section 7: Fact grid, Source Box, and Clean Editorial Verification', () =>
   assert.match(source, /className="fact-grid"/);
   assert.match(source, /className="source-box"/);
   assert.match(source, /className="source-link"/);
-  assert.match(source, /--newspaper-white:\s*#ffffff;/);
+  assert.match(source, /--newspaper-white:\s*var\(--va-light\);/);
   assert.match(source, /--newspaper-ink:\s*#111111;/);
   assert.match(source, /--newspaper-border:\s*#111111;/);
 });

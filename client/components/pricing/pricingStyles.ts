@@ -6,7 +6,7 @@ export const PRICING_STYLES = `
   /* ---------- Shared Varoom tokens (same set the other legacy pages use) ---------- */
   
   .pricing-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --ink:#24211E; --paper:var(--va-light);
     --muted:#5c584f;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }

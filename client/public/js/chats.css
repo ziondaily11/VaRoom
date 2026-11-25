@@ -8,7 +8,7 @@
     --text-gray-2:#4b5563;
     --border:#e2e5ea;
     --bg-soft:#f6f7f9;
-    --white:#ffffff;
+    --white:var(--va-light);
     --radius-lg:26px;
     /* Apple-style fills: the search pill, round buttons and grouped cards. */
     --fill:rgba(118,118,128,.12);
@@ -201,7 +201,7 @@
     color:var(--text-dark, #F5EFEC);
   }
   html:not([data-theme="dark"]) .chat-media-preview-composer{
-    background-color:#ffffff !important;
+    background-color:var(--va-light) !important;
     background-image:none !important;
     color:var(--text-dark, #14161c);
   }
@@ -310,7 +310,7 @@
     border-color:rgba(255,255,255,0.3);
   }
   html:not([data-theme="dark"]) .chat-media-preview-caption-wrap{
-    background:#ffffff;
+    background:var(--va-light);
     border:1px solid #e2e5ea;
   }
   html:not([data-theme="dark"]) .chat-media-preview-caption-wrap:focus-within{
@@ -1228,7 +1228,7 @@
   .voice-dur{ font-size:0.7188rem; color:var(--text-gray-2); font-weight:600; flex-shrink:0; }
   .voice-card > .msg-meta,.file-card > .msg-meta{ width:100%; }
 
-  .chat-input-area{ --composer-liquid-fill:#fff; margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; position:relative; }
+  .chat-input-area{ --composer-liquid-fill:var(--va-light); margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; position:relative; }
   .chat-input-area textarea{
     width:100%; border:none; outline:none; resize:none;
     font-family:inherit; font-size:0.8438rem; color:var(--text-dark);
@@ -1522,7 +1522,7 @@
      ===================================================================== */
   @media (max-width:760px){
     body{ overflow:hidden; }
-    body,.app-shell{ background:#ffffff; color:#111827; }
+    body,.app-shell{ background:var(--va-light); color:#111827; }
     .icon-rail{ display:none; }
 
     /* App shell tracks the VISUAL viewport (set by JS) so the composer sits
@@ -1532,15 +1532,15 @@
       width:100%; height:var(--vvh,100dvh);
     }
 
-    .contacts-col{ display:flex; width:100%; border-right:0; background:#ffffff; color:var(--text-dark); box-shadow:inset 0 0 0 1px var(--border); }
+    .contacts-col{ display:flex; width:100%; border-right:0; background:var(--va-light); color:var(--text-dark); box-shadow:inset 0 0 0 1px var(--border); }
     .contacts-col.mobile-hidden{ display:none; }
-    .search-bar{ padding:16px; background:#ffffff; }
+    .search-bar{ padding:16px; background:var(--va-light); }
     .search-box{ height:40px; padding:8px 14px; }
     .search-box svg{ color:var(--text-gray-2); font-size:1rem; }
     .search-box input,.search-box input::placeholder{ color:var(--text-dark); }
     .search-box input::placeholder{ color:var(--text-gray); }
     .compose-btn{ width:40px; height:40px; border-radius:50%; background:var(--mint); border-color:var(--mint); color:var(--rail-bg); }
-    .contact-list{ padding:0 10px calc(16px + 5.1rem); background:#ffffff; }
+    .contact-list{ padding:0 10px calc(16px + 5.1rem); background:var(--va-light); }
     .inbox-empty-state{ padding:44px 22px; }
     .messages.empty-state{ padding:28px 20px; }
     .contact-item{ min-height:74px; padding:12px 10px; border-bottom:0; border-radius:0; }
@@ -1563,7 +1563,7 @@
     .contact-item .avatar-wrap{ margin-right:2px; }
     .contact-body{ min-width:0; }
     .contact-top,.contact-bottom{ min-width:0; }
-    .chat-col{ display:none; width:100%; background:#ffffff; }
+    .chat-col{ display:none; width:100%; background:var(--va-light); }
     .chat-col.mobile-visible{
       display:flex; width:100%; height:100%; min-height:0; overflow:hidden;
     }
@@ -1572,7 +1572,7 @@
       min-height:52px;
       display:flex;
       align-items:center;
-      background:#ffffff;
+      background:var(--va-light);
       border-bottom-color:var(--border);
       gap:8px;
     }
@@ -1672,7 +1672,7 @@
       margin:0;
       border:1px solid var(--border);
       border-radius:16px;
-      background:#ffffff;
+      background:var(--va-light);
       padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
       box-shadow:0 1px 2px rgba(20,22,28,.05);
     }
@@ -1759,7 +1759,7 @@
     .composer-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
     .composer-file{
       display:flex; align-items:center; gap:8px; max-width:210px; padding:0 30px 0 10px;
-      background:#ffffff; border:1px solid var(--border);
+      background:var(--va-light); border:1px solid var(--border);
     }
     .composer-file-ico{
       width:32px; height:32px; border-radius:9px; flex-shrink:0;
@@ -1782,7 +1782,7 @@
       position:absolute; right:calc(52px + 10px); bottom:calc(100% + 8px); z-index:30;
       display:flex; flex-direction:column; gap:2px;
       min-width:200px; max-width:calc(100% - 72px); max-height:50dvh; overflow-y:auto; padding:6px;
-      background:#ffffff; border:1px solid var(--border); border-radius:18px;
+      background:var(--va-light); border:1px solid var(--border); border-radius:18px;
       box-shadow:0 10px 30px rgba(20,22,28,.16);
     }
     .mobile-attach-menu[hidden]{ display:none; }
@@ -1833,7 +1833,7 @@
       position:absolute; inset:0; z-index:10;
       display:flex; flex-direction:column; width:100%; height:100%;
       border-left:0; padding:16px 16px calc(24px + env(safe-area-inset-bottom));
-      overflow-y:auto; opacity:1; background:#ffffff; color:var(--text-dark);
+      overflow-y:auto; opacity:1; background:var(--va-light); color:var(--text-dark);
     }
     .info-col.mobile-visible .info-title-row{ flex-shrink:0; }
     .info-col.mobile-visible .profile-block{ flex-shrink:0; }
@@ -2070,13 +2070,13 @@
 
   /* Stage 5B.1: Opaque theme-appropriate composer surfaces */
   html:not([data-theme="dark"]) .chat-input-area{
-    background:#ffffff !important;
-    background-color:#ffffff !important;
+    background:var(--va-light) !important;
+    background-color:var(--va-light) !important;
     border-color:#cbd2db !important;
   }
   html:not([data-theme="dark"]) .chat-input-area::before{
-    background:#ffffff !important;
-    background-color:#ffffff !important;
+    background:var(--va-light) !important;
+    background-color:var(--va-light) !important;
     border-color:var(--border) !important;
   }
 

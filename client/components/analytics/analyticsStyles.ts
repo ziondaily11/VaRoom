@@ -5,7 +5,7 @@
 // channels use the reference categorical slots 1-3 (light and dark steps);
 // the requests chart is brand red against a neutral, with a 2px gap and legend.
 
-const LIGHT = `--canvas:#f3f3f5;--card:#fff;--line:#e9e9ee;--hair:#efeff3;--fg:#0b0b0f;--mute:#6b6b76;--dim:#9a9aa5;--soft:#f4f4f7;
+const LIGHT = `--canvas:var(--va-light);--card:var(--va-light);--line:#e9e9ee;--hair:#efeff3;--fg:#0b0b0f;--mute:#6b6b76;--dim:#9a9aa5;--soft:#f4f4f7;
   --accent:#C41E3A;--accent-hi:#e0425e;--accent-lo:#8F1229;--accent-soft:rgba(196,30,58,.08);--rest:#3f3f46;
   --good:#0ca30c;--good-text:#13753b;--good-soft:rgba(12,163,12,.1);--bad:#d03b3b;--bad-text:#b42332;--bad-soft:rgba(208,59,59,.1);--warn:#fab219;
   --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--shadow:0 1px 2px rgba(16,16,24,.04),0 10px 30px -18px rgba(16,16,24,.18);--tip-bg:#0b0b0f;--tip-fg:#fff`;

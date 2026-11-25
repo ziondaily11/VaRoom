@@ -5,7 +5,7 @@
 
 export const CHAT_SETTINGS_STYLES = `
 .cs, .cs-page {
-  --cs-bg: #ffffff;
+  --cs-bg: var(--va-light);
   --cs-text: #14161a;
   --cs-muted: #6b7280;
   --cs-divider: rgba(20, 22, 26, 0.09);

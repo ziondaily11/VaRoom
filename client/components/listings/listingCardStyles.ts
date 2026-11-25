@@ -35,7 +35,7 @@ export const listingCardStyles = (scope: string): string => `
      before it runs. Panel sizes scale with the card (cqw), so a card
      keeps its proportions on phones and desktops alike. */
   ${scope}{
-    --mkt-panel-bg:#FFFFFF; --mkt-panel-ink:#1B1D21; --mkt-panel-muted:#8A8F98;
+    --mkt-panel-bg:var(--va-light); --mkt-panel-ink:#1B1D21; --mkt-panel-muted:#8A8F98;
     --mkt-accent:#000000; --mkt-accent-soft:rgba(0,0,0,.06); --mkt-accent-soft-hover:rgba(0,0,0,.12);
     --mkt-card-placeholder:#E9E7E2;
   }

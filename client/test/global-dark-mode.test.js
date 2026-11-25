@@ -52,7 +52,10 @@ test('deleted Payments route stays excluded from global dark mode', () => {
 // A tiny document root for the theme functions.
 function themeRoot() {
   const attrs = {};
-  return { writes: 0, style: {}, getAttribute: (name) => (name in attrs ? attrs[name] : null), setAttribute(name, value) { this.writes += 1; attrs[name] = value; } };
+  return {
+    writes: 0, style: {}, getAttribute: (name) => (name in attrs ? attrs[name] : null), hasAttribute: (name) => name in attrs,
+    setAttribute(name, value) { this.writes += 1; attrs[name] = value; }, removeAttribute(name) { this.writes += 1; delete attrs[name]; },
+  };
 }
 
 test('the pre-paint script and route changes apply the same theme rules', () => {
@@ -82,6 +85,43 @@ test('the pre-paint script and route changes apply the same theme rules', () => 
   assert.equal(withWindow.applyTheme('/settings?tab=1', doc), false, 'no write when unchanged');
   assert.equal(withWindow.applyTheme('/payments', doc), true);
   assert.equal(root.getAttribute('data-theme'), 'light');
+  assert.equal(root.hasAttribute('data-theme-fixed'), true, 'a page without modes is marked, so the global light theme leaves it alone');
+  assert.equal(withWindow.applyTheme('/bookings', doc), true);
+  assert.equal(root.hasAttribute('data-theme-fixed'), false);
+});
+
+test('global light theme: one light white (#FAFAFA) for pages with modes; pages without modes and dark mode unchanged', () => {
+  const theme = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
+  assert.equal(theme.LIGHT_WHITE, '#FAFAFA');
+  const vm = require('node:vm');
+  const boot = (pathname) => {
+    const root = themeRoot();
+    vm.runInNewContext(theme.themeBootScript(), { window: { location: { pathname }, matchMedia: () => ({ matches: false }) }, localStorage: { getItem: () => 'light' }, document: { documentElement: root } });
+    return root;
+  };
+  assert.equal(boot('/').hasAttribute('data-theme-fixed'), true, 'the landing page keeps its own whites');
+  assert.equal(boot('/bookings').hasAttribute('data-theme-fixed'), false);
+
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
+  assert.match(appJs, /--va-light: \$\{LIGHT_WHITE\};/, 'one global token');
+  assert.match(appJs, /html\[data-theme="light"\]:not\(\[data-theme-fixed\]\), html\[data-theme="light"\]:not\(\[data-theme-fixed\]\) body \{\s*background: var\(--va-light\);/);
+  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.tsx'), 'utf8');
+  assert.match(docJs, /html\{background:#FAFAFA;color-scheme:light\}html\[data-theme-fixed\]\{background:#FFFFFF\}/, 'first paint: #FAFAFA, or white on pages without modes');
+
+  // Light whites of pages with modes use the token; their dark values are untouched.
+  const read = (...p) => fs.readFileSync(path.join(clientRoot, ...p), 'utf8');
+  const shell = read('components', 'shell', 'shellStyles.ts');
+  assert.match(shell, /--layout-bg: var\(--va-light\);[\s\S]*--layout-bg: #000000;/);
+  for (const file of [['components', 'bookings', 'bookingsStyles.ts'], ['components', 'marketplace', 'marketplaceStyles.ts'], ['components', 'profile', 'profileStyles.ts'], ['components', 'notifications', 'notificationsStyles.ts']]) {
+    const css = read(...file);
+    assert.match(css, /--paper:var\(--va-light\);/, file.join('/'));
+    assert.doesNotMatch(css, /--paper:#F7F6F3;/, file.join('/'));
+  }
+  assert.match(read('public', 'js', 'chats.css'), /--white:var\(--va-light\);/);
+  assert.match(read('styles', 'admin.css'), /\[data-theme="light"\]:not\(\[data-theme-fixed\]\) \.admin-dashboard \[class~="bg-white"\]/);
+  // Pages without modes keep their whites.
+  assert.match(read('components', 'onboarding', 'onboardingStyles.ts'), /--card:#FFFFFF/);
+  assert.doesNotMatch(read('styles', 'landing.module.css'), /va-light/);
 });
 
 test('HostLayout and ClientLayout use X Lights Out tokens', () => {

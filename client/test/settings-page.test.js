@@ -280,7 +280,7 @@ test('settings polish: smooth panels, keyboard rows, privacy saves on change, mo
   assert.match(styles, /nav-forward > \[id\^="view-"\]:not\(#view-list\)\{ animation:settings-from-right/);
   assert.match(styles, /nav-back #view-list\{ animation:settings-from-left/);
   assert.match(styles, /#settings-page\.has-selection #view-list\{ display:none !important; \}/, 'one screen at a time: the list or a section');
-  assert.match(styles, /--paper:#FFFFFF;/, 'one white: the sidebar white');
+  assert.match(styles, /--paper:var\(--va-light\);/, 'one white: the global light white, as the sidebar');
   assert.doesNotMatch(styles, /\.cat-row\.active|#F7F6F3/, 'no open-row highlight and no second white');
   const reduced = styles.slice(styles.lastIndexOf('@media (prefers-reduced-motion:reduce)'));
   for (const sel of ['.expand-panel', '.switch-track::before', '.btn:active', '#view-list{ animation:none']) assert.ok(reduced.includes(sel.replace('{ animation:none', '')), sel);

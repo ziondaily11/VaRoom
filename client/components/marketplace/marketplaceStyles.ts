@@ -19,7 +19,7 @@ import { SEGMENTED_TABS_STYLES } from '../ui/SegmentedTabs';
 
 export const MARKETPLACE_STYLES = `
   .marketplace-page{
-    --red:#C41E3A; --red-deep:#8F1229; --paper:#F7F6F3; --white:#FFFFFF; --card:#FFFFFF; --ink:#24211E; --muted:#6B665E;
+    --red:#C41E3A; --red-deep:#8F1229; --paper:var(--va-light); --white:var(--va-light); --card:var(--va-light); --ink:#24211E; --muted:#6B665E;
     --line:rgba(26,18,16,.1); --line-strong:rgba(26,18,16,.18); --soft:#EFEDE8; --nav-active-bg:#E9E7E2;
     --font-display:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; --font-body:var(--font-display); --font-brand:'Fraunces', Georgia, serif;
     --mkt-header-h:0px;

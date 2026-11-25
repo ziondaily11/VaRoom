@@ -549,7 +549,7 @@ export default function AddAccountModal({ openOnMount = false }: { openOnMount?:
         .add-account-input:focus {
           border-color: #0F1419;
           box-shadow: 0 0 0 2px rgba(15, 20, 25, 0.08);
-          background: #FFFFFF;
+          background: var(--va-light);
         }
 
         html[data-theme="dark"] .add-account-input {

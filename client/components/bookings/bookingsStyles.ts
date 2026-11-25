@@ -5,7 +5,7 @@
 
 export const BOOKINGS_STYLES = `
   .bookings-page{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
+    --red:#C41E3A; --red-deep:#8F1229; --white:var(--va-light); --ink:#24211E; --paper:var(--va-light); --nav-active-bg:#E9E7E2;
     --muted:#5c584f;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --glass-bg:rgba(255,255,255,.55);

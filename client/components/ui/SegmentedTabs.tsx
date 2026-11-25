@@ -9,7 +9,7 @@ import { useSegmentIndicator } from '../../lib/motion/useSegmentIndicator';
 
 export const SEGMENTED_TABS_STYLES = `
 .vr-seg{
-  --seg-fill:rgba(118,118,128,.12); --seg-selected:#fff; --seg-ink:#1d1d1f; --seg-muted:#6e6e73; --seg-accent:#e5384f;
+  --seg-fill:rgba(118,118,128,.12); --seg-selected:var(--va-light); --seg-ink:#1d1d1f; --seg-muted:#6e6e73; --seg-accent:#e5384f;
   position:relative; display:flex; align-items:center; gap:2px; min-width:0; max-width:100%; padding:3px; border-radius:999px;
   background:var(--seg-fill); overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; white-space:nowrap; box-sizing:border-box;
 }

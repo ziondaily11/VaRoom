@@ -6,14 +6,14 @@
 export const HOST_SHELL_STYLES = `
   /* ---------- Host Application Layout ---------- */
   .host-app-layout {
-    --layout-bg: #FFFFFF;
+    --layout-bg: var(--va-light);
     --layout-ink: #0F1419;
     --layout-muted: #536471;
     --layout-line: #EFF3F4;
     --layout-line-soft: #EFF3F4;
     --layout-control-hover: #EFEDE8;
     --layout-control-active: #E9E7E2;
-    --layout-popover-bg: #FFFFFF;
+    --layout-popover-bg: var(--va-light);
     --layout-popover-border: rgba(0, 0, 0, 0.08);
     --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.15);
 
@@ -329,14 +329,14 @@ export const RAIL_STYLES = `
 export const CLIENT_SHELL_STYLES = `
   /* ---------- Client Application Layout ---------- */
   .client-app-layout {
-    --layout-bg: #FFFFFF;
+    --layout-bg: var(--va-light);
     --layout-ink: #0F1419;
     --layout-muted: #536471;
     --layout-line: #EFF3F4;
     --layout-line-soft: #EFF3F4;
     --layout-control-hover: #EFEDE8;
     --layout-control-active: #E9E7E2;
-    --layout-popover-bg: #FFFFFF;
+    --layout-popover-bg: var(--va-light);
     --layout-popover-border: rgba(0, 0, 0, 0.08);
     --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.15);
 
@@ -352,9 +352,9 @@ export const CLIENT_SHELL_STYLES = `
 
   .client-app-layout.client-home-layout {
     --red: #C41E3A;
-    --white: #FFFFFF;
+    --white: var(--va-light);
     --ink: #0F1419;
-    --paper: #FFFFFF;
+    --paper: var(--va-light);
     --surface-card: #F7F9F9;
     --muted: #536471;
     --line: #D4D8DA;
@@ -653,7 +653,7 @@ export const MOBILE_NAV_STYLES = `
   .varoom-mobile-nav{display:none;}
   /* The bar's own colours: it sits over every page, so it never borrows a page's variables
      (a page that keeps its tokens to itself would otherwise leave the bar grey or white in dark mode). */
-  .varoom-mobile-nav{--mn-bg:#FFFFFF;--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;}
+  .varoom-mobile-nav{--mn-bg:var(--va-light);--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;}
   html[data-theme="dark"] .varoom-mobile-nav{--mn-bg:#000000;--mn-line:rgba(255,255,255,.12);--mn-ink:#E7E9EA;--mn-active:rgba(255,255,255,.14);}
   body.has-varoom-mobile-nav .bottom-bar,
   body.has-varoom-mobile-nav .mobile-bottom-nav{display:none !important;}

@@ -35,7 +35,7 @@ export default class VaRoomDocument extends Document<VaRoomDocumentProps> {
             <link rel="stylesheet" href={chatsCssHref} />
           </>}
           <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
-          <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
+          <style>{`html{background:#FAFAFA;color-scheme:light}html[data-theme-fixed]{background:#FFFFFF}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FAFAFA}html[data-theme-fixed] body{background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
         </Head>
         <body>
           <Main />
