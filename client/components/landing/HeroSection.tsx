@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowRight, Check, ChevronDown, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Building2, Check, ChevronDown, MapPin, ShieldCheck } from 'lucide-react';
 import { Navbar } from './Navbar';
 import type { LandingSection } from '../../lib/landing/sections';
 import { CATEGORY_LABELS } from '../../lib/marketplace/marketplace';
@@ -14,8 +14,12 @@ interface HeroSectionProps {
   sections: LandingSection[];
 }
 
-const fieldLabel = 'block text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55';
-const fieldValue = 'block w-full truncate border-0 bg-transparent p-0 text-[13px] leading-5 text-white outline-none placeholder:text-white/45';
+const fieldLabel = 'block text-[10px] sm:text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55';
+// 16px on phones: iPhones zoom into any smaller field when it is tapped.
+const fieldValue = 'block w-full truncate border-0 bg-transparent p-0 text-base sm:text-[13px] leading-6 sm:leading-5 text-white outline-none placeholder:text-white/45';
+// One row per field on phones (tall enough for a thumb), one segment of the pill wider up.
+const fieldRow = 'flex w-full min-w-0 items-center gap-3 rounded-[14px] px-3.5 py-2.5 sm:gap-2.5 sm:rounded-full sm:py-1.5';
+const fieldIcon = 'shrink-0 text-white/65';
 // The marketplace's own kinds of space, so every choice filters something real.
 const SPACE_TYPES: [string, string][] = [['all', 'Any space'], ...Object.entries(CATEGORY_LABELS)];
 
@@ -53,7 +57,7 @@ const SpaceTypePicker: React.FC<{ value: string; onChange: (value: string) => vo
   };
 
   return (
-    <div ref={rootRef} className="relative min-w-0 sm:w-[150px] sm:flex-none">
+    <div ref={rootRef} className="relative min-w-0 sm:w-[172px] sm:flex-none">
       <button
         ref={buttonRef}
         type="button"
@@ -62,8 +66,9 @@ const SpaceTypePicker: React.FC<{ value: string; onChange: (value: string) => vo
         aria-controls="hero-space-types"
         onClick={() => (open ? close(false) : show())}
         onKeyDown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); show(); } }}
-        className="flex w-full items-center gap-2 rounded-full border-0 bg-transparent px-3.5 py-1.5 text-left transition-[background-color,transform] duration-150 ease-out hover:bg-white/5 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+        className={`${fieldRow} border-0 bg-transparent text-left transition-[background-color,transform] duration-150 ease-out hover:bg-white/5 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100`}
       >
+        <Building2 size={15} className={fieldIcon} aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className={fieldLabel}>Type of space</span>
           <span className={fieldValue}>{SPACE_TYPES[selected][1]}</span>
@@ -79,7 +84,7 @@ const SpaceTypePicker: React.FC<{ value: string; onChange: (value: string) => vo
         tabIndex={-1}
         aria-activedescendant={`hero-space-type-${SPACE_TYPES[active][0]}`}
         onKeyDown={onListKey}
-        className="w-[200px] rounded-2xl border border-white/10 bg-[rgba(22,23,28,0.96)] p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.85)] outline-none backdrop-blur-md"
+        className="w-full sm:w-[200px] rounded-2xl border border-white/10 bg-[rgba(22,23,28,0.96)] p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.85)] outline-none backdrop-blur-md"
       >
         {SPACE_TYPES.map(([key, label], index) => (
           <div
@@ -121,10 +126,10 @@ const HeroSearch: React.FC = () => {
       role="search"
       aria-label="Find a space"
       onSubmit={submit}
-      className="hero-search flex w-full max-w-[480px] flex-col gap-1 rounded-[18px] border border-white/15 bg-[rgba(14,15,20,0.55)] p-1.5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.8)] backdrop-blur-md sm:flex-row sm:items-center sm:gap-0 sm:rounded-full"
+      className="hero-search flex w-full max-w-[500px] flex-col rounded-[20px] border border-white/15 bg-[rgba(14,15,20,0.62)] p-1.5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.8)] backdrop-blur-md sm:flex-row sm:items-center sm:rounded-full sm:bg-[rgba(14,15,20,0.55)]"
     >
-      <label className="flex min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-full px-3.5 py-1.5 transition-colors hover:bg-white/5">
-        <MapPin size={15} className="shrink-0 text-white/65" aria-hidden="true" />
+      <label className={`${fieldRow} flex-1 cursor-text transition-colors hover:bg-white/5`}>
+        <MapPin size={15} className={fieldIcon} aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className={fieldLabel}>Where</span>
           <input
@@ -139,11 +144,12 @@ const HeroSearch: React.FC = () => {
           />
         </span>
       </label>
-      <span className="mx-0.5 hidden h-7 w-px shrink-0 bg-white/15 sm:block" aria-hidden="true" />
+      {/* A line between the fields: across on phones, upright in the pill. */}
+      <span className="mx-3.5 h-px shrink-0 bg-white/10 sm:mx-0.5 sm:h-7 sm:w-px sm:bg-white/15" aria-hidden="true" />
       <SpaceTypePicker value={category} onChange={setCategory} />
       <button
         type="submit"
-        className="landing-cta landing-cta-primary landing-cta-compact mt-1 inline-flex w-full shrink-0 items-center justify-center gap-2 px-4 text-[13px] font-semibold sm:mt-0 sm:w-auto"
+        className="landing-cta landing-cta-primary landing-cta-compact mt-1.5 inline-flex !min-h-[46px] w-full shrink-0 items-center justify-center gap-2 px-4 text-[14px] font-semibold sm:mt-0 sm:!min-h-[40px] sm:w-auto sm:text-[13px]"
       >
         <span>Find a space</span>
         <ArrowRight size={15} className="hero-cta-arrow" aria-hidden="true" />
@@ -163,11 +169,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
         <div className="hero-animated-content relative z-30 mt-auto w-full max-w-full box-border px-[clamp(20px,4.2vw,72px)] pb-[clamp(28px,7vh,80px)] pt-8 flex flex-col items-start text-left">
           {/* One face and weight for the headline and the line under it; each
               stays on one line wherever the screen is wide enough. */}
-          <h1 className="hero-headline m-0 font-serif font-medium text-[26px] sm:text-[clamp(28px,2.4vw,38px)] text-white tracking-[-0.025em] leading-[1.12] [text-shadow:0_2px_20px_rgba(0,0,0,0.35)]">
+          {/* Hierarchy: a firmer, tighter headline; a lighter, airier line under it.
+              Line breaks are balanced, so a phone never leaves "book it." alone. */}
+          <h1 className="hero-headline m-0 font-serif font-semibold text-[27px] sm:text-[clamp(30px,2.6vw,42px)] text-white tracking-[-0.03em] leading-[1.08] [text-wrap:balance] [text-shadow:0_2px_20px_rgba(0,0,0,0.35)]">
             Every kind of space, one place to book&nbsp;it.
           </h1>
 
-          <p className="hero-subtitle m-0 mt-3 font-serif font-normal text-[14px] sm:text-[15px] text-white/80 leading-[1.55] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+          <p className="hero-subtitle m-0 mt-2.5 sm:mt-3 font-serif font-normal text-[14px] sm:text-[15px] text-white/70 tracking-[0.005em] leading-[1.6] [text-wrap:pretty] [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
             Search, compare and book spaces across Kenya, with locations you can trust.
           </p>
 
