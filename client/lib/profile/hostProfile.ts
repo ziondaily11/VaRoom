@@ -13,7 +13,7 @@ import { hostProfilePath } from './usernames';
 
 export const HOST_PROFILE_COLUMNS = 'id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories';
 /** What a public profile's listing cards show: the Marketplace card's fields (every photo, the full booking details). */
-export const CARD_LISTING_COLUMNS = 'id,title,location_text,category,verified,created_at,host_id,availability_status,publication_state,listing_photos(storage_path),listing_booking_details(*)';
+export const CARD_LISTING_COLUMNS = 'id,title,location_text,category,verified,created_at,host_id,availability_status,publication_state,live_until,listing_photos(storage_path),listing_booking_details(*)';
 export const PROFILE_TTL_MS = 2 * 60 * 1000;
 /** Plans allow up to 20 active listings; this keeps the read bounded. */
 export const LISTING_LIMIT = 200;

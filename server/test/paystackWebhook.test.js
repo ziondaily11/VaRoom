@@ -30,12 +30,27 @@ test('malformed webhook data has no stable event identity', async () => {
   await assert.rejects(() => recordWebhookEvent({ from() { throw new Error('must not write'); } }, { event: 'charge.success', data: {} }), /stable identifier/);
 });
 
+// Confirmed plan payments keep the host's listings online (server/lib/listingLive.js):
+// every fake answers that listings update here, and records it.
+const listingUpdates = [];
+function listingsTable() {
+  const update = { value: null, filters: {} };
+  const query = {
+    eq: (column, value) => { update.filters[column] = value; return query; },
+    in: (column, values) => { update.filters[column] = values; return query; },
+    is: (column, value) => { update.filters[column] = value; return query; },
+    then: (resolve) => resolve({ error: null }),
+  };
+  return { update(value) { update.value = value; listingUpdates.push(update); return query; } };
+}
+
 function paymentSupabase() {
   const updates = [];
   const payment = { id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'growth', amount_minor: 130000, currency: 'KES', status: 'initialized', provider_payload: { listing_allowance_transition: { limit: null } } };
   return {
     updates,
     from(table) {
+      if (table === 'listings') return listingsTable();
       if (table === 'billing_payments') {
         return {
           select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
@@ -86,6 +101,7 @@ test('callback and webhook retries keep the original subscription period and pay
   const subscriptionUpdates = [];
   const db = {
     from(table) {
+      if (table === 'listings') return listingsTable();
       if (table === 'billing_payments') return {
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
         update(value) {
@@ -138,6 +154,7 @@ test('verified upgrade keeps its transition allowance and period across callback
   const subscriptionUpdates = [];
   const db = {
     from(table) {
+      if (table === 'listings') return listingsTable();
       if (table === 'billing_payments') return {
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
         update(value) {
@@ -178,6 +195,7 @@ test('failed upgrade payment leaves the existing active subscription and allowan
   const subscription = { plan_id: 'property_basic', status: 'active', listing_allowance_limit: 5 };
   const subscriptionUpdates = [];
   const db = { from(table) {
+    if (table === 'listings') return listingsTable();
     if (table === 'billing_payments') return {
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
       update: (value) => { const query = { eq: () => query, neq: () => query, select: async () => { Object.assign(payment, value); return { data: [{ id: payment.id }], error: null }; } }; return query; },
@@ -207,6 +225,7 @@ test('a duplicate renewal resets transition allowance to the new plan standard o
   let renewalInserted = false;
   const renewalPayment = { paid_at: '2026-10-21T10:00:00.000Z' };
   const db = { from(table) {
+    if (table === 'listings') return listingsTable();
     if (table === 'billing_payments') return {
       select: (columns) => {
         const query = { eq: () => query, maybeSingle: async () => ({ data: columns === 'paid_at' && renewalInserted ? renewalPayment : null, error: null }) };
@@ -325,6 +344,7 @@ test('a late verified failure cannot downgrade an already successful payment', a
   let excludedSucceeded = false;
   const db = {
     from(table) {
+      if (table === 'listings') return listingsTable();
       if (table === 'billing_payments') return {
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
         update: () => {
@@ -357,4 +377,33 @@ test('subscription upgrades cancel the replaced Paystack subscription without pe
   assert.deepEqual(disabled, { code: 'SUB_old', token: 'private-token' });
   assert.equal(persisted.provider_payload.replaces_subscription.cancelled, true);
   assert.equal(Object.hasOwn(persisted.provider_payload.replaces_subscription, 'token'), false);
+});
+
+test('a confirmed plan payment keeps the host\'s listings online through the paid month and restarts Discover\'s count', async () => {
+  listingUpdates.length = 0;
+  const db = paymentSupabase();
+  await applyVerifiedTransaction(db, { id: 10, reference: 'ref', status: 'success', amount: 130000, currency: 'KES', paid_at: '2026-11-26T09:00:00.000Z', metadata: { host_id: 'host-1', plan_id: 'growth' } });
+  const subscription = db.updates.find((entry) => entry.table === 'host_subscriptions').value;
+  assert.equal(listingUpdates.length, 1);
+  const [update] = listingUpdates;
+  // A legacy (Growth) plan covers Airbnb, Hotel and Venue listings.
+  assert.deepEqual(update.value, { live_until: subscription.current_period_end, live_since: '2026-11-26T09:00:00.000Z' });
+  assert.deepEqual(update.filters, { host_id: 'host-1', category: ['airbnb', 'hotel', 'venue'], publication_state: 'published', paid_listing_until: null },
+    'only this host\'s published plan listings; a Silver / Gold term is never shortened');
+
+  listingUpdates.length = 0;
+  const failed = paymentSupabase();
+  await applyVerifiedTransaction(failed, { id: 11, reference: 'ref', status: 'failed', amount: 130000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } });
+  assert.equal(listingUpdates.length, 0, 'a failed payment keeps nothing online');
+});
+
+test('a monthly renewal keeps the plan\'s listings online for the new month, counting from the renewal', () => {
+  const { categoriesCovered, plansCovering } = require('../lib/listingLive');
+  assert.deepEqual(categoriesCovered('hotel'), ['hotel']);
+  assert.deepEqual(categoriesCovered('shops_offices'), ['shop', 'office']);
+  assert.deepEqual(plansCovering('venue'), ['venue', 'legacy']);
+  assert.deepEqual(plansCovering('office'), ['shops_offices']);
+  assert.deepEqual(categoriesCovered('nonsense'), []);
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'lib', 'billingService.js'), 'utf8');
+  assert.match(source, /if \(updateError\) throw new Error\('Unable to renew host subscription'\);\s*\/\/[^\n]*\n\s*await extendPlanListings\(supabaseAdmin, \{ hostId: subscription\.host_id, niche: subscription\.niche \|\| plan\.niche \|\| 'legacy', until: periodEnd\.toISOString\(\), since: paidAt \}\);/);
 });

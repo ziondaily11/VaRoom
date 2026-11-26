@@ -109,9 +109,11 @@ router.post('/table-reservations', async (req, res) => {
     const occasionDetails = specialOccasion ? text(req.body.occasion_details, 'occasion_details', { max: 500 }) : null;
 
     const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
-      .select('id,title,host_id,category,supports_table_reservation,host:profiles!listings_host_id_fkey(deactivated_at)').eq('id', listingId).maybeSingle();
+      .select('id,title,host_id,category,supports_table_reservation,live_until,host:profiles!listings_host_id_fkey(deactivated_at)').eq('id', listingId).maybeSingle();
     const listingHost = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
     if (listingError || !listing || (listingHost && listingHost.deactivated_at)) return res.status(404).json({ error: 'Hotel listing not found' });
+    // Offline (the host's plan ended): not taking reservations.
+    if (!(listing.live_until && new Date(listing.live_until).getTime() > Date.now())) return res.status(404).json({ error: 'Hotel listing not found' });
     // A host can look at their own hotel, not reserve a table there.
     if (listing.host_id === auth.user.id) return res.status(403).json({ error: 'This is your own listing. You can\'t reserve a table here.' });
     if (listing.category !== 'hotel' || !listing.supports_table_reservation) return res.status(409).json({ error: 'This hotel does not accept table reservations' });

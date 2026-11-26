@@ -12,6 +12,9 @@ import { latestRef } from './api';
 
 export const PAID_NICHES: Category[] = ['property', 'office', 'shop'];
 export const isPaidNiche = (category: string | null | undefined) => PAID_NICHES.includes(category as Category);
+/** Airbnb, Hotel and Venue listings are online only while the host's plan runs. */
+export const PLAN_NICHES: Category[] = ['airbnb', 'hotel', 'venue'];
+export const isPlanNiche = (category: string | null | undefined) => PLAN_NICHES.includes(category as Category);
 
 /** The #price-unit value: office/shop follow the pricing basis; others keep a valid choice. */
 export function effectivePriceUnit(category: Category, fields: Fields): string {
@@ -208,9 +211,14 @@ export interface PublicationState {
   listingNeedsPublication: boolean;
 }
 
-/** A paid niche needs Silver, Gold (or a plan still running) before publishing. */
-export const needsListingPayment = (state: PublicationState) => isPaidNiche(state.category)
-  && !state.hasActiveNichePlan && !state.paymentVerified && !state.hasListingCredit && !(state.editMode && state.hasCurrentListingFee);
+/**
+ * Payment needed before publishing: Silver or Gold (or an older plan still
+ * running) for Property and Shops & Offices; a running plan for Airbnb, Hotel
+ * and Venue. Editing a listing that is already published needs none.
+ */
+export const needsListingPayment = (state: PublicationState) => (isPaidNiche(state.category)
+  && !state.hasActiveNichePlan && !state.paymentVerified && !state.hasListingCredit && !(state.editMode && state.hasCurrentListingFee))
+  || (isPlanNiche(state.category) && !state.hasActiveNichePlan && (!state.editMode || state.listingNeedsPublication));
 
 /**
  * While payment is needed: the Silver / Gold choice covers the step once the

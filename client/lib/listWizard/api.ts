@@ -144,12 +144,14 @@ export async function fetchListingEntitlement(token: string, category: string): 
   const result = await readJson(response);
   const entitlement = result.entitlements as EntitlementResult | undefined;
   if (!entitlement || typeof entitlement.active !== 'boolean' || !entitlement.canCreateAnotherListing) throw new Error('Unable to confirm your listing allowance');
-  const expectedNiche = category === 'property' ? 'property' : 'shops_offices';
+  // The plans that keep this category online (server/lib/listingLive.js plansCovering).
+  const covering = category === 'property' ? ['property'] : ['shop', 'office'].includes(category) ? ['shops_offices'] : [category, 'legacy'];
   const allowance = entitlement.canCreateAnotherListing;
   const credits = entitlement.listingCredits || {};
   return {
-    planActive: Boolean(entitlement.active && entitlement.subscription && entitlement.subscription.status === 'active'
-      && entitlement.subscription.niche === expectedNiche && allowance && allowance.allowed),
+    // active: the server's own check (a live status and a period not yet over).
+    planActive: Boolean(entitlement.active && entitlement.subscription && covering.includes(entitlement.subscription.niche || '')
+      && allowance && allowance.allowed),
     credits: { silver: creditCount(credits.silver), gold: creditCount(credits.gold) },
   };
 }

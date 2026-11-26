@@ -17,7 +17,7 @@ const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '2026
 
 test('paying for Silver or Gold from the wizard comes back to the draft or listing being edited', () => {
   // The wizard reopens that draft from this return (client/test/list-wizard-startup.test.js).
-  assert.match(clientFile('pages/list.tsx'), /startListingTierCheckout\(accessToken, checkoutTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
+  assert.match(clientFile('pages/list.tsx'), /startListingTierCheckout\(accessToken, checkoutCard\.id as ListingTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
   assert.match(fs.readFileSync(path.join(root, 'server', 'routes', 'billingRoutes.js'), 'utf8'),
     /buildPaymentCallbackUrl\(callbackOrigin, '\/list', \{ payment: 'return', reference, draft: body\.draft, edit: body\.edit \}\)/);
 });

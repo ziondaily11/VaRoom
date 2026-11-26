@@ -44,6 +44,7 @@ function loadTsx(entry) {
 const { LeaveDialog } = loadTsx('components/listWizard/LeaveDialog.tsx');
 const { OfficeShopTypeChoice } = loadTsx('components/listWizard/WizardFields.tsx');
 const { ListingTierChoice } = loadTsx('components/listWizard/ListingTierChoice.tsx');
+const pricingCards = loadTsx('lib/billing/pricing.ts');
 
 const noop = () => {};
 const leave = (props) => renderToStaticMarkup(React.createElement(LeaveDialog, {
@@ -78,7 +79,7 @@ test('the office/shop choice marks only the chosen kind as selected', () => {
 });
 
 test('the Silver / Gold choice: both plans with their prices, Gold first in focus, a way back home', () => {
-  const html = renderToStaticMarkup(React.createElement(ListingTierChoice, { onChoose: noop }));
+  const html = renderToStaticMarkup(React.createElement(ListingTierChoice, { cards: pricingCards.LISTING_TIER_CARDS, onChoose: noop }));
   assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="tier-choice-title"/);
   assert.match(html, /<h2 id="tier-choice-title">Choose your listing plan<\/h2>/);
   assert.match(html, /It stays live for 30 days from when you publish it\./);
@@ -86,6 +87,13 @@ test('the Silver / Gold choice: both plans with their prices, Gold first in focu
   assert.deepEqual([...html.matchAll(/<button type="button">Pay KSh (?:<!-- -->)?([\d,]+)<\/button>/g)].map((match) => match[1]), ['1,000', '2,000']);
   assert.match(html, /tier-choice-option featured[\s\S]*Gold/, 'Gold is the highlighted plan');
   assert.match(html, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
+
+  // Airbnb, Hotel, Venue: the niche's monthly plans, priced per month.
+  const hotel = renderToStaticMarkup(React.createElement(ListingTierChoice, { cards: pricingCards.NICHE_PLAN_CARDS.hotel, onChoose: noop }));
+  assert.match(hotel, /<h2 id="tier-choice-title">Choose your plan<\/h2>/);
+  assert.match(hotel, /Your listings stay online while your plan is paid\./);
+  assert.deepEqual([...hotel.matchAll(/class="tier-choice-name">([\w ]+)</g)].map((match) => match[1]), ['Dining', 'Boutique', 'Hotel', 'Hotel Plus']);
+  assert.equal((hotel.match(/\/month</g) || []).length, 4);
 });
 
 const { CheckoutWindow, CHECKOUT_STYLES } = loadTsx('components/billing/CheckoutWindow.tsx');
@@ -171,7 +179,7 @@ test('the review carousel shows every chosen photo and video, with arrows, dots 
   assert.match(html, /aria-roledescription="carousel"/);
   assert.equal((html.match(/class="review-gallery-slide"/g) || []).length, 3);
   assert.match(html, /<img src="blob:a" alt="Listing cover photo"\/>/);
-  assert.match(html, /<video src="blob:b" muted="" playsinline="" controls="">/);
+  assert.match(html, /<video src="blob:b" muted="" playsinline="" controls="">/i);
   assert.match(html, /class="review-gallery-count" aria-live="polite">2 \/ 3<\/span>/);
   assert.equal((html.match(/class="review-gallery-dot( active)?"/g) || []).length, 3);
   assert.match(html, /class="review-gallery-dot active" aria-label="Show photo 2" aria-current="true"/);
@@ -197,7 +205,7 @@ const between = (start, end) => {
   assert.ok(from >= 0, `${start} is in list.tsx`);
   return page.slice(from, page.indexOf(end, from));
 };
-const tierPayment = between('// ---------- Silver / Gold ----------', '// ---------- Publish');
+const tierPayment = between('// ---------- Silver / Gold, or a monthly plan ----------', '// ---------- Publish');
 const publishFlow = between('const publish = async', '// ---------- Review');
 
 test('the review has only Publish; Pay to list and Go Pro are gone', () => {
@@ -209,16 +217,22 @@ test('the review has only Publish; Pay to list and Go Pro are gone', () => {
 });
 
 test('the Silver / Gold choice covers the showing step until a paid listing is there to use', () => {
-  assert.match(page, /const tierChoice = showTierChoice && !flags\.publishBlocked \? <ListingTierChoice /);
+  assert.match(page, /const tierChoice = showTierChoice && !flags\.publishBlocked && choiceCards\.length \? <ListingTierChoice /);
   for (let step = 1; step <= 6; step += 1) assert.ok(page.includes(`<StepFrame step={${step}} active={step === ${step}} overlay={overlayFor(${step})}`), `step ${step}`);
   assert.match(page, /hasListingCredit: hasListingCredit\(flags\)/, 'a paid listing counts as covered');
   assert.match(page, /'Choose Silver or Gold before publishing this listing\.'/);
+  assert.match(page, /'Choose a plan before publishing this listing\.'/);
+  // Silver / Gold for Property and Shops & Offices; the niche's monthly plans otherwise.
+  assert.match(page, /const choiceCards = isPaidNiche\(category\) \? LISTING_TIER_CARDS : \(NICHE_PLAN_CARDS\[category\] \|\| \[\]\);/);
 });
 
 test('paying for Silver / Gold happens in the VaRoom window over the wizard; the draft carries on', () => {
-  assert.match(page, /<ListingTierChoice onChoose=\{setCheckoutTier\} \/>/);
-  assert.match(page, /<CheckoutWindow open=\{checkoutTier !== null\} allowMpesa/);
-  assert.match(tierPayment, /startListingTierCheckout\(accessToken, checkoutTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
+  assert.match(page, /<ListingTierChoice cards=\{choiceCards\} onChoose=\{setCheckoutCard\} \/>/);
+  // M-Pesa for Silver / Gold; monthly plans renew on cards only.
+  assert.match(page, /<CheckoutWindow open allowMpesa=\{Boolean\(checkoutCard\.perListing\)\}/);
+  assert.match(tierPayment, /if \(!checkoutCard\.perListing\) return startCheckout\(accessToken, checkoutCard\.id\);/);
+  assert.match(tierPayment, /setFlags\(\(previous\) => \(\{ \.\.\.previous, hasActiveNichePlan: true \}\)\);/, 'a confirmed plan unlocks publishing in place');
+  assert.match(tierPayment, /startListingTierCheckout\(accessToken, checkoutCard\.id as ListingTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
   assert.match(tierPayment, /return checkListingPayment\(accessToken, reference, \{ waitingForPin \}\)/);
   assert.match(tierPayment, /listingCredits: \{ \.\.\.previous\.listingCredits, \[tier\]: previous\.listingCredits\[tier\] \+ 1 \}/, 'the confirmed payment unlocks the wizard in place');
   // Only Paystack's own page (the fallback) leaves: the draft save finishes and autosave stops first.

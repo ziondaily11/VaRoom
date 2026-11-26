@@ -48,6 +48,8 @@ export interface MarketplaceListing {
   listing_booking_details: BookingDetails | BookingDetails[] | null;
   /** Read for an owner's own cards (/profile, the owner's public profile). */
   availability_status?: string | null;
+  /** When it goes offline (its Silver / Gold term or the host's plan ends). */
+  live_until?: string | null;
   publication_state?: string | null;
 }
 
@@ -209,9 +211,8 @@ export async function fetchListingPage(client: SupabaseClient, search: Marketpla
     .range(offset, offset + PAGE_SIZE - 1)
     .eq('moderation_status', 'active')
     .eq('availability_status', 'available')
-    // A paid Property / Shops & Offices listing is public only through its
-    // verified 30-day term. Legacy rows keep a NULL term.
-    .or(`paid_listing_until.is.null,paid_listing_until.gt.${now.toISOString()}`);
+    // Online only: within its Silver / Gold term or the host's plan (listings.live_until).
+    .gt('live_until', now.toISOString());
   if (search.category !== 'all') query = query.eq('category', search.category);
   if (filter.purposes) {
     query = filter.includeNoPurpose

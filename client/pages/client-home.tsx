@@ -64,7 +64,7 @@ const loadOverlays = () => import('../components/clientHome/ClientHomeOverlays')
 const Lightbox = dynamic(() => loadOverlays().then((module) => module.Lightbox), { ssr: false });
 const ReportModal = dynamic(() => loadOverlays().then((module) => module.ReportModal), { ssr: false });
 
-const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
+const select = 'id,title,description,location_text,category,verified,availability_status,created_at,live_since,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
 const categories = [
   ['all', 'All'],
   ['airbnb', 'Airbnbs'],
@@ -94,6 +94,8 @@ type Listing = {
   verified?: boolean;
   availability_status?: string;
   created_at?: string;
+  /** Discover counts the days from here: publishing, or the host's latest plan payment. */
+  live_since?: string | null;
   host_id: string;
   host?: Host | null;
   listing_photos?: Photo[];
@@ -579,7 +581,7 @@ function ListingCard({
               <MapLink target={{ kind: 'listing', id: listing.id }} className={styles.mapLink}>View on Map</MapLink>
             </div>
           </div>
-          <time className={styles.time}>{timeAgo(listing.created_at)}</time>
+          <time className={styles.time}>{timeAgo(listing.live_since || listing.created_at)}</time>
           {!ownListing && (
             <div className={styles.menuWrap} ref={menuRef}>
               <button
@@ -963,7 +965,9 @@ export default function ClientHome() {
     if (!client) throw new Error('Supabase is unavailable.');
     const listingQuery = () => {
       let query = client.from('listings').select(select)
-        .eq('moderation_status', 'active').eq('availability_status', 'available');
+        .eq('moderation_status', 'active').eq('availability_status', 'available')
+        // Online only (a host would otherwise see their own offline listings here).
+        .gt('live_until', new Date().toISOString());
       if (category !== 'all') query = query.eq('category', category);
       else if (view === 'home' && interests.length > 0) query = query.in('category', interests);
       return query;

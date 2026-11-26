@@ -67,7 +67,8 @@ export function feedFetcher(client: SupabaseClient, userId: string, onlyMine: bo
   const listings = () => client.from('listings').select(FEED_SELECT);
   // The filters as before: the host's own listings, or every active, available listing.
   const withFilters = (query: ReturnType<typeof listings>) => {
-    let next = onlyMine ? query.eq('host_id', userId) : query.eq('moderation_status', 'active').eq('availability_status', 'available');
+    // Everyone's feed shows online listings only (the host's own offline ones would otherwise appear).
+    let next = onlyMine ? query.eq('host_id', userId) : query.eq('moderation_status', 'active').eq('availability_status', 'available').gt('live_until', new Date().toISOString());
     if (category !== 'all') next = next.eq('category', category);
     return next;
   };

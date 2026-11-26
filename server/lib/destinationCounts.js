@@ -37,6 +37,8 @@ async function countCity(supabase, city, hiddenHostIds = []) {
     .select('id', { count: 'exact', head: true })
     .eq('publication_state', 'published')
     .eq('moderation_status', 'active')
+    // Online only: within its Silver / Gold term or plan (listings.live_until).
+    .gt('live_until', new Date().toISOString())
     .ilike('location_text', `%${city}%`);
   if (hiddenHostIds.length) query = query.not('host_id', 'in', `(${hiddenHostIds.join(',')})`);
   const { count, error } = await query;

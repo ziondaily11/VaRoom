@@ -12,7 +12,7 @@ const likes = loadTs(path.join(root, 'lib', 'listings', 'listingLikes.ts'), { mo
 
 const listing = (overrides = {}) => Object.assign({
   id: 'L1', title: 'Palm View', host_id: 'H1', category: 'airbnb', listing_purpose: null, availability_status: 'available',
-  paid_listing_until: null, supports_stay: null, supports_table_reservation: null, host: { full_name: 'Ann' },
+  paid_listing_until: null, live_until: '2999-01-01T00:00:00Z', supports_stay: null, supports_table_reservation: null, host: { full_name: 'Ann' },
   listing_booking_details: [{ price_amount: 1000, price_unit: 'night' }],
 }, overrides);
 
@@ -35,9 +35,14 @@ test('which widget: nightly, hourly, rentals, property purposes, hotels taking t
   assert.equal(tablesOnly.supportsTableReservation, true);
 });
 
-test('availability: unavailable or an expired paid term blocks booking, with the same messages', () => {
+test('availability: unavailable, or offline (an ended Silver / Gold term or plan), blocks booking', () => {
   assert.equal(bl.bookingKind(listing({ availability_status: 'fully_booked' })).availabilityMessage, 'This listing is currently fully booked and cannot accept new bookings.');
-  assert.equal(bl.bookingKind(listing({ paid_listing_until: '2020-01-01T00:00:00Z' })).availabilityMessage, 'This listing’s 30-day paid listing period has ended.');
+  assert.equal(bl.bookingKind(listing({ paid_listing_until: '2020-01-01T00:00:00Z', live_until: '2020-01-01T00:00:00Z' })).availabilityMessage, 'This listing’s 30-day paid listing period has ended.');
+  // A plan listing whose host's plan ended.
+  assert.equal(bl.bookingKind(listing({ live_until: '2020-01-01T00:00:00Z' })).availabilityMessage, 'This listing is offline right now and cannot accept new bookings.');
+  assert.equal(bl.bookingKind(listing({ live_until: null })).listingUnavailable, true, 'never online');
+  // Its own status wins over offline.
+  assert.equal(bl.bookingKind(listing({ availability_status: 'paused', live_until: '2020-01-01T00:00:00Z' })).availabilityMessage, 'This listing is currently paused and cannot accept new bookings.');
   assert.equal(bl.bookingKind(listing()).listingUnavailable, false);
 });
 
