@@ -79,9 +79,14 @@ test('the plan check gates paid niches and a failed check leaves the allowance u
   assert.equal(paid.flags.entitlementChecked, true);
   const failed = await visit({ routes: { 'GET /api/billing/entitlements': jsonResponse(500, {}) } }).run(params());
   assert.equal(failed.flags.entitlementChecked, false);
-  const free = visit({ niche: 'airbnb' });
-  assert.equal((await free.run(params())).flags.entitlementChecked, false);
-  assert.equal(free.network.calls.length, 0, 'unpaid niches never ask');
+  // Airbnb, Hotel, Venue publish only with a running plan, so they ask too.
+  const noPlan = visit({ niche: 'airbnb' });
+  const noPlanOutcome = await noPlan.run(params());
+  assert.equal(noPlanOutcome.flags.entitlementChecked, true);
+  assert.equal(noPlanOutcome.flags.hasActiveNichePlan, false);
+  assert.equal(noPlan.network.calls.length, 1);
+  const hotel = await visit({ niche: 'hotel', routes: { 'GET /api/billing/entitlements': { entitlements: { active: true, subscription: { status: 'active', niche: 'hotel' }, canCreateAnotherListing: { allowed: true } } } } }).run(params());
+  assert.equal(hotel.flags.hasActiveNichePlan, true);
 });
 
 test('Continue Listing restores its profile draft and the listing shell it owns', async () => {

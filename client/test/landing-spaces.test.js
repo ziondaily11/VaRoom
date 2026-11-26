@@ -190,7 +190,7 @@ test('a niche whose query fails borrows like an empty one', async () => {
   const totals = { property: 6, office: 1, airbnb: 2, hotel: 1 };
   const query = () => {
     const chain = {
-      select: () => chain, in: (_c, values) => { chain.values = values; return chain; }, eq: () => chain, or: () => chain, order: () => chain,
+      select: () => chain, in: (_c, values) => { chain.values = values; return chain; }, eq: () => chain, gt: () => chain, or: () => chain, order: () => chain,
       limit: async () => {
         const id = chain.values[0];
         if (id === 'venue') return { data: null, error: { message: 'boom' }, count: null };

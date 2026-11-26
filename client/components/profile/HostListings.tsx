@@ -176,7 +176,7 @@ export default function HostListings(props: HostListingsProps) {
                     onSave={() => undefined}
                     owner={{
                       href: draft ? `/list?draft=${encodeURIComponent(draft.id)}` : undefined,
-                      status: listingStatus(listing.availability_status),
+                      status: listingStatus(listing.availability_status, listing.live_until ?? null),
                       menu: (
                         <HostListingMenu
                           listing={{ id: listing.id, title: listing.title, availability_status: listing.availability_status, listing_draft_id: draft ? draft.id : null }}

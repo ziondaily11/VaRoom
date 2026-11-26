@@ -43,6 +43,14 @@ test('header labels keep the legacy wording', () => {
   assert.equal(pp.profileShareUrl('https://varoom.co.ke', null), 'https://varoom.co.ke/profile');
   assert.deepEqual(pp.listingStatus('draft'), { label: 'Draft', className: 'paused' });
   assert.equal(pp.listingStatus(null).label, 'Available');
+  // The host's own listing, set to available but past its online date (30 days or plan ended): Offline.
+  const now = Date.parse('2026-11-26T12:00:00Z');
+  assert.deepEqual(pp.listingStatus('available', '2026-11-20T00:00:00Z', now), { label: 'Offline', className: 'unavailable' });
+  assert.deepEqual(pp.listingStatus('available', null, now), { label: 'Offline', className: 'unavailable' }, 'never paid for');
+  assert.equal(pp.listingStatus('available', '2026-12-20T00:00:00Z', now).label, 'Available');
+  assert.equal(pp.listingStatus('paused', '2026-11-20T00:00:00Z', now).label, 'Paused', 'its own status otherwise');
+  assert.equal(pp.listingStatus('available').label, 'Available', 'callers without the date keep the old label');
+  assert.match(read('components', 'profile', 'HostListings.tsx'), /status: listingStatus\(listing\.availability_status, listing\.live_until \?\? null\)/);
   assert.equal(pp.draftTitle(null, 'airbnb'), 'Airbnb draft');
 });
 

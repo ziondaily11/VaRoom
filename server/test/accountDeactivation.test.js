@@ -169,7 +169,7 @@ test('wiring: routes, hourly job, hidden listings, chats, profiles, reviews, mig
     assert.match(read(...file), /LISTING_HOST_STATE/, file.join('/'));
   }
   assert.match(read('routes', 'listingDocumentRoutes.js'), /&& !\(host && host\.deactivated_at\)/);
-  assert.match(read('lib', 'locationAccess.js'), /if \(hostDeactivated\(listing\)\) return \{ error: 'Listing not found' \};/);
+  assert.match(read('lib', 'locationAccess.js'), /if \(hostDeactivated\(listing\) \|\| offline\(listing\)\) return \{ error: 'Listing not found' \};/);
   assert.match(read('routes', 'hotelReservationRoutes.js'), /listingHost && listingHost\.deactivated_at/);
   assert.match(read('routes', 'reviewRoutes.js'), /filter\(\(review\) => !\(clientsById\[review\.client_id\] && clientsById\[review\.client_id\]\.deactivated_at\)\)/);
   assert.match(read('routes', 'profileRoutes.js'), /profile\.deactivated_at && !\(viewer && viewer\.id === profile\.id\)/);

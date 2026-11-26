@@ -27,7 +27,9 @@ const LISTING_LOCATION_COLUMNS =
   'id, host_id, latitude, longitude, place_id, formatted_address, neighborhood, city, country, location_status';
 
 // Whether a listing's host is deactivated (hidden from everyone else).
-const HOST_STATE = 'host:profiles!listings_host_id_fkey(deactivated_at)';
+const HOST_STATE = 'live_until, host:profiles!listings_host_id_fkey(deactivated_at)';
+// Offline (its Silver / Gold term or plan ended): hidden like an unlisted listing.
+const offline = (listing) => !(listing.live_until && new Date(listing.live_until).getTime() > Date.now());
 const hostDeactivated = (listing) => {
   const host = listing && (Array.isArray(listing.host) ? listing.host[0] : listing.host);
   return Boolean(host && host.deactivated_at);
@@ -72,7 +74,7 @@ async function getListingLocation(supabaseAdmin, { listingId, requestingUserId }
   }
 
   // A deactivated host's listing is hidden from everyone else (an approved booking keeps its snapshot above).
-  if (hostDeactivated(listing)) return { error: 'Listing not found' };
+  if (hostDeactivated(listing) || offline(listing)) return { error: 'Listing not found' };
 
   // Level 1 / 2 (currently identical): general area only, never coordinates.
   return { level: 1, location: publicListingLocation(listing) };
@@ -227,7 +229,7 @@ async function getListingDistance(supabaseAdmin, { listingId, userLat, userLng }
     .eq('id', listingId)
     .single();
 
-  if (error || !listing || hostDeactivated(listing)) {
+  if (error || !listing || hostDeactivated(listing) || offline(listing)) {
     return { error: 'Listing not found' };
   }
   if (listing.location_status !== 'confirmed' || listing.latitude == null || listing.longitude == null) {

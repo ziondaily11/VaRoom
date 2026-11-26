@@ -16,7 +16,7 @@ import {
   uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
-  bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
+  bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, isPlanNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
   reviewActions, savesBookingDetails, shellPayload, shouldActivate, uploadPendingMedia, withOfficeShopDocuments,
 } from '../lib/listWizard/publish';
 import type { PublicationState } from '../lib/listWizard/publish';
@@ -25,7 +25,10 @@ import type { OfficeShopFiles, OfficeShopKind } from '../lib/listWizard/officeSh
 import { listingDocumentMimeType, officeShopBusinessHoursError, officeShopConditions } from '../lib/listWizard/officeShop';
 import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSession';
 import { INITIAL_FLAGS, hasListingCredit, startWizard } from '../lib/listWizard/startup';
-import { checkListingPayment, LISTING_TIER_CARDS, startListingTierCheckout, type ListingPayment, type ListingTier } from '../lib/billing/pricing';
+import {
+  checkListingPayment, checkReturnedPayment, LISTING_TIER_CARDS, NICHE_PLAN_CARDS, startCheckout, startListingTierCheckout,
+  type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
+} from '../lib/billing/pricing';
 import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import type { Flags, Message } from '../lib/listWizard/startup';
 import { selectedAmenityKeys, setAmenityChecked, amenityOptionsFor } from '../lib/listWizard/amenities';
@@ -123,7 +126,7 @@ export default function ListPage() {
   const [leave, setLeave] = useState<{ open: boolean; stage: LeaveStage; destination: string; busy: 'save' | 'discard' | null }>({ open: false, stage: 'choose', destination: '/host-home', busy: null });
   const [publishLabel, setPublishLabel] = useState<string | null>(null);
   /** The Silver / Gold plan being paid for in the checkout window. */
-  const [checkoutTier, setCheckoutTier] = useState<ListingTier | null>(null);
+  const [checkoutCard, setCheckoutCard] = useState<PlanCard | null>(null);
   /** Which chosen photo the review shows (the carousel and the review card's thumbnail). */
   const [reviewIndex, setReviewIndex] = useState(0);
   // What stops the host moving on, shown under the step (not a browser pop-up).
@@ -593,28 +596,40 @@ export default function ListPage() {
     }
   };
 
-  // ---------- Silver / Gold ----------
-  // VaRoom's checkout window over the wizard: M-Pesa or Paystack's card popup.
-  // Once the server confirms the payment the choice closes and the host
-  // carries on with the same draft; publishing then uses the paid listing.
+  // ---------- Silver / Gold, or a monthly plan ----------
+  // VaRoom's checkout window over the wizard. Silver / Gold: M-Pesa or
+  // Paystack's card popup. Airbnb, Hotel, Venue plans: card (Paystack renews
+  // plans on cards). Once the server confirms the payment the choice closes
+  // and the host carries on with the same draft.
   const startTierPayment = async (payment: ListingPayment) => {
     const accessToken = await token();
-    if (!accessToken || !checkoutTier) throw new Error('Please log in again to continue.');
+    if (!accessToken || !checkoutCard) throw new Error('Please log in again to continue.');
+    if (!checkoutCard.perListing) return startCheckout(accessToken, checkoutCard.id);
     const current = sessionRef.current;
     // The card fallback (Paystack's own page) returns to this draft or listing.
-    return startListingTierCheckout(accessToken, checkoutTier, payment, { draft: !editMode && current ? current.draftId : null, edit: editMode ? editListingId : null });
+    return startListingTierCheckout(accessToken, checkoutCard.id as ListingTier, payment, { draft: !editMode && current ? current.draftId : null, edit: editMode ? editListingId : null });
   };
-  const confirmTierPayment = async (reference: string, waitingForPin: boolean) => {
+  const confirmTierPayment = async (reference: string, waitingForPin: boolean): Promise<PaymentState> => {
     const accessToken = await token();
     if (!accessToken) throw new Error('Please log in again to continue.');
+    if (checkoutCard && !checkoutCard.perListing) {
+      const result = await checkReturnedPayment(accessToken, reference);
+      return result.kind === 'active' ? 'paid' : result.kind === 'failed' ? 'failed' : 'pending';
+    }
     return checkListingPayment(accessToken, reference, { waitingForPin });
   };
   const tierPaid = () => {
-    const tier = checkoutTier;
-    setCheckoutTier(null);
-    if (!tier) return;
+    const card = checkoutCard;
+    setCheckoutCard(null);
+    if (!card) return;
+    if (!card.perListing) {
+      setFlags((previous) => ({ ...previous, hasActiveNichePlan: true }));
+      showMessage(`Payment confirmed. Your ${card.name} plan is active: your listings stay online while it runs.`, false);
+      return;
+    }
+    const tier = card.id as ListingTier;
     setFlags((previous) => ({ ...previous, listingCredits: { ...previous.listingCredits, [tier]: previous.listingCredits[tier] + 1 } }));
-    showMessage(`Payment confirmed. Your ${tier === 'gold' ? 'Gold' : 'Silver'} listing is ready: fill in your listing and publish it. Its 30 days start when you publish.`, false);
+    showMessage(`Payment confirmed. Your ${card.name} listing is ready: fill in your listing and publish it. Its 30 days start when you publish.`, false);
   };
   // Before leaving for Paystack's own page: finish the draft save and keep autosave off.
   const beforeFullPagePayment = async () => {
@@ -628,7 +643,7 @@ export default function ListPage() {
   // ---------- Publish ----------
   const publish = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (publishing.current || checkoutTier || !client || !userId) return;
+    if (publishing.current || checkoutCard || !client || !userId) return;
     publishing.current = true;
     const current = sessionRef.current;
     try {
@@ -639,6 +654,11 @@ export default function ListPage() {
       const stateForm = state.form;
       if (isPaidNiche(cat) && !state.flags.hasActiveNichePlan && !state.flags.hasCurrentListingFee && !state.flags.paymentVerified && !hasListingCredit(state.flags)) {
         showMessage('Choose Silver or Gold before publishing this listing.', true);
+        return;
+      }
+      // Airbnb, Hotel, Venue: online only while a plan runs (the server refuses without one too).
+      if (isPlanNiche(cat) && !state.flags.hasActiveNichePlan && (!editMode || state.flags.listingNeedsPublication)) {
+        showMessage('Choose a plan before publishing this listing.', true);
         return;
       }
       setPublishLabel(editMode ? 'Saving changes...' : 'Publishing...');
@@ -791,8 +811,9 @@ export default function ListPage() {
   const step = form.currentStep;
   const { showTierChoice, submitHidden, entitlementNote } = reviewActions(paymentNeeded, flags.entitlementChecked);
   // Over whichever step is showing (the first, for a new listing) until a paid listing is there to use.
-  const tierChoice = showTierChoice && !flags.publishBlocked ? <ListingTierChoice onChoose={setCheckoutTier} /> : null;
-  const tierCard = LISTING_TIER_CARDS.find((card) => card.id === checkoutTier) || LISTING_TIER_CARDS[0];
+  // Silver / Gold for Property and Shops & Offices; the niche's monthly plans for Airbnb, Hotel and Venue.
+  const choiceCards = isPaidNiche(category) ? LISTING_TIER_CARDS : (NICHE_PLAN_CARDS[category] || []);
+  const tierChoice = showTierChoice && !flags.publishBlocked && choiceCards.length ? <ListingTierChoice cards={choiceCards} onChoose={setCheckoutCard} /> : null;
   const overlayFor = (n: number) => (step === n ? tierChoice : null);
   // Publishing uses the oldest paid Silver / Gold listing (activate_listing_with_entitlement).
   const { silver, gold } = flags.listingCredits;
@@ -929,7 +950,7 @@ export default function ListPage() {
               </div>
               <StepAlert text={stepError && stepError.step === 6 ? stepError.text : null} />
               <div className="submit-row">
-                <button type="submit" className="submit-btn" id="submit-btn" hidden={submitHidden} disabled={Boolean(publishLabel) || checkoutTier !== null || flags.publishBlocked}
+                <button type="submit" className="submit-btn" id="submit-btn" hidden={submitHidden} disabled={Boolean(publishLabel) || checkoutCard !== null || flags.publishBlocked}
                   title={flags.publishBlocked ? 'Restore the saved listing details before publishing.' : undefined}>
                   {publishLabel ? submitLabel : <>{submitLabel} <span>✓</span></>}
                 </button>
@@ -953,11 +974,14 @@ export default function ListPage() {
       </div>
 
       <PhotoLightbox item={lightbox} onClose={() => setLightbox(null)} />
-      <CheckoutWindow open={checkoutTier !== null} allowMpesa
-        item={{ name: `${tierCard.name} listing`, priceKes: tierCard.monthly, per: '/listing', lines: tierCard.features }}
-        paidText="Your listing plan is ready. Carry on with your listing."
-        start={startTierPayment} confirm={confirmTierPayment} onPaid={tierPaid}
-        onClose={() => setCheckoutTier(null)} onFallback={beforeFullPagePayment} />
+      {checkoutCard && (
+        <CheckoutWindow open allowMpesa={Boolean(checkoutCard.perListing)}
+          item={{ name: `${checkoutCard.name} ${checkoutCard.perListing ? 'listing' : 'plan'}`, priceKes: checkoutCard.monthly,
+            per: checkoutCard.perListing ? '/listing' : '/month', lines: checkoutCard.features }}
+          paidText={checkoutCard.perListing ? 'Your listing plan is ready. Carry on with your listing.' : 'Your plan is active. Carry on with your listing.'}
+          start={startTierPayment} confirm={confirmTierPayment} onPaid={tierPaid}
+          onClose={() => setCheckoutCard(null)} onFallback={beforeFullPagePayment} />
+      )}
       <LeaveDialog open={leave.open} stage={leave.stage} canDiscard={!flags.paymentVerified} busy={leave.busy}
         onStay={closeLeave} onSave={() => { void saveAndLeave(); }} onDiscard={() => setLeave((previous) => ({ ...previous, stage: 'confirm' }))}
         onConfirmDiscard={() => { void discardAndLeave(); }} onCancelDiscard={() => setLeave((previous) => ({ ...previous, stage: 'choose' }))} />

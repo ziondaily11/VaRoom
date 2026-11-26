@@ -12,7 +12,7 @@ import {
   fetchDiningConfig, fetchListingDocuments, fetchListingEntitlement, fetchRemoteDraft, fetchRemoteDrafts, refsFromDocuments, tryFetchRemoteDraft, verifyReturnedPayment,
 } from './api';
 import type { EditDetailsRow, EditListingRow } from './publish';
-import { editForm, editOfficeShopDocuments, effectivePriceUnit, isPaidNiche } from './publish';
+import { editForm, editOfficeShopDocuments, effectivePriceUnit, isPaidNiche, isPlanNiche } from './publish';
 import type { ListingDocument } from './policyDocuments';
 import type { WizardSession } from './wizardSession';
 
@@ -250,7 +250,7 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
     if (profileNiche) niche = profileNiche;
   }
 
-  if (isPaidNiche(niche)) {
+  if (isPaidNiche(niche) || isPlanNiche(niche)) {
     try {
       const entitlement = await fetchListingEntitlement(accessToken, niche);
       flags.hasActiveNichePlan = entitlement.planActive;

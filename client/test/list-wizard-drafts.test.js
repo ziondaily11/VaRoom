@@ -208,7 +208,12 @@ test('paid niches need Silver, Gold or a running plan; publishing then activates
   assert.equal(publish.needsListingPayment(state({ category: 'office', hasListingCredit: true })), false, 'a paid Silver / Gold listing covers it');
   assert.equal(publish.needsListingPayment(state({ category: 'property', hasActiveNichePlan: true })), false);
   assert.equal(publish.needsListingPayment(state({ category: 'shop', editMode: true, hasCurrentListingFee: true })), false);
-  assert.equal(publish.needsListingPayment(state({ category: 'hotel' })), false);
+  // Airbnb, Hotel, Venue: a running plan before publishing; editing a published listing needs none.
+  assert.equal(publish.needsListingPayment(state({ category: 'hotel' })), true);
+  assert.equal(publish.needsListingPayment(state({ category: 'airbnb', hasActiveNichePlan: true })), false);
+  assert.equal(publish.needsListingPayment(state({ category: 'venue', editMode: true })), false, 'editing a published listing');
+  assert.equal(publish.needsListingPayment(state({ category: 'venue', editMode: true, listingNeedsPublication: true })), true, 'publishing an unpublished one');
+  assert.equal(publish.needsListingPayment(state({ category: 'hotel', hasListingCredit: true })), true, 'Silver / Gold credits are not a plan');
 
   assert.equal(publish.shouldActivate(state({ category: 'airbnb' })), true);
   assert.equal(publish.shouldActivate(state({ category: 'airbnb', editMode: true })), false);

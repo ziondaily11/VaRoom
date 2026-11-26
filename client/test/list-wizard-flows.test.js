@@ -196,7 +196,13 @@ test('the allowance check returns a running plan for this niche and the paid Sil
   assert.equal((await check(200, plan({ status: 'active', niche: 'property' }))).planActive, true);
   assert.equal((await check(200, plan({ status: 'active', niche: 'shops_offices' }), 'shop')).planActive, true);
   assert.equal((await check(200, plan({ status: 'active', niche: 'shops_offices' }))).planActive, false, 'another niche');
-  assert.equal((await check(200, plan({ status: 'past_due', niche: 'property' }))).planActive, false);
+  // The server's own answer: a late payment still counts while the paid month lasts; an ended plan does not.
+  assert.equal((await check(200, plan({ status: 'past_due', niche: 'property' }))).planActive, true);
+  assert.equal((await check(200, { entitlements: { active: false, subscription: { status: 'active', niche: 'property' }, canCreateAnotherListing: { allowed: true } } })).planActive, false, 'period over');
+  // Airbnb, Hotel, Venue: their own plan, or an older (legacy) plan.
+  assert.equal((await check(200, plan({ status: 'active', niche: 'hotel' }), 'hotel')).planActive, true);
+  assert.equal((await check(200, plan({ status: 'active', niche: 'legacy' }), 'venue')).planActive, true);
+  assert.equal((await check(200, plan({ status: 'active', niche: 'airbnb' }), 'hotel')).planActive, false, 'another niche');
   assert.equal((await check(200, plan({ status: 'active', niche: 'property' }, false))).planActive, false, 'allowance used up');
   assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, credits: { silver: 1, gold: 2 } });
   assert.deepEqual((await check(200, plan(null, false, { silver: -1, gold: 'x' }))).credits, { silver: 0, gold: 0 }, 'nonsense counts are zero');

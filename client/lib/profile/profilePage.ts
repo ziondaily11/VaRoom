@@ -61,8 +61,13 @@ export const BIO_APPS = {
   tiktok: 'https://www.tiktok.com/profile',
 } as const;
 
-export function listingStatus(status: string | null | undefined): { label: string; className: string; style?: Record<string, string> } {
+/** True while a listing is within its Silver / Gold term or its host's plan (listings.live_until). */
+export const isOnline = (liveUntil: string | null | undefined, now: number = Date.now()) => Boolean(liveUntil && Date.parse(liveUntil) > now);
+
+export function listingStatus(status: string | null | undefined, liveUntil?: string | null, now: number = Date.now()): { label: string; className: string; style?: Record<string, string> } {
   const value = (status || '').toLowerCase();
+  // Set to available but its 30 days or the host's plan ended: nobody else can see it.
+  if (value === 'available' && liveUntil !== undefined && !isOnline(liveUntil, now)) return { label: 'Offline', className: 'unavailable' };
   if (value === 'booked') return { label: 'Booked', className: 'booked' };
   if (value === 'paused') return { label: 'Paused', className: 'paused' };
   if (value === 'unavailable') return { label: 'Unavailable', className: 'unavailable' };

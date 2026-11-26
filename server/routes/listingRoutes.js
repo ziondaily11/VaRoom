@@ -10,6 +10,7 @@ const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listing
 const { promoteListingMedia } = require('../lib/listingMediaPromotion');
 const { draftStillKept, UNPUBLISHED_STATES } = require('../lib/draftRetention');
 const { createDestinationCounts } = require('../lib/destinationCounts');
+const { planCoverageEnd } = require('../lib/listingLive');
 
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
@@ -419,7 +420,7 @@ router.delete('/listing-drafts/:id', async (req, res) => {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,property_description,category,location_text,city,neighborhood,address_visibility,supports_stay,supports_table_reservation,listing_purpose,availability_status,publication_state,created_at,paid_listing_until')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text,city,neighborhood,address_visibility,supports_stay,supports_table_reservation,listing_purpose,availability_status,publication_state,created_at,paid_listing_until,live_until')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -534,6 +535,14 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
       return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
     }
+    // Airbnb, Hotel, Venue: online only while the host's plan runs (listings.live_until).
+    let planEnd;
+    try { planEnd = await planCoverageEnd(supabaseAdmin, user.id, listing.category); }
+    catch { return res.status(503).json({ error: 'Unable to check your plan right now' }); }
+    if (!planEnd) return res.status(402).json({ error: 'Choose a plan to put this listing online.', code: 'PLAN_REQUIRED' });
+    changes.live_until = planEnd;
+    // Discover counts from now when the listing comes (back) online.
+    if (!(listing.live_until && new Date(listing.live_until).getTime() > Date.now())) changes.live_since = new Date().toISOString();
     const { data: unfinished, error: readinessError } = await supabaseAdmin.from('property_media')
       .select('id').eq('property_id', req.params.id).is('deleted_at', null)
       .not('status', 'in', '("ready","deleted")');

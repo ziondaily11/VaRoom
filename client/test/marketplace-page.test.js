@@ -34,7 +34,7 @@ test('the search starts from the URL; unknown categories fall back to all', () =
   assert.equal(mkt.searchFromQuery({}).q, '');
 });
 
-test('only publicly listed spaces: active, available, within any paid term; search and category filter the query', async () => {
+test('only publicly listed spaces: active, available, online; search and category filter the query', async () => {
   const client = fakeClient({ data: [listing()], error: null });
   const now = new Date('2026-11-03T12:00:00Z');
   const page = await mkt.fetchListingPage(client, { q: 'Rose (Ave), 50%', category: 'hotel', guests: '' }, 12, now);
@@ -44,9 +44,10 @@ test('only publicly listed spaces: active, available, within any paid term; sear
   assert.deepEqual(calls.find((c) => c[0] === 'range'), ['range', 12, 23]);
   assert.ok(calls.some((c) => c[0] === 'eq' && c[1] === 'moderation_status' && c[2] === 'active'));
   assert.ok(calls.some((c) => c[0] === 'eq' && c[1] === 'availability_status' && c[2] === 'available'));
-  assert.ok(calls.some((c) => c[0] === 'or' && c[1] === 'paid_listing_until.is.null,paid_listing_until.gt.2026-11-03T12:00:00.000Z'));
+  // Online only: within its Silver / Gold term or the host's plan (listings.live_until).
+  assert.ok(calls.some((c) => c[0] === 'gt' && c[1] === 'live_until' && c[2] === '2026-11-03T12:00:00.000Z'));
   assert.ok(calls.some((c) => c[0] === 'eq' && c[1] === 'category' && c[2] === 'hotel'));
-  const search = calls.filter((c) => c[0] === 'or')[1][1];
+  const search = calls.filter((c) => c[0] === 'or')[0][1];
   assert.equal(search, 'title.ilike.%Rose  Ave   50%,location_text.ilike.%Rose  Ave   50%,category.ilike.%Rose  Ave   50%', 'characters that break the filter are removed');
   assert.deepEqual(calls.find((c) => c[0] === 'select'), ['select', mkt.MARKETPLACE_SELECT], 'no exact count is requested');
 });

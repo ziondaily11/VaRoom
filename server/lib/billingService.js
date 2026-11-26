@@ -1,6 +1,7 @@
 'use strict';
 
 const { createNotification } = require('./notifications');
+const { extendPlanListings } = require('./listingLive');
 const { creditVcoinPurchase } = require('./vcoins');
 
 function paystackStatus(data) {
@@ -103,6 +104,8 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     Object.keys(subscriptionUpdate).forEach((key) => subscriptionUpdate[key] === undefined && delete subscriptionUpdate[key]);
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
+    // The plan's listings stay online through the new period; Discover counts from today.
+    await extendPlanListings(supabaseAdmin, { hostId: payment.host_id, niche: subscriptionUpdate.niche, until: subscriptionUpdate.current_period_end, since: paidAt });
   } else if (kind === 'subscription' && ['failed', 'abandoned', 'refunded'].includes(status)) {
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
     if (subscriptionError) throw new Error('Unable to close failed pending subscription');
@@ -225,6 +228,8 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
     provider_metadata: transaction,
   }).eq('id', subscription.id);
   if (updateError) throw new Error('Unable to renew host subscription');
+  // A renewal keeps the plan's listings online for the new month; Discover counts from the renewal.
+  await extendPlanListings(supabaseAdmin, { hostId: subscription.host_id, niche: subscription.niche || plan.niche || 'legacy', until: periodEnd.toISOString(), since: paidAt });
   return { payment: { provider_reference: transaction.reference, status: 'succeeded' }, activated: !insertError };
 }
 

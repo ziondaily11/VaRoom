@@ -62,13 +62,15 @@ test('all Discover feed branches require active moderation and available status'
   );
   assert.match(marketplaceFetch, /\.eq\('moderation_status', 'active'\)/);
   assert.match(marketplaceFetch, /\.eq\('availability_status', 'available'\)/);
-  assert.match(marketplaceFetch, /paid_listing_until\.is\.null,paid_listing_until\.gt\./);
+  // Online only: within its Silver / Gold term or the host's plan (listings.live_until).
+  assert.match(marketplaceFetch, /\.gt\('live_until', now\.toISOString\(\)\)/);
+  assert.match(discoverPage, /\.gt\('live_until', new Date\(\)\.toISOString\(\)\)/);
   assert.doesNotMatch(marketplacePage, /isMissingAvailabilityStatusColumnError|fetchListings\(false/);
   assert.match(landingPage, /\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
   assert.doesNotMatch(landingPage, /missingColumnMessage|select\(baseSelect\)/);
 
   // Host home (native): visitors' feed is active and available; the host's own listings are all theirs.
-  assert.match(hostHomePage, /let next = onlyMine \? query\.eq\('host_id', userId\) : query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\);/);
+  assert.match(hostHomePage, /let next = onlyMine \? query\.eq\('host_id', userId\) : query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)\.gt\('live_until', new Date\(\)\.toISOString\(\)\);/);
   assert.match(hostHomePage, /\.eq\('host_id', userId\)\.order\('created_at', \{ ascending: false \}\)/);
 
   // The profile's listings are its cards (fetchHostCardListings, below); a host sees their drafts labelled.

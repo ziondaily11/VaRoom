@@ -1465,6 +1465,8 @@ async def get_host_alternative_listings(
         ),
         "host_id": f"eq.{host_id}",
         "availability_status": "eq.available",
+        # Online only: within its Silver / Gold term or the host's plan (listings.live_until).
+        "live_until": f"gt.{datetime.now(timezone.utc).isoformat()}",
         "order": "created_at.desc",
         "limit": "20",
     }
@@ -2169,7 +2171,8 @@ async def query_listings(params: dict, req_id: str, stage: str = "listing_search
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         logger.error("request_id=%s stage=%s error=SUPABASE_CONFIG_MISSING", req_id, stage)
         raise ListingDatabaseError("Supabase configuration missing", status_code=503)
-    params = {**params, "availability_status": "eq.available"}
+    # Online only: within its Silver / Gold term or the host's plan (listings.live_until).
+    params = {**params, "availability_status": "eq.available", "live_until": f"gt.{datetime.now(timezone.utc).isoformat()}"}
     start_time = time.monotonic()
     try:
         async with shared_http(timeout=8.0) as client:

@@ -19,7 +19,7 @@ function fakeSupabase(countFor, deactivated = []) {
     from(table) {
       const ops = [['from', table]];
       const query = {};
-      ['select', 'eq', 'is', 'ilike', 'not'].forEach((name) => {
+      ['select', 'eq', 'is', 'gt', 'ilike', 'not'].forEach((name) => {
         query[name] = (...args) => { ops.push([name, ...args]); return query; };
       });
       if (table === 'profiles') {
@@ -38,7 +38,7 @@ function fakeSupabase(countFor, deactivated = []) {
 
 const ok = (count) => () => ({ count, error: null });
 
-test('counts follow the public-listing rule: published, active, host not deactivated (a missing profile still counts)', async () => {
+test('counts follow the public-listing rule: published, active, online, host not deactivated (a missing profile still counts)', async () => {
   const supabase = fakeSupabase(ok(3), ['host-a', 'host-b']);
   const counts = createDestinationCounts({ supabase });
   const { counts: result } = await counts.get();
@@ -51,10 +51,12 @@ test('counts follow the public-listing rule: published, active, host not deactiv
     ['select', 'id', { count: 'exact', head: true }],
     ['eq', 'publication_state', 'published'],
     ['eq', 'moderation_status', 'active'],
+    ['gt', 'live_until', ops[4][2]],
     ['ilike', 'location_text', '%Nairobi%'],
     ['not', 'host_id', 'in', '(host-a,host-b)'],
   ]);
   assert.ok(!ops.some(([name, value]) => name === 'select' && /profiles/.test(value)), 'no join: hosts without a profile row are not dropped');
+  assert.ok(Math.abs(Date.parse(ops[4][2]) - Date.now()) < 60000, 'online now: within its Silver / Gold term or the host plan');
   const none = fakeSupabase(ok(1));
   await createDestinationCounts({ supabase: none }).get();
   assert.ok(!none.queries[0].some(([name]) => name === 'not'), 'no exclusion when nobody is deactivated');

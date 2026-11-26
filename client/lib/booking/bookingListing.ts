@@ -60,6 +60,7 @@ export interface BookingListing {
   verified: boolean | null;
   availability_status: string | null;
   paid_listing_until: string | null;
+  live_until?: string | null;
   host_id: string;
   supports_stay: boolean | null;
   supports_table_reservation: boolean | null;
@@ -84,7 +85,7 @@ export interface ReviewSummary { average_rating: number | null; review_count: nu
 export interface ReviewsResult { reviews: Review[]; summary: ReviewSummary; error: string | null }
 export interface DocumentsResult { documents: ListingDocument[]; loaded: boolean }
 
-export const LISTING_SELECT = 'id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,'
+export const LISTING_SELECT = 'id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,live_until,host_id,supports_stay,supports_table_reservation,'
   + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path),'
   + 'listing_booking_details(*)';
 
@@ -240,8 +241,9 @@ export function bookingKind(listing: BookingListing, now: number = Date.now()): 
   const propertyPurpose = isProperty ? ((listing.listing_purpose || details.listing_purpose || 'rent') as PropertyPurpose) : null;
   const propertyHasRentalPurpose = isProperty && (propertyPurpose === 'rent' || propertyPurpose === 'both');
   const isShortStay = supportsStay && SHORT_STAY.includes(listing.category || '');
-  const paidTermExpired = Boolean(listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() <= now);
-  const listingUnavailable = Boolean((listing.availability_status && listing.availability_status !== 'available') || paidTermExpired);
+  // Offline: its Silver / Gold term or the host's plan has ended (listings.live_until).
+  const offline = !(listing.live_until && new Date(listing.live_until).getTime() > now);
+  const listingUnavailable = Boolean((listing.availability_status && listing.availability_status !== 'available') || offline);
   return {
     details,
     supportsStay,
@@ -259,7 +261,10 @@ export function bookingKind(listing: BookingListing, now: number = Date.now()): 
     usesRentalBooking: !isShortStay && (!isProperty || propertyHasRentalPurpose),
     listingUnavailable,
     availabilityMessage: listingUnavailable
-      ? (paidTermExpired ? 'This listing’s 30-day paid listing period has ended.' : `This listing is currently ${String(listing.availability_status).replace('_', ' ')} and cannot accept new bookings.`)
+      // Its own status first (booked, paused…); offline only says so for an otherwise available listing.
+      ? (listing.availability_status && listing.availability_status !== 'available'
+        ? `This listing is currently ${String(listing.availability_status).replace('_', ' ')} and cannot accept new bookings.`
+        : listing.paid_listing_until ? 'This listing’s 30-day paid listing period has ended.' : 'This listing is offline right now and cannot accept new bookings.')
       : '',
   };
 }
