@@ -11,9 +11,10 @@ import {
 import { LEGAL_STYLES } from './legalStyles';
 
 // Shared layout for the legal documents (Terms of Service, Privacy Policy):
-// a black curved header, the section list, and the text. Above 900 px the
-// text scrolls in its own pane beside the list; below it the window scrolls
-// and the list opens from a menu that stays at the top of the screen.
+// a black curved header, the section list, and the text. Above 900 px one
+// pane under the header scrolls: the list sticks beside the text and finishes
+// level with it; below 900 px the window scrolls and the list opens from a
+// menu that stays at the top of the screen.
 // Styles: ./legalStyles.ts (pp- prefix), rendered only on these pages.
 
 export interface LegalDocumentPageProps {
@@ -82,6 +83,15 @@ function TableOfContents({ sections, active, label, dense, onSelectSection }: {
   const { closing } = usePresence(open, 160);
   const navRef = useRef<HTMLElement | null>(null);
   const activeIndex = sections.findIndex((section) => section.id === active);
+
+  // Desktop: the list keeps the active section in view (centred when it can be).
+  useEffect(() => {
+    const nav = navRef.current;
+    const link = nav?.querySelector<HTMLElement>('a[aria-current="true"]');
+    if (!nav || !link || !isPaneLayout(window.innerWidth)) return;
+    const top = link.getBoundingClientRect().top - nav.getBoundingClientRect().top + nav.scrollTop;
+    nav.scrollTo({ top: top - (nav.clientHeight - link.offsetHeight) / 2, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, [active]);
 
   // Phones: a tap outside the menu, or Escape, closes it.
   useEffect(() => {
@@ -194,7 +204,13 @@ export default function LegalDocumentPage({
         const element = document.getElementById(id);
         if (element) tops.push({ id, top: element.getBoundingClientRect().top - containerTop });
       }
-      const current = activeSectionId(tops, activeSectionLimit(Boolean(container)));
+      // The last section counts as reached once its end is on screen: it is
+      // often too short for its heading to climb to the line.
+      const last = document.getElementById(sectionIds[sectionIds.length - 1] ?? '');
+      const viewBottom = container ? container.getBoundingClientRect().bottom : window.innerHeight;
+      const current = last && last.getBoundingClientRect().bottom <= viewBottom
+        ? last.id
+        : activeSectionId(tops, activeSectionLimit(Boolean(container)));
       if (current) setActive(current);
     };
     const schedule = () => { if (!frame) frame = window.requestAnimationFrame(update); };
@@ -227,18 +243,21 @@ export default function LegalDocumentPage({
         <p className="pp-updated">Last updated: {lastUpdated}</p>
       </header>
 
-      <div className="pp-body">
-        <TableOfContents sections={sections} active={active} label={navLabel} dense={denseNav} onSelectSection={handleSelectSection} />
-        <div className="pp-content-pane" ref={contentPaneRef}>
-          <article className="pp-content">
-            {intro.map((block, i) => <BlockView key={i} block={block} />)}
-            {sections.map((section, i) => (
-              <section key={section.id} id={section.id} aria-labelledby={`${section.id}-title`}>
-                <h2 id={`${section.id}-title`}>{i + 1}. {section.title}</h2>
-                {section.blocks.map((block, j) => <BlockView key={j} block={block} />)}
-              </section>
-            ))}
-          </article>
+      <div className="pp-content-pane" ref={contentPaneRef}>
+        <div className="pp-body">
+          {/* The list sticks only within this pair, so it ends level with the text. */}
+          <div className="pp-columns">
+            <TableOfContents sections={sections} active={active} label={navLabel} dense={denseNav} onSelectSection={handleSelectSection} />
+            <article className="pp-content">
+              {intro.map((block, i) => <BlockView key={i} block={block} />)}
+              {sections.map((section, i) => (
+                <section key={section.id} id={section.id} aria-labelledby={`${section.id}-title`}>
+                  <h2 id={`${section.id}-title`}>{i + 1}. {section.title}</h2>
+                  {section.blocks.map((block, j) => <BlockView key={j} block={block} />)}
+                </section>
+              ))}
+            </article>
+          </div>
           {/* Decorative sign-off: a faint wordmark that lights up in colour on hover. */}
           <div className="pp-wordmark" aria-hidden="true">
             <span className="pp-wordmark-base">VaRoom</span>
