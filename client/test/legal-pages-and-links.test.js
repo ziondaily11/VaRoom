@@ -141,7 +141,7 @@ test('the legal styles define desktop independent scrolling rules, hidden scroll
   assert.match(cssContent, /html:has\(\.pp-root\)/, 'Must contain html overflow rules for desktop');
   assert.match(cssContent, /overflow:\s*hidden/, 'Must lock window overflow on desktop');
 
-  // Both .pp-toc and .pp-content-pane must have independent scroll and hidden scrollbars
+  // .pp-content-pane scrolls; .pp-toc sticks inside it with its own scroll; scrollbars hidden
   assert.match(cssContent, /\.pp-toc\s*\{[\s\S]*?overflow-y:\s*auto;/, 'TOC must have overflow-y: auto on desktop');
   assert.match(cssContent, /\.pp-content-pane\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Content pane must have overflow-y: auto on desktop');
   assert.match(cssContent, /scrollbar-width:\s*none;/, 'Must specify scrollbar-width: none');
@@ -224,10 +224,15 @@ test('legal pages, phones: the section menu stays on screen, names the section, 
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*pp-menu-fade-in/);
 });
 
-test('legal pages end with a decorative VaRoom wordmark that lights up on hover', () => {
+test('legal pages: the list ends level with the text; a VaRoom wordmark sits centred below both', () => {
   const page = fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'LegalDocumentPage.tsx'), 'utf8');
   const { LEGAL_STYLES } = loadTs(path.join(clientRoot, 'components', 'legal', 'legalStyles.ts'));
-  assert.match(page, /<\/article>\s*\{\/\*[^*]*\*\/\}\s*<div className="pp-wordmark" aria-hidden="true">/);
-  assert.match(LEGAL_STYLES, /\.pp-wordmark:hover \.pp-wordmark-glow/);
-  assert.match(LEGAL_STYLES, /prefers-reduced-motion[\s\S]*\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*animation: none/);
+  // The list sticks only within .pp-columns (list + text), so at the end it rises with the text.
+  assert.match(page, /<div className="pp-columns">\s*<TableOfContents[\s\S]*?<\/article>\s*<\/div>\s*\{\/\*[^*]*\*\/\}\s*<div className="pp-wordmark" aria-hidden="true">/);
+  assert.match(LEGAL_STYLES, /\.pp-columns \{\s*display: grid;/);
+  assert.match(LEGAL_STYLES, /\.pp-toc \{\s*position: sticky;\s*top: 0;\s*max-height: 100cqh;/);
+  // Hover: the word grows and the colour blooms in slowly; motion stops under reduced motion.
+  assert.match(LEGAL_STYLES, /\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*?transform: scale\(1\.06\)/);
+  assert.match(LEGAL_STYLES, /opacity 1800ms/);
+  assert.match(LEGAL_STYLES, /prefers-reduced-motion[\s\S]*\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*animation: none;\s*filter: none;\s*transform: none;/);
 });

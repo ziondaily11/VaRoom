@@ -181,8 +181,9 @@ export const LEGAL_STYLES = `
   margin-bottom: 4px;
 }
 
-/* Wordmark under the last section: faint at rest, a drifting brand gradient
-   fades in on hover (or tap). The glow layer sits exactly over the base. */
+/* Wordmark under both columns: faint at rest. On hover (or tap) it slowly
+   grows and a drifting brand gradient blooms in from a soft blur. The glow
+   layer sits exactly over the base and scales with it. */
 .pp-wordmark {
   container-type: inline-size;
   position: relative;
@@ -205,6 +206,14 @@ export const LEGAL_STYLES = `
   letter-spacing: -0.04em;
   padding-bottom: 0.08em;
   white-space: nowrap;
+  transition: transform 1600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-wordmark:hover .pp-wordmark-base,
+.pp-wordmark:hover .pp-wordmark-glow,
+.pp-wordmark:active .pp-wordmark-base,
+.pp-wordmark:active .pp-wordmark-glow {
+  transform: scale(1.06);
 }
 
 .pp-wordmark-base {
@@ -221,13 +230,19 @@ export const LEGAL_STYLES = `
   color: transparent;
   -webkit-text-fill-color: transparent;
   opacity: 0;
-  transition: opacity 700ms var(--ease-out, ease-out);
+  filter: blur(10px);
+  animation: pp-wordmark-drift 10s linear infinite paused;
+  transition:
+    opacity 1800ms cubic-bezier(0.45, 0, 0.55, 1),
+    filter 1800ms cubic-bezier(0.45, 0, 0.55, 1),
+    transform 1600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pp-wordmark:hover .pp-wordmark-glow,
 .pp-wordmark:active .pp-wordmark-glow {
   opacity: 1;
-  animation: pp-wordmark-drift 8s linear infinite;
+  filter: blur(0);
+  animation-play-state: running;
 }
 
 @keyframes pp-wordmark-drift { to { background-position: -200% 0; } }
@@ -271,41 +286,16 @@ export const LEGAL_STYLES = `
     font-size: clamp(32px, 3.2vw, 48px);
   }
 
-  .pp-body {
-    position: relative;
+  /* One scroll area under the hero. The section list sticks at its top and,
+     at the end of .pp-columns, rises with the text so both columns finish on
+     the same line; the wordmark and footer sit centred below them. */
+  .pp-content-pane {
+    container-type: size;
     flex: 1;
     min-height: 0;
-    display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
-    gap: 48px;
-    max-width: 1080px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 0 24px;
-    overflow: hidden;
-  }
-
-  .pp-toc {
-    position: static;
-    height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: 36px 12px 64px 0;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .pp-toc::-webkit-scrollbar {
-    display: none;
-  }
-
-  .pp-content-pane {
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    padding: 36px 16px 80px 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
     scroll-behavior: smooth;
@@ -314,6 +304,40 @@ export const LEGAL_STYLES = `
   .pp-content-pane::-webkit-scrollbar {
     display: none;
   }
+
+  .pp-body {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .pp-columns {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    column-gap: 48px;
+    align-items: start;
+  }
+
+  .pp-content {
+    padding: 36px 16px 0 0;
+  }
+
+  .pp-toc {
+    position: sticky;
+    top: 0;
+    max-height: 100cqh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 36px 12px 0 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .pp-toc::-webkit-scrollbar {
+    display: none;
+  }
+
 }
 
 /* Mobile & Tablet Layout (natural document scrolling without awkward nested scrollbars) */
@@ -470,9 +494,14 @@ export const LEGAL_STYLES = `
     transition: none;
   }
 
+  .pp-wordmark-glow,
+  .pp-wordmark:hover .pp-wordmark-base,
   .pp-wordmark:hover .pp-wordmark-glow,
+  .pp-wordmark:active .pp-wordmark-base,
   .pp-wordmark:active .pp-wordmark-glow {
     animation: none;
+    filter: none;
+    transform: none;
   }
 
   @keyframes pp-menu-fade-in { from { opacity: 0; } }
