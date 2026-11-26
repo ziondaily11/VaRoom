@@ -5,8 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// The landing page's listing cards are built in lib/landing/featuredSpaces.ts (index.tsx renders them).
 const landingPageSource = fs.readFileSync(
-  path.resolve(__dirname, '../../client/pages/index.tsx'),
+  path.resolve(__dirname, '../../client/lib/landing/featuredSpaces.ts'),
   'utf8',
 );
 
@@ -116,10 +117,7 @@ test('leaves storage uploads outside photo categories unchanged', async () => {
 test('server-rendered landing listings resolve R2 photos through the media route', () => {
   assert.match(
     landingPageSource,
-    /const photoUrl = photo \? resolveStoredPhotoUrl\(photo\.storage_path, 'listing-photos', sb, PHOTO_WIDTH\.card\) : null;/,
+    /resolveStoredPhotoUrl\(firstPhotoPath\(row\), 'listing-photos', client, PHOTO_WIDTH\.card\)/,
   );
-  assert.doesNotMatch(
-    landingPageSource,
-    /const photoUrl = photo \? sb\.storage\.from\('listing-photos'\)\.getPublicUrl\(photo\.storage_path\)\.data\.publicUrl : null;/,
-  );
+  assert.doesNotMatch(landingPageSource, /getPublicUrl\(/, 'never the raw Supabase public URL');
 });

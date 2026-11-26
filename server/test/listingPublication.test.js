@@ -10,7 +10,8 @@ const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages'
 const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'hostHome', 'hostHome.ts'), 'utf8');
 // Marketplace is native; its listing query lives in lib/marketplace.
 const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'marketplace', 'marketplace.ts'), 'utf8');
-const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
+// The landing page's listing query lives in lib/landing/featuredSpaces.ts (index.tsx renders it).
+const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'landing', 'featuredSpaces.ts'), 'utf8');
 // The native profile's listing query and labels (legacy profile.html is retired).
 const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'hostProfile.ts'), 'utf8');
 const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'profilePage.ts'), 'utf8');
@@ -47,10 +48,13 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(listingQueryBlock, /\.eq\('availability_status', 'available'\)/);
   // Pages continue after the last loaded listing, by offset only without one (client/lib/discover/feedCursor.ts).
   assert.match(discoverPage, /pageAfter\(listingQuery\(\)\.order\('created_at', \{ ascending: false \}\)\.order\('id', \{ ascending: false \}\), offset, limit, after\)/);
-  assert.match(
-    discoverPage,
-    /\.in\('id', Array\.from\(saved\)\)\s*\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/
-  );
+  // Saved listings moved to Profile → Saved (lib/bookmarks): they come through the listings read policy,
+  // which shows other people only published, active listings of active hosts.
+  const bookmarks = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'bookmarks', 'bookmarks.ts'), 'utf8');
+  assert.match(bookmarks, /client\.from\('bookmarks'\)\.select\(SAVED_SELECT\)\.eq\('client_id', userId\)/);
+  assert.match(bookmarks, /\.filter\(\(listing\): listing is SavedListing => Boolean\(listing && listing\.id\)\)/, 'listings the policy hides are left out');
+  const readPolicy = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261105_000060_account_deactivation.sql'), 'utf8');
+  assert.match(readPolicy, /create policy "listings_published_public_select" on public\.listings\s*for select to anon, authenticated\s*using \(publication_state = 'published' and moderation_status = 'active' and public\.varoom_account_active\(host_id\)\);/);
 
   const marketplaceFetch = marketplacePage.slice(
     marketplacePage.indexOf('export async function fetchListingPage('),
@@ -67,12 +71,8 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(hostHomePage, /let next = onlyMine \? query\.eq\('host_id', userId\) : query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\);/);
   assert.match(hostHomePage, /\.eq\('host_id', userId\)\.order\('created_at', \{ ascending: false \}\)/);
 
-  const profileListings = profilePage.slice(
-    profilePage.indexOf('export async function fetchHostListings'),
-    profilePage.indexOf('export async function fetchProfileCategories')
-  );
-  assert.match(profileListings, /\.eq\('host_id', hostId\)/);
-  assert.match(profileListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
+  // The profile's listings are its cards (fetchHostCardListings, below); a host sees their drafts labelled.
+  assert.doesNotMatch(profilePage, /function fetchHostListings/, 'one listing query for the profile');
   assert.match(profileLabels, /value === 'draft'\) return \{ label: 'Draft'/);
 
   // The public profile's cards: the same filter (visitors: active and available; the owner: all).
