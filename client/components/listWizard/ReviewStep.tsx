@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Step 5's review card, checklist and photo panel (unchanged from
 // renderReviewSummary / renderMobileReviewGallery in legacy-pages/list.html).
@@ -55,32 +55,64 @@ export function ReviewCard({ title, meta, price, cover, location, amenities, pol
  */
 function ReviewGallery({ media, index, onIndex }: { media: ReviewMedia[]; index: number; onIndex: (index: number) => void }) {
   const track = useRef<HTMLDivElement>(null);
-  if (!media.length) return null;
-  const go = (target: number) => {
-    const next = (target + media.length) % media.length;
+  // While the carousel slides itself (arrow, dot, key), the positions it passes
+  // are not the photo being shown: the count, dots and thumbnail wait for the target.
+  const slidingTo = useRef<number | null>(null);
+  const slideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const count = media.length;
+  const showingOf = (element: HTMLDivElement) => Math.round(element.scrollLeft / Math.max(element.clientWidth, 1));
+  const stopSliding = () => { slidingTo.current = null; if (slideTimer.current) clearTimeout(slideTimer.current); slideTimer.current = null; };
+
+  // The host removed photos past the one showing: show the last one. Otherwise the track follows the index.
+  useEffect(() => {
+    if (!count) return;
+    if (index > count - 1) { onIndex(count - 1); return; }
     const element = track.current;
-    if (element) element.scrollTo({ left: next * element.clientWidth, behavior: 'smooth' });
+    if (element && slidingTo.current === null && showingOf(element) !== index) element.scrollTo({ left: index * element.clientWidth });
+  }, [count, index, onIndex]);
+  useEffect(() => stopSliding, []);
+
+  if (!count) return null;
+  // The photo on screen: the index, kept in range for the moment before the effect above corrects it.
+  const shown = Math.min(index, count - 1);
+  const go = (target: number) => {
+    const next = (target + count) % count;
+    const element = track.current;
+    if (element) {
+      // Neighbours slide; a wrap-around or a far dot goes straight there instead of racing past every photo.
+      const slide = Math.abs(next - shown) === 1;
+      stopSliding();
+      if (slide) {
+        slidingTo.current = next;
+        // A slide that never lands (hidden step, interrupted) must not freeze the count.
+        slideTimer.current = setTimeout(stopSliding, 1000);
+      }
+      element.scrollTo({ left: next * element.clientWidth, behavior: slide ? 'smooth' : 'auto' });
+    }
     onIndex(next);
   };
-  const many = media.length > 1;
+  const many = count > 1;
   return (
     <div className="review-gallery" role="region" aria-roledescription="carousel" aria-label="Your listing's photos and videos" tabIndex={many ? 0 : undefined}
       onKeyDown={(event) => {
         if (!many) return;
-        if (event.key === 'ArrowLeft') { event.preventDefault(); go(index - 1); }
-        if (event.key === 'ArrowRight') { event.preventDefault(); go(index + 1); }
+        if (event.key === 'ArrowLeft') { event.preventDefault(); go(shown - 1); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); go(shown + 1); }
       }}>
       <div
         className="review-gallery-track"
         ref={track}
+        // The host swiping or scrolling takes over from a slide in progress.
+        onPointerDown={stopSliding}
+        onWheel={stopSliding}
         onScroll={(event) => {
-          const element = event.currentTarget;
-          const showing = Math.round(element.scrollLeft / Math.max(element.clientWidth, 1));
-          if (showing !== index && showing >= 0 && showing < media.length) onIndex(showing);
+          const showing = showingOf(event.currentTarget);
+          if (slidingTo.current !== null) { if (showing === slidingTo.current) stopSliding(); return; }
+          if (showing !== shown && showing >= 0 && showing < count) onIndex(showing);
         }}
       >
         {media.map((item, position) => (
-          <div className="review-gallery-slide" key={item.url} aria-roledescription="slide" aria-label={`${position + 1} of ${media.length}`} aria-hidden={position !== index}>
+          <div className="review-gallery-slide" key={item.url} aria-roledescription="slide" aria-label={`${position + 1} of ${media.length}`} aria-hidden={position !== shown}>
             {item.video ? <video src={item.url} muted playsInline controls />
               : <img src={item.url} alt={position === 0 ? 'Listing cover photo' : `Listing photo ${position + 1}`} />}
           </div>
@@ -88,16 +120,16 @@ function ReviewGallery({ media, index, onIndex }: { media: ReviewMedia[]; index:
       </div>
       {many && (
         <>
-          <span className="review-gallery-count" aria-live="polite">{index + 1} / {media.length}</span>
+          <span className="review-gallery-count" aria-live="polite">{shown + 1} / {media.length}</span>
           <div className="review-gallery-controls">
-            <button type="button" className="review-gallery-arrow" aria-label="Previous photo" onClick={() => go(index - 1)}>‹</button>
+            <button type="button" className="review-gallery-arrow" aria-label="Previous photo" onClick={() => go(shown - 1)}>‹</button>
             <div className="review-gallery-dots" role="group" aria-label="Choose a photo">
               {media.map((item, position) => (
-                <button key={item.url} type="button" className={`review-gallery-dot${position === index ? ' active' : ''}`}
-                  aria-label={`Show ${position === 0 ? 'the cover' : `photo ${position + 1}`}`} aria-current={position === index || undefined} onClick={() => go(position)} />
+                <button key={item.url} type="button" className={`review-gallery-dot${position === shown ? ' active' : ''}`}
+                  aria-label={`Show ${position === 0 ? 'the cover' : `photo ${position + 1}`}`} aria-current={position === shown || undefined} onClick={() => go(position)} />
               ))}
             </div>
-            <button type="button" className="review-gallery-arrow" aria-label="Next photo" onClick={() => go(index + 1)}>›</button>
+            <button type="button" className="review-gallery-arrow" aria-label="Next photo" onClick={() => go(shown + 1)}>›</button>
           </div>
         </>
       )}
@@ -112,7 +144,7 @@ function ReviewGallery({ media, index, onIndex }: { media: ReviewMedia[]; index:
 export function ReviewHero({ media, index, onIndex }: { media: ReviewMedia[]; index: number; onIndex: (index: number) => void }) {
   return (
     <div className="step-photo" id="review-hero-photo" style={{ backgroundImage: media.length ? 'none' : "url('/assets/listing-wizard/step-5.jpg')" }}>
-      <ReviewGallery media={media} index={Math.min(index, Math.max(media.length - 1, 0))} onIndex={onIndex} />
+      <ReviewGallery media={media} index={index} onIndex={onIndex} />
     </div>
   );
 }

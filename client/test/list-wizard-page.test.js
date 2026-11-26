@@ -151,6 +151,20 @@ test('a blocked Paystack card window never traps the host (Brave Shields)', () =
 
 const { ReviewHero } = loadTsx('components/listWizard/ReviewStep.tsx');
 
+test('the review carousel never flickers while it slides, and stays in range when photos are removed', () => {
+  // Checked in a real browser too (clicks, keys, swipes, removing photos): each move changes the photo once.
+  const source = fs.readFileSync(path.join(root, 'components', 'listWizard', 'ReviewStep.tsx'), 'utf8');
+  // Positions passed during its own slide are ignored until it lands.
+  assert.match(source, /if \(slidingTo\.current !== null\) \{ if \(showing === slidingTo\.current\) stopSliding\(\); return; \}/);
+  assert.match(source, /slideTimer\.current = setTimeout\(stopSliding, 1000\);/, 'a slide that never lands cannot freeze the count');
+  assert.match(source, /onPointerDown=\{stopSliding\}\s*onWheel=\{stopSliding\}/, 'the host swiping takes over');
+  // Neighbours slide; wrap-arounds and far dots jump straight there.
+  assert.match(source, /const slide = Math\.abs\(next - shown\) === 1;[\s\S]*behavior: slide \? 'smooth' : 'auto'/);
+  // Removing photos past the one showing moves the remembered position to the last photo.
+  assert.match(source, /if \(index > count - 1\) \{ onIndex\(count - 1\); return; \}/);
+  assert.match(source, /<ReviewGallery media=\{media\} index=\{index\} onIndex=\{onIndex\} \/>/, 'the carousel sees the real position, not a trimmed copy');
+});
+
 test('the review carousel shows every chosen photo and video, with arrows, dots and a count', () => {
   const media = [{ url: 'blob:a', video: false }, { url: 'blob:b', video: true }, { url: 'blob:c', video: false }];
   const html = text(renderToStaticMarkup(React.createElement(ReviewHero, { media, index: 1, onIndex: noop })));
