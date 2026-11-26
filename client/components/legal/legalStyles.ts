@@ -181,6 +181,57 @@ export const LEGAL_STYLES = `
   margin-bottom: 4px;
 }
 
+/* Wordmark under the last section: faint at rest, a drifting brand gradient
+   fades in on hover (or tap). The glow layer sits exactly over the base. */
+.pp-wordmark {
+  container-type: inline-size;
+  position: relative;
+  margin-top: 72px;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* Sized to the column (cqw) so the word spans the text width at any size. */
+.pp-wordmark-base,
+.pp-wordmark-glow {
+  display: block;
+  font-size: clamp(64px, 14vw, 180px);
+  font-size: 25cqw;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  padding-bottom: 0.08em;
+  white-space: nowrap;
+}
+
+.pp-wordmark-base {
+  color: rgba(24, 21, 19, 0.06);
+}
+
+.pp-wordmark-glow {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(100deg, #bd2337 0%, #f0643c 16%, #f7b54a 32%, #3fb8af 50%, #6c7ae0 66%, #d0479a 82%, #bd2337 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
+  transition: opacity 700ms var(--ease-out, ease-out);
+}
+
+.pp-wordmark:hover .pp-wordmark-glow,
+.pp-wordmark:active .pp-wordmark-glow {
+  opacity: 1;
+  animation: pp-wordmark-drift 8s linear infinite;
+}
+
+@keyframes pp-wordmark-drift { to { background-position: -200% 0; } }
+
 .pp-footer {
   color: var(--pp-muted);
   text-align: center;
@@ -417,6 +468,11 @@ export const LEGAL_STYLES = `
 
   .pp-toc-chevron {
     transition: none;
+  }
+
+  .pp-wordmark:hover .pp-wordmark-glow,
+  .pp-wordmark:active .pp-wordmark-glow {
+    animation: none;
   }
 
   @keyframes pp-menu-fade-in { from { opacity: 0; } }

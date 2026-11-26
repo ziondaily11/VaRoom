@@ -223,3 +223,11 @@ test('legal pages, phones: the section menu stays on screen, names the section, 
   assert.match(css, /@keyframes pp-menu-out/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*pp-menu-fade-in/);
 });
+
+test('legal pages end with a decorative VaRoom wordmark that lights up on hover', () => {
+  const page = fs.readFileSync(path.join(clientRoot, 'components', 'legal', 'LegalDocumentPage.tsx'), 'utf8');
+  const { LEGAL_STYLES } = loadTs(path.join(clientRoot, 'components', 'legal', 'legalStyles.ts'));
+  assert.match(page, /<\/article>\s*\{\/\*[^*]*\*\/\}\s*<div className="pp-wordmark" aria-hidden="true">/);
+  assert.match(LEGAL_STYLES, /\.pp-wordmark:hover \.pp-wordmark-glow/);
+  assert.match(LEGAL_STYLES, /prefers-reduced-motion[\s\S]*\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*animation: none/);
+});

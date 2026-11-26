@@ -239,6 +239,11 @@ export default function LegalDocumentPage({
               </section>
             ))}
           </article>
+          {/* Decorative sign-off: a faint wordmark that lights up in colour on hover. */}
+          <div className="pp-wordmark" aria-hidden="true">
+            <span className="pp-wordmark-base">VaRoom</span>
+            <span className="pp-wordmark-glow">VaRoom</span>
+          </div>
           <footer className="pp-footer">© 2026 Varoom. All rights reserved.</footer>
         </div>
       </div>
