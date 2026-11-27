@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -195,10 +195,11 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   };
 
   const problem = start && end && !isDaily ? stayProblem(details, nightsBetween(start, end)) : null;
+  const roomsLeft = isHotel && dates && start && end ? roomsLeftFor(dates, start, end) : null;
   const rangeSummary = !calendar ? 'Loading open dates…'
     : isDaily ? (start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(daysBetween(start, end), 'day')}`
       : start ? `First day ${dayLabel(start)}. Now pick your last day, or the same day for one day.` : 'Pick your first day.')
-    : start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(nightsBetween(start, end), 'night')}`
+    : start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(nightsBetween(start, end), 'night')}${roomsLeft != null ? ` · ${plural(roomsLeft, 'room')} left` : ''}`
     : start ? `Check-in ${dayLabel(start)}. Now pick your check-out day.`
     : 'Pick your check-in day.';
   const sent = Boolean(result && !result.error);
@@ -228,6 +229,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
           start={start}
           end={end}
           lastDay={bookable.last}
+          nightly={!isDaily}
           onPick={(day) => {
             if (!dates) return;
             const next = pickStayDay(dates, start, end, day, isDaily);

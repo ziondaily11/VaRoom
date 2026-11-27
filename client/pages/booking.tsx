@@ -10,7 +10,7 @@ import { loadListingVideo, getCachedVideo, type ListingVideo } from '../lib/medi
 import { useListingLike } from '../lib/listings/listingLikes';
 import { recordListingEvent } from '../lib/analytics/listingEvents';
 import {
-  bookingFailureText, bookingKind, bookingPageError, bookingPayload, isOwnListing, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
+  bookingFailureText, bookingKind, EMPTY_CALENDAR, bookingPageError, bookingPayload, isOwnListing, fetchCalendar, fetchDocuments, fetchReviews, forgetListingBundle,
   loadListingBundle, MESSAGES, openConversation, peekExtras, peekListingBundle, rememberExtras, sendTableRequest,
   type CalendarDates, type DocumentsResult, type ListingBundle, type ReviewsResult, type StayChoice, type TableRequest,
 } from '../lib/booking/bookingListing';
@@ -138,7 +138,7 @@ export default function BookingPage() {
     if (kind.isShortStay) {
       fetchCalendar(client, listingId).then((dates) => { if (active) setCalendar(dates); }, (error: unknown) => {
         console.error('Booking: open dates could not be loaded:', error);
-        if (active) setCalendar({ open: new Set(), unavailable: new Set() });
+        if (active) setCalendar(EMPTY_CALENDAR);
       });
     }
     return () => { active = false; };

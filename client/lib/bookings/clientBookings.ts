@@ -45,12 +45,12 @@ export async function fetchClientBookingPage(client: SupabaseClient, userId: str
 }
 
 /** Requests the host never answered expire after 48 hours. */
-export function isExpiredRequest(b: Booking, now: number = Date.now()): boolean {
+export function isExpiredRequest(b: Pick<Booking, 'status' | 'created_at'>, now: number = Date.now()): boolean {
   return b.status === 'pending' && new Date(b.created_at).getTime() < now - PENDING_EXPIRY_MS;
 }
 
-/** Show unanswered requests as expired while the database sweep runs. */
-export function applyExpiry(bookings: Booking[], now: number = Date.now()): Booking[] {
+/** Show unanswered requests as expired while the server's hourly sweep catches up (guests and hosts). */
+export function applyExpiry<T extends Pick<Booking, 'status' | 'created_at'>>(bookings: T[], now: number = Date.now()): T[] {
   return bookings.map((b) => (isExpiredRequest(b, now) ? { ...b, status: 'expired' } : b));
 }
 

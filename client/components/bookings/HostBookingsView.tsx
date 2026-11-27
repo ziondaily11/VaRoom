@@ -433,7 +433,8 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
       if (offer) setMarkAsk({ booking, ...offer });
     } catch (error) {
       console.error(`Failed to ${decision} booking:`, error);
-      showToast(RESPOND_FAILED[decision]);
+      const message = String((error as { message?: unknown } | null)?.message || '');
+      showToast(message.startsWith('booking_rule: ') ? message.slice('booking_rule: '.length) : RESPOND_FAILED[decision]);
     } finally {
       setAnswer(null);
       setBusy(false);

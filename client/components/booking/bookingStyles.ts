@@ -285,6 +285,8 @@ export const BOOKING_STYLES = `
   .booking-page .cal-day.open:active > span{ transform:scale(.92); }
   .booking-page .cal-day.closed > span{ color:var(--muted); opacity:.45; }
   .booking-page .cal-day.booked > span{ text-decoration:line-through; text-decoration-thickness:1px; }
+  .booking-page .cal-day.checkout > span{ color:var(--ink); opacity:1; text-decoration:none; box-shadow:inset 0 0 0 1.5px var(--green-tint-strong); }
+  @media (hover:hover){ .booking-page .cal-day.checkout:hover > span{ background:var(--green-tint); } }
   .booking-page .cal-day.today > span{ box-shadow:inset 0 0 0 1.5px var(--line-strong); }
   /* The chosen stay: one band from check-in to check-out, the two days as red circles. */
   .booking-page .cal-day.in-range::before, .booking-page .cal-day.range-start::before, .booking-page .cal-day.range-last::before{
