@@ -322,7 +322,17 @@ export async function uploadListingVideo(token: string, file: File, listingId: s
   return mediaId;
 }
 
-/** A listing photo: storage upload, then its listing_photos row. */
+/** The picked photo as saved on listing_photos.source_fingerprint: the same after a reload or a reopened draft. */
+export const photoFingerprint = (file: File) => `${file.name}|${file.size}|${file.lastModified}`;
+
+/** The photos the listing already has, so a retry skips them (none if unreadable: the database still refuses a repeat). */
+export async function listingPhotoFingerprints(client: SupabaseClient, listingId: string): Promise<Set<string>> {
+  const { data, error } = await client.from('listing_photos').select('source_fingerprint').eq('listing_id', listingId);
+  if (error) return new Set();
+  return new Set(((data || []) as Array<{ source_fingerprint: string | null }>).map((row) => row.source_fingerprint).filter((value): value is string => Boolean(value)));
+}
+
+/** A listing photo: storage upload, then its listing_photos row (once per picked photo, at most 8 items: migration 088). */
 export async function uploadListingPhoto(client: SupabaseClient, hostId: string, picked: File, listingId: string, index: number): Promise<void> {
   // At most 2560px, as a JPEG: phone photos upload faster and fit the server's limit.
   const file = await shrinkPhoto(picked);
@@ -330,10 +340,14 @@ export async function uploadListingPhoto(client: SupabaseClient, hostId: string,
   const dimensions = await imageDimensions(file);
   const { data, error } = await client.storage.from('listing-photos').upload(path, file, { upsert: false });
   if (error || !data) throw error || new Error('Photo upload failed');
-  const { error: rowError } = await client.from('listing_photos').insert({ listing_id: listingId, storage_path: data.path, width: dimensions.width, height: dimensions.height });
+  const { error: rowError } = await client.from('listing_photos').insert({
+    listing_id: listingId, storage_path: data.path, width: dimensions.width, height: dimensions.height, source_fingerprint: photoFingerprint(picked),
+  });
   if (rowError) {
     // Not on the listing: removed, so it doesn't hold up publishing.
     await discardPhoto(client, 'listing-photos', data.path);
+    // The listing already has this photo (an earlier attempt saved it): nothing more to do.
+    if (rowError.code === '23505') return;
     throw rowError;
   }
 }
