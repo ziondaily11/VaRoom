@@ -66,3 +66,18 @@ export function MarkAllIcon({ done, animate }: { done: boolean; animate: boolean
 }
 
 export const AlertIcon = () => <Svg><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5M12 16.2v.3" /></Svg>;
+
+/** The row menu's and selection bar's icons, used as <use href="#nt-…">. */
+export function NotificationSprite() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <symbol id="nt-read" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></symbol>
+      <symbol id="nt-select" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m8 12.5 3 3 5-6" /></symbol>
+      <symbol id="nt-select-all" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="m8 12.5 3 3 5-6" /></symbol>
+      <symbol id="nt-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3" /></symbol>
+      <symbol id="nt-close" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" /></symbol>
+    </svg>
+  );
+}
+
+export const SpriteIcon = ({ id }: { id: string }) => <svg className="icon-sm nt-icon" aria-hidden="true"><use href={`#${id}`} /></svg>;

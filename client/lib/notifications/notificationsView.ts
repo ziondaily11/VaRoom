@@ -52,6 +52,25 @@ export function countByTab(notifications: NotificationItem[]): Record<Notificati
   return counts;
 }
 
+export type NotificationAction = 'read' | 'select' | 'select-all' | 'delete';
+
+/** A notification's menu (right-click, or long-press on phones); icons are the page's sprite ids. */
+export function notificationMenuItems(read: boolean): Array<{ action: NotificationAction; icon: string; label: string }> {
+  return [
+    ...(read ? [] : [{ action: 'read' as const, icon: 'nt-read', label: 'Mark as read' }]),
+    { action: 'select', icon: 'nt-select', label: 'Select' },
+    { action: 'select-all', icon: 'nt-select-all', label: 'Select all' },
+    { action: 'delete', icon: 'nt-trash', label: 'Delete' },
+  ];
+}
+
+/** Delete asks once, for one notification or many. */
+export function deleteNotificationsQuestion(count: number): { title: string; message: string; confirmLabel: string } {
+  return count === 1
+    ? { title: 'Delete this notification?', message: 'It will be removed from your notifications.', confirmLabel: 'Delete' }
+    : { title: `Delete ${count} notifications?`, message: 'They will be removed from your notifications.', confirmLabel: `Delete ${count}` };
+}
+
 export function notificationsSubtitle(unreadCount: number): string {
   return unreadCount
     ? `You have ${unreadCount} new notification${unreadCount === 1 ? '' : 's'}`
