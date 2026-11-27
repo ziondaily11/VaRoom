@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatPrice, isMpesaPhone, MPESA_WINDOW_MS, type CheckoutStart, type ListingPayment, type PaymentState } from '../../lib/billing/pricing';
 import { payByCard } from '../../lib/billing/paystackPopup';
+import { CardMark, MpesaMark } from './PaymentMarks';
 
 // VaRoom's checkout window (styled like the landing page's auth panel): a
 // summary on the left, the payment on the right, over the page the host is
@@ -25,7 +26,7 @@ type Method = 'mpesa' | 'card';
 const POLL_MS = 3000;
 // Paystack's card window normally shows within a second or two.
 const POPUP_SHOW_MS = 8000;
-const BLOCKED_TEXT = 'The Paystack card window did not open. Brave Shields or an ad blocker may be stopping it. Open Paystack in this tab instead, or pay with M-Pesa where it is offered.';
+const BLOCKED_TEXT = 'The Paystack card window did not open. A browser privacy setting or an ad blocker may be stopping it. Open Paystack in this tab instead, or pay with M-Pesa where it is offered.';
 const CARD_CONFIRM_TRIES = 30;
 // The M-Pesa prompt lasts 180 s; the server's last word may come a little after.
 const MPESA_GRACE_MS = 30 * 1000;
@@ -210,7 +211,7 @@ export function CheckoutWindow({ open, item, allowMpesa, paidText, start, confir
               {(['mpesa', 'card'] as Method[]).map((option) => (
                 <button key={option} type="button" role="tab" aria-selected={method === option} disabled={busy}
                   onClick={() => { setMethod(option); setError(null); setFallbackUrl(null); if (stage === 'failed') setStage('choose'); }}>
-                  {option === 'mpesa' ? 'M-Pesa' : 'Card'}
+                  {option === 'mpesa' ? <><MpesaMark />M-Pesa</> : <><CardMark />Card</>}
                 </button>
               ))}
             </div>
@@ -302,7 +303,8 @@ export const CHECKOUT_STYLES = `
     border-radius:999px; background:rgba(0,0,0,.2); color:#f4efe9; font-size:1.4rem; line-height:1; cursor:pointer; }
   .vr-checkout-close:hover:not(:disabled){ background:rgba(255,255,255,.1); }
   .vr-checkout-methods{ display:grid; grid-template-columns:1fr 1fr; gap:.3rem; padding:.3rem; border:1px solid rgba(255,255,255,.1); border-radius:999px; background:rgba(255,255,255,.04); }
-  .vr-checkout-methods button{ min-height:42px; border:0; border-radius:999px; background:transparent; color:rgba(244,239,233,.7); font:inherit; font-weight:600; cursor:pointer; }
+  .vr-checkout-methods button{ display:flex; align-items:center; justify-content:center; gap:.55rem; min-height:42px; border:0; border-radius:999px; background:transparent; color:rgba(244,239,233,.7); font:inherit; font-weight:600; cursor:pointer; }
+  .vr-pay-mark{ flex:0 0 auto; display:block; }
   .vr-checkout-methods button[aria-selected="true"]{ background:#f4efe9; color:#141414; }
   .vr-checkout-form{ display:grid; gap:.6rem; }
   .vr-checkout-form label{ font-size:.72rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:rgba(212,205,189,.75); }

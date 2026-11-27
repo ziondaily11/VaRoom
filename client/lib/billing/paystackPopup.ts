@@ -38,7 +38,7 @@ export type PopupResult = { outcome: 'success'; reference: string | null } | { o
 /**
  * Opens Paystack's card popup for a transaction the server already started;
  * resolves when it closes. `onLoad` fires once the popup has actually shown.
- * A blocker (e.g. Brave Shields) can let the script run but stop the popup
+ * A blocker (a browser privacy setting or an ad blocker) can let the script run but stop the popup
  * itself, and then no callback ever comes, so callers must not wait on it alone.
  */
 export async function payByCard(accessCode: string, onLoad: () => void = () => {}): Promise<PopupResult> {

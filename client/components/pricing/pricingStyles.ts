@@ -100,7 +100,8 @@ export const PRICING_STYLES = `
   .pricing-page .plans{ position:relative; z-index:1; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1.6em; align-items:stretch; padding-top:1em; }
   .pricing-page .plan{
     position:relative; display:flex; flex-direction:column; isolation:isolate;
-    padding:1.9em 1.7em 1.6em; border-radius:20px;
+    --plan-pad-t:1.9em; --plan-pad-x:1.7em;
+    padding:var(--plan-pad-t) var(--plan-pad-x) 1.6em; border-radius:20px;
     background:var(--pc-sheen), var(--pc-glass);
     border:1px solid var(--pc-line);
     -webkit-backdrop-filter:blur(18px) saturate(140%); backdrop-filter:blur(18px) saturate(140%);
@@ -137,6 +138,16 @@ export const PRICING_STYLES = `
   .pricing-page .plan-name{ margin-top:.8em; font-size:1.1em; font-weight:700; }
   .pricing-page .plan-desc{ margin-top:.2em; font-size:1em; line-height:1.5; color:var(--muted); min-height:3.05em; }
   .pricing-page .plan-divider{ border:none; height:1px; background:var(--pc-line); margin:1.3em 0; }
+
+  /* Silver and Gold: the part above the divider is the metal itself, edge to edge, in both themes. */
+  .pricing-page .plan:is([data-plan="silver"],[data-plan="gold"]) .plan-head{
+    margin:calc(-1 * var(--plan-pad-t)) calc(-1 * var(--plan-pad-x)) 0; padding:var(--plan-pad-t) var(--plan-pad-x) 1.3em;
+    border-radius:19px 19px 0 0; color:#17181a; box-shadow:inset 0 1px 0 rgba(255,255,255,.65), inset 0 -1px 0 rgba(0,0,0,.12);
+  }
+  .pricing-page .plan[data-plan="silver"] .plan-head{ background:linear-gradient(115deg, #fdfdfd 0%, #d5d8dc 22%, #a9aeb4 45%, #eef0f2 62%, #b9bdc2 80%, #e3e5e8 100%); }
+  .pricing-page .plan[data-plan="gold"] .plan-head{ color:#241a03; background:linear-gradient(115deg, #fff4c4 0%, #ecc75e 22%, #b8862b 45%, #f7dc85 62%, #c99a32 80%, #f2d47a 100%); }
+  .pricing-page .plan:is([data-plan="silver"],[data-plan="gold"]) :is(.per, .plan-desc){ color:currentColor; opacity:.74; }
+  .pricing-page .plan:is([data-plan="silver"],[data-plan="gold"]) .plan-divider{ margin-top:0; }
   .pricing-page .plan-features{ list-style:none; display:flex; flex-direction:column; gap:.85em; flex:1; }
   .pricing-page .plan-features li{ display:flex; align-items:flex-start; gap:.75em; font-size:1em; line-height:1.4; }
   .pricing-page .plan-features .check{ flex:0 0 auto; width:1.5em; height:1.5em; margin-top:-.1em; }
@@ -196,7 +207,7 @@ export const PRICING_STYLES = `
     .pricing-page{ font-size:0.9375rem; overflow-x:hidden; overflow-y:auto; }
     .pricing-page .pricing-top{ padding:1.1rem 1.3rem; }
     .pricing-page .pricing-wrap{ padding:.5rem 1.3rem 4rem; justify-content:flex-start; }
-    .pricing-page .plan{ padding:1.9rem 1.7rem 1.6rem; }
+    .pricing-page .plan{ --plan-pad-t:1.9rem; --plan-pad-x:1.7rem; padding-bottom:1.6rem; }
     .pricing-page .plans{
       display:flex; max-width:none; margin:0; gap:1.6em;
       /* Let each mobile card end with its own content instead of stretching to

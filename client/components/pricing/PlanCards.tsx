@@ -5,6 +5,7 @@ import { formatPrice, type PlanCard } from '../../lib/billing/pricing';
 // (components/listWizard/ListingTierChoice.tsx). Styled by PRICING_STYLES,
 // inside a .pricing-page. On phones the cards are a sideways list: the dots
 // follow it, and it opens on the current plan (else the recommended one).
+// Silver and Gold (Property, Shops & Offices) are metallic above the divider.
 
 function CheckIcon() {
   return (
@@ -70,9 +71,11 @@ export function PlanCards({ cards, currentId = null, yearly = false, busy = fals
           const price = yearly ? card.yearly : card.monthly;
           return (
             <article key={index} className={`plan${card.featured ? ' plan--featured' : ''}`} data-plan={card.id} aria-labelledby={nameId}>
-              <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{card.perListing ? '/listing' : yearly ? '/year' : '/month'}</span></p>
-              <h2 className="plan-name" id={nameId}>{card.name}</h2>
-              <p className="plan-desc">{card.description}</p>
+              <div className="plan-head">
+                <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{card.perListing ? '/listing' : yearly ? '/year' : '/month'}</span></p>
+                <h2 className="plan-name" id={nameId}>{card.name}</h2>
+                <p className="plan-desc">{card.description}</p>
+              </div>
               <hr className="plan-divider" />
               <ul className="plan-features">
                 {card.features.map((feature) => <li key={feature}><CheckIcon /><span>{feature}</span></li>)}
