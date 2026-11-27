@@ -123,7 +123,7 @@ export async function verifyReturnedPayment(token: string, reference: string, at
 interface EntitlementResult {
   active: boolean;
   subscription?: { status?: string; niche?: string } | null;
-  canCreateAnotherListing?: { allowed?: boolean } | null;
+  canCreateAnotherListing?: { allowed?: boolean; limit?: number | null; planId?: string } | null;
   listingCredits?: Partial<ListingCredits> | null;
   videoListings?: { limit?: number; used?: number } | null;
 }
@@ -133,6 +133,8 @@ export type ListingCredits = Record<ListingTier, number>;
 export interface ListingEntitlement {
   /** A monthly plan bought before Silver and Gold still covers this niche. */
   planActive: boolean;
+  /** Airbnb, Venue: every listing the running plan includes is online; another needs an upgrade (or a pause). */
+  limitReached: { planId: string; limit: number } | null;
   /** Listings the plan allows a video on, and how many already have one. */
   videoListings: { limit: number; used: number };
   /** Paid Silver / Gold listings not yet used by a published listing. */
@@ -152,10 +154,12 @@ export async function fetchListingEntitlement(token: string, category: string): 
   const covering = category === 'property' ? ['property'] : ['shop', 'office'].includes(category) ? ['shops_offices'] : [category, 'legacy'];
   const allowance = entitlement.canCreateAnotherListing;
   const credits = entitlement.listingCredits || {};
+  // active: the server's own check (a live status and a period not yet over).
+  const running = Boolean(entitlement.active && entitlement.subscription && covering.includes(entitlement.subscription.niche || ''));
+  const cap = creditCount(allowance.limit);
   return {
-    // active: the server's own check (a live status and a period not yet over).
-    planActive: Boolean(entitlement.active && entitlement.subscription && covering.includes(entitlement.subscription.niche || '')
-      && allowance && allowance.allowed),
+    planActive: running && Boolean(allowance.allowed),
+    limitReached: running && allowance.allowed === false && cap && allowance.planId ? { planId: allowance.planId, limit: cap } : null,
     credits: { silver: creditCount(credits.silver), gold: creditCount(credits.gold) },
     videoListings: { limit: creditCount(entitlement.videoListings?.limit), used: creditCount(entitlement.videoListings?.used) },
   };

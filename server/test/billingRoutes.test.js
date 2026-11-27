@@ -286,3 +286,74 @@ test('Safaricom numbers are normalised the way Paystack wants them', () => {
   assert.equal(mpesaPhone('0110 123 456'), '+254110123456', 'the 01… range');
   for (const bad of ['0812345678', '07123456', '07123456789', '+255712345678', 'abc', null]) assert.equal(mpesaPhone(bad), null, String(bad));
 });
+
+// A host whose earlier plan checkout was never finished (status pending, its payment initialized).
+function unfinishedCheckout({ createdAt, paystackStatus }) {
+  const log = [];
+  const subscription = { id: 'sub-old', plan_id: 'basic', status: 'pending', niche: 'legacy' };
+  const lastPayment = { id: 'pay-old', status: 'initialized', provider_reference: 'ref-old', created_at: createdAt };
+  const plan = { id: 'airbnb_starter', active: true, niche: 'airbnb', monthly_amount_minor: 150000, currency: 'KES', billing_interval: 'monthly', paystack_plan_code: 'PLN_TEST', features: { max_active_listings: 2 } };
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+    from(table) {
+      const query = {};
+      ['eq', 'in', 'neq', 'order', 'limit', 'is', 'not', 'gt', 'delete'].forEach((method) => { query[method] = () => query; });
+      query.select = (columns) => { query.selected = columns || ''; return query; };
+      query.insert = (value) => { log.push(['insert', table, value]); return query; };
+      query.update = (value) => { log.push(['update', table, value]); query.updated = true; return query; };
+      query.maybeSingle = async () => ({
+        data: table === 'profiles' ? (query.selected === 'role' ? { role: 'host' } : { listing_categories: ['airbnb'] })
+          : table === 'billing_plans' ? plan
+            : table === 'host_subscriptions' ? subscription
+              : table === 'billing_payments' && query.selected.includes('created_at') ? lastPayment
+                : table === 'billing_payments' ? { ...lastPayment, host_id: 'host-1', subscription_id: 'sub-old', plan_id: 'basic', amount_minor: 80000, currency: 'KES', payment_kind: 'subscription', niche: 'legacy' }
+                  : null,
+        error: null,
+      });
+      query.single = async () => ({ data: { id: 'sub-new' }, error: null });
+      query.then = (resolve) => resolve({ data: [], error: null });
+      return query;
+    },
+  };
+  const verified = [];
+  const router = createBillingRoutes({
+    supabaseAdmin: supabase, baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
+    paystack: {
+      generateReference: () => 'ref-new',
+      verifyTransaction: async (reference) => { verified.push(reference); return { reference, status: paystackStatus, amount: 80000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'basic' } }; },
+      initializeTransaction: async () => ({ authorization_url: 'https://checkout.paystack.test/', access_code: 'code-new' }),
+    },
+  });
+  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/checkout');
+  return {
+    log, verified,
+    async checkout() {
+      const response = { status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+      await route.route.stack[0].handle({ headers: { authorization: 'Bearer host-token' }, body: { plan: 'airbnb_starter' } }, response);
+      return response;
+    },
+  };
+}
+
+test('an abandoned plan checkout never locks the host out: Paystack is asked, then a new checkout starts', async () => {
+  const host = unfinishedCheckout({ createdAt: '2026-09-20T10:00:00.000Z', paystackStatus: 'abandoned' });
+  const response = await host.checkout();
+  assert.deepEqual(host.verified, ['ref-old']);
+  assert.ok(host.log.some(([kind, table, value]) => kind === 'update' && table === 'billing_payments' && value.status === 'abandoned'));
+  assert.ok(host.log.some(([kind, table, value]) => kind === 'update' && table === 'host_subscriptions' && value.status === 'failed'));
+  assert.equal(response.code, 201);
+  assert.equal(response.body.access_code, 'code-new');
+});
+
+test('a plan checkout still open (recent, or still paying at Paystack) is not replaced by a second one', async () => {
+  const recent = unfinishedCheckout({ createdAt: new Date(Date.now() - 60 * 1000).toISOString(), paystackStatus: 'abandoned' });
+  const first = await recent.checkout();
+  assert.deepEqual(recent.verified, [], 'a checkout opened a minute ago is not asked about');
+  assert.equal(first.code, 409);
+  assert.match(first.body.error, /still open/);
+
+  const paying = unfinishedCheckout({ createdAt: '2026-09-20T10:00:00.000Z', paystackStatus: 'ongoing' });
+  const second = await paying.checkout();
+  assert.equal(second.code, 409);
+  assert.equal(paying.log.some(([kind, table]) => kind === 'insert' && table === 'billing_payments'), false, 'no second charge is prepared');
+});
