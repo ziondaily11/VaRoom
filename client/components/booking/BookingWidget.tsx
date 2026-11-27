@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, dayLabel, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -125,7 +125,7 @@ const LEGEND = (
 );
 
 export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, isOwner, onBook, onOpenTable, onMessageHost }: Props) {
-  const { details, isShortStay, isHourly, isHotel, isProperty, usesRentalBooking, supportsBoth, listingUnavailable, availabilityMessage } = kind;
+  const { details, isShortStay, isHourly, isDaily, isHotel, isProperty, usesRentalBooking, supportsBoth, listingUnavailable, availabilityMessage } = kind;
   const bookable = useMemo(() => bookingWindow(details), [details]);
   const instant = isInstantBooking(kind);
   // Only days inside the host's booking window can be picked.
@@ -160,6 +160,11 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   if (isShortStay && isHourly) {
     const count = parseInt(hours, 10) || 0;
     if (start && count > 0) line = priceLine(details.price_amount, count, plural(count, 'hour'), null);
+  } else if (isShortStay && isDaily) {
+    if (start && end) {
+      const days = daysBetween(start, end);
+      line = priceLine(details.price_amount, days, plural(days, 'day'), details.cleaning_fee || null);
+    }
   } else if (isShortStay) {
     if (start && end && !stayProblem(details, nightsBetween(start, end))) {
       const nights = nightsBetween(start, end);
@@ -189,8 +194,10 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
       : { text: 'Request sent. The host has 48 hours to answer, and we will tell you either way.', error: false });
   };
 
-  const problem = start && end ? stayProblem(details, nightsBetween(start, end)) : null;
+  const problem = start && end && !isDaily ? stayProblem(details, nightsBetween(start, end)) : null;
   const rangeSummary = !calendar ? 'Loading open dates…'
+    : isDaily ? (start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(daysBetween(start, end), 'day')}`
+      : start ? `First day ${dayLabel(start)}. Now pick your last day, or the same day for one day.` : 'Pick your first day.')
     : start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(nightsBetween(start, end), 'night')}`
     : start ? `Check-in ${dayLabel(start)}. Now pick your check-out day.`
     : 'Pick your check-in day.';
@@ -214,8 +221,8 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   } else if (isShortStay) {
     picker = (
       <>
-        <p className="picker-title">{isHotel ? 'Choose your stay' : 'Pick your dates'}</p>
-        <p className="picker-sub">Tap your check-in day, then your check-out day.</p>
+        <p className="picker-title">{isHotel ? 'Choose your stay' : isDaily ? 'Pick your days' : 'Pick your dates'}</p>
+        <p className="picker-sub">{isDaily ? 'Tap your first day, then your last day. Tap a day twice to book just that day.' : 'Tap your check-in day, then your check-out day.'}</p>
         <BookingCalendar
           dates={dates}
           start={start}
@@ -223,7 +230,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
           lastDay={bookable.last}
           onPick={(day) => {
             if (!dates) return;
-            const next = pickStayDay(dates, start, end, day);
+            const next = pickStayDay(dates, start, end, day, isDaily);
             setStart(next.start);
             // A range over closed days restarts at the tapped day, and says why.
             setEnd(next.end);
@@ -232,7 +239,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         />
         {LEGEND}
         <p className="range-summary" id="range-summary" aria-live="polite">{rangeSummary}</p>
-        {blockedNote && <p className="range-note">Some nights in between are not open, so that day is your new check-in.</p>}
+        {blockedNote && <p className="range-note">{isDaily ? 'Some days in between are not open, so that day is your new first day.' : 'Some nights in between are not open, so that day is your new check-in.'}</p>}
         {problem && <p className="range-note">{problem}</p>}
       </>
     );

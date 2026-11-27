@@ -146,6 +146,13 @@ export function detailRows(b: Booking): DetailRow[] {
     if (Number(b.guest_count) > 0) rows.push(row('Guests', plural(Number(b.guest_count), 'guest')));
     return rows;
   }
+  if (b.start_date && b.end_date && b.price_unit === 'day') {
+    // A venue hired by the day: the first and last day both count.
+    const days = Math.round((new Date(b.end_date).getTime() - new Date(b.start_date).getTime()) / 86400000) + 1;
+    const rows = [row('First day', formatDetailDate(b.start_date)), row('Last day', formatDetailDate(b.end_date)), row('Duration', plural(days, 'day'))];
+    if (Number(b.guest_count) > 0) rows.push(row('Guests', plural(Number(b.guest_count), 'guest')));
+    return rows;
+  }
   if (b.start_date && b.end_date) {
     const nights = Math.round((new Date(b.end_date).getTime() - new Date(b.start_date).getTime()) / 86400000);
     const rows = [

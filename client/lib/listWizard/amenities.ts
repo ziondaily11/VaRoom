@@ -10,13 +10,14 @@
 
 import { isOfficeShop, type WizardForm } from './formState';
 import { OFFICE_SHOP_AMENITY_GROUPS as OFFICE_SHOP_GROUPS } from './officeShop';
+import { AMENITY_ICON, AMENITY_LABEL } from '../booking/bookingIcons';
 
 /** [key, label, icon SVG markup], as list.html declared them. */
 export type AmenityOption = readonly [key: string, label: string, icon: string];
 export type AmenitySelections = WizardForm['amenities'];
 export type OfficeShopAmenitySelections = WizardForm['officeShopAmenitySelections'];
 
-// ---------- Home-stay (airbnb, venue; also office/shop's hidden grid) ----------
+// ---------- Home-stay (airbnb; also office/shop's hidden grid) ----------
 export const AMENITY_OPTIONS: AmenityOption[] = [
   ['wifi', 'Free Wi-Fi', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>'],
   ['mountain', 'Mountain View', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>'],
@@ -100,6 +101,19 @@ export const PROPERTY_AMENITY_OPTIONS: AmenityOption[] = [
   ['wifi', 'High-Speed Internet / Fiber', iconOf('wifi')]
 ];
 
+// EVENT-VENUE amenities: what a venue offers an event, not a stay. Keys that
+// mean the same for a venue (Wi-Fi, parking, power, security…) are shared, so
+// earlier selections still count; labels and icons are the booking page's own.
+const VENUE_AMENITY_KEYS = [
+  'venue_sound_system', 'venue_microphones', 'venue_projector', 'venue_stage', 'venue_dance_floor', 'venue_event_lighting',
+  'venue_tables_chairs', 'venue_tents', 'venue_outdoor_space', 'garden', 'pool',
+  'venue_catering_kitchen', 'venue_in_house_catering', 'venue_outside_catering', 'venue_bar',
+  'venue_restrooms', 'venue_changing_room', 'venue_breakout_rooms', 'venue_wheelchair_access',
+  'wifi', 'parking', 'power', 'air_conditioning', 'security', 'security_cameras',
+  'venue_event_coordinator', 'venue_cleaning', 'venue_decor_allowed',
+];
+export const VENUE_AMENITY_OPTIONS: AmenityOption[] = VENUE_AMENITY_KEYS.map((key) => [key, AMENITY_LABEL[key], AMENITY_ICON[key]] as const);
+
 // ---------- Office / shop ----------
 // The office/shop amenity checkboxes (`data-os-group="os-amenities"`,
 // `data-os-key`, `data-os-category`) that renderOfficeShopFields() renders in
@@ -155,6 +169,7 @@ export function officeShopAmenityIcon(key: string): string {
 export function amenityOptionsFor(category: string | null | undefined): AmenityOption[] {
   if (category === 'hotel') return HOTEL_AMENITY_OPTIONS;
   if (category === 'property') return PROPERTY_AMENITY_OPTIONS;
+  if (category === 'venue') return VENUE_AMENITY_OPTIONS;
   return AMENITY_OPTIONS;
 }
 
@@ -287,5 +302,6 @@ export function amenitySummary(category: string | null | undefined, amenities: A
 export function amenitiesFieldCopy(category: string | null | undefined): { label: string; hint: string } {
   if (category === 'hotel') return { label: 'Room & hotel amenities', hint: 'Choose the comforts and hotel facilities available to guests booking this room.' };
   if (category === 'property') return { label: 'Property features & amenities', hint: 'Select the key features and facilities this property offers to prospective tenants or buyers.' };
+  if (category === 'venue') return { label: 'Venue facilities', hint: 'Select what this venue offers an event: equipment, catering, facilities and services. Shown to clients on the booking page.' };
   return { label: 'Amenities', hint: 'Select everything this space offers. Shown to guests on the booking page.' };
 }

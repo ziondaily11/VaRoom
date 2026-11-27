@@ -225,6 +225,8 @@ export interface BookingKind {
   isShortStay: boolean;
   isHotel: boolean;
   isHourly: boolean;
+  /** A venue hired by the day: first and last day both count (one day: the same date twice). */
+  isDaily: boolean;
   usesRentalBooking: boolean;
   listingUnavailable: boolean;
   availabilityMessage: string;
@@ -261,6 +263,7 @@ export function bookingKind(listing: BookingListing, now: number = Date.now()): 
     isShortStay,
     isHotel: listing.category === 'hotel',
     isHourly: details.price_unit === 'hour',
+    isDaily: details.price_unit === 'day',
     usesRentalBooking: !isShortStay && (!isProperty || propertyHasRentalPurpose),
     listingUnavailable,
     availabilityMessage: listingUnavailable
@@ -421,9 +424,9 @@ export function shiftMonth(year: number, month: number, by: 1 | -1): { year: num
 }
 
 /** A tap on an open day: the new check-in/check-out, and a note when the range crossed closed days. */
-export function pickStayDay(dates: CalendarDates, start: string | null, end: string | null, day: string): { start: string; end: string | null; blocked: boolean } {
+export function pickStayDay(dates: CalendarDates, start: string | null, end: string | null, day: string, sameDay = false): { start: string; end: string | null; blocked: boolean } {
   if (!start || (start && end)) return { start: day, end: null, blocked: false };
-  if (day > start) {
+  if (day > start || (sameDay && day === start)) {
     if (rangeIsOpen(dates, start, day)) return { start, end: day, blocked: false };
     return { start: day, end: null, blocked: true };
   }
@@ -462,6 +465,8 @@ export const isInstantBooking = (kind: BookingKind) => Boolean(kind.isShortStay 
 export const bookingFailureText = (message: string) => (message.startsWith('booking_rule: ') ? message.slice('booking_rule: '.length) : `Something went wrong: ${message}`);
 
 export const nightsBetween = (start: string, end: string) => Math.round((Date.parse(`${end.slice(0, 10)}T00:00:00Z`) - Date.parse(`${start.slice(0, 10)}T00:00:00Z`)) / 86400000);
+/** Days hired from the first to the last day, both included. */
+export const daysBetween = (first: string, last: string) => nightsBetween(first, last) + 1;
 export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /**

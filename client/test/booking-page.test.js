@@ -207,3 +207,20 @@ test('each listing type has its own action: rent, buy, lease, reserve or book', 
   assert.equal(bl.MESSAGES.ownListing(property('sale')), 'This is your own listing. Guests buy it here.');
   assert.equal(bl.MESSAGES.ownListing({ category: 'airbnb' }), 'This is your own listing. Guests book it here.');
 });
+
+test('a venue hired by the day: first and last day both count, one day is the same date twice', () => {
+  const dates = { open: new Set(['2026-12-05', '2026-12-06', '2026-12-07']), unavailable: new Set() };
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-05', true) }, { start: '2026-12-05', end: '2026-12-05', blocked: false }, 'tapped twice: one day');
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-05') }, { start: '2026-12-05', end: null, blocked: false }, 'nightly stays still need a later check-out');
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-07', true) }, { start: '2026-12-05', end: '2026-12-07', blocked: false });
+  assert.equal(bl.daysBetween('2026-12-05', '2026-12-05'), 1);
+  assert.equal(bl.daysBetween('2026-12-05', '2026-12-07'), 3);
+  const kind = bl.bookingKind({ category: 'venue', supports_stay: true, availability_status: 'available', live_until: '2999-01-01T00:00:00Z', listing_booking_details: { price_amount: 20000, price_unit: 'day' } });
+  assert.equal(kind.isDaily, true);
+  assert.equal(kind.isHourly, false);
+  // The widget prices days, labels them as days, and lets the same day be picked twice.
+  const widget = require('node:fs').readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
+  assert.match(widget, /\} else if \(isShortStay && isDaily\) \{\s*if \(start && end\) \{\s*const days = daysBetween\(start, end\);\s*line = priceLine\(details\.price_amount, days, plural\(days, 'day'\)/);
+  assert.match(widget, /pickStayDay\(dates, start, end, day, isDaily\)/);
+  assert.match(widget, /Tap your first day, then your last day\. Tap a day twice to book just that day\./);
+});
