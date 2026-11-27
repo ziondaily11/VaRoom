@@ -16,11 +16,10 @@ function CheckIcon() {
   );
 }
 
-export function PlanCards({ cards, currentId = null, yearly = false, busy = false, onChoose }: {
+export function PlanCards({ cards, currentId = null, busy = false, onChoose }: {
   /** null while the plans load. */
   cards: PlanCard[] | null;
   currentId?: string | null;
-  yearly?: boolean;
   /** A checkout is open: the buttons wait. */
   busy?: boolean;
   onChoose: (card: PlanCard) => void;
@@ -68,11 +67,10 @@ export function PlanCards({ cards, currentId = null, yearly = false, busy = fals
         {(cards || []).map((card, index) => {
           const current = card.id === currentId;
           const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;
-          const price = yearly ? card.yearly : card.monthly;
           return (
             <article key={index} className={`plan${card.featured ? ' plan--featured' : ''}`} data-plan={card.id} aria-labelledby={nameId}>
               <div className="plan-head">
-                <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{card.perListing ? '/listing' : yearly ? '/year' : '/month'}</span></p>
+                <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(card.monthly)}</span> <span className="per">{card.perListing ? '/listing' : '/month'}</span></p>
                 <h2 className="plan-name" id={nameId}>{card.name}</h2>
                 <p className="plan-desc">{card.description}</p>
               </div>

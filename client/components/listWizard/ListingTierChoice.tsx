@@ -8,8 +8,8 @@ import { PRICING_STYLES } from '../pricing/pricingStyles';
 // (paid once per listing); Airbnb, Hotel and Venue pick their monthly plan
 // (listings stay online while it runs). When every listing an Airbnb or Venue
 // plan includes is online (`limit`), it offers that plan's upgrades instead.
-// It is the pricing page laid over the step card, without its "Host plans"
-// eyebrow and "Pricing" headline. Choosing a plan opens VaRoom's checkout
+// It is the pricing page laid over the step card, without its "Pricing"
+// headline. Choosing a plan opens VaRoom's checkout
 // window over the page.
 
 export function ListingTierChoice({ cards, onChoose, limit = null }: {

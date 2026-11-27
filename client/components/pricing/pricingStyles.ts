@@ -76,7 +76,6 @@ export const PRICING_STYLES = `
   .pricing-page .back-link{ font-size:1em; font-weight:500; color:var(--muted); }
   .pricing-page .back-link:hover{ color:var(--ink); }
   .pricing-page .pricing-wrap{ position:relative; z-index:1; flex:1; width:100%; max-width:1200px; margin:0 auto; padding:0 2.5em 2.2em; display:flex; flex-direction:column; justify-content:center; }
-  .pricing-page .eyebrow{ text-align:center; font-size:.85em; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
   
   /* ---------- Oversized heading: sits behind the cards, fades out ---------- */
   
@@ -170,18 +169,7 @@ export const PRICING_STYLES = `
   .pricing-page .plan-cta--primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
   .pricing-page .plan-cta--primary:hover{ background:var(--ink); opacity:.9; }
   
-  /* ---------- Billing toggle ---------- */
-  
-  .pricing-page .billing{ display:flex; align-items:center; justify-content:center; gap:.9em; margin-top:2em; font-size:1.1em; font-weight:500; }
-  .pricing-page .billing-label{ color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; transition:color .2s ease; font:inherit; padding:.2rem .3rem; border-radius:8px; }
-  .pricing-page .billing-label[aria-disabled="true"]{ cursor:default; }
-  .pricing-page .billing-label.is-active{ color:var(--ink); }
-  .pricing-page .badge-soon{ font-size:.7em; font-weight:600; padding:.15rem .5rem; border-radius:100px; background:var(--pc-chip); color:var(--muted); }
-  .pricing-page .switch{ position:relative; width:3.4em; height:1.9em; border-radius:100px; background:var(--pc-chip); border:1px solid var(--pc-line-hover); flex:0 0 auto; transition:background .2s ease, border-color .2s ease; }
-  .pricing-page .switch .knob{ position:absolute; top:.2em; left:.2em; width:1.4em; height:1.4em; border-radius:50%; background:var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .2s ease; }
-  .pricing-page .switch .knob::after{ content:""; width:5px; height:5px; border-radius:50%; background:var(--paper); }
-  .pricing-page .switch[aria-checked="true"] .knob{ transform:translateX(1.5em); }
-  .pricing-page .switch[aria-disabled="true"]{ cursor:not-allowed; opacity:.65; }
+  /* ---------- Note under the cards ---------- */
   .pricing-page .pricing-msgs{ position:relative; text-align:center; margin-top:.7em; }
   .pricing-page .pricing-note{ min-height:1.3em; font-size:.95em; color:var(--muted); }
   
@@ -233,7 +221,7 @@ export const PRICING_STYLES = `
     .pricing-page .plan-desc{ min-height:0; }
   }
   @media (prefers-reduced-motion:reduce){
-    .pricing-page .plan, .pricing-page .plan::before, .pricing-page .plan-cta, .pricing-page .switch, .pricing-page .switch .knob{ transition:none; }
+    .pricing-page .plan, .pricing-page .plan::before, .pricing-page .plan-cta{ transition:none; }
     .pricing-page .plan:hover, .pricing-page .plan--featured:hover{ transform:none; }
     .pricing-page .plan--featured{ transform:none; }
   }
