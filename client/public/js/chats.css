@@ -1444,21 +1444,44 @@
 
   /* ---------- INFO COLUMN ---------- */
   .info-col{
+    --panel-content-w:266px;
     width:310px; flex-shrink:0;
     border-left:1px solid var(--border);
     overflow-y:auto;
     padding:18px 22px 28px;
-    transition:width .2s ease, padding .2s ease, opacity .15s ease;
+    transition:width 220ms var(--ease-out,ease), padding 220ms var(--ease-out,ease), opacity 220ms var(--ease-out,ease);
   }
   .info-col.collapsed{
     width:0; padding-left:0; padding-right:0; opacity:0;
     border-left:none; overflow:hidden;
+    transition-duration:176ms; transition-timing-function:var(--ease-in,ease-in);
   }
   /* Settings is a desktop workspace state, not a narrow information card. */
   .info-col.chat-settings-open{
+    --panel-content-w:min(440px, 36vw);
     width:min(440px, 36vw); padding:0; overflow:hidden;
     display:flex; flex-direction:column;
   }
+  /* Opened from its trigger, closed back towards it (components/chat/usePanelMotion):
+     220 ms ease-out in, rows 30 ms apart; out 176 ms ease-in. The contents keep
+     their width while the column grows or shrinks, so nothing reflows mid-way. */
+  .info-col.is-opening, .info-col.is-closing{ transform-origin:calc(100% + var(--panel-origin-x, 0px)) var(--panel-origin-y, 0px); }
+  .info-col.is-opening{ animation:panel-from-trigger 220ms var(--ease-out,ease-out) both; }
+  .info-col.is-closing{ animation:panel-to-trigger 176ms var(--ease-in,ease-in) both; pointer-events:none; }
+  .info-col.is-opening > *, .info-col.is-closing > *{ min-width:var(--panel-content-w); }
+  .info-col.is-opening > *, .info-col.is-opening .cs > .cs-section{ animation:panel-row-in 220ms var(--ease-out,ease-out) both; }
+  .info-col.is-opening > :nth-child(2), .info-col.is-opening .cs > .cs-section:nth-child(2){ animation-delay:30ms; }
+  .info-col.is-opening > :nth-child(3), .info-col.is-opening .cs > .cs-section:nth-child(3){ animation-delay:60ms; }
+  .info-col.is-opening > :nth-child(4), .info-col.is-opening .cs > .cs-section:nth-child(4){ animation-delay:90ms; }
+  .info-col.is-opening > :nth-child(5), .info-col.is-opening .cs > .cs-section:nth-child(5){ animation-delay:120ms; }
+  .info-col.is-opening > :nth-child(6), .info-col.is-opening .cs > .cs-section:nth-child(6){ animation-delay:150ms; }
+  .info-col.is-opening > :nth-child(7), .info-col.is-opening .cs > .cs-section:nth-child(7){ animation-delay:180ms; }
+  .info-col.is-opening > :nth-child(8), .info-col.is-opening .cs > .cs-section:nth-child(8){ animation-delay:210ms; }
+  .info-col.is-opening > :nth-child(9), .info-col.is-opening .cs > .cs-section:nth-child(9){ animation-delay:240ms; }
+  .info-col.is-opening > :nth-child(n+10), .info-col.is-opening .cs > .cs-section:nth-child(n+10){ animation-delay:270ms; }
+  @keyframes panel-from-trigger{ from{ opacity:0; transform:scale(.95); } to{ opacity:1; transform:none; } }
+  @keyframes panel-to-trigger{ from{ opacity:1; transform:none; } to{ opacity:0; transform:scale(.95); } }
+  @keyframes panel-row-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
   .info-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .chat-settings-panel-head{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1567,7 +1590,7 @@
 
   @media (max-width:1080px) and (min-width:761px){
     .info-col{ display:none; }
-    .info-col.chat-settings-open{ display:flex; width:min(400px, 38vw); }
+    .info-col.chat-settings-open{ display:flex; width:min(400px, 38vw); --panel-content-w:min(400px, 38vw); }
   }
 
   /* =====================================================================
@@ -2191,9 +2214,10 @@
   .chat-message-menu, .chat-message-menu.is-closing, .chat-message-menu button,
   .chat-modal, .chat-modal.is-closing, .chat-modal-card, .chat-modal.is-closing .chat-modal-card,
   .chat-media-preview-composer, .msg-row.msg-enter,
+  .info-col.is-opening, .info-col.is-closing, .info-col.is-opening > *, .info-col.is-opening .cs > .cs-section,
   .nav-forward .chat-col.mobile-visible, .nav-forward .info-col.mobile-visible,
   .nav-back .contacts-col:not(.mobile-hidden), .nav-back .chat-col.mobile-visible{ animation-duration:1ms !important; animation-delay:0ms !important; }
   .elie-typing i{ animation:none; }
-  .search-box, .compose-btn, .chat-btn{ transition:none; }
+  .search-box, .compose-btn, .chat-btn, .info-col{ transition:none; }
   .compose-btn:active, .chat-btn:not(:disabled):active{ transform:none; }
 }

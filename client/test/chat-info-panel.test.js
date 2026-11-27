@@ -79,7 +79,7 @@ test('chat settings: rendered in the desktop information column with its own clo
   assert.equal(thread.chatSettingsHref('/chats?c=a b'), '/chat-settings?returnTo=%2Fchats%3Fc%3Da%20b');
   assert.equal(thread.chatSettingsHref(undefined), '/chat-settings?returnTo=%2Fchats');
   assert.match(source, /className="chat-settings-panel-head"/);
-  assert.match(source, /<div className="cs-embedded">\s*<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => \{ setChatSettingsEmbedded\(false\); setInboxView\('archived'\); \}\} \/>/);
+  assert.match(source, /<div className="cs-embedded">\s*<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => closeChatSettings\(\(\) => setInboxView\('archived'\)\)\} \/>/);
   assert.doesNotMatch(source, /<iframe|chat-settings\?embedded=1/, 'no second copy of the app in a frame');
 });
 
