@@ -61,7 +61,7 @@ import {
   postListingMessage, previewUrlFor, releasePreviewUrls, REPLY_COMMAND, saveAttachmentMessages, sendComposerMessage, uploadAttachment,
   uploadContent,
 } from '../lib/chat/composer';
-import { awaitStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
+import { awaitStylesheet, releaseStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
 import { readStored, resolveSettings, writeStored } from '../lib/chat/chatSettings';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
@@ -903,16 +903,14 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   const hydrated = useHydrated();
   const [stylesLoaded, setStylesLoaded] = useState(false);
   const stylesReady = !hydrated || stylesLoaded || chatsStylesheetApplied();
-  const addedStylesheetRef = useRef<HTMLLinkElement | null>(null);
-  useEffect(() => () => { addedStylesheetRef.current?.remove(); }, []);
+  // Its rules are global (body, *, .app-shell): leaving Chats removes it, even the document's copy.
+  useEffect(() => () => releaseStylesheet(document, chatsCssHref), []);
   useEffect(() => {
     if (!hydrated || stylesLoaded) return undefined;
     // Already applied (opened directly): remember it, and stop checking.
     if (chatsStylesheetApplied()) { setStylesLoaded(true); return undefined; }
     // Never stays hidden: shown after 4 s whatever happens (lib/chat/chatsStylesheet).
-    const { added, stop } = awaitStylesheet(document, chatsCssHref, () => setStylesLoaded(true), window);
-    if (added) addedStylesheetRef.current = added;
-    return stop;
+    return awaitStylesheet(document, chatsCssHref, () => setStylesLoaded(true), window);
   }, [hydrated, stylesLoaded]);
   useEffect(() => {
     try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
