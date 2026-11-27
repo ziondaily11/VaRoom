@@ -60,8 +60,8 @@ const keys = (kpis) => kpis.map((k) => k.key);
 test('each niche gets its own headline metrics', () => {
   assert.deepEqual(keys(view(overview('airbnb', { has_stays: true })).headline), ['value', 'nights', 'occupancy', 'nightly']);
   assert.deepEqual(keys(view(overview('venue', { has_stays: true })).headline), ['value', 'daysBooked', 'utilisation', 'average']);
-  assert.deepEqual(keys(view(overview('property', { has_rent: true })).headline), ['enquiries', 'leaseRequests', 'leaseApproved', 'monthlyRent']);
-  assert.deepEqual(keys(view(overview('office')).headline), ['enquiries', 'leaseRequests', 'leaseApproved', 'leaseValue']);
+  assert.deepEqual(keys(view(overview('property', { has_rent: true })).headline), ['enquiries', 'places', 'leaseRequests', 'leaseApproved', 'monthlyRent']);
+  assert.deepEqual(keys(view(overview('office')).headline), ['enquiries', 'places', 'leaseRequests', 'leaseApproved', 'leaseValue']);
   assert.deepEqual(keys(view(overview(null)).headline), ['requests', 'approved', 'value', 'average']);
 });
 
@@ -79,6 +79,33 @@ test('the portfolio refines the niche: restaurant-only hotels, homes for sale, h
 
   assert.ok(keys(view(overview('venue', { has_hourly: true })).secondary).includes('hours'));
   assert.ok(!keys(view(overview('venue', { has_hourly: false })).secondary).includes('hours'));
+});
+
+test('places sold, rented and leased (migration 000088): the sale hero, a tile for rentals and offices, a listings column', () => {
+  const sale = view(overview('property', { has_sale: true }, { sold: 2, sold_value: '24000000', market_days: '41.5' }, { sold: 1 }));
+  assert.deepEqual([sale.hero.key, sale.hero.label, sale.hero.value, sale.hero.previous], ['places', 'Places sold', 2, 1]);
+  assert.deepEqual(keys(sale.tiles), ['marketDays', 'soldValue', 'views', 'enquiries', 'contacts', 'interest'], 'views, enquiries and contacts move into the tiles');
+  const tile = (v, key) => v.tiles.find((k) => k.key === key);
+  assert.equal(tile(sale, 'soldValue').value, 24000000);
+  assert.deepEqual([tile(sale, 'marketDays').value, tile(sale, 'marketDays').better], [41.5, 'down']);
+  assert.equal(sale.listingColumns.at(-1).label, 'Sold');
+  assert.equal(niche.trendKeyFor('places'), 'outcomes');
+
+  const both = view(overview('property', { has_rent: true, has_sale: true }, { rented: 3, sold: 1 }));
+  assert.deepEqual(keys(both.tiles), ['places', 'leaseRequests', 'leaseApproved', 'monthlyRent', 'marketDays', 'leaseLength']);
+  assert.deepEqual([both.tiles[0].label, both.tiles[0].value], ['Places rented or sold', 4]);
+  assert.equal(both.listingColumns.at(-1).label, 'Rented or sold');
+  assert.equal(view(overview('property', { has_rent: true })).tiles[0].label, 'Places rented');
+
+  const places = (niche, categories) => view(overview(niche, { categories }, { leased: 1, rented: 2 })).tiles[0];
+  assert.deepEqual([places('office', ['office']).label, places('office', ['office']).value], ['Places leased', 3]);
+  assert.equal(places('shop', ['shop']).label, 'Places rented');
+  assert.equal(places('office', ['office', 'shop']).label, 'Places leased or rented');
+  for (const n of ['airbnb', 'hotel', 'venue']) assert.ok(!keys(view(overview(n, { has_stays: true })).tiles).includes('places'), n);
+
+  // Deployed before migration 000088: no outcome fields, read as none instead of failing the page.
+  const before = api.parseOverview(overview('property', { has_sale: true }));
+  assert.deepEqual([before.current.sold, before.current.soldValue, before.current.marketDays, before.listings[0].outcomes], [0, 0, null, 0]);
 });
 
 test('derived metrics: occupancy, nightly rate, stay length, cancellation', () => {
