@@ -231,8 +231,13 @@ test('legal pages: the list ends level with the text; a VaRoom wordmark sits cen
   assert.match(page, /<div className="pp-columns">\s*<TableOfContents[\s\S]*?<\/article>\s*<\/div>\s*\{\/\*[^*]*\*\/\}\s*<div className="pp-wordmark" aria-hidden="true">/);
   assert.match(LEGAL_STYLES, /\.pp-columns \{\s*display: grid;/);
   assert.match(LEGAL_STYLES, /\.pp-toc \{\s*position: sticky;\s*top: 0;\s*max-height: 100cqh;/);
-  // Hover: the word grows and the colour blooms in slowly; motion stops under reduced motion.
+  // Hover: the word grows; the colour opens patch by patch (five mask blobs, each
+  // with its own delay) and flows; motion stops under reduced motion.
   assert.match(LEGAL_STYLES, /\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*?transform: scale\(1\.06\)/);
-  assert.match(LEGAL_STYLES, /opacity 1800ms/);
-  assert.match(LEGAL_STYLES, /prefers-reduced-motion[\s\S]*\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*animation: none;\s*filter: none;\s*transform: none;/);
+  for (let i = 1; i <= 5; i += 1) {
+    assert.match(LEGAL_STYLES, new RegExp(`@property --pp-b${i} \\{ syntax: '<percentage>'`));
+    assert.match(LEGAL_STYLES, new RegExp(`\\.pp-wordmark:hover \\.pp-wordmark-glow,[\\s\\S]*?--pp-b${i}: 100%;`));
+  }
+  assert.match(LEGAL_STYLES, /mask-image: var\(--pp-mask\);/);
+  assert.match(LEGAL_STYLES, /prefers-reduced-motion[\s\S]*\.pp-wordmark:hover \.pp-wordmark-glow[\s\S]*animation: none;\s*transform: none;\s*transition: opacity 600ms ease;/);
 });
