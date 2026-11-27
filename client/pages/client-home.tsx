@@ -56,6 +56,7 @@ import { pageAfter, type FeedCursorRow } from '../lib/discover/feedCursor';
 import { feedImageHints, feedPhotoSrcSet, isSlideNear, previewPhotoUrl } from '../lib/discover/feedMedia';
 import { afterFeedSettles } from '../lib/discover/deferredWork';
 import { MapLink } from '../components/maps/LocationCard';
+import { listingAction } from '../lib/listings/listingAction';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // The lightbox and the report dialog load when first opened (and are fetched
@@ -64,7 +65,7 @@ const loadOverlays = () => import('../components/clientHome/ClientHomeOverlays')
 const Lightbox = dynamic(() => loadOverlays().then((module) => module.Lightbox), { ssr: false });
 const ReportModal = dynamic(() => loadOverlays().then((module) => module.ReportModal), { ssr: false });
 
-const select = 'id,title,description,location_text,category,verified,availability_status,created_at,live_since,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
+const select = 'id,title,description,location_text,category,listing_purpose,supports_stay,supports_table_reservation,verified,availability_status,created_at,live_since,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height),listing_booking_details(listing_purpose)';
 const categories = [
   ['all', 'All'],
   ['airbnb', 'Airbnbs'],
@@ -91,6 +92,11 @@ type Listing = {
   description?: string;
   location_text?: string;
   category?: string;
+  /** Property: rent, sale or both (older ones keep it in listing_booking_details). */
+  listing_purpose?: string | null;
+  supports_stay?: boolean | null;
+  supports_table_reservation?: boolean | null;
+  listing_booking_details?: unknown;
   verified?: boolean;
   availability_status?: string;
   created_at?: string;
@@ -609,8 +615,8 @@ function ListingCard({
         />
         <div className={styles.actions}>
           {ownListing || unavailable
-            ? <span className={`${styles.action} ${styles.disabledAction}`} title={ownListing ? 'This is your listing' : 'This listing is not available'}><CalendarIcon />Book</span>
-            : <Link className={styles.action} href={`/booking?listing=${encodeURIComponent(listing.id)}`}><CalendarIcon />Book</Link>}
+            ? <span className={`${styles.action} ${styles.disabledAction}`} title={ownListing ? 'This is your listing' : 'This listing is not available'}><CalendarIcon />{listingAction(listing)}</span>
+            : <Link className={styles.action} href={`/booking?listing=${encodeURIComponent(listing.id)}`}><CalendarIcon />{listingAction(listing)}</Link>}
           {ownListing
             ? <span className={`${styles.action} ${styles.disabledAction}`} title="This is your listing"><ChatIcon />Chat</span>
             : <button type="button" className={styles.action} onClick={onChat}><ChatIcon />Chat</button>}

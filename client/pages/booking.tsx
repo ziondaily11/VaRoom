@@ -169,7 +169,7 @@ export default function BookingPage() {
 
   const book = useCallback(async (choice: StayChoice, total: number): Promise<string | null> => {
     if (!client || !listing || !kind || !userId) return 'Not signed in.';
-    if (isOwner) return MESSAGES.ownListing;
+    if (isOwner) return MESSAGES.ownListing(listing);
     // The database tells the host (booking notifications are created with the booking).
     const { error } = await client.from('bookings').insert(bookingPayload(listing, kind, userId, total, choice));
     if (error) return bookingFailureText(error.message);

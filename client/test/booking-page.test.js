@@ -162,9 +162,9 @@ test('booking sits in the account shell with the icon rail, like Marketplace; it
 test('the owner sees the page with notes instead of the actions', () => {
   const page = fs.readFileSync(path.join(root, 'pages', 'booking.tsx'), 'utf8');
   assert.match(page, /const isOwner = Boolean\(listing && isOwnListing\(listing, userId\)\);/);
-  assert.match(page, /if \(isOwner\) return MESSAGES\.ownListing;/, 'a booking is never sent for the owner');
+  assert.match(page, /if \(isOwner\) return MESSAGES\.ownListing\(listing\);/, 'a booking is never sent for the owner');
   const widget = fs.readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
-  assert.match(widget, /isOwner \? <OwnerNote listingId=\{listing\.id\} \/>/);
+  assert.match(widget, /isOwner \? <OwnerNote listing=\{listing\} \/>/);
   assert.match(widget, /if \(submitting\.current \|\| isOwner \|\| !line\) return;/);
   const details = fs.readFileSync(path.join(root, 'components', 'booking', 'ListingDetails.tsx'), 'utf8');
   assert.match(details, /\{MESSAGES\.ownContact\}/);
@@ -189,4 +189,21 @@ test('reviews: properties, offices and shops show nothing until one exists; othe
   assert.match(details, /<Link className="host-name" href=\{hostProfile\}>/);
   const widget = fs.readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
   assert.match(widget, /rating && !reviewsOptional\(kind\) && <span className="new-badge">/);
+});
+
+test('each listing type has its own action: rent, buy, lease, reserve or book', () => {
+  const { listingAction } = loadTs(path.join(root, 'lib', 'listings', 'listingAction.ts'));
+  const property = (listing_purpose, details) => ({ category: 'property', listing_purpose, listing_booking_details: details });
+  assert.equal(listingAction(property('rent')), 'Rent');
+  assert.equal(listingAction(property('sale')), 'Buy');
+  assert.equal(listingAction(property('both')), 'Rent or buy');
+  assert.equal(listingAction(property(null, [{ listing_purpose: 'sale' }])), 'Buy', 'older properties keep the purpose in the details');
+  assert.equal(listingAction(property(null, null)), 'Rent', 'the same default as the booking widget');
+  assert.equal(listingAction({ category: 'office' }), 'Lease');
+  assert.equal(listingAction({ category: 'shop' }), 'Rent');
+  assert.equal(listingAction({ category: 'hotel', supports_stay: false, supports_table_reservation: true }), 'Reserve');
+  assert.equal(listingAction({ category: 'hotel', supports_stay: true, supports_table_reservation: true }), 'Book');
+  ['airbnb', 'venue', 'hotel'].forEach((category) => assert.equal(listingAction({ category }), 'Book'));
+  assert.equal(bl.MESSAGES.ownListing(property('sale')), 'This is your own listing. Guests buy it here.');
+  assert.equal(bl.MESSAGES.ownListing({ category: 'airbnb' }), 'This is your own listing. Guests book it here.');
 });
