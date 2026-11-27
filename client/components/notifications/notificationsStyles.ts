@@ -27,6 +27,7 @@ export const NOTIFICATIONS_STYLES = `
     --green:#7cc99a; --amber:#f2bd76; --tint-red:#f08b9a;
   }
   .notifications-page{
+    display:flex; align-items:flex-start;
     flex:1; min-width:0; width:100%; min-height:100vh; overflow-y:auto; box-sizing:border-box;
     background:var(--paper); color:var(--ink); font-family:var(--font-body);
     transition:background var(--motion-quick,200ms) var(--ease-out,ease), color var(--motion-quick,200ms) var(--ease-out,ease);
@@ -36,7 +37,7 @@ export const NOTIFICATIONS_STYLES = `
   .host-layout-active .notifications-page{ min-height:100%; height:auto; overflow-y:visible; }
   .notifications-page button{ font:inherit; color:inherit; }
   .notifications-page :focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
-  .notifications-page .main-inner{ max-width:760px; margin:0 auto; padding:28px 32px 64px; }
+  .notifications-page .main-inner{ flex:1 1 auto; min-width:0; max-width:760px; margin:0 auto; padding:28px 32px 64px; }
   .notifications-page .icon{ width:18px; height:18px; flex-shrink:0; }
   .notifications-page .icon-sm{ width:15px; height:15px; flex-shrink:0; }
   .notifications-page .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -62,6 +63,7 @@ export const NOTIFICATIONS_STYLES = `
   .notifications-page .mark-all-done path + path{ animation-delay:90ms; }
   @keyframes notif-draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
   .notifications-page .notif-menu-btn{ display:none; }
+  .notifications-page .notif-btn.is-active{ background:var(--black-soft); }
 
   /* ---------- Toolbar: tabs and search ---------- */
   .notifications-page .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
@@ -176,6 +178,78 @@ export const NOTIFICATIONS_STYLES = `
   .notifications-page .sk-line2{ width:80%; height:12px; }
   .notifications-page .sk-time{ width:44px; height:11px; }
 
+  /* ---------- Selection mode (right-click → Select) ---------- */
+  .notifications-page .notif-row{ -webkit-touch-callout:none; }
+  .notifications-page .notif-row.is-selected{ background:var(--row-hover); }
+  .notifications-page .notif-badge{ position:relative; }
+  .notifications-page .notif-select-check{
+    position:absolute; right:-3px; bottom:-3px; width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; background:var(--red); color:#fff; border:2px solid var(--card);
+  }
+  .notifications-page .notif-select-check .nt-icon{ width:11px; height:11px; stroke-width:3; }
+  .notifications-page .notif-select-bar{
+    display:flex; align-items:center; gap:8px; margin-bottom:16px; padding:6px 8px;
+    background:var(--card); border:1px solid var(--card-line); border-radius:12px; box-shadow:var(--card-shadow);
+  }
+  .notifications-page .notif-select-count{ flex:1; font-size:.875rem; font-weight:600; }
+  .notifications-page .notif-select-cancel, .notifications-page .notif-select-action{
+    display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border:0; border-radius:8px;
+    background:transparent; font-size:.8125rem; font-weight:600; cursor:pointer;
+  }
+  .notifications-page .notif-select-cancel{ width:32px; padding:0; justify-content:center; }
+  .notifications-page .notif-select-action:disabled{ opacity:.45; cursor:default; }
+  .notifications-page .notif-select-action.danger{ color:var(--tint-red); }
+  @media (hover:hover){ .notifications-page .notif-select-cancel:hover, .notifications-page .notif-select-action:not(:disabled):hover{ background:var(--row-hover); } }
+  .notifications-page .nt-icon{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------- A row's menu (components/chat/MessageActionMenu, as in Chats) ---------- */
+  .notifications-page .chat-message-menu{
+    position:fixed; z-index:1300; min-width:190px; padding:5px; border:1px solid var(--line); border-radius:14px;
+    background:var(--card); color:var(--ink); box-shadow:0 12px 32px rgba(20,22,28,.16), 0 2px 6px rgba(20,22,28,.06);
+    animation:notif-pop-in var(--motion-quick,200ms) var(--ease-out,ease) both;
+  }
+  .notifications-page .chat-message-menu.is-closing{ animation:notif-pop-out var(--motion-micro,150ms) var(--ease-in,ease) both; pointer-events:none; }
+  .notifications-page .chat-message-menu button{
+    display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px; border:0; border-radius:9px;
+    background:transparent; font-size:.8125rem; text-align:left; cursor:pointer;
+    animation:notif-rise var(--motion-quick,200ms) var(--ease-out,ease) both; animation-delay:calc(var(--i,0) * 30ms);
+  }
+  .notifications-page .chat-message-menu.is-closing button{ animation:none; }
+  .notifications-page .chat-message-menu button:last-child{ color:var(--tint-red); }
+  @media (hover:hover){ .notifications-page .chat-message-menu button:hover{ background:var(--row-hover); } }
+  .notifications-page .chat-message-menu .icon{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  @keyframes notif-pop-in{ from{ opacity:0; transform:scale(.95); } to{ opacity:1; transform:none; } }
+  @keyframes notif-pop-out{ from{ opacity:1; transform:none; } to{ opacity:0; transform:scale(.95); } }
+
+  /* ---------- Notification Settings panel (as Chat Settings beside a chat) ---------- */
+  .notifications-page .notif-settings-panel{
+    display:flex; flex-direction:column; flex-shrink:0; width:min(440px, 36vw); height:100vh;
+    position:sticky; top:0; border-left:1px solid var(--line); background:var(--paper);
+  }
+  .notifications-page .notif-settings-panel[hidden]{ display:none; }
+  .notifications-page .notif-settings-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:54px; padding:0 12px 0 18px;
+    border-bottom:1px solid var(--line); font-size:.9063rem; font-weight:700;
+  }
+  .notifications-page .notif-settings-close{
+    width:28px; height:28px; border-radius:50%; border:0; background:var(--black-soft); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .notifications-page .notif-settings-note{ display:flex; align-items:center; gap:10px; padding:12px 0; color:var(--muted); font-size:.85rem; }
+  .notifications-page .notif-settings-note button{ border:0; padding:0; background:transparent; color:var(--red); font-weight:700; cursor:pointer; }
+  @media (hover:hover){ .notifications-page .notif-settings-close:hover{ color:var(--ink); } }
+  .notifications-page .notif-settings-scrim{ display:none; }
+  @keyframes notif-panel-in{ from{ transform:translateX(100%); } to{ transform:none; } }
+  @keyframes notif-fade-in{ from{ opacity:0; } to{ opacity:1; } }
+  /* Narrower screens: the panel slides over the list instead of beside it. */
+  @media (max-width:1080px){
+    .notifications-page .notif-settings-panel{
+      position:fixed; top:0; right:0; bottom:0; height:auto; width:min(400px, 100vw); z-index:1200;
+      box-shadow:-12px 0 40px rgba(0,0,0,.18); animation:notif-panel-in var(--motion-standard,250ms) var(--ease-out,ease) both;
+    }
+    .notifications-page .notif-settings-scrim{ display:block; position:fixed; inset:0; z-index:1199; background:rgba(0,0,0,.32); animation:notif-fade-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+  }
+
   /* ---------- Phones and tablets ---------- */
   @media (max-width:860px){
     .notifications-page .notif-menu-btn{ display:flex; }
@@ -199,7 +273,9 @@ export const NOTIFICATIONS_STYLES = `
   }
 
   @media (prefers-reduced-motion:reduce){
-    .notifications-page .is-revealing .notif-group > li, .notifications-page .mark-all-done path, .notifications-page .sk{ animation:none; }
+    .notifications-page .is-revealing .notif-group > li, .notifications-page .mark-all-done path, .notifications-page .sk,
+    .notifications-page .chat-message-menu, .notifications-page .chat-message-menu button,
+    .notifications-page .notif-settings-panel, .notifications-page .notif-settings-scrim{ animation:none; }
     .notifications-page .notif-dot, .notifications-page .notif-btn, .notifications-page .pill-btn, .notifications-page .notif-row{ transition:none; }
     .notifications-page .notif-btn:active, .notifications-page .pill-btn:active, .notifications-page .notif-menu-btn:active{ transform:none; }
   }

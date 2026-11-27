@@ -77,6 +77,35 @@ export function markAllNotificationsReadRequest(client: SupabaseClient, userId: 
     .eq('read', false);
 }
 
+/**
+ * Deletes the recipient's notifications and resolves the ids actually deleted
+ * (row security deletes nothing it does not allow, without an error).
+ */
+export async function deleteNotificationsRequest(client: SupabaseClient, ids: string[], userId: string): Promise<string[]> {
+  const { data, error } = await client
+    .from('notifications')
+    .delete()
+    .in('id', ids)
+    .eq('recipient_user_id', userId)
+    .select('id');
+  if (error) throw error;
+  return ((data || []) as Array<{ id: string }>).map((row) => row.id);
+}
+
+/** The list without these notifications (unread ones leave the count); the cache follows. */
+export function removeLocally(
+  items: NotificationItem[],
+  unreadCount: number,
+  ids: string[],
+  userId: string
+): NotificationsState {
+  const gone = new Set(ids);
+  const unreadGone = items.filter((n) => gone.has(n.id) && !n.read).length;
+  const next = { items: items.filter((n) => !gone.has(n.id)), unreadCount: Math.max(0, unreadCount - unreadGone) };
+  setCachedNotifications(next.items, userId, next.unreadCount);
+  return next;
+}
+
 /** Optimistic state after opening one notification (cache first, else in memory). */
 export function markReadLocally(
   items: NotificationItem[],
