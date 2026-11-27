@@ -28,7 +28,7 @@ export const NOTIFICATIONS_STYLES = `
   }
   .notifications-page{
     display:flex; align-items:flex-start;
-    flex:1; min-width:0; width:100%; min-height:100vh; overflow-y:auto; box-sizing:border-box;
+    flex:1; min-width:0; width:100%; min-height:100vh; overflow-y:auto; overflow-x:clip; box-sizing:border-box;
     background:var(--paper); color:var(--ink); font-family:var(--font-body);
     transition:background var(--motion-quick,200ms) var(--ease-out,ease), color var(--motion-quick,200ms) var(--ease-out,ease);
   }
@@ -224,7 +224,7 @@ export const NOTIFICATIONS_STYLES = `
   /* ---------- Notification Settings panel (as Chat Settings beside a chat) ---------- */
   .notifications-page .notif-settings-panel{
     display:flex; flex-direction:column; flex-shrink:0; width:min(440px, 36vw); height:100vh;
-    position:sticky; top:0; border-left:1px solid var(--line); background:var(--paper);
+    position:sticky; top:0; z-index:2; border-left:1px solid var(--line); background:var(--paper);
   }
   .notifications-page .notif-settings-panel[hidden]{ display:none; }
   .notifications-page .notif-settings-head{
@@ -239,15 +239,25 @@ export const NOTIFICATIONS_STYLES = `
   .notifications-page .notif-settings-note button{ border:0; padding:0; background:transparent; color:var(--red); font-weight:700; cursor:pointer; }
   @media (hover:hover){ .notifications-page .notif-settings-close:hover{ color:var(--ink); } }
   .notifications-page .notif-settings-scrim{ display:none; }
+  /* Motion (animation.md §8.3 drawer): in from the right 250 ms ease-out, the
+     contents settling 40 ms later (A5); out 200 ms ease-in, ignoring input.
+     The panel's own slide never widens the page (overflow-x:clip above). */
+  .notifications-page .notif-settings-panel.is-open{ animation:notif-panel-in var(--motion-standard,250ms) var(--ease-out,ease) both; }
+  .notifications-page .notif-settings-panel.is-open .cs-embedded{ animation:notif-panel-settle var(--motion-quick,200ms) var(--ease-out,ease) 40ms both; }
+  .notifications-page .notif-settings-panel.is-closing{ pointer-events:none; animation:notif-panel-out var(--motion-quick,200ms) var(--ease-in,ease) both; }
   @keyframes notif-panel-in{ from{ transform:translateX(100%); } to{ transform:none; } }
+  @keyframes notif-panel-out{ from{ transform:none; } to{ transform:translateX(100%); } }
+  @keyframes notif-panel-settle{ from{ opacity:0; transform:translateX(6px); } to{ opacity:1; transform:none; } }
   @keyframes notif-fade-in{ from{ opacity:0; } to{ opacity:1; } }
-  /* Narrower screens: the panel slides over the list instead of beside it. */
+  @keyframes notif-fade-out{ from{ opacity:1; } to{ opacity:0; } }
+  /* Narrower screens: the panel slides over the list instead of beside it, over a fading scrim (in 200 ms, out 150 ms). */
   @media (max-width:1080px){
     .notifications-page .notif-settings-panel{
       position:fixed; top:0; right:0; bottom:0; height:auto; width:min(400px, 100vw); z-index:1200;
-      box-shadow:-12px 0 40px rgba(0,0,0,.18); animation:notif-panel-in var(--motion-standard,250ms) var(--ease-out,ease) both;
+      box-shadow:-12px 0 40px rgba(0,0,0,.18);
     }
     .notifications-page .notif-settings-scrim{ display:block; position:fixed; inset:0; z-index:1199; background:rgba(0,0,0,.32); animation:notif-fade-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+    .notifications-page .notif-settings-scrim.is-closing{ pointer-events:none; animation:notif-fade-out var(--motion-micro,150ms) var(--ease-in,ease) both; }
   }
 
   /* ---------- Phones and tablets ---------- */
@@ -273,9 +283,11 @@ export const NOTIFICATIONS_STYLES = `
   }
 
   @media (prefers-reduced-motion:reduce){
-    .notifications-page .is-revealing .notif-group > li, .notifications-page .mark-all-done path, .notifications-page .sk,
+    .notifications-page .is-revealing .notif-group > li, .notifications-page .mark-all-done path, .notifications-page .sk{ animation:none; }
+    /* Menus and the panel: near-instant both ways (§13.2), so exits also end at once. */
     .notifications-page .chat-message-menu, .notifications-page .chat-message-menu button,
-    .notifications-page .notif-settings-panel, .notifications-page .notif-settings-scrim{ animation:none; }
+    .notifications-page .notif-settings-panel, .notifications-page .notif-settings-panel .cs-embedded,
+    .notifications-page .notif-settings-scrim{ animation-duration:1ms; animation-delay:0ms; }
     .notifications-page .notif-dot, .notifications-page .notif-btn, .notifications-page .pill-btn, .notifications-page .notif-row{ transition:none; }
     .notifications-page .notif-btn:active, .notifications-page .pill-btn:active, .notifications-page .notif-menu-btn:active{ transform:none; }
   }

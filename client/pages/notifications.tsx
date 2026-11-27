@@ -43,10 +43,12 @@ import {
 import { toggleSelection } from '../lib/chat/inbox';
 import { refreshCounts } from '../lib/counts/CountsBridge';
 import { usePresentValue } from '../lib/motion/usePresence';
+import { useFlipX } from '../lib/motion/flip';
+import { DURATION, EASE } from '../lib/motion/tokens';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
 import MessageActionMenu, { MESSAGE_MENU_EXIT_MS } from '../components/chat/MessageActionMenu';
 import ConfirmSheet from '../components/bookings/ConfirmSheet';
-import NotificationSettingsPanel from '../components/notifications/NotificationSettingsPanel';
+import NotificationSettingsPanel, { PANEL_EXIT_MS } from '../components/notifications/NotificationSettingsPanel';
 import { NOTIFICATIONS_STYLES } from '../components/notifications/notificationsStyles';
 import {
   AlertIcon,
@@ -317,14 +319,23 @@ export default function NotificationsPage() {
   const tabCounts = useMemo(() => countByTab(notifications), [notifications]);
 
   // ---------- Notification Settings panel ----------
-  const toggleSettings = () => {
+  // On wide screens the panel takes room beside the list; the list slides to
+  // its new place with the panel (in 250 ms, out 200 ms) instead of jumping.
+  const mainRef = useRef<HTMLDivElement | null>(null);
+  const measureList = useFlipX(mainRef, settingsOpen, {
+    duration: settingsOpen ? DURATION.standard : PANEL_EXIT_MS,
+    easing: EASE.inOut,
+  });
+  const setPanel = useCallback((open: boolean) => {
+    measureList();
     setSettingsMounted(true);
-    setSettingsOpen((open) => !open);
-  };
+    setSettingsOpen(open);
+  }, [measureList]);
+  const toggleSettings = () => setPanel(!settingsOpen);
   const closeSettings = useCallback(() => {
-    setSettingsOpen(false);
+    setPanel(false);
     settingsBtnRef.current?.focus();
-  }, []);
+  }, [setPanel]);
 
   // ---------- Selection mode and delete ----------
   const selectedItems = selected ? notifications.filter((n) => selected.has(n.id)) : [];
@@ -462,7 +473,7 @@ export default function NotificationsPage() {
 
       <div className="notifications-page">
         <NotificationSprite />
-        <div className="main-inner">
+        <div className="main-inner" ref={mainRef}>
           {loading ? (
             <div className="notifications-skeleton" role="status" aria-label="Loading notifications">
               <div className="sk-header">
@@ -610,7 +621,7 @@ export default function NotificationsPage() {
                       {searchQuery.trim() ? (
                         <button type="button" className="pill-btn" onClick={() => setSearchQuery('')}>Clear search</button>
                       ) : (
-                        <button type="button" className="pill-btn" onClick={() => { setSettingsMounted(true); setSettingsOpen(true); }}>Notification settings</button>
+                        <button type="button" className="pill-btn" onClick={() => setPanel(true)}>Notification settings</button>
                       )}
                     </div>
                   </div>
@@ -685,8 +696,6 @@ export default function NotificationsPage() {
         {settingsMounted && userId && (
           <NotificationSettingsPanel userId={userId} isHost={userRole === 'host'} open={settingsOpen} onClose={closeSettings} onError={setActionError} />
         )}
-        {/* Below 1080px the panel covers the list; a tap outside closes it. */}
-        {settingsOpen && <div className="notif-settings-scrim" aria-hidden="true" onClick={closeSettings} />}
 
         {shownMenu && (
           <MessageActionMenu<NotificationAction>
