@@ -20,23 +20,25 @@ const count = (value: string) => (value.trim() && Number.isFinite(Number(value))
 interface Props {
   client: SupabaseClient; hostId: string; listings: CalendarListing[];
   event: CalendarEvent | null; day: string; listingId: string | null;
+  /** A new entry's starting values, e.g. "Close rooms…" on a hotel. */
+  preset?: { title: string; listingId: string; color: EventColor } | null;
   onClose: () => void; onSaved: (message: string) => void;
 }
 
-export default function EventForm({ client, hostId, listings, event, day, listingId, onClose, onSaved }: Props) {
+export default function EventForm({ client, hostId, listings, event, day, listingId, preset = null, onClose, onSaved }: Props) {
   const first = useRef<HTMLInputElement>(null);
-  const [blocks, setBlocks] = useState(event ? event.blocks : Boolean(listingId));
-  const [listing, setListing] = useState(event ? event.listing_id || '' : listingId || (listings.length === 1 ? listings[0].id : ''));
+  const [blocks, setBlocks] = useState(event ? event.blocks : Boolean(preset || listingId));
+  const [listing, setListing] = useState(event ? event.listing_id || '' : preset?.listingId || listingId || (listings.length === 1 ? listings[0].id : ''));
   const chosen = listings.find((l) => l.id === listing);
   const stay = blocks && nightly(chosen);
-  const [title, setTitle] = useState(event?.title || '');
+  const [title, setTitle] = useState(event?.title || preset?.title || '');
   const [start, setStart] = useState(event ? event.series_start : day);
   // A nightly offline booking shows its check-out (the day after its last night).
   const [end, setEnd] = useState(event ? (event.blocks && nightly(listings.find((l) => l.id === event.listing_id)) ? nextDay(event.series_end) : event.series_end) : day);
   const [timed, setTimed] = useState(Boolean(event?.start_time));
   const [startTime, setStartTime] = useState(event?.start_time || '09:00');
   const [endTime, setEndTime] = useState(event?.end_time || '17:00');
-  const [color, setColor] = useState<EventColor | null>(event?.color || (event ? null : 'blue'));
+  const [color, setColor] = useState<EventColor | null>(event?.color || (event ? null : preset?.color || 'blue'));
   const [clientName, setClientName] = useState(event?.client_name || '');
   const [clientPhone, setClientPhone] = useState(event?.client_phone || '');
   const [guests, setGuests] = useState(event?.guest_count ? String(event.guest_count) : '');

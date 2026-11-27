@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, startTimes, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -134,6 +134,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
   const [hours, setHours] = useState('1');
+  const [startTime, setStartTime] = useState('');
   const [leaseStart, setLeaseStart] = useState(minLeaseDate);
   const minMonths = Math.max(1, Number(details.min_lease_months) || 1);
   const [leaseMonths, setLeaseMonths] = useState(String(minMonths));
@@ -159,7 +160,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   let line: PriceLine | null = null;
   if (isShortStay && isHourly) {
     const count = parseInt(hours, 10) || 0;
-    if (start && count > 0) line = priceLine(details.price_amount, count, plural(count, 'hour'), null);
+    if (start && startTime && count > 0) line = priceLine(details.price_amount, count, plural(count, 'hour'), null);
   } else if (isShortStay && isDaily) {
     if (start && end) {
       const days = daysBetween(start, end);
@@ -181,7 +182,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     submitting.current = true;
     setResult(null);
     confirm.current?.start();
-    const failure = await onBook({ start, end, hours: parseInt(hours, 10), leaseStart, leaseMonths: parseInt(leaseMonths, 10), guests: isShortStay ? guests : undefined }, line.total);
+    const failure = await onBook({ start, end, hours: parseInt(hours, 10), startTime: startTime || null, leaseStart, leaseMonths: parseInt(leaseMonths, 10), guests: isShortStay ? guests : undefined }, line.total);
     if (failure) {
       confirm.current?.error();
       submitting.current = false;
@@ -195,6 +196,9 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   };
 
   const problem = start && end && !isDaily ? stayProblem(details, nightsBetween(start, end)) : null;
+  // Hourly venues: the start times that fit the chosen hours on the chosen day.
+  const times = isHourly ? startTimes(details, dates, start, parseInt(hours, 10) || 0) : [];
+  const chosenSlot = times.find((t) => t.value === startTime && t.free) || null;
   const roomsLeft = isHotel && dates && start && end ? roomsLeftFor(dates, start, end) : null;
   const rangeSummary = !calendar ? 'Loading open dates…'
     : isDaily ? (start && end ? `${dayLabel(start)} → ${dayLabel(end)} · ${plural(daysBetween(start, end), 'day')}`
@@ -209,14 +213,25 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
     picker = (
       <>
         <p className="picker-title">Pick a date &amp; duration</p>
-        <p className="picker-sub">Choose an open date and how many hours you need.</p>
-        <BookingCalendar dates={dates} start={start} end={null} lastDay={bookable.last} onPick={(day) => setStart(day)} />
+        <p className="picker-sub">Choose an open date, how many hours you need, and when you start.</p>
+        <BookingCalendar dates={dates} start={start} end={null} lastDay={bookable.last} onPick={(day) => { setStart(day); setStartTime(''); }} />
         {LEGEND}
-        <p className="range-summary" aria-live="polite">{!calendar ? 'Loading open dates…' : start ? dayLabel(start, true) : 'Pick a date.'}</p>
+        <p className="range-summary" aria-live="polite">
+          {!calendar ? 'Loading open dates…' : start ? `${dayLabel(start, true)}${chosenSlot ? ` · ${chosenSlot.value}–${chosenSlot.until}` : ''}` : 'Pick a date.'}
+        </p>
         <div className="field">
           <label htmlFor="hours-input">Hours</label>
-          <input type="number" id="hours-input" min="1" inputMode="numeric" value={hours} onChange={(event) => setHours(event.target.value)} />
+          <input type="number" id="hours-input" min="1" inputMode="numeric" value={hours} onChange={(event) => { setHours(event.target.value); setStartTime(''); }} />
         </div>
+        {start && (
+          <div className="field">
+            <label htmlFor="start-time">Start time</label>
+            <select id="start-time" value={startTime} onChange={(event) => setStartTime(event.target.value)}>
+              <option value="">{times.some((t) => t.free) ? 'Choose a time' : 'No free time that day'}</option>
+              {times.map((t) => <option key={t.value} value={t.value} disabled={!t.free}>{t.value}–{t.until}{t.free ? '' : ' · taken'}</option>)}
+            </select>
+          </div>
+        )}
       </>
     );
   } else if (isShortStay) {

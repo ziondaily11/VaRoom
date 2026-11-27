@@ -117,6 +117,18 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-btn.is-danger{color:var(--bad-text);border-color:var(--bad-soft);margin-right:auto}
 .vc .vc-close.is-shown{display:inline-grid;place-items:center}
 
+.vc .vc-chip.is-table,.vc .vc-badge.is-table{background:var(--c1);color:#fff}
+.vc .vc-place-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vc .vc-hours{display:flex;flex-direction:column;gap:6px}
+.vc .vc-hours strong{font-size:.84rem}
+.vc .vc-hours-bar{position:relative;height:28px;border-radius:10px;background:var(--soft);overflow:hidden}
+.vc .vc-hours-bar span{position:absolute;top:3px;bottom:3px;border-radius:7px;background:var(--good);min-width:3px}
+.vc .vc-hours-bar span.is-request{background:var(--accent)}
+.vc .vc-hours-bar span.is-ev{background:var(--ev)}
+.vc .vc-hours-bar span.is-note{opacity:.45}
+.vc .vc-hours-scale{display:flex;justify-content:space-between;font-size:.72rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.vc .vc-hire .vc-btn{flex:none;align-self:flex-start}
+
 /* ---------- the event dialog ---------- */
 .vc .vc-dialog-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.42);display:grid;place-items:center;padding:16px}
 .vc .vc-dialog{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--card);color:var(--fg);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}

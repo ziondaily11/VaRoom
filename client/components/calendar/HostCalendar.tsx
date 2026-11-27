@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarMonth, dayLabel, ksh, nightsBetween, plural, shiftMonth, todayString } from '../../lib/booking/bookingListing';
 import {
   cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth, monthRange,
-  monthSummary, setClosed, setWeekdays, weekday, type CalendarBooking, type CalendarEvent, type CalendarListing, type HostCalendarData,
+  minutesOf, monthSummary, setClosed, setHours, setWeekdays, weekday,
+  type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
 } from '../../lib/calendar/hostCalendar';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
 import { clearHostBookings } from '../../lib/bookings/bookingsCache';
@@ -41,7 +42,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [overrides, setOverrides] = useState<Map<string, boolean>>(() => new Map());
   const [busy, setBusy] = useState<string | null>(null);
   const [mode, setMode] = useState<'month' | 'timeline'>('month');
-  const [form, setForm] = useState<{ event: CalendarEvent | null } | null>(null);
+  const [form, setForm] = useState<{ event: CalendarEvent | null; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
 
   const refresh = useCallback((force: boolean) => {
     const { year, month } = view;
@@ -84,12 +85,15 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     const ids = new Set(listings.map((l) => l.id));
     return (data?.events || []).filter((e) => !e.listing_id || ids.has(e.listing_id));
   }, [data, listings]);
+  // Hotel restaurants' table reservations (a dining-only listing isn't in the list, so only the filter narrows them).
+  const tables = useMemo(() => (data?.tables || []).filter((t) => !listingId || t.listing_id === listingId), [data, listingId]);
   const summary = useMemo(() => (data ? monthSummary(data, listings, month.days, closedAt) : null), [data, listings, month.days, closedAt]);
   const single = listings.length === 1 ? listings[0] : null;
 
   const cells = useMemo(() => month.days.map((day) => {
     const taking = bookings.filter((b) => covers(b, byId.get(b.listing_id), day));
     const dayEvents = events.filter((e) => eventOn(e, day));
+    const dayTables = tables.filter((t) => t.date === day);
     const offline = dayEvents.filter((e) => e.blocks);
     const closedCount = listings.filter((l) => closedAt(l.id, day)).length;
     const allClosed = listings.length > 0 && closedCount === listings.length;
@@ -97,8 +101,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       : taking.some((b) => b.status !== 'pending') || offline.length ? 'booked' : taking.length ? 'requested' : 'open';
     const roomsLeft = single && single.category === 'hotel' && single.units
       ? Math.max(0, single.units - taking.length - offline.reduce((sum, e) => sum + (e.units || 1), 0)) : null;
-    return { day, taking, dayEvents, closedCount, allClosed, state, roomsLeft };
-  }), [month.days, bookings, events, byId, listings, closedAt, today, single]);
+    return { day, taking, dayEvents, dayTables, closedCount, allClosed, state, roomsLeft };
+  }), [month.days, bookings, events, tables, byId, listings, closedAt, today, single]);
 
   // ---------- Actions ----------
 
@@ -160,6 +164,21 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     }
   };
 
+  const saveHours = async (listing: CalendarListing, start: string | null, end: string | null, buffer: number) => {
+    setBusy('hours');
+    try {
+      await setHours(client, listing.id, start, end, buffer);
+      clearCalendarCache(hostId);
+      await refresh(true);
+      toast.show('Hire hours saved.');
+    } catch (error) {
+      console.error('Calendar: hire hours failed:', error);
+      toast.show(calendarErrorText(error, 'That didn’t save. Please try again.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const pick = (day: string) => {
     if (range) {
       if (day < today) return;
@@ -201,11 +220,14 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       key: `${e.id}-${e.start_date}`, day: e.start_date, kind: e.blocks ? 'Booked offline' : 'Note', tone: `ev is-${e.color || 'blue'}`,
       who: `${timeText(e)}${e.title}${listings.length > 1 && e.listing_id ? ` · ${byId.get(e.listing_id)?.title || ''}` : ''}`,
     })),
+    ...tables.filter((t) => inAgenda(t.date)).map((t) => ({
+      key: `t${t.id}`, day: t.date, kind: 'Table', tone: 'table', who: `${t.time} · ${t.client_name || 'Guest'} · ${plural(t.guest_count, 'guest')}`,
+    })),
   ].sort((a, b) => a.day.localeCompare(b.day));
 
   const describe = (b: CalendarBooking) => {
     const listing = byId.get(b.listing_id);
-    const when = !b.end_date ? `${dayLabel(b.start_date)}${b.hours ? ` · ${plural(b.hours, 'hour')}` : ''}`
+    const when = !b.end_date ? `${dayLabel(b.start_date)}${b.start_time ? ` · ${b.start_time}–${b.end_time}` : b.hours ? ` · ${plural(b.hours, 'hour')}` : ''}`
       : listing?.price_unit === 'day' ? `${dayLabel(b.start_date)} → ${dayLabel(b.end_date)} · ${plural(nightsBetween(b.start_date, b.end_date) + 1, 'day')}`
         : `${dayLabel(b.start_date)} → ${dayLabel(b.end_date)} · ${plural(nightsBetween(b.start_date, b.end_date), 'night')}`;
     return [when, b.guest_count ? plural(b.guest_count, 'guest') : null, b.total_price ? ksh(Number(b.total_price)) : null].filter(Boolean).join(' · ');
@@ -288,8 +310,9 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                     if (!range && cell.day === selected) classes.push('is-selected');
                     if (inRange) classes.push('is-in-range');
                     const chips = [
-                      ...cell.taking.map((b) => ({ key: b.id, tone: b.status === 'pending' ? 'request' : 'booked', label: `${firstName(b.guest)}${listings.length > 1 ? ` · ${byId.get(b.listing_id)?.title || ''}` : ''}` })),
+                      ...cell.taking.map((b) => ({ key: b.id, tone: b.status === 'pending' ? 'request' : 'booked', label: `${b.start_time ? `${b.start_time} ` : ''}${firstName(b.guest)}${listings.length > 1 ? ` · ${byId.get(b.listing_id)?.title || ''}` : ''}` })),
                       ...cell.dayEvents.map((e) => ({ key: `e${e.id}`, tone: `ev is-${e.color || 'blue'}`, label: `${timeText(e)}${e.title}` })),
+                      ...cell.dayTables.map((t) => ({ key: `t${t.id}`, tone: 'table', label: `${t.time} Table · ${plural(t.guest_count, 'guest')}` })),
                     ];
                     return (
                       <button key={cell.day} type="button" className={classes.join(' ')} disabled={!data || Boolean(range && cell.day < today)}
@@ -333,11 +356,16 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   return (
                     <li key={l.id}>
                       <div><strong>{l.title}</strong><span className={`vc-state is-${closed ? 'closed' : 'open'}`}>{state}</span></div>
-                      {selected >= today && !weekly && (
-                        <button type="button" className="vc-pill" disabled={Boolean(busy)} onClick={() => { void apply([l], selected, selected, !closed); }}>
-                          {closed ? 'Reopen' : 'Close day'}
-                        </button>
-                      )}
+                      <div className="vc-place-actions">
+                        {selected >= today && l.category === 'hotel' && !closed && (l.units || 1) > 1 && (
+                          <button type="button" className="vc-pill" onClick={() => setForm({ event: null, preset: { title: 'Rooms closed', listingId: l.id, color: 'purple' } })}>Close rooms…</button>
+                        )}
+                        {selected >= today && !weekly && (
+                          <button type="button" className="vc-pill" disabled={Boolean(busy)} onClick={() => { void apply([l], selected, selected, !closed); }}>
+                            {closed ? 'Reopen' : 'Close day'}
+                          </button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
@@ -384,7 +412,27 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   ))}
                 </ul>
               )}
+              {listings.filter((l) => l.price_unit === 'hour').map((l) => (
+                <DayHours key={l.id} listing={l} showName={listings.length > 1}
+                  bookings={(selectedCell?.taking || []).filter((b) => b.listing_id === l.id && b.start_time)}
+                  events={(selectedCell?.dayEvents || []).filter((e) => e.listing_id === l.id && e.start_time)} />
+              ))}
+              {Boolean(selectedCell?.dayTables.length) && (
+                <ul className="vc-bookings">
+                  {selectedCell?.dayTables.map((t) => (
+                    <li key={`t${t.id}`}>
+                      <div className="vc-booking-top">
+                        <strong>{t.time} · {t.client_name || 'Guest'}</strong>
+                        <span className="vc-badge is-table">Table · {t.status === 'requested' ? 'New' : t.status === 'contacted' ? 'Contacted' : 'Closed'}</span>
+                      </div>
+                      <span className="vc-muted">{[t.restaurant_name, plural(t.guest_count, 'guest'), plural(t.table_count, 'table'), t.occasion].filter(Boolean).join(' · ')}</span>
+                      {t.client_phone && <a className="vc-muted" href={`tel:${t.client_phone.replace(/[^+\d]/g, '')}`}>{t.client_phone}</a>}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <button type="button" className="vc-btn" onClick={() => setForm({ event: null })}>+ Add to {dayLabel(selected)}</button>
+              {single?.price_unit === 'hour' && <HireHours key={single.id} listing={single} busy={Boolean(busy)} onSave={(start, end, buffer) => saveHours(single, start, end, buffer)} />}
               {single && (
                 <div className="vc-weekly">
                   <h3>Closed every week</h3>
@@ -422,7 +470,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       </div>
 
       {form && data && (
-        <EventForm client={client} hostId={hostId} listings={all} event={form.event} day={selected < today ? today : selected}
+        <EventForm client={client} hostId={hostId} listings={all} event={form.event} preset={form.preset || null} day={selected < today ? today : selected}
           listingId={single ? single.id : null} onClose={() => setForm(null)} onSaved={(message) => { void saved(message); }} />
       )}
 
@@ -439,5 +487,55 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         </div>
       )}
     </div>
+  );
+}
+
+/** An hourly venue's day: its hire hours as a bar, with each booking and timed event placed at its time. */
+function DayHours({ listing, showName, bookings, events }: { listing: CalendarListing; showName: boolean; bookings: CalendarBooking[]; events: CalendarEvent[] }) {
+  const open = minutesOf(listing.hire_start, 0);
+  const close = listing.hire_start ? minutesOf(listing.hire_end, 1440) : 1440;
+  const span = Math.max(60, close - open);
+  const place = (from: string | null | undefined, to: string | null | undefined) => {
+    const start = Math.max(open, minutesOf(from, open));
+    const end = Math.min(close, minutesOf(to, close));
+    return { left: `${((start - open) / span) * 100}%`, width: `${(Math.max(0, end - start) / span) * 100}%` };
+  };
+  return (
+    <div className="vc-hours" aria-label={`${listing.title}: hours`}>
+      {showName && <strong>{listing.title}</strong>}
+      <div className="vc-hours-bar">
+        {bookings.map((b) => <span key={b.id} className={`is-${b.status === 'pending' ? 'request' : 'booked'}`} style={place(b.start_time, b.end_time)} title={`${b.start_time}–${b.end_time} ${b.guest || 'Guest'}`} />)}
+        {events.map((e) => <span key={e.id} className={`is-ev is-${e.color || 'blue'}${e.blocks ? '' : ' is-note'}`} style={place(e.start_time, e.end_time)} title={`${e.start_time}–${e.end_time} ${e.title}`} />)}
+      </div>
+      <div className="vc-hours-scale"><span>{listing.hire_start || '00:00'}</span><span>{listing.hire_end || '24:00'}</span></div>
+    </div>
+  );
+}
+
+const BUFFERS = [0, 15, 30, 45, 60, 90, 120];
+
+/** Hire hours and the gap kept between bookings, for one venue hired by the hour. */
+function HireHours({ listing, busy, onSave }: { listing: CalendarListing; busy: boolean; onSave: (start: string | null, end: string | null, buffer: number) => void }) {
+  const [anyTime, setAnyTime] = useState(!listing.hire_start);
+  const [start, setStart] = useState(listing.hire_start || '08:00');
+  const [end, setEnd] = useState(listing.hire_end || '22:00');
+  const [buffer, setBuffer] = useState(listing.buffer_minutes || 0);
+  return (
+    <form className="vc-weekly vc-hire" onSubmit={(event) => { event.preventDefault(); onSave(anyTime ? null : start, anyTime ? null : end, buffer); }}>
+      <h3>Hire hours</h3>
+      <label className="vc-check"><input type="checkbox" checked={anyTime} onChange={(event) => setAnyTime(event.target.checked)} />Any time of day</label>
+      {!anyTime && (
+        <div className="vc-row">
+          <label className="vc-field">Opens<input type="time" required value={start} onChange={(event) => setStart(event.target.value)} /></label>
+          <label className="vc-field">Closes<input type="time" required value={end} onChange={(event) => setEnd(event.target.value)} /></label>
+        </div>
+      )}
+      <label className="vc-field">Gap between bookings (set-up and clean-up)
+        <select value={buffer} onChange={(event) => setBuffer(Number(event.target.value))}>
+          {BUFFERS.map((m) => <option key={m} value={m}>{m ? `${m} minutes` : 'None'}</option>)}
+        </select>
+      </label>
+      <button type="submit" className="vc-btn" disabled={busy}>Save hours</button>
+    </form>
   );
 }
