@@ -27,8 +27,6 @@ export interface PlanCard {
   features: string[];
   cta: string;
   monthly: number;
-  /** Yearly prices are not defined yet. */
-  yearly: number | null;
   featured: boolean;
   /** Paid once per listing (Silver, Gold) rather than monthly. */
   perListing?: boolean;
@@ -36,9 +34,9 @@ export interface PlanCard {
 
 /** The original plans, for hosts without a niche plan set (filled in order from the server's legacy plans). */
 export const DEFAULT_PLAN_CARDS: PlanCard[] = [
-  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access', 'Photos only'], cta: 'Get Started', monthly: 800, yearly: null, featured: false },
-  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video on 1 listing', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, yearly: null, featured: true },
-  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Video on up to 3 listings', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
+  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access', 'Photos only'], cta: 'Get Started', monthly: 800, featured: false },
+  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video on 1 listing', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, featured: true },
+  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Video on up to 3 listings', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, featured: false },
 ];
 
 // Property and Shops & Offices pay per listing: Silver or Gold keeps one
@@ -46,9 +44,9 @@ export const DEFAULT_PLAN_CARDS: PlanCard[] = [
 // Silver in Marketplace and is eligible for the landing page; VaRoom
 // Discover treats both the same.
 export const LISTING_TIER_CARDS: PlanCard[] = [
-  { id: 'silver', name: 'Silver', description: 'One listing, live for 30 days from when you publish it.', perListing: true, monthly: 1000, yearly: null, featured: false, cta: 'Choose Silver',
+  { id: 'silver', name: 'Silver', description: 'One listing, live for 30 days from when you publish it.', perListing: true, monthly: 1000, featured: false, cta: 'Choose Silver',
     features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included'] },
-  { id: 'gold', name: 'Gold', description: 'More visibility for one listing, live for 30 days from when you publish it.', perListing: true, monthly: 2000, yearly: null, featured: true, cta: 'Choose Gold',
+  { id: 'gold', name: 'Gold', description: 'More visibility for one listing, live for 30 days from when you publish it.', perListing: true, monthly: 2000, featured: true, cta: 'Choose Gold',
     features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
 ];
 
@@ -63,7 +61,7 @@ export function upgradeCards(cards: PlanCard[], currentId: string): PlanCard[] {
 }
 
 const nicheCard = (id: string, name: string, monthly: number, description: string, features: string[], cta: string, featured = false): PlanCard => (
-  { id, name, description, features, cta, monthly, yearly: null, featured }
+  { id, name, description, features, cta, monthly, featured }
 );
 
 export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
@@ -143,9 +141,6 @@ export function writeCachedPlans(storage: Storage | null, userId: string, hostNi
     storage.setItem(PLANS_CACHE_PREFIX + userId, JSON.stringify({ hostNiche, savedAt: now, plans } satisfies CachedPlans));
   } catch { /* Storage full or unavailable: the next visit fetches again. */ }
 }
-
-/** Yearly billing switches on only when every plan has a yearly price. */
-export const yearlyReady = (cards: PlanCard[]) => cards.every((card) => Number(card.yearly) > 0);
 
 /** Fill the cards from the server's plans for the host's niche. */
 export function applyPlans(cards: PlanCard[], plans: BillingPlan[]): PlanCard[] {

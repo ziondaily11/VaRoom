@@ -7,7 +7,7 @@ import { loginUrl } from '../lib/safeRedirect';
 import {
   applyPlans, cardsForNiche, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans,
   RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout, startListingTierCheckout, checkListingPayment,
-  readCachedPlans, writeCachedPlans, yearlyReady, type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
+  readCachedPlans, writeCachedPlans, type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
 } from '../lib/billing/pricing';
 import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
@@ -18,8 +18,6 @@ import { clearHostBillingCache } from '../lib/billing/hostBilling';
 // host's niche, the current plan, Paystack checkout, and the check after
 // Paystack returns here (?billing=return&reference=…). Hosts only; identity
 // and role come from AuthProvider.
-
-type Billing = 'monthly' | 'yearly';
 
 /** One message box under the title: busy (with a spinner), done, failed, or plans that could not load. */
 type Notice = { tone: 'busy' | 'good' | 'bad'; text: string; retry?: boolean } | null;
@@ -32,7 +30,6 @@ export default function PricingPage() {
   // No cards until the host's niche is known: showing defaults first flashed
   // Property plans to Airbnb, Hotel and Venue hosts.
   const [cards, setCards] = useState<PlanCard[] | null>(null);
-  const [billing, setBilling] = useState<Billing>('monthly');
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [plansAttempt, setPlansAttempt] = useState(0);
@@ -48,7 +45,6 @@ export default function PricingPage() {
   const isHost = profile?.role === 'host';
   const userId = user?.id || null;
   const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] || null : null;
-  const canToggle = Boolean(cards && cards.length && yearlyReady(cards));
   const perListing = Boolean(cards && cards.length && cards.every((card) => card.perListing));
 
   // Hosts only: signed out → login, clients → their home.
@@ -118,11 +114,6 @@ export default function PricingPage() {
     return () => { stopped = true; window.clearTimeout(timer); };
   }, [router, router.isReady, router.query.billing, router.query.reference, router.query.trxref, isHost, userId]);
 
-  const toggle = (next?: Billing) => {
-    if (!canToggle) return;
-    setBilling((current) => next || (current === 'monthly' ? 'yearly' : 'monthly'));
-  };
-
   // VaRoom's checkout window over the page. Silver / Gold: M-Pesa or card,
   // then on to /list to list the space. Monthly plans: card only (Paystack
   // renews plans on cards), confirmed here.
@@ -151,7 +142,6 @@ export default function PricingPage() {
     setNotice({ tone: 'good', text: `Your ${card.name} plan is active.` });
   };
 
-  const yearly = billing === 'yearly';
   return (
     <>
       <Head>
@@ -167,7 +157,6 @@ export default function PricingPage() {
         </div>
 
         <div className="pricing-wrap">
-          <p className="eyebrow">Host plans</p>
           <h1 className="pricing-title">Pricing</h1>
 
           {notice && (
@@ -179,36 +168,13 @@ export default function PricingPage() {
               )}
             </div>
           )}
-          <PlanCards cards={cards} currentId={currentId} yearly={yearly} busy={checkoutCard !== null} onChoose={(card) => { setNotice(null); setCheckoutCard(card); }} />
+          <PlanCards cards={cards} currentId={currentId} busy={checkoutCard !== null} onChoose={(card) => { setNotice(null); setCheckoutCard(card); }} />
 
-          {perListing ? (
+          {perListing && (
             <div className="pricing-msgs">
               <p className="pricing-note">You pay once per listing. After paying you go straight to listing your space, and the 30 days start when you publish it.</p>
             </div>
-          ) : (<>
-          <div className="billing" role="group" aria-label="Billing period">
-            <button type="button" className={`billing-label${yearly ? '' : ' is-active'}`} aria-pressed={!yearly} aria-disabled={canToggle ? undefined : 'true'} onClick={() => toggle('monthly')}>Monthly</button>
-            <button
-              type="button"
-              className="switch"
-              role="switch"
-              aria-checked={yearly}
-              aria-label="Bill yearly"
-              aria-describedby="billing-note"
-              aria-disabled={canToggle ? undefined : 'true'}
-              onClick={() => toggle()}
-            >
-              <span className="knob" />
-            </button>
-            <button type="button" className={`billing-label${yearly ? ' is-active' : ''}`} aria-pressed={yearly} aria-disabled={canToggle ? undefined : 'true'} onClick={() => toggle('yearly')}>
-              Yearly {!canToggle && <span className="badge-soon">Soon</span>}
-            </button>
-          </div>
-          <div className="pricing-msgs">
-            <p className="pricing-note" id="billing-note">{canToggle ? '' : 'Yearly billing is coming soon. Prices shown are per month.'}</p>
-
-          </div>
-          </>)}
+          )}
         </div>
       </div>
       {checkoutCard && (

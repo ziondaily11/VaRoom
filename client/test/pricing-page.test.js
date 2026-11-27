@@ -28,11 +28,14 @@ test('Property and Shops & Offices show Silver and Gold, priced per listing by t
   unchanged[0].features.push('mutated');
   assert.equal(pricing.LISTING_TIER_CARDS[0].features.includes('mutated'), false, 'defaults are not mutated');
   assert.equal(pricing.formatPrice(12000), (12000).toLocaleString('en-KE'));
-  assert.equal(pricing.yearlyReady(unchanged), false, 'yearly billing stays "Soon"');
+  // No yearly billing: no yearly price, no switch, no "coming soon" note.
+  assert.equal(pricing.yearlyReady, undefined);
+  assert.ok(pricing.DEFAULT_PLAN_CARDS.concat(pricing.LISTING_TIER_CARDS).every((card) => !('yearly' in card)));
 
   const page = read('pages', 'pricing.tsx');
   assert.match(planCards(), /card\.perListing \? '\/listing'/, 'priced per listing, not per month');
-  assert.match(page, /perListing \? \(/, 'the monthly / yearly switch is hidden for per-listing plans');
+  assert.match(page, /\{perListing && \(\s*<div className="pricing-msgs">/, 'the per-listing note shows only for Silver and Gold');
+  assert.doesNotMatch(page + planCards(), /yearly|Yearly|billing-label|className="switch"|badge-soon|'\/year'/);
   assert.ok(page.includes('the 30 days start when you publish it'));
   assert.match(planCards(), /cards && cards\.length === 2 \? ' plans--two'/, 'two plans get their own layout');
   const styles = read('components', 'pricing', 'pricingStyles.ts');
@@ -197,7 +200,8 @@ test('pricing is dark unless the user chose Light, from the first paint', () => 
 
 test('page: hosts only, legacy wording, checkout in VaRoom\'s window, polling stops on unmount', () => {
   const page = read('pages', 'pricing.tsx');
-  for (const text of ['Host plans', 'Pricing', '← Back to dashboard', 'Yearly billing is coming soon. Prices shown are per month.', 'Current Plan', 'Please log in again to continue.']) {
+  assert.doesNotMatch(page, /className="eyebrow"|>Host plans</, 'no eyebrow above the Pricing headline');
+  for (const text of ['Pricing', '← Back to dashboard', 'Current Plan', 'Please log in again to continue.']) {
     assert.ok(page.includes(text) || planCards().includes(text), text);
   }
   assert.match(page, /router\.replace\(loginUrl\('\/pricing'\)\)/);
@@ -231,8 +235,6 @@ test('upgrade: one message box, plan names, retry, phone dots, keyboard labels, 
   assert.match(page, /'Plans could not load\. Please check your connection and try again\.', retry: true/);
   assert.match(page, /setPlansAttempt\(\(n\) => n \+ 1\)/);
   assert.match(planCards(), /<div className="plan-dots" role="group" aria-label="Choose a plan to view">/);
-  assert.match(page, /<button type="button" className=\{`billing-label/);
-  assert.doesNotMatch(page, /<span className=\{`billing-label[^>]*onClick/);
   assert.doesNotMatch(page, /fonts\.googleapis/);
   const styles = read('components', 'pricing', 'pricingStyles.ts');
   assert.match(styles, /\.pricing-page \.pricing-notice\.is-bad/);
