@@ -4,6 +4,7 @@ import type { DocumentRefs, MediaMetadata, RemoteDraft } from './drafts';
 import { listingDocumentMimeType } from './officeShop';
 import type { ListingTier } from '../billing/pricing';
 import { PHOTO_RULES, shrinkPhoto } from './photoQuality';
+import { discardPhoto } from '../supabase/r2PhotoStorage';
 
 // The listing wizard's requests (unchanged from legacy-pages/list.html).
 // Every call takes the current access token; the page reads it from the
@@ -330,7 +331,11 @@ export async function uploadListingPhoto(client: SupabaseClient, hostId: string,
   const { data, error } = await client.storage.from('listing-photos').upload(path, file, { upsert: false });
   if (error || !data) throw error || new Error('Photo upload failed');
   const { error: rowError } = await client.from('listing_photos').insert({ listing_id: listingId, storage_path: data.path, width: dimensions.width, height: dimensions.height });
-  if (rowError) throw rowError;
+  if (rowError) {
+    // Not on the listing: removed, so it doesn't hold up publishing.
+    await discardPhoto(client, 'listing-photos', data.path);
+    throw rowError;
+  }
 }
 
 // ---------- Publish ----------

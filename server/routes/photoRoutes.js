@@ -219,6 +219,11 @@ router.post('/photos/upload-discard', async (req, res) => {
       return res.status(400).json({ error: 'Invalid photo key' });
     }
     await mediaStorageService.deleteR2Object(key);
+    // A discarded draft photo no longer holds up publishing (lib/listingMediaPromotion.js).
+    if (isDraftR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) {
+      const { error } = await supabaseAdmin.from('draft_media_upload_sessions').delete().eq('object_key', key).eq('host_id', user.id);
+      if (error) throw error;
+    }
     return res.json({ success: true });
   } catch (error) {
     console.error('Photo upload discard failed:', error);
