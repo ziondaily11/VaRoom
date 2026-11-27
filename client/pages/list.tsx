@@ -13,7 +13,7 @@ import type { DocumentRefs, WizardMedia } from '../lib/listWizard/drafts';
 import { captureSnapshot } from '../lib/listWizard/drafts';
 import {
   activateListing, addMediaFiles, deleteListingShell, deleteRemoteDraft, isVideoFile, latestRef, MAX_MEDIA, saveBookingDetails, saveDiningConfig, saveListing,
-  uploadListingDocument, uploadListingPhoto, uploadListingVideo,
+  listingPhotoFingerprints, photoFingerprint, uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
   bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, isPlanNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
@@ -767,6 +767,9 @@ export default function ListPage() {
       }
 
       const files = latest.current.media.mediaFiles;
+      // Photos an earlier attempt already saved (before a reload or a reopened draft) aren't uploaded again.
+      const onListing = await listingPhotoFingerprints(client, listingId);
+      files.forEach((file) => { if (!isVideoFile(file) && onListing.has(photoFingerprint(file))) uploadedMedia.current.add(file); });
       const { uploadedCount, failedCount } = await uploadPendingMedia(files, uploadedMedia.current,
         (file, index) => (isVideoFile(file) ? uploadListingVideo(accessToken, file, listingId) : uploadListingPhoto(client, userId, file, listingId, index)),
         (index, total) => setPublishLabel(`Uploading media ${index + 1} of ${total}...`));
