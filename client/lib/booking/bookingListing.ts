@@ -42,6 +42,10 @@ export interface BookingDetails {
   max_advance_days?: number | null;
   min_stay_nights?: number | null;
   max_stay_nights?: number | null;
+  /** Venues by the hour: when they can be hired ('HH:MM:SS'; any time when null) and the gap kept between bookings. */
+  hire_start?: string | null;
+  hire_end?: string | null;
+  buffer_minutes?: number | null;
   listing_purpose?: string | null;
   office_shop_details?: unknown;
   [key: string]: unknown;
@@ -337,9 +341,13 @@ export function propertyOptions(kind: Pick<BookingKind, 'isProperty' | 'property
  * Days the host opened; nights (days, for a venue hired by the day) with
  * nothing left; and rooms left on a hotel's partly booked nights.
  */
-export interface CalendarDates { open: Set<string>; unavailable: Set<string>; roomsLeft: Map<string, number> }
+export interface CalendarDates {
+  open: Set<string>; unavailable: Set<string>; roomsLeft: Map<string, number>;
+  /** An hourly venue's taken times per day, in minutes from midnight (the buffer included). */
+  slots: Map<string, Array<[number, number]>>;
+}
 
-export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map() };
+export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map(), slots: new Map() };
 
 /**
  * One call to listing_calendar, which counts every guest's bookings (a guest
@@ -348,11 +356,13 @@ export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new
 export async function fetchCalendar(client: SupabaseClient, listingId: string): Promise<CalendarDates> {
   const { data, error } = await client.rpc('listing_calendar', { p_listing: listingId });
   if (error) throw error;
-  const result = (data || {}) as { open?: string[]; booked?: Array<{ night: string; left: number }> };
+  const result = (data || {}) as { open?: string[]; booked?: Array<{ night: string; left: number }>; slots?: Array<{ day: string; from: number; to: number }> };
   const unavailable = new Set<string>();
   const roomsLeft = new Map<string, number>();
+  const slots = new Map<string, Array<[number, number]>>();
   (result.booked || []).forEach(({ night, left }) => { if (left > 0) roomsLeft.set(night, left); else unavailable.add(night); });
-  return { open: new Set(result.open || []), unavailable, roomsLeft };
+  (result.slots || []).forEach(({ day, from, to }) => slots.set(day, [...(slots.get(day) || []), [from, to]]));
+  return { open: new Set(result.open || []), unavailable, roomsLeft, slots };
 }
 
 /**
@@ -389,6 +399,30 @@ export function rangeIsOpen(dates: CalendarDates, start: string, end: string, en
     return open;
   });
   return open;
+}
+
+const toMinutes = (time: string | null | undefined, fallback: number) => {
+  const match = /^(\d{2}):(\d{2})/.exec(time || '');
+  return match ? Number(match[1]) * 60 + Number(match[2]) : fallback;
+};
+/** "09:30" from minutes after midnight (1440 is "24:00"). */
+export const clockText = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/**
+ * Start times for an hourly booking of `hours` on `day`: every half hour within
+ * the hire hours (any time when not set), ending by their close or midnight,
+ * and free when it doesn't touch a taken time (the database checks the same).
+ */
+export function startTimes(details: Pick<BookingDetails, 'hire_start' | 'hire_end'>, dates: CalendarDates | null, day: string | null, hours: number): Array<{ value: string; until: string; free: boolean }> {
+  if (!day || !(hours >= 1)) return [];
+  const open = toMinutes(details.hire_start, 0);
+  const close = details.hire_end ? toMinutes(details.hire_end, 1440) : 1440;
+  const taken = dates?.slots.get(day) || [];
+  const times = [];
+  for (let at = open; at + hours * 60 <= close; at += 30) {
+    times.push({ value: clockText(at), until: clockText(at + hours * 60), free: !taken.some(([from, to]) => at < to && from < at + hours * 60) });
+  }
+  return times;
 }
 
 /** The fewest hotel rooms left over a stay's nights, or null when none of them is partly booked. */
@@ -557,7 +591,7 @@ export const ksh = (value: number) => `KSh ${value.toLocaleString()}`;
 // ---------- Writes ----------
 
 /** What the guest chose; `guests` is sent for stays and venues only. */
-export interface StayChoice { start: string | null; end: string | null; hours: number; leaseStart: string; leaseMonths: number; guests?: number }
+export interface StayChoice { start: string | null; end: string | null; hours: number; startTime?: string | null; leaseStart: string; leaseMonths: number; guests?: number }
 
 /** The most guests the Guests stepper offers: the listing's maximum, else 20 (the database allows up to 1000). */
 export function guestLimit(details: Pick<BookingDetails, 'max_guests'>): number {
@@ -571,11 +605,13 @@ export function bookingPayload(listing: BookingListing, kind: BookingKind, clien
     host_id: listing.host_id,
     client_id: clientId,
     price_unit: kind.details.price_unit,
+    // What the guest saw; the database works out the stored price the same way (migration 000092).
     total_price: total,
   };
   if (kind.isShortStay && choice.guests && choice.guests > 0) payload.guest_count = Math.min(Math.round(choice.guests), guestLimit(kind.details));
   if (kind.isShortStay && kind.isHourly) {
     payload.start_date = choice.start;
+    payload.start_time = choice.startTime;
     payload.hours = choice.hours;
   } else if (kind.isShortStay) {
     payload.start_date = choice.start;

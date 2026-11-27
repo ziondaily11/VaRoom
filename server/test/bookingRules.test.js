@@ -99,6 +99,23 @@ test('calendar part 3: events, offline bookings counted like bookings, weekly cl
   assert.doesNotMatch(sql.split("'booked', coalesce")[1].split('$$')[0], /title|client_name/, 'guests never see event details');
 });
 
+test('calendar part 4: hourly times and overlaps, hire hours, buffer, and the price set by the database', () => {
+  const sql = read('migrations', '20261128_000092_calendar_hours_prices.sql');
+  const rules = sql.split('create or replace function public.varoom_apply_booking_rules()')[1];
+  assert.match(rules, /raise exception 'booking_rule: Choose a start time and how many hours\.';/);
+  assert.match(rules, /if to_min > 1440 then\s+raise exception 'booking_rule: A booking must end by midnight\.';/);
+  assert.match(rules, /This place can be hired from % to %/);
+  assert.match(rules, /where t\.start_min < to_min \+ coalesce\(rules\.buffer_minutes, 0\) and from_min < t\.end_min \+ coalesce\(rules\.buffer_minutes, 0\)/, 'overlaps include the buffer');
+  assert.match(rules, /new\.total_price := rate \* \(nights \+ case when daily then 1 else 0 end\) \+/, 'nights or days × price + cleaning fee');
+  assert.match(rules, /new\.total_price := rate \* new\.hours;/);
+  assert.match(rules, /new\.total_price := coalesce\(round\(monthly \* new\.lease_months\), 0\);/, 'a rental, or 0 when the host confirms');
+  assert.match(sql, /where not \(listing\.hourly and e\.start_time is not null\)/, 'on an hourly venue a timed event takes its hours, not the day');
+  assert.match(sql, /'slots', coalesce\(/);
+  assert.doesNotMatch(sql.split("'slots', coalesce(")[1].split('$$')[0], /title|client|guest/, 'taken times carry no names');
+  assert.match(sql, /create policy "Hosts and managers read their table reservations" on public\.table_reservations\s+for select to authenticated using \(public\.varoom_can_act_for\(host_id, 'manager'\)\);/);
+  assert.match(sql, /revoke all on function public\.varoom_busy_times\(uuid, date, date\) from public, anon, authenticated;/);
+});
+
 test('hosts are reminded once, about 6 hours before a request expires', async () => {
   const { remindExpiringRequests } = require('../lib/bookingExpiry');
   const calls = [];

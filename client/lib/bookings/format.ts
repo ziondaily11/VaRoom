@@ -31,6 +31,9 @@ export interface Booking {
   start_date: string | null;
   end_date: string | null;
   hours: number | null;
+  /** Hourly bookings: 'HH:MM:SS' (older ones have none). */
+  start_time?: string | null;
+  end_time?: string | null;
   lease_start_date: string | null;
   lease_months: number | null;
   /** Stays: how many guests (NULL for leases and older bookings). */
@@ -59,9 +62,12 @@ export function formatDate(value: string | null | undefined): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** The card's date line: "21 Nov 2026 → 24 Nov 2026", "21 Nov 2026 · 3 hours", "From 1 Dec 2026 · 6 months". */
+/** "10:00–13:00" for an hourly booking with times, else null. */
+export const timeRange = (b: Pick<Booking, 'start_time' | 'end_time'>) => (b.start_time && b.end_time ? `${b.start_time.slice(0, 5)}–${b.end_time.slice(0, 5)}` : null);
+
+/** The card's date line: "21 Nov 2026 → 24 Nov 2026", "21 Nov 2026 · 10:00–13:00", "From 1 Dec 2026 · 6 months". */
 export function describeDates(b: Booking): string {
-  if (b.hours) return `${formatDate(b.start_date)} · ${plural(b.hours, 'hour')}`;
+  if (b.hours) return `${formatDate(b.start_date)} · ${timeRange(b) || plural(b.hours, 'hour')}`;
   if (b.start_date && b.end_date) return `${formatDate(b.start_date)} → ${formatDate(b.end_date)}`;
   if (b.lease_start_date) return `From ${formatDate(b.lease_start_date)} · ${plural(b.lease_months as number, 'month')}`;
   return '';
@@ -142,7 +148,7 @@ export function detailRows(b: Booking): DetailRow[] {
     label, value, icon: label === 'Duration' || label === 'Lease length' ? 'clock' : label === 'Guests' ? 'guests' : 'calendar',
   });
   if (b.hours) {
-    const rows = [row('Date', formatDetailDate(b.start_date)), row('Duration', plural(b.hours, 'hour'))];
+    const rows = [row('Date', formatDetailDate(b.start_date)), row('Duration', `${plural(b.hours, 'hour')}${timeRange(b) ? ` · ${timeRange(b)}` : ''}`)];
     if (Number(b.guest_count) > 0) rows.push(row('Guests', plural(Number(b.guest_count), 'guest')));
     return rows;
   }

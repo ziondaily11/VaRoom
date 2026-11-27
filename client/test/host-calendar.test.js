@@ -124,3 +124,40 @@ test('the planner: events take their days inclusively, weekly closed days, reada
   assert.match(page, /\{selected >= today && !weekly && \(/, 'a weekly closed day is changed in "Closed every week", not by Reopen');
   assert.match(read('components', 'calendar', 'EventForm.tsx'), /const lastDay = stay \? previousDay\(end\) : end;/, 'a stay entered by check-out is stored as its nights');
 });
+
+test('venues by the hour: start times within hire hours, free of taken times; times shown everywhere', async () => {
+  const bl = loadTs(path.join(root, 'lib', 'booking', 'bookingListing.ts'));
+  const format = loadTs(path.join(root, 'lib', 'bookings', 'format.ts'));
+  const dates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map(), slots: new Map([['2026-12-05', [[570, 750]]]]) };
+  const times = bl.startTimes({ hire_start: '08:00:00', hire_end: '14:00:00' }, dates, '2026-12-05', 2);
+  assert.equal(times[0].value, '08:00');
+  assert.equal(times[times.length - 1].value, '12:00', 'the last start that ends by closing');
+  assert.equal(times[times.length - 1].until, '14:00');
+  assert.deepEqual(times.filter((t) => !t.free).map((t) => t.value), ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00'].filter((v) => {
+    const at = Number(v.slice(0, 2)) * 60 + Number(v.slice(3)); return at < 750 && 570 < at + 120;
+  }));
+  assert.equal(bl.startTimes({}, dates, '2026-12-06', 1).length, 47, 'any time of day: 00:00 to 23:00, every half hour');
+  assert.equal(bl.startTimes({}, dates, '2026-12-06', 1).at(-1).until, '24:00');
+  assert.deepEqual(bl.startTimes({}, dates, null, 2), []);
+  const calls = [];
+  const parsed = await bl.fetchCalendar({ rpc: async (name, args) => { calls.push(name); return { data: { open: [], booked: [], slots: [{ day: '2026-12-05', from: 570, to: 750 }, { day: '2026-12-05', from: 900, to: 960 }] }, error: null }; } }, 'L1');
+  assert.deepEqual(parsed.slots.get('2026-12-05'), [[570, 750], [900, 960]]);
+  const kind = { isShortStay: true, isHourly: true, details: { price_unit: 'hour' } };
+  const payload = bl.bookingPayload({ id: 'L1', host_id: 'H1' }, kind, 'C1', 6000, { start: '2026-12-05', end: null, hours: 3, startTime: '10:00', leaseStart: '', leaseMonths: 0 });
+  assert.equal(payload.start_time, '10:00');
+  assert.equal(payload.hours, 3);
+  const booking = { start_date: '2026-12-05', hours: 3, start_time: '10:00:00', end_time: '13:00:00' };
+  assert.match(format.describeDates(booking), /· 10:00–13:00$/);
+  assert.equal(format.describeDates({ ...booking, start_time: null, end_time: null }).endsWith('3 hours'), true, 'older bookings without times');
+  const widget = read('components', 'booking', 'BookingWidget.tsx');
+  assert.match(widget, /<select id="start-time"/);
+  assert.match(widget, /if \(start && startTime && count > 0\) line = priceLine/, 'no price until a start time is chosen');
+  const sets = [];
+  await cal.setHours({ rpc: async (name, args) => { sets.push([name, args]); return { error: null }; } }, 'V', '08:00', '20:00', 30);
+  assert.deepEqual(sets, [['calendar_set_hours', { p_listing: 'V', p_start: '08:00', p_end: '20:00', p_buffer: 30 }]]);
+  assert.equal(cal.minutesOf('24:00', 0), 1440);
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /preset: \{ title: 'Rooms closed', listingId: l\.id, color: 'purple' \}/, 'hotels close rooms as an offline booking of N rooms');
+  assert.match(page, /tone: 'table', label: `\$\{t\.time\} Table/, 'table reservations show on their day');
+  for (const select of [read('lib', 'bookings', 'hostBookings.ts'), read('lib', 'bookings', 'clientBookings.ts')]) assert.match(select, /hours,start_time,end_time,/);
+});

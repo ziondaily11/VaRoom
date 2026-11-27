@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatDate, type Booking, type BookingPerson } from './format';
+import { formatDate, timeRange, type Booking, type BookingPerson } from './format';
 import { applyExpiry } from './clientBookings';
 import { listingOutcomes, unitsLeft, type ListingOutcome } from '../listings/listingAction';
 
@@ -7,7 +7,7 @@ import { listingOutcomes, unitsLeft, type ListingOutcome } from '../listings/lis
 // loading, approve / decline, the month filter, listing videos and table
 // reservations.
 
-export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,client_id,'
+export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,start_time,end_time,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,client_id,'
   + 'listing:listings(id,title,location_text,category,listing_purpose,availability_status,listing_photos(storage_path),listing_booking_details(units_available,listing_purpose)),'
   + 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)';
 
@@ -110,7 +110,7 @@ export function guestCountText(b: Pick<Booking, 'guest_count'>): string {
 }
 
 export function hostDurationText(b: HostBooking): string {
-  if (b.hours) return `${b.hours} hour${b.hours === 1 ? '' : 's'}`;
+  if (b.hours) return `${b.hours} hour${b.hours === 1 ? '' : 's'}${timeRange(b) ? ` · ${timeRange(b)}` : ''}`;
   if (b.start_date && b.end_date) return `${Math.ceil((new Date(b.end_date).getTime() - new Date(b.start_date).getTime()) / 86400000)} nights`;
   return '';
 }

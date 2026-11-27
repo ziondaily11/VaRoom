@@ -17,9 +17,13 @@ export interface CalendarListing {
   price_unit: string | null; units: number | null; min_notice_days: number | null; max_advance_days: number | null;
   /** Closed every week: 0 = Sunday … 6 = Saturday. */
   closed_weekdays?: number[];
+  /** Venues by the hour: hire hours ('HH:MM', null: any time) and the gap kept between bookings. */
+  hire_start?: string | null; hire_end?: string | null; buffer_minutes?: number;
 }
 export interface CalendarBooking {
   id: string; listing_id: string; status: 'pending' | 'approved' | 'completed'; start_date: string; end_date: string | null;
+  /** Hourly bookings: 'HH:MM'. */
+  start_time?: string | null; end_time?: string | null;
   hours: number | null; guest_count: number | null; total_price: number | null; created_at: string; guest: string | null;
 }
 export interface ClosedRange { listing_id: string; start_date: string; end_date: string | null }
@@ -37,7 +41,13 @@ export interface EventFields {
 /** One occurrence in the month (a repeating event has one per week or month); series_* are the event's own dates. */
 export interface CalendarEvent extends EventFields { id: string; series_start: string; series_end: string }
 
-export interface HostCalendarData { listings: CalendarListing[]; bookings: CalendarBooking[]; closed: ClosedRange[]; events: CalendarEvent[] }
+/** A hotel restaurant's table reservation (its status is changed in Bookings). */
+export interface TableBooking {
+  id: string; listing_id: string; restaurant_name: string | null; client_name: string | null; client_phone: string | null;
+  guest_count: number; table_count: number; date: string; time: string; occasion: string | null; status: 'requested' | 'contacted' | 'closed';
+}
+
+export interface HostCalendarData { listings: CalendarListing[]; bookings: CalendarBooking[]; closed: ClosedRange[]; events: CalendarEvent[]; tables: TableBooking[] }
 
 export const CALENDAR_STALE_MS = 60 * 1000;
 
@@ -65,7 +75,7 @@ export function loadMonth(client: SupabaseClient, hostId: string, year: number, 
     .then(({ data, error }) => {
       if (error) throw error;
       const raw = (data || {}) as Partial<HostCalendarData>;
-      const result: HostCalendarData = { listings: raw.listings || [], bookings: raw.bookings || [], closed: raw.closed || [], events: raw.events || [] };
+      const result: HostCalendarData = { listings: raw.listings || [], bookings: raw.bookings || [], closed: raw.closed || [], events: raw.events || [], tables: raw.tables || [] };
       cache.set(key, { data: result, fetchedAt: Date.now() });
       return result;
     })
@@ -105,6 +115,18 @@ export async function setWeekdays(client: SupabaseClient, listingId: string, day
   const { error } = await client.rpc('calendar_set_weekdays', { p_listing: listingId, p_days: days });
   if (error) throw error;
 }
+
+/** A venue's hire hours ('HH:MM' both, or both null: any time) and the minutes kept free between bookings. */
+export async function setHours(client: SupabaseClient, listingId: string, start: string | null, end: string | null, buffer: number): Promise<void> {
+  const { error } = await client.rpc('calendar_set_hours', { p_listing: listingId, p_start: start, p_end: end, p_buffer: buffer });
+  if (error) throw error;
+}
+
+/** Minutes after midnight from 'HH:MM' ('24:00' is 1440). */
+export const minutesOf = (time: string | null | undefined, fallback: number) => {
+  const match = /^(\d{2}):(\d{2})/.exec(time || '');
+  return match ? Number(match[1]) * 60 + Number(match[2]) : fallback;
+};
 
 /** A database refusal people can read ("calendar: …", "booking_rule: …"), else the fallback. */
 export function calendarErrorText(error: unknown, fallback: string): string {
