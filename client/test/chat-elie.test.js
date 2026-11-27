@@ -112,7 +112,7 @@ test('the page in Elie mode: Elie thread, history from the header, the Elie info
   assert.match(html, /<main class="chat-col is-elie[^"]*elie-fresh">/);
   assert.ok(html.indexOf('chat-input-area is-elie') < html.indexOf('elie-start-suggestions'), 'suggestions below the composer');
   assert.match(header, /<span id="statusText">Your VaRoom search assistant<\/span>/);
-  assert.match(html, /<h2>Ask Elie to find you a space\.<\/h2>/);
+  assert.match(html, /<h2 aria-label="Ask Elie to find you a space\."><span aria-hidden="true">What’s the occasion\?<\/span><\/h2>/);
   const info = section(html, '<aside class="info-col', '</aside>');
   assert.match(info, /<div class="p-name">Elie<\/div><div class="p-line">Your VaRoom search assistant<\/div>/);
   assert.match(info, /<span class="label">About Elie<\/span>/);
@@ -148,7 +148,7 @@ test('the Elie thread: questions, replies, news and listings (GPS verified), err
   assert.match(html, /<div>Search index offline<\/div><button type="button" class="elie-retry-btn" aria-label="Retry searching with Elie"/);
   assert.match(html, /role="status" aria-label="Elie is thinking"/);
   const intro = render(ElieThread, { entries: [], thinking: false, onRetry() {} });
-  assert.match(intro, /<h2>Ask Elie to find you a space\.<\/h2>/);
+  assert.match(intro, /<h2 aria-label="Ask Elie to find you a space\."><span aria-hidden="true">What’s the occasion\?<\/span><\/h2>/);
   assert.doesNotMatch(intro, /<button/, 'the suggestions are below the composer');
   const { ElieSuggestions } = loadChats('components/chat/ElieThread.tsx');
   assert.match(render(ElieSuggestions, { onPrompt() {} }), /<div class="elie-suggestions elie-start-suggestions"><button type="button">Airbnbs in Nairobi<\/button>/);

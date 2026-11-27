@@ -93,3 +93,41 @@ test('Elie\'s first-screen composer is compact until the text needs a second lin
   assert.match(css, /\.chat-input-area\.is-elie\{ width:calc\(100% - 56px\); margin-left:auto; margin-right:auto; border-radius:24px;/);
   assert.match(css, /\.chat-input-area\.is-elie\.elie-compact\{ display:flex; align-items:center; gap:10px; width:min\(560px, calc\(100% - 56px\)\);/);
 });
+
+test('Elie\'s first screen asks one short question at a time, fading each into the next', () => {
+  const thread = loadChats('components/chat/ElieThread.tsx');
+  assert.equal(thread.ELIE_START_LINES[0], 'What’s the occasion?');
+  assert.ok(thread.ELIE_START_LINES.length >= 5 && thread.ELIE_START_LINES.every((line) => line.endsWith('?') && line.length <= 30));
+  const html = render(thread.ElieThread, { entries: [], thinking: false, onRetry() {} });
+  assert.match(html, /<section class="elie-intro"><h2 aria-label="Ask Elie to find you a space\."><span aria-hidden="true">What’s the occasion\?<\/span><\/h2><\/section>/);
+  assert.doesNotMatch(html, /<p>/, 'no paragraph of explanation');
+  const source = read('components', 'chat', 'ElieThread.tsx');
+  assert.match(source, /if \(window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\) return undefined;/, 'still for reduced motion');
+  assert.match(source, /return \(\) => window\.clearInterval\(timer\);/);
+  // The fade lasts exactly one line.
+  const css = read('public', 'js', 'chats.css');
+  assert.equal(thread.ELIE_START_LINE_MS, 3200);
+  assert.match(css, /\.elie-intro h2 span\{ display:inline-block; animation:elie-intro-line 3\.2s ease both; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{ \.elie-intro h2 span\{ animation:none; \} \}/);
+});
+
+test('a host whose plan lacks Elie sees Upgrade in Elie\'s header, linking to the plans', () => {
+  const page = read('pages', 'chats.tsx');
+  assert.match(page, /\{isElie && isHost && !workingAs && elie\.wallet && !elie\.wallet\.included && \(\s*<Link href="\/pricing" className="elie-upgrade"/);
+  const header = page.slice(page.indexOf('<div className="chat-header-actions">'), page.indexOf('id="toggle-info-panel"'));
+  assert.match(header, /elie-upgrade[\s\S]*Upgrade\s*<\/Link>/, 'before the panel toggle');
+  assert.match(read('public', 'js', 'chats.css'), /\.elie-upgrade\{ display:inline-flex;[^}]*background:#C41E3A; color:#fff;/);
+});
+
+test('in the compact composer the V-Coin meter is a clock in the same colours; the sheet names the balance', () => {
+  const VCoinMeter = loadChats('components/chat/VCoinMeter.tsx').default;
+  const html = render(VCoinMeter, { wallet: { balance: 30, included: false }, onWallet() {}, openSignal: 0 });
+  assert.match(html, /<svg viewBox="0 0 20 20" class="vcoin-ring" aria-hidden="true">/);
+  assert.match(html, /<svg viewBox="0 0 24 24" class="vcoin-clock" aria-hidden="true"><circle cx="12" cy="12" r="8\.5"><\/circle><path d="M12 7v5l3\.5 2"><\/path><\/svg>/);
+  assert.match(html, /title="30 V-Coins left"/, 'the balance stays in the tooltip');
+  const source = read('components', 'chat', 'VCoinMeter.tsx');
+  assert.match(source, /\.vcoin-clock\{ display:none;[^}]*stroke:var\(--vcoin\);/, 'green, yellow or red with the level');
+  assert.match(source, /\.chat-input-area\.elie-compact \.vcoin-ring, \.chat-input-area\.elie-compact \.vcoin-count, \.chat-input-area\.elie-compact \.vcoin-topup\{ display:none; \}/);
+  assert.match(source, /\.chat-input-area\.elie-compact \.vcoin-clock\{ display:block; \}/);
+  assert.match(source, /\{wallet && !wallet\.included \? `\$\{wallet\.balance\} V-Coins left` : 'V-Coins'\}/);
+});

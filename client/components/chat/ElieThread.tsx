@@ -35,6 +35,32 @@ export function ElieSuggestions({ onPrompt }: { onPrompt: (prompt: string) => vo
   );
 }
 
+/** Elie's first screen: one short question at a time, each fading into the next. */
+export const ELIE_START_LINES = [
+  'What’s the occasion?',
+  'Where are you headed?',
+  'What space do you need?',
+  'Planning a getaway?',
+  'Need a venue for the big day?',
+  'Looking for a new office?',
+];
+export const ELIE_START_LINE_MS = 3200;
+
+function ElieIntro() {
+  const [line, setLine] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = window.setInterval(() => setLine((current) => (current + 1) % ELIE_START_LINES.length), ELIE_START_LINE_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <section className="elie-intro">
+      {/* Screen readers hear one steady sentence; the key restarts the fade. */}
+      <h2 aria-label="Ask Elie to find you a space."><span key={line} aria-hidden="true">{ELIE_START_LINES[line]}</span></h2>
+    </section>
+  );
+}
+
 export function ElieThread({ entries, thinking, waking = false, onRetry, onQuickReply, onShowMore }: {
   entries: ElieEntry[];
   thinking: boolean;
@@ -49,12 +75,7 @@ export function ElieThread({ entries, thinking, waking = false, onRetry, onQuick
   const last = entries[entries.length - 1];
   return (
     <>
-      {entries.length === 0 && !thinking && (
-        <section className="elie-intro">
-          <h2>Ask Elie to find you a space.</h2>
-          <p>Describe what you&apos;re looking for and Elie will search real VaRoom listings, with GPS-verified matches first.</p>
-        </section>
-      )}
+      {entries.length === 0 && !thinking && <ElieIntro />}
       {entries.map((entry) => {
         switch (entry.kind) {
           case 'user':

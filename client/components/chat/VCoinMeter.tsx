@@ -15,7 +15,8 @@ import {
 } from '../../lib/chat/vcoins';
 
 // The V-Coin meter beside Elie's send button: a ring coloured by what is
-// left (green, yellow, red) with the balance. It opens the top-up packs; a
+// left (green, yellow, red) with the balance, or a clock in the same colour
+// in the compact composer. It opens the top-up packs; a
 // pack is paid in VaRoom's checkout window (M-Pesa or card). Paystack's own
 // page (the card fallback) returns to /chats?c=elie&vcoins=return&reference=…
 
@@ -99,10 +100,12 @@ export default function VCoinMeter({ wallet, onWallet, openSignal }: {
       <style dangerouslySetInnerHTML={{ __html: VCOIN_STYLES }} />
       <button type="button" className="vcoin-meter-button" aria-label={`${label}. Top up`} title={label} aria-expanded={open} aria-haspopup="dialog"
         onMouseDown={(event) => event.preventDefault()} onClick={() => (open ? setOpen(false) : show())}>
-        <svg viewBox="0 0 20 20" aria-hidden="true">
+        <svg viewBox="0 0 20 20" className="vcoin-ring" aria-hidden="true">
           <circle cx="10" cy="10" r="8" className="vcoin-track" />
           <circle cx="10" cy="10" r="8" className="vcoin-fill" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fill)} />
         </svg>
+        {/* The compact composer (Elie's first screen) shows only this clock, in the same colours. */}
+        <svg viewBox="0 0 24 24" className="vcoin-clock" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.5 2" /></svg>
         <span className="vcoin-count">{wallet ? (wallet.included ? '∞' : wallet.balance) : '–'}</span>
         {/* Says the meter buys coins: "Top up" once the balance runs low. */}
         {!wallet?.included && <span className="vcoin-topup" aria-hidden="true">{level === 'red' && wallet ? 'Top up' : '+'}</span>}
@@ -110,7 +113,7 @@ export default function VCoinMeter({ wallet, onWallet, openSignal }: {
 
       {open && (
         <div className="vcoin-sheet" role="dialog" aria-label="Top up V-Coins">
-          <p className="vcoin-sheet-title">V-Coins</p>
+          <p className="vcoin-sheet-title">{wallet && !wallet.included ? `${wallet.balance} V-Coins left` : 'V-Coins'}</p>
           <p className="vcoin-sheet-text">
             {wallet?.included
               ? 'Your plan includes Elie, so searches use no coins.'
@@ -178,7 +181,14 @@ const VCOIN_STYLES = `
     border:1px solid currentColor; border-color:rgba(127,127,127,.35); border-radius:999px; background:transparent; color:inherit;
     font:inherit; font-size:.78rem; font-weight:600; cursor:pointer; }
   .chat-input-area .attach-icons .vcoin-meter-button:hover{ background:rgba(127,127,127,.14); }
-  .vcoin-meter-button svg{ width:18px; height:18px; transform:rotate(-90deg); }
+  .vcoin-ring{ width:18px; height:18px; transform:rotate(-90deg); }
+  .vcoin-clock{ display:none; width:18px; height:18px; fill:none; stroke:var(--vcoin); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:stroke 300ms ease-out; }
+  @media (min-width:761px){
+    .chat-input-area.elie-compact .attach-icons .vcoin-meter-button{ justify-content:center; width:32px; padding:0; border-radius:10px;
+      border-color:rgba(127,127,127,.25); background:rgba(127,127,127,.12); }
+    .chat-input-area.elie-compact .vcoin-ring, .chat-input-area.elie-compact .vcoin-count, .chat-input-area.elie-compact .vcoin-topup{ display:none; }
+    .chat-input-area.elie-compact .vcoin-clock{ display:block; }
+  }
   .vcoin-track{ fill:none; stroke:rgba(127,127,127,.3); stroke-width:3; }
   .vcoin-fill{ fill:none; stroke:var(--vcoin); stroke-width:3; stroke-linecap:round; transition:stroke-dashoffset 300ms ease-out, stroke 300ms ease-out; }
   .vcoin-count{ font-variant-numeric:tabular-nums; }
