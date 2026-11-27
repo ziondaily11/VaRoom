@@ -11,6 +11,10 @@ const { promoteListingMedia } = require('../lib/listingMediaPromotion');
 const { draftStillKept, UNPUBLISHED_STATES } = require('../lib/draftRetention');
 const { createDestinationCounts } = require('../lib/destinationCounts');
 const { planCoverageEnd } = require('../lib/listingLive');
+const { getPropertyVideoCount, videoListingAllowance } = require('../lib/videoEntitlement');
+// Photos a listing needs before its first publication (client/lib/listWizard/photoQuality.ts PHOTO_RULES).
+const MIN_PHOTOS = 5;
+const MIN_PHOTOS_RESTAURANT = 3;
 
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
@@ -491,6 +495,14 @@ router.patch('/listings/:id/status', async (req, res) => {
   }
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
+  // First publication: enough photos (videos don't count). Listings published before this rule keep publishing as they are.
+  if (req.body.status === 'available' && listing.publication_state !== 'published') {
+    const needed = listing.category === 'hotel' && listing.supports_stay === false ? MIN_PHOTOS_RESTAURANT : MIN_PHOTOS;
+    const { count, error: photoCountError } = await supabaseAdmin.from('listing_photos')
+      .select('id', { count: 'exact', head: true }).eq('listing_id', req.params.id);
+    if (photoCountError) return res.status(500).json({ error: 'Unable to count the listing photos' });
+    if ((count || 0) < needed) return res.status(422).json({ error: `Add at least ${needed} photos before publishing.`, code: 'PHOTOS_REQUIRED' });
+  }
   if (req.body.status === 'available' && OFFICE_SHOP_CATEGORIES.has(listing.category)) {
     const { data: details, error: detailsError } = await supabaseAdmin.from('listing_booking_details')
       .select('office_shop_details,office_shop_last_confirmed_at').eq('listing_id', req.params.id).maybeSingle();
@@ -540,6 +552,21 @@ router.patch('/listings/:id/status', async (req, res) => {
     try { planEnd = await planCoverageEnd(supabaseAdmin, user.id, listing.category); }
     catch { return res.status(503).json({ error: 'Unable to check your plan right now' }); }
     if (!planEnd) return res.status(402).json({ error: 'Choose a plan to put this listing online.', code: 'PLAN_REQUIRED' });
+    // A listing with a video needs one of the plan's video places (pausing another listing frees one).
+    try {
+      const videoCount = await getPropertyVideoCount(supabaseAdmin, req.params.id);
+      if (videoCount > 0) {
+        const allowance = await videoListingAllowance(supabaseAdmin, user.id, req.params.id);
+        if (allowance.used >= allowance.limit) {
+          return res.status(409).json({
+            error: allowance.limit
+              ? `Your plan includes video on ${allowance.limit} listing${allowance.limit === 1 ? '' : 's'}, and all are in use. Upgrade, pause a listing that has a video, or remove this listing's video.`
+              : 'Your plan does not include video. Upgrade, or remove this listing\'s video.',
+            code: 'VIDEO_LIMIT_REACHED',
+          });
+        }
+      }
+    } catch { return res.status(503).json({ error: 'Unable to check your plan right now' }); }
     changes.live_until = planEnd;
     // Discover counts from now when the listing comes (back) online.
     if (!(listing.live_until && new Date(listing.live_until).getTime() > Date.now())) changes.live_since = new Date().toISOString();

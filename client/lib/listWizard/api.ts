@@ -3,6 +3,7 @@ import type { DocumentRef, ListingDocument } from './policyDocuments';
 import type { DocumentRefs, MediaMetadata, RemoteDraft } from './drafts';
 import { listingDocumentMimeType } from './officeShop';
 import type { ListingTier } from '../billing/pricing';
+import { PHOTO_RULES, shrinkPhoto } from './photoQuality';
 
 // The listing wizard's requests (unchanged from legacy-pages/list.html).
 // Every call takes the current access token; the page reads it from the
@@ -124,6 +125,7 @@ interface EntitlementResult {
   subscription?: { status?: string; niche?: string } | null;
   canCreateAnotherListing?: { allowed?: boolean } | null;
   listingCredits?: Partial<ListingCredits> | null;
+  videoListings?: { limit?: number; used?: number } | null;
 }
 
 export type ListingCredits = Record<ListingTier, number>;
@@ -131,6 +133,8 @@ export type ListingCredits = Record<ListingTier, number>;
 export interface ListingEntitlement {
   /** A monthly plan bought before Silver and Gold still covers this niche. */
   planActive: boolean;
+  /** Listings the plan allows a video on, and how many already have one. */
+  videoListings: { limit: number; used: number };
   /** Paid Silver / Gold listings not yet used by a published listing. */
   credits: ListingCredits;
 }
@@ -153,6 +157,7 @@ export async function fetchListingEntitlement(token: string, category: string): 
     planActive: Boolean(entitlement.active && entitlement.subscription && covering.includes(entitlement.subscription.niche || '')
       && allowance && allowance.allowed),
     credits: { silver: creditCount(credits.silver), gold: creditCount(credits.gold) },
+    videoListings: { limit: creditCount(entitlement.videoListings?.limit), used: creditCount(entitlement.videoListings?.used) },
   };
 }
 
@@ -226,20 +231,27 @@ export function refsFromDocuments(documents: ListingDocument[]): DocumentRefs {
 
 // ---------- Media ----------
 
-export const MAX_MEDIA = 6;
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_MEDIA = PHOTO_RULES.maxMedia;
+/** A picked photo may be large: it is shrunk before upload (photoQuality.ts shrinkPhoto). */
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 // WEBM is listed in the page's copy and accepted by the video service; list.html left it out here by mistake.
 export const ALLOWED_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm'];
 export const isVideoFile = (file: { type?: string }) => Boolean(file.type && file.type.startsWith('video/'));
 
-/** Adds chosen files: the type, size, count and duplicate rules, with list.html's messages. */
-export function addMediaFiles(current: File[], incoming: File[]): { files: File[]; error: string | null } {
+/**
+ * Adds chosen files: the type, size, count and duplicate rules. Videos only
+ * when the plan allows them (`videoNote` says why not), at most
+ * PHOTO_RULES.maxVideos per listing. Photo quality is checked after this.
+ */
+export function addMediaFiles(current: File[], incoming: File[], videoNote: string | null = null): { files: File[]; error: string | null } {
   const files = current.slice();
   let error: string | null = null;
   for (const file of incoming) {
     if (files.length >= MAX_MEDIA) { error = `You can add up to ${MAX_MEDIA} photos or videos.`; break; }
     if (!ALLOWED_MEDIA_TYPES.includes(file.type)) { error = `"${file.name}" isn't a supported photo or video type.`; continue; }
-    if (!isVideoFile(file) && file.size > MAX_IMAGE_BYTES) { error = `"${file.name}" is over 5MB.`; continue; }
+    if (isVideoFile(file) && videoNote) { error = videoNote; continue; }
+    if (isVideoFile(file) && files.filter(isVideoFile).length >= PHOTO_RULES.maxVideos) { error = `A listing can have up to ${PHOTO_RULES.maxVideos} videos.`; continue; }
+    if (!isVideoFile(file) && file.size > MAX_IMAGE_BYTES) { error = `"${file.name}" is over 25MB.`; continue; }
     if (files.some((item) => item.name === file.name && item.size === file.size)) continue;
     files.push(file);
   }
@@ -306,7 +318,9 @@ export async function uploadListingVideo(token: string, file: File, listingId: s
 }
 
 /** A listing photo: storage upload, then its listing_photos row. */
-export async function uploadListingPhoto(client: SupabaseClient, hostId: string, file: File, listingId: string, index: number): Promise<void> {
+export async function uploadListingPhoto(client: SupabaseClient, hostId: string, picked: File, listingId: string, index: number): Promise<void> {
+  // At most 2560px, as a JPEG: phone photos upload faster and fit the server's limit.
+  const file = await shrinkPhoto(picked);
   const path = `${hostId}/${listingId}/${Date.now()}_${index}_${sanitizeFilename(file.name)}`;
   const dimensions = await imageDimensions(file);
   const { data, error } = await client.storage.from('listing-photos').upload(path, file, { upsert: false });

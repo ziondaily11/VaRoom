@@ -5,7 +5,6 @@ process.env.R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'test-bucket';
 process.env.R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || 'test-access-key';
 process.env.R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || 'test-secret';
 process.env.VIDEO_UPLOADS_ENABLED = 'true';
-process.env.VIDEO_PREMIUM_REQUIRED = 'false';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -75,7 +74,22 @@ async function withServer(options, run) {
       const query = {
         select() { return this; },
         eq() { return this; },
-        single: async () => ({ data: { id: propertyId, host_id: user.id, category: options.category || 'property' }, error: null }),
+        in() { return this; },
+        single: async () => ({ data: { id: propertyId, host_id: user.id, category: options.category || 'airbnb' }, error: null }),
+        // The host's other listings, for the plan's video count (none use video here).
+        then: (resolve) => resolve({ data: [], error: null }),
+      };
+      return query;
+    }
+    // The host's plan: Airbnb Pro, video on up to 2 listings (server/lib/videoEntitlement.js).
+    if (table === 'host_subscriptions') {
+      const query = {
+        select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; }, limit() { return this; },
+        maybeSingle: async () => ({ data: options.noPlan ? null : {
+          id: 'sub-1', host_id: user.id, plan_id: 'airbnb_pro', status: 'active', niche: 'airbnb',
+          current_period_end: new Date(Date.now() + 86400000).toISOString(),
+          billing_plans: { id: 'airbnb_pro', display_name: 'Pro', features: { video_listings: true, video_listing_limit: 2 } },
+        }, error: null }),
       };
       return query;
     }
@@ -277,8 +291,8 @@ test('allows initialization below the video-count limit', async () => {
     assert.equal(state.insertedRecord.status, 'pending');
   });
 
-  test('video upload initialization and finalization retain the existing flow across listing niches', async (t) => {
-    for (const category of ['property', 'shop', 'office', 'hotel', 'airbnb', 'venue']) {
+  test('video upload initialization and finalization work for every niche with video plans', async (t) => {
+    for (const category of ['hotel', 'airbnb', 'venue']) {
       await t.test(category, async () => {
         await withServer({ category, count: 0, actualDuration: 3 }, async (state) => {
           const initialized = await initializeUpload(state.send);
@@ -286,6 +300,18 @@ test('allows initialization below the video-count limit', async () => {
           const completed = await completeUpload(state.send, undefined, initialized.body.uploadId, initialized.body.mediaId);
           assert.equal(completed.status, 200);
           assert.equal(completed.body.status, 'ready');
+        });
+      });
+    }
+  });
+
+  test('Silver / Gold niches and hosts without a video plan are refused before anything is reserved', async (t) => {
+    for (const options of [{ category: 'property' }, { category: 'shop' }, { category: 'office' }, { category: 'airbnb', noPlan: true }]) {
+      await t.test(JSON.stringify(options), async () => {
+        await withServer({ ...options, count: 0 }, async (state) => {
+          const response = await initializeUpload(state.send);
+          assert.equal(response.status, 403);
+          assert.equal(state.insertedRecord, null);
         });
       });
     }

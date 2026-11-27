@@ -8,6 +8,7 @@ const { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey } = r
 const { ValidationError, assertAllowedKeys, text, number, enumValue, uuid } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listingMediaAccess');
+const { photoProblem } = require('../lib/photoQuality');
 const {
   parseVariantWidth, ensureVariant, scheduleVariants, STABLE_REDIRECT_MAX_AGE, CDN_REDIRECT_MAX_AGE, SERVER_REDIRECT_TTL_SECONDS,
 } = require('../lib/photoVariants');
@@ -156,6 +157,14 @@ router.post('/photos/upload-complete', async (req, res) => {
         }
         const bytes = await mediaStorageService.downloadR2Object(key);
         if (!hasImageSignature(bytes, contentType)) return res.status(400).json({ error: 'Banner file contents do not match its image type' });
+      }
+      // Listing photos: too small or too blurry is refused (the browser checks the same first).
+      if (category === 'listing-photos') {
+        const problem = await photoProblem(await mediaStorageService.downloadR2Object(key));
+        if (problem) {
+          await mediaStorageService.deleteR2Object(key).catch((error) => console.warn('Refused photo could not be removed:', error.message || error));
+          return res.status(422).json({ error: problem, code: 'PHOTO_QUALITY' });
+        }
       }
       const optimization = await mediaOptimizationService.optimizeStoredMediaObject(
         key,

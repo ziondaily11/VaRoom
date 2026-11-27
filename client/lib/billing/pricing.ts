@@ -36,9 +36,9 @@ export interface PlanCard {
 
 /** The original plans, for hosts without a niche plan set (filled in order from the server's legacy plans). */
 export const DEFAULT_PLAN_CARDS: PlanCard[] = [
-  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access'], cta: 'Get Started', monthly: 800, yearly: null, featured: false },
-  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video listings', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, yearly: null, featured: true },
-  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
+  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access', 'Photos only'], cta: 'Get Started', monthly: 800, yearly: null, featured: false },
+  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video on 1 listing', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, yearly: null, featured: true },
+  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Video on up to 3 listings', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, yearly: null, featured: false },
 ];
 
 // Property and Shops & Offices pay per listing: Silver or Gold keeps one
@@ -47,9 +47,9 @@ export const DEFAULT_PLAN_CARDS: PlanCard[] = [
 // Discover treats both the same.
 export const LISTING_TIER_CARDS: PlanCard[] = [
   { id: 'silver', name: 'Silver', description: 'One listing, live for 30 days from when you publish it.', perListing: true, monthly: 1000, yearly: null, featured: false, cta: 'Choose Silver',
-    features: ['One listing live for 30 days', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included'] },
+    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included'] },
   { id: 'gold', name: 'Gold', description: 'More visibility for one listing, live for 30 days from when you publish it.', perListing: true, monthly: 2000, yearly: null, featured: true, cta: 'Choose Gold',
-    features: ['One listing live for 30 days', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
+    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
 ];
 
 // Airbnb, Hotel and Event Venue plans unlock features; the included listings,
@@ -64,29 +64,29 @@ export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
   shops_offices: LISTING_TIER_CARDS,
   airbnb: [
     nicheCard('airbnb_starter', 'Starter', 1500, 'For hosts with one or two short-stay units.',
-      ['Up to 2 active listings', 'Core host tools', 'Analytics included'], 'Get Started'),
+      ['Up to 2 active listings', 'Core host tools', 'Photos only', 'Analytics included'], 'Get Started'),
     nicheCard('airbnb_pro', 'Pro', 3500, 'For growing hosts who want more guests to find them.',
-      ['Up to 6 active listings', 'Everything in Starter', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
+      ['Up to 6 active listings', 'Everything in Starter', 'Video on up to 2 listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
     nicheCard('airbnb_business', 'Business', 7500, 'For operators running a portfolio of short-stay units.',
-      ['Up to 15 active listings', 'Everything in Pro', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Business'),
+      ['Up to 15 active listings', 'Everything in Pro', 'Video on up to 5 listings', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Business'),
   ],
   hotel: [
     nicheCard('hotel_dining', 'Dining', 2000, 'For hotel restaurants taking table reservations only.',
-      ['Restaurant only, no rooms', 'Table reservations and menu', 'Analytics included'], 'Get Started'),
+      ['Restaurant only, no rooms', 'Table reservations and menu', 'Photos only', 'Analytics included'], 'Get Started'),
     nicheCard('hotel_boutique', 'Boutique', 4000, 'For guest houses and boutique hotels.',
-      ['Up to 20 rooms', 'Stays and table reservations', 'Video listings', 'Analytics included'], 'Choose Boutique'),
+      ['Up to 20 rooms', 'Stays and table reservations', 'Video on 1 listing', 'Analytics included'], 'Choose Boutique'),
     nicheCard('hotel_standard', 'Hotel', 8000, 'For mid-size hotels that want more direct bookings.',
-      ['21 to 60 rooms', 'Everything in Boutique', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Choose Hotel', true),
+      ['21 to 60 rooms', 'Everything in Boutique', 'Video on up to 2 listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Choose Hotel', true),
     nicheCard('hotel_plus', 'Hotel Plus', 15000, 'For large hotels with maximum visibility.',
-      ['61 rooms or more', 'Everything in Hotel', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Hotel Plus'),
+      ['61 rooms or more', 'Everything in Hotel', 'Video on up to 4 listings', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Hotel Plus'),
   ],
   venue: [
     nicheCard('venue_basic', 'Venue', 2500, 'For venues with one or two bookable spaces.',
-      ['Up to 2 bookable spaces', 'Core host tools', 'Analytics included'], 'Get Started'),
+      ['Up to 2 bookable spaces', 'Core host tools', 'Photos only', 'Analytics included'], 'Get Started'),
     nicheCard('venue_pro', 'Venue Pro', 5000, 'For venues that want more events booked.',
-      ['Up to 5 bookable spaces', 'Everything in Venue', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
+      ['Up to 5 bookable spaces', 'Everything in Venue', 'Video on up to 2 listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
     nicheCard('venue_premium', 'Venue Premium', 10000, 'For large venues and multi-space event centres.',
-      ['Up to 12 bookable spaces', 'Everything in Venue Pro', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Premium'),
+      ['Up to 12 bookable spaces', 'Everything in Venue Pro', 'Video on up to 5 listings', ELIE_FEATURE, 'Showcased in Marketplace and Discover'], 'Choose Premium'),
   ],
 };
 

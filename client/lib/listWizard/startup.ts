@@ -34,13 +34,15 @@ export interface Flags {
   hasActiveNichePlan: boolean;
   /** Paid Silver / Gold listings not yet used (publishing uses the oldest). */
   listingCredits: ListingCredits;
+  /** Listings the host's plan allows a video on, and how many already have one. */
+  videoListings: { limit: number; used: number };
   /** Payment returned but the form couldn't be restored: publishing waits. */
   publishBlocked: boolean;
 }
 
 export const INITIAL_FLAGS: Flags = {
   paymentVerified: false, returnedPaymentVerified: false, subscriptionVerified: false, hasCurrentListingFee: false, entitlementChecked: false,
-  listingIsPaused: false, listingNeedsPublication: false, hasActiveNichePlan: false, listingCredits: { silver: 0, gold: 0 }, publishBlocked: false,
+  listingIsPaused: false, listingNeedsPublication: false, hasActiveNichePlan: false, listingCredits: { silver: 0, gold: 0 }, videoListings: { limit: 0, used: 0 }, publishBlocked: false,
 };
 
 export const hasListingCredit = (flags: Pick<Flags, 'listingCredits'>) => flags.listingCredits.silver + flags.listingCredits.gold > 0;
@@ -255,6 +257,7 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
       const entitlement = await fetchListingEntitlement(accessToken, niche);
       flags.hasActiveNichePlan = entitlement.planActive;
       flags.listingCredits = entitlement.credits;
+      flags.videoListings = entitlement.videoListings;
       flags.entitlementChecked = true;
     } catch (_) { /* The note under the buttons explains. */ }
     // The verified payment counts even if the allowance check lags behind it.

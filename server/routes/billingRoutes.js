@@ -5,6 +5,7 @@ const supabaseDefault = require('../lib/supabaseClient');
 const { actAsHost } = require('../lib/team');
 const { createPaystackClient } = require('../lib/paystackClient');
 const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingEntitlement');
+const { videoListingAllowance } = require('../lib/videoEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
 const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans, mpesaPhone } = require('../lib/listingTiers');
@@ -181,6 +182,8 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       entitlements.listingTiers = LISTING_TIER_NICHES.has(billingNicheFor(Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null));
       entitlements.listingCredits = { silver: 0, gold: 0 };
       (credits || []).forEach((credit) => { if (credit.listing_tier in entitlements.listingCredits) entitlements.listingCredits[credit.listing_tier] += 1; });
+      // Video: how many listings the plan allows a video on, and how many have one (server/lib/videoEntitlement.js).
+      entitlements.videoListings = entitlements.listingTiers ? { limit: 0, used: 0 } : await videoListingAllowance(supabaseAdmin, user.id);
       const limit = Number(entitlements.listingLimit);
       if (!entitlements.active) {
         entitlements.canCreateAnotherListing = { allowed: false, limit: null, activeCount: 0, reason: 'No active niche subscription.' };
