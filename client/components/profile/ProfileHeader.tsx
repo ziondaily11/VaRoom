@@ -4,6 +4,7 @@ import type { HostProfileRow } from '../../lib/profile/hostProfile';
 import {
   AVATAR_MAX_BYTES, bannerFileOk, bannerUrl, displayName, handleOf, initialOf, memberSince, removeBanner, specialisation, uploadAvatar, uploadBanner,
 } from '../../lib/profile/profilePage';
+import { shrinkPhoto } from '../../lib/listWizard/photoQuality';
 import { AvatarCameraIcon, CalendarIcon, CameraIcon, PinIcon } from './ProfileIcons';
 import { BannerFadeStyles } from './BannerFade';
 
@@ -94,14 +95,15 @@ export default function ProfileHeader({ profile, avatarUrl, token, sessionUserId
     const input = event.currentTarget;
     const file = input.files && input.files[0];
     if (!file) return;
-    if (file.size > AVATAR_MAX_BYTES) { notify('Image over 3MB — pick a smaller file.'); input.value = ''; return; }
+    if (file.size > AVATAR_MAX_BYTES) { notify('Image over 25MB — pick a smaller file.'); input.value = ''; return; }
     const client = getSupabaseClient();
     if (!client) return;
     notify('Uploading…');
     const local = URL.createObjectURL(file);
     setPreview(local);
     try {
-      const path = await uploadAvatar(client, sessionUserId, file);
+      // Phone photos are often several MB: upload a smaller JPEG.
+      const path = await uploadAvatar(client, sessionUserId, await shrinkPhoto(file));
       onChange({ avatar_url: path });
       notify('Photo updated ✓');
     } catch (error) {

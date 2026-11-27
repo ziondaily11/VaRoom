@@ -179,7 +179,8 @@ export async function saveProfileEdit(client: SupabaseClient, userId: string, up
 
 // ---------- Avatar ----------
 
-export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+/** A picked photo may be large: it is shrunk before upload (listWizard/photoQuality.ts shrinkPhoto). */
+export const AVATAR_MAX_BYTES = 25 * 1024 * 1024;
 
 /** Upload a new avatar and save it on the profile; returns the stored path. */
 export async function uploadAvatar(client: SupabaseClient, userId: string, file: File, now: number = Date.now()): Promise<string> {

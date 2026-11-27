@@ -112,11 +112,12 @@ export const MESSAGES = {
   saveProfile: 'Could not save profile. Please check your inputs and try again.',
   finish: 'Could not finish onboarding. Please try again.',
   photoType: 'Please choose an image file.',
-  photoSize: 'That photo is over 5 MB. Try a smaller one.',
+  photoSize: 'That photo is over 25 MB. Try a smaller one.',
   photoUpload: "Your photo couldn't be uploaded. Try again, or continue without it.",
 } as const;
 
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+/** The picked photo is cropped to 1024px before upload, so a large original is fine. */
+export const PHOTO_MAX_BYTES = 25 * 1024 * 1024;
 
 // ---------- Host progress ----------
 
