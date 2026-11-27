@@ -68,6 +68,22 @@ test('calendar rules: changeover day, hotel rooms, open days, the 48-hour hold, 
   assert.match(sql, /pg_advisory_xact_lock/, 'still serialised per listing');
 });
 
+test('calendar part 2: open by default, closed ranges, conversion, and the host calendar with the caller\'s rights', () => {
+  const sql = read('migrations', '20261127_000090_host_calendar.sql');
+  assert.match(sql, /create policy "Hosts and managers read calendar entries" on public\.calendar_entries\s+for select to authenticated using \(public\.varoom_can_act_for\(host_id, 'manager'\)\);/);
+  assert.match(sql, /if owner is null or not public\.varoom_can_act_for\(owner, 'manager'\) then/, 'only the host or a manager changes a calendar');
+  assert.match(sql, /first_day date := greatest\(p_from, today\);/, 'the past is left as it was');
+  assert.match(sql, /and not exists \(select 1 from public\.calendar_entries c where c\.listing_id = l\.id\)/, 'the conversion runs once per listing');
+  assert.match(sql, /select t\.id, \(select day from today\), null from targets t where not exists \(select 1 from open_days o where o\.listing_id = t\.id\)/, 'no open day ahead: closed from today');
+  assert.match(sql, /coalesce\(\(select d\.max_advance_days from public\.listing_booking_details d where d\.listing_id = p_listing\), 365\)/);
+  assert.match(sql, /if ahead is null and new\.start_date is not null then\s+ahead := 365;/, 'leases keep no default limit');
+  assert.match(sql, /raise exception 'booking_rule: Some of those dates are closed\. Please choose other dates\.';/);
+  assert.doesNotMatch(sql.split('-- ---- 2. Rules')[1], /public\.availability/, 'bookings no longer read opened days');
+  assert.match(sql, /returns jsonb\s+language sql\s+stable\s+security invoker/, 'host_calendar reads with the caller\'s own rights');
+  assert.match(sql, /revoke all on function public\.host_calendar\(uuid, date, date\) from public, anon;/);
+  assert.match(sql, /'bookings', 'calendar', 'chats'/, 'calendar is a reserved username');
+});
+
 test('hosts are reminded once, about 6 hours before a request expires', async () => {
   const { remindExpiringRequests } = require('../lib/bookingExpiry');
   const calls = [];

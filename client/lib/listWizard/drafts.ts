@@ -35,7 +35,6 @@ export interface DraftSnapshot extends StoredDraft {
   propertyPurpose: PropertyPurpose;
   propertySalePriceMode: SaleMode;
   hotelListingMode: HotelMode | null;
-  availableDates: string[];
   currentStep: number;
   furthestStep: number;
   /** 2: the six steps (Basics, Location, The space, Photos, Price & terms, Review). Missing: the old five. */
@@ -96,7 +95,6 @@ export function captureSnapshot(identity: SnapshotIdentity, category: Category, 
     propertyPurpose: form.propertyPurpose,
     propertySalePriceMode: form.propertySalePriceMode,
     hotelListingMode: form.hotelListingMode,
-    availableDates: form.availableDates.slice(),
     currentStep: form.currentStep,
     furthestStep: form.furthestStep,
     stepVersion: STEP_VERSION,
@@ -137,7 +135,7 @@ export function savedStep(step: number, version: unknown): number {
   return Math.max(1, Math.min(REVIEW_STEP, mapped));
 }
 
-const FORM_DATA_KEYS = ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'availableDates', 'currentStep', 'furthestStep', 'stepVersion', 'amenities',
+const FORM_DATA_KEYS = ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'currentStep', 'furthestStep', 'stepVersion', 'amenities',
   'officeShopAmenitySelections', 'officeShopPermittedUses', 'officeShopCharges', 'uploadedDocumentRefs', 'documentSelections'] as const;
 
 /** The server copy's form_data. */
@@ -219,7 +217,6 @@ export function restoreSnapshot(snapshot: Partial<DraftSnapshot>, category: Cate
   if (Array.isArray(snapshot.amenities)) {
     form.amenities = snapshot.amenities.filter((item) => item && typeof item.key === 'string').map((item) => ({ key: item.key, checked: item.checked === true }));
   }
-  if (Array.isArray(snapshot.availableDates)) form.availableDates = snapshot.availableDates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(String(date)));
   if (Number.isInteger(snapshot.furthestStep)) form.furthestStep = savedStep(Number(snapshot.furthestStep), snapshot.stepVersion);
   if (Number.isInteger(snapshot.currentStep)) form.currentStep = savedStep(Number(snapshot.currentStep), snapshot.stepVersion);
   const mediaFiles = Array.isArray(snapshot.mediaFiles)

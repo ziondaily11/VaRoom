@@ -17,7 +17,9 @@ const usable = (name) => names.USERNAME_PATTERN.test(name);
 
 test('the database refuses exactly the names the app refuses, with the same format', () => {
   const sql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261118_000072_reserved_usernames.sql'), 'utf8');
-  const array = sql.split('= any (array[')[1].split(']::text[]')[0];
+  // The latest list: 000090 added "calendar".
+  const latest = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261127_000090_host_calendar.sql'), 'utf8');
+  const array = latest.split('= any (array[')[1].split(']::text[]')[0];
   const sqlNames = [...array.matchAll(/'([^']+)'/g)].map((match) => match[1]);
   assert.deepEqual([...sqlNames].sort(), [...names.RESERVED_USERNAMES].sort());
   assert.equal(new Set(sqlNames).size, sqlNames.length, 'no duplicates');

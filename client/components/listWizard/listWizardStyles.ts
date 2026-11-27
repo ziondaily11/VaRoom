@@ -233,22 +233,6 @@ export const LIST_WIZARD_STYLES = `
   #listing-page .price-preview{ display:flex; align-items:baseline; gap:.35rem; margin:-.4rem 0 1.4rem; }
   #listing-page .price-preview .amount{ font-size:2rem; font-weight:700; letter-spacing:-.02em; line-height:1; }
   #listing-page .price-preview .unit{ font-size:.95rem; color:var(--muted); }
-  #listing-page .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
-  #listing-page .cal-title{ font-weight:700; font-size:.92rem; }
-  #listing-page .cal-nav{ display:flex; gap:.35rem; }
-  #listing-page .cal-nav button{ width:32px; height:32px; border-radius:10px; display:grid; place-items:center; border:1px solid var(--line); }
-  #listing-page .cal-quick{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.8rem; }
-  #listing-page .cal-quick button{ padding:.4rem .8rem; border:1px solid var(--line); border-radius:999px; font-size:.76rem; font-weight:600; }
-  @media (hover:hover){ #listing-page :is(.cal-nav button, .cal-quick button):hover{ border-color:var(--line-strong); background:var(--field); } }
-  #listing-page .cal-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:.3rem; }
-  #listing-page .cal-dow{ padding:.2rem 0; text-align:center; font-size:.66rem; font-weight:700; color:var(--muted); }
-  #listing-page .cal-day{ aspect-ratio:1 / 1; display:flex; align-items:center; justify-content:center; border:1.5px solid transparent; border-radius:9px; background:var(--field); font-size:.78rem; cursor:pointer;
-    transition:background-color var(--motion-micro,150ms) var(--ease-out,ease), border-color var(--motion-micro,150ms) var(--ease-out,ease); }
-  @media (hover:hover){ #listing-page .cal-day:not(.past):hover{ border-color:var(--line-strong); } }
-  #listing-page .cal-day.selected{ background:var(--ok); color:#fff; }
-  #listing-page .cal-day.past{ opacity:.35; cursor:not-allowed; }
-  #listing-page .cal-day.empty{ visibility:hidden; cursor:default; }
-  #listing-page .cal-legend{ margin-top:.6rem; font-size:.76rem; color:var(--muted); }
 
   /* ---------- Review ---------- */
   #listing-page .review-card{ display:flex; align-items:center; gap:1rem; padding:1rem; margin-bottom:1.2rem; border:1px solid var(--line); border-radius:16px; background:var(--field); }

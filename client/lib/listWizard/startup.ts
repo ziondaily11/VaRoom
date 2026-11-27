@@ -61,7 +61,6 @@ export interface EditData {
   documents: ListingDocument[];
   /** office_shop_details.documents with the current document ids. */
   officeShopDocuments: Record<string, unknown> | null;
-  savedDates: string[];
 }
 
 export type StartupOutcome =
@@ -339,14 +338,10 @@ async function loadEditListing(client: SupabaseClient, hostId: string, id: strin
     if (dining.tables_available != null) fields['dining-tables-available'] = String(dining.tables_available);
     form = { ...form, fields };
   }
-  const availability = await client.from('availability').select('date').eq('listing_id', id);
-  if (availability.error) throw availability.error;
-  const savedDates = ((availability.data || []) as Array<{ date: string }>).map((item) => item.date);
-  form = { ...form, availableDates: savedDates };
   return {
     form,
     documentRefs,
-    edit: { existingPhotos, existingPolicyUrl: (policy && policy.downloadUrl) || null, documents: isOfficeShop(niche) ? documents : [], officeShopDocuments, savedDates },
+    edit: { existingPhotos, existingPolicyUrl: (policy && policy.downloadUrl) || null, documents: isOfficeShop(niche) ? documents : [], officeShopDocuments },
   };
 }
 

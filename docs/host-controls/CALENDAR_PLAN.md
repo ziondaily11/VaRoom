@@ -1,6 +1,6 @@
 # Host calendar: plan
 
-Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Part 1 (booking rules) built on `claude/calendar-booking-rules`, migration 000089.** Follows the outcome controls plan (`OUTCOME_CONTROLS_PLAN.md`, decision D4), which left block dates, hotel room pausing and the instant-book switch to this plan.
+Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Part 1 (booking rules, migration 000089) merged (PR #758) and applied. Part 2 (Calendar page, open by default, migration 000090) on `claude/host-calendar-page`; 000090 applied 2026-11-27.**
 
 ## Goal
 
@@ -189,7 +189,7 @@ Included in **every** Airbnb, hotel and venue plan, and for property / office / 
 One branch and PR per part, each tested and shipped before the next:
 
 1. **Fix the booking rules** (P1, P3, P4, P6, P7): `listing_calendar`, changeover, hotel room counts, 48-hour hold, closed days in the trigger, the booking page reading `listing_calendar`. Guests benefit first, even before the host page exists.
-2. **Host Calendar page**: month and agenda views, day panel with approve/decline, close/reopen, the open-by-default conversion, sidebar item, listing menu link, wizard Step 4 becomes "close dates".
+2. **Host Calendar page**: month and agenda views, day panel with approve/decline, close/reopen, the open-by-default conversion, sidebar item, listing menu link. The listing wizard's date step became a note linking to Calendar, so dates have one editor (two would overwrite each other).
 3. **Events and planner**: `calendar_entries` (offline bookings, closed, notes, colours, repeat), timeline view, bulk select, weekly closed days.
 4. **Venues by the hour and hotels**: start/end times, hire hours, buffers, day view, close rooms, table reservations in day view. Then server-side price calculation (P8), so per-date prices (weekend and season prices) can follow safely.
 5. **iCal export and import.**

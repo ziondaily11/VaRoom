@@ -18,6 +18,7 @@ import {
   BOOKINGS_STALE_MS, getCachedVideo, getHostBookings, setCachedVideo, setHostBookings,
 } from '../../lib/bookings/bookingsCache';
 import { markListing, publishListingUpdate, unitsPatch } from '../../lib/listings/hostListingActions';
+import { clearCalendarCache } from '../../lib/calendar/hostCalendar';
 
 // The host's Bookings (migrated from legacy-pages/bookings.html): requests by
 // status for a month, approve / decline, the request detail in the right rail
@@ -417,6 +418,7 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
     setAnswer({ id: booking.id, decision, done: false });
     try {
       const { status } = await respondToBooking(client, { booking, userId: hostId, decision });
+      clearCalendarCache(hostId);
       setDeclineAsk(null);
       // The result shows on the button, then the request leaves the list.
       setAnswer({ id: booking.id, decision, done: true });

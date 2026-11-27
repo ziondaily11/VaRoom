@@ -9,6 +9,7 @@ export const HOST_START_PAGES = [
   '/host-home',
   '/marketplace',
   '/bookings',
+  '/calendar',
   '/chats',
   '/notifications',
   '/host-home?view=my-listings',
