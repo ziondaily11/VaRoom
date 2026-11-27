@@ -140,3 +140,16 @@ test('page: own profile only (?u= opens the host page), one profile read, retire
     assert.ok(read('components', 'profile', 'ProfileSections.tsx').includes(text) || read('components', 'profile', 'ProfileHeader.tsx').includes(text), text);
   }
 });
+
+test('avatar: a large phone photo is shrunk in the browser before upload', () => {
+  assert.equal(pp.AVATAR_MAX_BYTES, 25 * 1024 * 1024);
+  const header = read('components', 'profile', 'ProfileHeader.tsx');
+  assert.match(header, /import \{ shrinkPhoto \} from '\.\.\/\.\.\/lib\/listWizard\/photoQuality';/);
+  assert.match(header, /uploadAvatar\(client, sessionUserId, await shrinkPhoto\(file\)\)/);
+  assert.match(header, /Image over 25MB/);
+});
+
+test('one address: www.varoom.co.ke redirects to varoom.co.ke, the only origin photo storage accepts uploads from', () => {
+  const { redirects } = JSON.parse(read('vercel.json'));
+  assert.deepEqual(redirects[0], { source: '/:path(.*)', has: [{ type: 'host', value: 'www.varoom.co.ke' }], destination: 'https://varoom.co.ke/:path', permanent: true });
+});

@@ -109,7 +109,11 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         const blob = picker.current ? await picker.current.blob() : null;
         if (blob) newPhoto = { photo, blob };
       } catch (photoError) {
+        // Stay here so the host can choose the photo again or remove it.
         console.error('Onboarding photo could not be prepared:', photoError);
+        setBusy('');
+        setError((photoError as Error).message);
+        return;
       }
     }
     setBusy('');

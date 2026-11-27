@@ -243,3 +243,10 @@ test('profile photo: a large circle, the camera on its edge; Change or Remove on
   const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
   assert.match(steps, /const removedAvatar = Boolean\(existingAvatar\) && !savedPhoto && !photo;/);
 });
+
+test('a large phone photo is accepted (it is cropped to 1024 px); one that cannot be prepared keeps the host on step 1 with the reason', () => {
+  assert.equal(ob.PHOTO_MAX_BYTES, 25 * 1024 * 1024);
+  assert.match(ob.MESSAGES.photoSize, /25 MB/);
+  const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
+  assert.match(steps, /catch \(photoError\) \{[\s\S]*?setError\(\(photoError as Error\)\.message\);\s*return;/, 'not dropped silently');
+});
