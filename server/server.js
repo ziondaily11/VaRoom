@@ -30,6 +30,8 @@ const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
 const { createVcoinRoutes } = require('./routes/vcoinRoutes');
 const { createElieHostRoutes } = require('./routes/elieHostRoutes');
+const { createCalendarSyncRoutes } = require('./routes/calendarSyncRoutes');
+const { SYNC_INTERVAL_MS, syncAllFeeds } = require('./lib/calendarSync');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
@@ -110,6 +112,7 @@ app.use('/api', createAccountRoutes({ supabaseAdmin }));
 app.use('/api', createBillingRoutes());
 app.use('/api', createVcoinRoutes());
 app.use('/api', createElieHostRoutes());
+app.use('/api', createCalendarSyncRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');
@@ -880,6 +883,16 @@ function expireStaleBookingRequestsNow() {
 }
 setTimeout(expireStaleBookingRequestsNow, 90 * 1000).unref();
 setInterval(expireStaleBookingRequestsNow, BOOKING_EXPIRY_INTERVAL_MS).unref();
+
+// Calendar links from other sites (Airbnb.com, Booking.com…): read every 30
+// minutes, so their bookings block those days on VaRoom (lib/calendarSync.js).
+function syncCalendarLinksNow() {
+  syncAllFeeds(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Synced ${count} calendar link(s).`); })
+    .catch((error) => console.error('Calendar link sync failed:', error));
+}
+setTimeout(syncCalendarLinksNow, 2 * 60 * 1000).unref();
+setInterval(syncCalendarLinksNow, SYNC_INTERVAL_MS).unref();
 
 // Chat messages left unread: emailed about after each person's chosen time
 // (Chat Settings), checked every 5 minutes.

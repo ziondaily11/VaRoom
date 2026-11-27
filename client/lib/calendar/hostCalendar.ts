@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nextDay } from '../booking/bookingListing';
+import { apiFetch } from '../api';
 
 // The host's Calendar (docs/host-controls/CALENDAR_PLAN.md, part 2): one
 // host_calendar call per month (listings, bookings, closed ranges, read with
@@ -39,7 +40,8 @@ export interface EventFields {
   repeat: 'weekly' | 'monthly' | null; repeat_until: string | null;
 }
 /** One occurrence in the month (a repeating event has one per week or month); series_* are the event's own dates. */
-export interface CalendarEvent extends EventFields { id: string; series_start: string; series_end: string }
+/** source 'ical': a booking read from another site's calendar link (not editable here). */
+export interface CalendarEvent extends EventFields { id: string; series_start: string; series_end: string; source?: 'host' | 'ical' }
 
 /** A hotel restaurant's table reservation (its status is changed in Bookings). */
 export interface TableBooking {
@@ -127,6 +129,60 @@ export const minutesOf = (time: string | null | undefined, fallback: number) => 
   const match = /^(\d{2}):(\d{2})/.exec(time || '');
   return match ? Number(match[1]) * 60 + Number(match[2]) : fallback;
 };
+
+// ---------- Sync with other sites (calendar links) ----------
+
+/** Another site's calendar link that VaRoom reads every 30 minutes. */
+export interface CalendarFeed {
+  id: string; listing_id: string; name: string; url: string;
+  last_synced_at: string | null; last_error: string | null; last_count: number | null;
+}
+export interface SyncResult { ok: boolean; error?: string; count: number; clashes: string[] }
+
+/** The listing's links and its own calendar link (made on first use). */
+export async function loadSync(client: SupabaseClient, listingId: string): Promise<{ feeds: CalendarFeed[]; token: string }> {
+  const [feeds, token] = await Promise.all([
+    client.from('calendar_feeds').select('id,listing_id,name,url,last_synced_at,last_error,last_count').eq('listing_id', listingId).order('created_at'),
+    client.rpc('calendar_export_token', { p_listing: listingId, p_reset: false }),
+  ]);
+  if (feeds.error) throw feeds.error;
+  if (token.error) throw token.error;
+  return { feeds: (feeds.data || []) as CalendarFeed[], token: String(token.data) };
+}
+
+/** A new calendar link for the listing; the old one stops working. */
+export async function resetExport(client: SupabaseClient, listingId: string): Promise<string> {
+  const { data, error } = await client.rpc('calendar_export_token', { p_listing: listingId, p_reset: true });
+  if (error) throw error;
+  return String(data);
+}
+
+export const exportUrl = (origin: string, token: string) => `${origin}/api/calendar/${token}.ics`;
+
+export async function addFeed(client: SupabaseClient, hostId: string, listingId: string, name: string, url: string): Promise<CalendarFeed> {
+  const { data, error } = await client.from('calendar_feeds').insert({ host_id: hostId, listing_id: listingId, name, url })
+    .select('id,listing_id,name,url,last_synced_at,last_error,last_count').single();
+  if (error) throw error;
+  return data as CalendarFeed;
+}
+
+export async function removeFeed(client: SupabaseClient, id: string): Promise<void> {
+  const { error } = await client.from('calendar_feeds').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Read a link now (the server checks it is the host's own). */
+export const syncNow = (id: string, fetchApi: <T>(path: string, options: { method: string }) => Promise<T> = apiFetch) =>
+  fetchApi<SyncResult>(`/api/calendar/feeds/${encodeURIComponent(id)}/sync`, { method: 'POST' });
+
+/** Why a link can't be added, in words, or null. */
+export function feedProblem(name: string, url: string, existing: CalendarFeed[]): string | null {
+  if (!name.trim()) return 'Name the site, e.g. Airbnb.com.';
+  if (!/^https:\/\/[^\s]+$/i.test(url.trim())) return 'Paste the https calendar link (.ics) from the other site.';
+  if (existing.some((f) => f.url === url.trim())) return 'That link is already added.';
+  if (existing.length >= 5) return 'A listing can have up to 5 links.';
+  return null;
+}
 
 /** A database refusal people can read ("calendar: …", "booking_rule: …"), else the fallback. */
 export function calendarErrorText(error: unknown, fallback: string): string {
