@@ -333,16 +333,26 @@ export function propertyOptions(kind: Pick<BookingKind, 'isProperty' | 'property
 
 // ---------- Calendar ----------
 
-export interface CalendarDates { open: Set<string>; unavailable: Set<string> }
+/**
+ * Days the host opened; nights (days, for a venue hired by the day) with
+ * nothing left; and rooms left on a hotel's partly booked nights.
+ */
+export interface CalendarDates { open: Set<string>; unavailable: Set<string>; roomsLeft: Map<string, number> }
 
-/** Open dates, minus every day of a pending or approved booking (start to end inclusive). */
+export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map() };
+
+/**
+ * One call to listing_calendar, which counts every guest's bookings (a guest
+ * can only read their own) and returns dates and rooms left, never who booked.
+ */
 export async function fetchCalendar(client: SupabaseClient, listingId: string): Promise<CalendarDates> {
-  const [availability, bookings] = await Promise.all([
-    client.from('availability').select('date').eq('listing_id', listingId),
-    client.from('bookings').select('start_date,end_date,status').eq('listing_id', listingId).in('status', ['pending', 'approved']),
-  ]);
-  const open = new Set<string>(((availability.data || []) as Array<{ date: string }>).map((row) => row.date));
-  return { open, unavailable: bookedDays((bookings.data || []) as Array<{ start_date: string | null; end_date: string | null }>) };
+  const { data, error } = await client.rpc('listing_calendar', { p_listing: listingId });
+  if (error) throw error;
+  const result = (data || {}) as { open?: string[]; booked?: Array<{ night: string; left: number }> };
+  const unavailable = new Set<string>();
+  const roomsLeft = new Map<string, number>();
+  (result.booked || []).forEach(({ night, left }) => { if (left > 0) roomsLeft.set(night, left); else unavailable.add(night); });
+  return { open: new Set(result.open || []), unavailable, roomsLeft };
 }
 
 /**
@@ -364,25 +374,31 @@ function eachDay(start: string, end: string, visit: (day: string) => boolean | v
   }
 }
 
-export function bookedDays(bookings: Array<{ start_date: string | null; end_date: string | null }>): Set<string> {
-  const days = new Set<string>();
-  bookings.forEach((booking) => {
-    if (!booking.start_date || !booking.end_date) return;
-    eachDay(booking.start_date, booking.end_date, (day) => { days.add(day); });
-  });
-  return days;
-}
-
 export const isOpenDay = (dates: CalendarDates, day: string) => dates.open.has(day) && !dates.unavailable.has(day);
 
-/** Every day from check-in to check-out is open. */
-export function rangeIsOpen(dates: CalendarDates, start: string, end: string): boolean {
+/**
+ * Every night from check-in to the night before check-out is open (the
+ * check-out day can be another guest's check-in). For a venue hired by the
+ * day, `endIncluded`: every day up to the last.
+ */
+export function rangeIsOpen(dates: CalendarDates, start: string, end: string, endIncluded = false): boolean {
   let open = true;
   eachDay(start, end, (day) => {
-    if (!isOpenDay(dates, day)) { open = false; return false; }
-    return true;
+    if (day === end && !endIncluded) return false;
+    open = isOpenDay(dates, day);
+    return open;
   });
   return open;
+}
+
+/** The fewest hotel rooms left over a stay's nights, or null when none of them is partly booked. */
+export function roomsLeftFor(dates: CalendarDates, start: string, end: string): number | null {
+  let fewest: number | null = null;
+  eachDay(start, end, (day) => {
+    const left = day < end ? dates.roomsLeft.get(day) : undefined;
+    if (left != null && (fewest == null || left < fewest)) fewest = left;
+  });
+  return fewest;
 }
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -427,7 +443,7 @@ export function shiftMonth(year: number, month: number, by: 1 | -1): { year: num
 export function pickStayDay(dates: CalendarDates, start: string | null, end: string | null, day: string, sameDay = false): { start: string; end: string | null; blocked: boolean } {
   if (!start || (start && end)) return { start: day, end: null, blocked: false };
   if (day > start || (sameDay && day === start)) {
-    if (rangeIsOpen(dates, start, day)) return { start, end: day, blocked: false };
+    if (rangeIsOpen(dates, start, day, sameDay)) return { start, end: day, blocked: false };
     return { start: day, end: null, blocked: true };
   }
   return { start: day, end: null, blocked: false };

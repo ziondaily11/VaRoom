@@ -54,6 +54,20 @@ test('the database decides booking status and enforces the rules', () => {
   assert.match(sql, /before insert or update on public\.bookings\s+for each row execute function public\.varoom_snapshot_booking_location\(\)/, 'instant bookings get the location snapshot');
 });
 
+test('calendar rules: changeover day, hotel rooms, open days, the 48-hour hold, and a calendar without names', () => {
+  const sql = read('migrations', '20261127_000089_booking_calendar_rules.sql');
+  assert.match(sql, /least\(b\.end_date - case when listing\.daily then 0 else 1 end, p_to\)/, 'a check-out day is not a night of the stay');
+  assert.match(sql, /case when l\.category = 'hotel' then greatest\(coalesce\(d\.units_available, 1\), 1\) else 1 end as capacity/);
+  assert.match(sql, /b\.status = 'pending' and b\.created_at > now\(\) - interval '48 hours'/);
+  assert.match(sql, /where booked >= capacity/);
+  assert.match(sql, /not exists \(select 1 from public\.availability a where a\.listing_id = new\.listing_id and a\.date::date = g\.day::date\)/);
+  assert.match(sql, /old\.status = 'pending' and new\.status = 'approved' and old\.created_at < now\(\) - interval '48 hours'/);
+  assert.match(sql, /jsonb_build_object\('night', n\.night, 'left', greatest\(n\.capacity - n\.booked, 0\)\)/, 'dates and rooms left only');
+  assert.match(sql, /revoke all on function public\.varoom_booked_nights\(uuid, date, date\) from public, anon, authenticated;/);
+  assert.match(sql, /grant execute on function public\.listing_calendar\(uuid\) to anon, authenticated;/);
+  assert.match(sql, /pg_advisory_xact_lock/, 'still serialised per listing');
+});
+
 test('hosts are reminded once, about 6 hours before a request expires', async () => {
   const { remindExpiringRequests } = require('../lib/bookingExpiry');
   const calls = [];

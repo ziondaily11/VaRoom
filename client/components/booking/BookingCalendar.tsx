@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { calendarMonth, dayLabel, isOpenDay, shiftMonth, todayString, type CalendarDates } from '../../lib/booking/bookingListing';
+import { calendarMonth, dayLabel, isOpenDay, rangeIsOpen, shiftMonth, todayString, type CalendarDates } from '../../lib/booking/bookingListing';
 import { ICON_NEXT, ICON_PREV } from '../../lib/booking/bookingIcons';
 import Svg from './Svg';
 
@@ -9,7 +9,9 @@ import Svg from './Svg';
 // check-in to check-out. The calendar never goes back before this month, nor
 // past the host's booking window. Changing month slides the days in from the
 // side they come from (animation.md C4); with reduced motion they just change.
-// Until the open dates load, every day shows as closed.
+// Until the open dates load, every day shows as closed. For nightly stays,
+// once check-in is picked, a closed or booked day can still be the check-out
+// when every night before it is open (another guest's check-in day).
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,13 +23,15 @@ interface Props {
   end: string | null;
   /** The last day guests may book (host's booking window), or null. */
   lastDay: string | null;
+  /** Nightly stays: a check-out day needn't be open itself. */
+  nightly?: boolean;
   onPick: (day: string) => void;
 }
 
 const monthOf = (day: string) => ({ year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 });
 const monthIndex = (view: { year: number; month: number }) => view.year * 12 + view.month;
 
-export default function BookingCalendar({ dates, start, end, lastDay, onPick }: Props) {
+export default function BookingCalendar({ dates, start, end, lastDay, nightly = false, onPick }: Props) {
   const today = todayString();
   const first = monthOf(today);
   const last = lastDay ? monthOf(lastDay) : null;
@@ -49,14 +53,16 @@ export default function BookingCalendar({ dates, start, end, lastDay, onPick }: 
     const isStart = day === start;
     const isEnd = day === end;
     const inRange = Boolean(start && end && day > start && day < end);
-    return { day, open, booked, past, isStart, isEnd, inRange };
-  }), [month.days, dates, today, start, end]);
+    const checkout = Boolean(nightly && dates && start && !end && !open && day > start && rangeIsOpen(dates, start, day));
+    return { day, open, booked, past, isStart, isEnd, inRange, checkout };
+  }), [month.days, dates, today, start, end, nightly]);
 
   const why = (state: (typeof states)[number]) => (state.isStart ? (end ? 'check-in' : 'selected')
     : state.isEnd ? 'check-out'
       : state.open ? 'open'
-        : state.past ? 'past'
-          : state.booked ? 'booked' : 'not available');
+        : state.checkout ? 'check-out only'
+          : state.past ? 'past'
+            : state.booked ? 'booked' : 'not available');
 
   return (
     <div className="cal" id="cal-container">
@@ -80,6 +86,7 @@ export default function BookingCalendar({ dates, start, end, lastDay, onPick }: 
           if (state.isStart && end) classes.push('range-start');
           if (state.isEnd) classes.push('range-last');
           if (state.inRange) classes.push('in-range');
+          if (state.checkout) classes.push('checkout');
           if (state.day === today) classes.push('today');
           return (
             <button
@@ -87,7 +94,7 @@ export default function BookingCalendar({ dates, start, end, lastDay, onPick }: 
               type="button"
               className={classes.join(' ')}
               data-date={state.day}
-              disabled={!state.open}
+              disabled={!state.open && !state.checkout}
               aria-pressed={state.isStart || state.isEnd || state.inRange ? true : undefined}
               aria-label={`${dayLabel(state.day, true)}, ${why(state)}`}
               onClick={() => onPick(state.day)}

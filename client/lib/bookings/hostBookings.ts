@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, type Booking, type BookingPerson } from './format';
+import { applyExpiry } from './clientBookings';
 import { listingOutcomes, unitsLeft, type ListingOutcome } from '../listings/listingAction';
 
 // The host's booking requests (migrated from legacy-pages/bookings.html):
@@ -46,7 +47,8 @@ export async function fetchHostBookings(client: SupabaseClient, userId: string):
     .eq('host_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as unknown as HostBooking[];
+  // A request unanswered for 48 hours can't be approved any more (the database refuses it).
+  return applyExpiry((data || []) as unknown as HostBooking[]);
 }
 
 export const RESPOND_FAILED = { approve: 'Failed to approve booking. Please try again.', decline: 'Failed to decline booking. Please try again.' };

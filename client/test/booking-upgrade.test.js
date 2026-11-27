@@ -55,7 +55,6 @@ test('guest count: the migration adds the column and checks it against max_guest
 test('dates: stepping days never depends on summer time; labels people can read', () => {
   assert.equal(bl.nextDay('2026-12-31'), '2027-01-01');
   assert.equal(bl.nextDay('2027-03-28'), '2027-03-29', 'the European clock change night');
-  assert.deepEqual([...bl.bookedDays([{ start_date: '2027-03-27', end_date: '2027-03-30' }])], ['2027-03-27', '2027-03-28', '2027-03-29', '2027-03-30']);
   assert.equal(bl.nightsBetween('2027-03-27', '2027-03-30'), 3);
   assert.equal(bl.dayLabel('2026-11-20'), 'Fri 20 Nov');
   assert.equal(bl.dayLabel('2026-11-20', true), 'Fri 20 Nov 2026');
@@ -64,10 +63,10 @@ test('dates: stepping days never depends on summer time; labels people can read'
   assert.doesNotMatch(source, /day\.setDate\(day\.getDate\(\) \+ 1\)/, 'no local-time day stepping');
 });
 
-test('calendar: every day is a labelled button; no past months; closed days are disabled', () => {
+test('calendar: every day is a labelled button; no past months; closed days are disabled unless they can be the check-out', () => {
   const calendar = read('components', 'booking', 'BookingCalendar.tsx');
   assert.match(calendar, /<button\s+key=\{state\.day\}\s+type="button"/);
-  assert.match(calendar, /disabled=\{!state\.open\}/);
+  assert.match(calendar, /disabled=\{!state\.open && !state\.checkout\}/);
   assert.match(calendar, /aria-label=\{`\$\{dayLabel\(state\.day, true\)\}, \$\{why\(state\)\}`\}/);
   assert.match(calendar, /const canGoBack = monthIndex\(view\) > monthIndex\(first\);/);
   assert.match(calendar, /disabled=\{!canGoBack\}/);

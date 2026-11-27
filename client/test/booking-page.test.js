@@ -67,15 +67,22 @@ test('property options: the purpose, limited to the options with a price', () =>
   assert.deepEqual([...bl.propertyOptions({ isProperty: false, propertyPurpose: null, details: {} })], []);
 });
 
-test('calendar: booked days are blocked; a range must be open from check-in to check-out', () => {
-  const booked = bl.bookedDays([{ start_date: '2026-11-10', end_date: '2026-11-12' }, { start_date: null, end_date: '2026-11-20' }]);
-  assert.deepEqual([...booked], ['2026-11-10', '2026-11-11', '2026-11-12']);
-  const dates = { open: new Set(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-13']), unavailable: booked };
+test('calendar: full nights are blocked; a stay needs every night open, not its check-out day', () => {
+  const dates = { open: new Set(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-13']), unavailable: new Set(['2026-11-10']), roomsLeft: new Map() };
   assert.equal(bl.isOpenDay(dates, '2026-11-10'), false);
   assert.deepEqual({ ...bl.pickStayDay(dates, null, null, '2026-11-08') }, { start: '2026-11-08', end: null, blocked: false });
   assert.deepEqual({ ...bl.pickStayDay(dates, '2026-11-08', null, '2026-11-09') }, { start: '2026-11-08', end: '2026-11-09', blocked: false });
-  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-11-08', null, '2026-11-13') }, { start: '2026-11-13', end: null, blocked: true }, 'closed days in between restart at the tapped day');
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-11-08', null, '2026-11-10') }, { start: '2026-11-08', end: '2026-11-10', blocked: false }, 'check out on the day another guest checks in');
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-11-08', null, '2026-11-13') }, { start: '2026-11-13', end: null, blocked: true }, 'closed nights in between restart at the tapped day');
   assert.deepEqual({ ...bl.pickStayDay(dates, '2026-11-09', null, '2026-11-08') }, { start: '2026-11-08', end: null, blocked: false });
+  assert.equal(bl.rangeIsOpen(dates, '2026-11-08', '2026-11-11'), false, 'the night of the 10th is full');
+  assert.equal(bl.rangeIsOpen(dates, '2026-11-08', '2026-11-10', true), false, 'by the day, the last day counts');
+  // Hotels: rooms left on partly booked nights; the check-out night doesn't count.
+  const hotel = { ...dates, roomsLeft: new Map([['2026-11-08', 3], ['2026-11-09', 1]]) };
+  assert.equal(bl.roomsLeftFor(hotel, '2026-11-08', '2026-11-10'), 1);
+  assert.equal(bl.roomsLeftFor(hotel, '2026-11-08', '2026-11-09'), 3);
+  assert.equal(bl.roomsLeftFor(hotel, '2026-11-09', '2026-11-09'), null);
+  assert.equal(bl.roomsLeftFor(dates, '2026-11-08', '2026-11-10'), null);
   assert.equal(bl.nightsBetween('2026-11-08', '2026-11-11'), 3);
   assert.deepEqual({ ...bl.shiftMonth(2026, 11, 1) }, { year: 2027, month: 0 });
   const month = bl.calendarMonth(2026, 10);
@@ -209,7 +216,7 @@ test('each listing type has its own action: rent, buy, lease, reserve or book', 
 });
 
 test('a venue hired by the day: first and last day both count, one day is the same date twice', () => {
-  const dates = { open: new Set(['2026-12-05', '2026-12-06', '2026-12-07']), unavailable: new Set() };
+  const dates = { open: new Set(['2026-12-05', '2026-12-06', '2026-12-07']), unavailable: new Set(), roomsLeft: new Map() };
   assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-05', true) }, { start: '2026-12-05', end: '2026-12-05', blocked: false }, 'tapped twice: one day');
   assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-05') }, { start: '2026-12-05', end: null, blocked: false }, 'nightly stays still need a later check-out');
   assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-05', null, '2026-12-07', true) }, { start: '2026-12-05', end: '2026-12-07', blocked: false });
@@ -222,5 +229,22 @@ test('a venue hired by the day: first and last day both count, one day is the sa
   const widget = require('node:fs').readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
   assert.match(widget, /\} else if \(isShortStay && isDaily\) \{\s*if \(start && end\) \{\s*const days = daysBetween\(start, end\);\s*line = priceLine\(details\.price_amount, days, plural\(days, 'day'\)/);
   assert.match(widget, /pickStayDay\(dates, start, end, day, isDaily\)/);
+  assert.match(widget, /nightly=\{!isDaily\}/, 'a venue by the day has no check-out-only days');
   assert.match(widget, /Tap your first day, then your last day\. Tap a day twice to book just that day\./);
+});
+
+test('calendar: one listing_calendar call; full nights, rooms left, and a failure the page can show', async () => {
+  const calls = [];
+  const client = (data, error = null) => ({ rpc: async (name, args) => { calls.push([name, args]); return { data, error }; } });
+  const dates = await bl.fetchCalendar(client({ open: ['2026-12-01', '2026-12-02'], booked: [{ night: '2026-12-01', left: 0 }, { night: '2026-12-02', left: 2 }] }), 'L1');
+  assert.deepEqual(calls, [['listing_calendar', { p_listing: 'L1' }]]);
+  assert.deepEqual([...dates.open], ['2026-12-01', '2026-12-02']);
+  assert.deepEqual([...dates.unavailable], ['2026-12-01']);
+  assert.deepEqual([...dates.roomsLeft], [['2026-12-02', 2]]);
+  await assert.rejects(bl.fetchCalendar(client(null, { message: 'down' }), 'L1'), { message: 'down' });
+  assert.match(read('pages', 'booking.tsx'), /if \(active\) setCalendar\(EMPTY_CALENDAR\);/);
+  assert.doesNotMatch(read('lib', 'booking', 'bookingListing.ts'), /from\('bookings'\)|from\('availability'\)/, 'guests never read the tables directly');
+  const calendar = read('components', 'booking', 'BookingCalendar.tsx');
+  assert.match(calendar, /const checkout = Boolean\(nightly && dates && start && !end && !open && day > start && rangeIsOpen\(dates, start, day\)\);/);
+  assert.match(calendar, /disabled=\{!state\.open && !state\.checkout\}/);
 });
