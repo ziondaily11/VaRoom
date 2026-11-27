@@ -33,6 +33,7 @@ import { useFeedScrollRoot, useFeedWindow, useLoadMore } from '../lib/discover/f
 import { afterFeedSettles } from '../lib/discover/deferredWork';
 import { preloadVideoPlayer } from '../components/media/lazyVideoPlayer';
 import { releaseRetainedPlayers } from '../lib/media/videoPlayback';
+import type { ListingPatch, ToastAction } from '../lib/listings/hostListingActions';
 
 // Host home (migrated from legacy-pages/host-home.html), inside the persistent
 // host shell: the Discover feed (or My Listings, from ?view=), the
@@ -102,7 +103,7 @@ export default function HostHomePage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ listingId: string; hostId: string } | null>(null);
   const [nicheOpen, setNicheOpen] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ text: string; action?: ToastAction }>({ text: '' });
   const [layoutVersion, setLayoutVersion] = useState(0);
   const [newsRefreshing, setNewsRefreshing] = useState(false);
 
@@ -127,10 +128,11 @@ export default function HostHomePage() {
   }, []);
   useLayoutEffect(() => { if (userId) setSaved(peekBookmarks(userId)); }, [userId]);
 
-  const notify = useCallback((message: string) => {
-    setToast(message);
+  // With an action (Undo) the toast stays longer, so there is time to tap it.
+  const notify = useCallback((message: string, action?: ToastAction) => {
+    setToast({ text: message, action });
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(''), 2200);
+    toastTimer.current = window.setTimeout(() => setToast({ text: '' }), action ? 8000 : 2200);
   }, []);
   const likes = useFeedLikes(client, notify);
   const photoUrl = useCallback((path: string, width: PhotoWidth = PHOTO_WIDTH.feed) => resolveStoredPhotoUrl(path, 'listing-photos', client, width), [client]);
@@ -534,8 +536,9 @@ export default function HostHomePage() {
   }, [newsRefreshing]);
 
   // Owner menu results: the card and its glance tile follow.
-  const onStatus = useCallback((id: string, nextStatus: string) => {
-    setGlance((current) => (Array.isArray(current) ? current.map((listing) => (listing.id === id ? { ...listing, availability_status: nextStatus } : listing)) : current));
+  const onChange = useCallback((id: string, patch: ListingPatch) => {
+    const nextStatus = patch.availability_status;
+    if (nextStatus) setGlance((current) => (Array.isArray(current) ? current.map((listing) => (listing.id === id ? { ...listing, availability_status: nextStatus } : listing)) : current));
     if (activeKey.current) showSnapshot(activeKey.current);
   }, [showSnapshot]);
   const onDeleted = useCallback((id: string) => {
@@ -615,7 +618,7 @@ export default function HostHomePage() {
               onChat={() => { void startChat(listing); }}
               onReport={() => setReportTarget({ listingId: listing.id, hostId: listing.host_id })}
               notify={notify}
-              onStatus={onStatus}
+              onChange={onChange}
               onDeleted={onDeleted}
               refreshVideo={refreshVideo(listing.id)}
             />
@@ -636,7 +639,10 @@ export default function HostHomePage() {
       </Head>
       <style dangerouslySetInnerHTML={{ __html: HOST_HOME_STYLES }} />
       <div className="host-home-page">
-      <div className={`toast${toast ? ' show' : ''}`} id="toast" role="status" aria-live="polite">{toast}</div>
+      <div className={`toast${toast.text ? ' show' : ''}`} id="toast" role="status" aria-live="polite">
+        {toast.text}
+        {toast.action && <button type="button" className="toast-action" onClick={() => { const { action } = toast; setToast({ text: '' }); action?.run(); }}>{toast.action.label}</button>}
+      </div>
       <ReportDialog
         open={Boolean(reportTarget)}
         onClose={() => setReportTarget(null)}

@@ -21,6 +21,7 @@ import SegmentedTabs from '../components/ui/SegmentedTabs';
 import { ProfileSkeleton } from '../components/profile/ProfileSkeleton';
 import SavedListings, { SavedTab } from '../components/profile/SavedListings';
 import { PROFILE_STYLES } from '../components/profile/profileStyles';
+import type { ListingPatch, ToastAction } from '../lib/listings/hostListingActions';
 
 // The signed-in account's own profile (migrated from legacy-pages/profile.html),
 // inside the app shell. Hosts see their listings, categories and reviews;
@@ -51,13 +52,14 @@ export default function ProfilePage() {
   const [contextMenu, setContextMenu] = useState<{ category: ProfileCategory; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<ProfileCategory | null>(null);
   const [resolvingVisit, setResolvingVisit] = useState(false);
-  const [toast, setToast] = useState({ text: '', shown: false });
+  const [toast, setToast] = useState<{ text: string; shown: boolean; action?: ToastAction }>({ text: '', shown: false });
   const toastTimer = useRef<number | null>(null);
 
-  const notify = useCallback((text: string) => {
+  // With an action (Undo) the toast stays longer, so there is time to tap it.
+  const notify = useCallback((text: string, action?: ToastAction) => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    setToast({ text, shown: true });
-    toastTimer.current = window.setTimeout(() => setToast((current) => ({ ...current, shown: false })), 2400);
+    setToast({ text, shown: true, action });
+    toastTimer.current = window.setTimeout(() => setToast((current) => ({ ...current, shown: false })), action ? 8000 : 2400);
   }, []);
   useEffect(() => () => { if (toastTimer.current) window.clearTimeout(toastTimer.current); }, []);
 
@@ -173,8 +175,8 @@ export default function ProfilePage() {
     if ('avatar_url' in patch || 'full_name' in patch || 'username' in patch) void refreshProfile();
   }, [userId, refreshProfile]);
 
-  const onStatus = useCallback((id: string, nextStatus: string) => {
-    setListings((current) => current && current.map((listing) => (listing.id === id ? { ...listing, availability_status: nextStatus } : listing)));
+  const onChange = useCallback((id: string, patch: ListingPatch) => {
+    setListings((current) => current && current.map((listing) => (listing.id === id ? { ...listing, ...patch } as typeof listing : listing)));
     if (userId) invalidateHostProfile(userId, userId, 'cards:owner');
   }, [userId]);
 
@@ -236,7 +238,10 @@ export default function ProfilePage() {
       <ProfileCardStyles />
       {isHost && <CategoryManagerStyles />}
       <div className="profile-page">
-        <div className={`toast${toast.shown ? ' show' : ''}`} id="toast" role="status" aria-live="polite">{toast.text}</div>
+        <div className={`toast${toast.shown ? ' show' : ''}`} id="toast" role="status" aria-live="polite">
+          {toast.text}
+          {toast.shown && toast.action && <button type="button" className="toast-action" onClick={() => { const { action } = toast; setToast((current) => ({ ...current, shown: false })); action?.run(); }}>{toast.action.label}</button>}
+        </div>
         {(loading || resolvingVisit) && <ProfileSkeleton />}
         {ownError && !own && !resolvingVisit && (
           <div className="profile-main" style={{ paddingTop: '2rem' }}>
@@ -282,7 +287,7 @@ export default function ProfilePage() {
                     onTab={setTab}
                     token={token}
                     notify={notify}
-                    onStatus={onStatus}
+                    onChange={onChange}
                     onDeleted={onDeleted}
                     onDraftDiscarded={onDraftDiscarded}
                     onRetry={() => setListingsReload((value) => value + 1)}

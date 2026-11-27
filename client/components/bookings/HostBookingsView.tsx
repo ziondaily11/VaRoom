@@ -11,12 +11,13 @@ import SegmentedTabs from '../ui/SegmentedTabs';
 import ConfirmSheet from './ConfirmSheet';
 import {
   fetchHostBookings, fetchListingVideo, fetchTableReservations, HOST_TAB_STATUS, guestCountText, hostDateText, hostDurationText,
-  hostTabFor, isBookingInMonth, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
+  hostTabFor, isBookingInMonth, markAfterApproval, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
   type HostBooking, type HostTab, type ListingVideo, type TableReservation,
 } from '../../lib/bookings/hostBookings';
 import {
   BOOKINGS_STALE_MS, getCachedVideo, getHostBookings, setCachedVideo, setHostBookings,
 } from '../../lib/bookings/bookingsCache';
+import { markListing, publishListingUpdate, unitsPatch } from '../../lib/listings/hostListingActions';
 
 // The host's Bookings (migrated from legacy-pages/bookings.html): requests by
 // status for a month, approve / decline, the request detail in the right rail
@@ -291,6 +292,9 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<Answer>(null);
   const [declineAsk, setDeclineAsk] = useState<HostBooking | null>(null);
+  // An approved rental on a live listing: offer to mark it rented (never automatic).
+  const [markAsk, setMarkAsk] = useState<{ booking: HostBooking; outcome: string; units: number } | null>(null);
+  const [marking, setMarking] = useState(false);
   const [videos, setVideos] = useState<Record<string, ListingVideo | null>>({});
   const feedRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef(token);
@@ -425,6 +429,8 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
       });
       setSelectedId(null);
       showToast(decision === 'approve' ? 'Booking approved!' : 'Booking declined.');
+      const offer = decision === 'approve' ? markAfterApproval(booking) : null;
+      if (offer) setMarkAsk({ booking, ...offer });
     } catch (error) {
       console.error(`Failed to ${decision} booking:`, error);
       showToast(RESPOND_FAILED[decision]);
@@ -433,6 +439,33 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
       setBusy(false);
     }
   };
+  const markRented = async () => {
+    const ask = markAsk;
+    const listing = ask && ask.booking.listing;
+    if (!ask || !listing || !listing.id || marking) return;
+    const target = { ...listing, id: listing.id };
+    setMarking(true);
+    try {
+      const result = await markListing(token, target.id, { outcome: ask.outcome as 'rented' | 'leased', units: 1, bookingId: ask.booking.id });
+      publishListingUpdate(target.id, { availability_status: result.listing.availability_status, ...unitsPatch(target, result.listing.units_available) });
+      // Other requests for this listing now see it as it is.
+      setBookings((current) => {
+        const next = (current || []).map((b) => (b.listing && b.listing.id === target.id
+          ? { ...b, listing: { ...b.listing, availability_status: result.listing.availability_status, ...unitsPatch(target, result.listing.units_available) } } : b));
+        save({ bookings: next });
+        return next;
+      });
+      if (ownId) void import('../../lib/analytics/analyticsCache').then((cache) => cache.invalidateAnalytics(ownId));
+      setMarkAsk(null);
+      showToast(`Marked as ${ask.outcome}`);
+    } catch (error) {
+      setMarkAsk(null);
+      showToast(`Could not mark it ${ask.outcome}: ${(error as Error).message}`);
+    } finally {
+      setMarking(false);
+    }
+  };
+
   // Approving is one tap; declining asks first.
   const onRespond = (booking: HostBooking, decision: 'approve' | 'decline') => {
     if (decision === 'decline') setDeclineAsk(booking);
@@ -530,6 +563,19 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
         busy={busy}
         onConfirm={() => { if (declineAsk) void respond(declineAsk, 'decline'); }}
         onClose={() => setDeclineAsk(null)}
+      />
+      <ConfirmSheet
+        open={markAsk !== null}
+        title={markAsk && markAsk.units > 1 ? `Mark one unit as ${markAsk.outcome}?` : `Mark “${(markAsk && markAsk.booking.listing && markAsk.booking.listing.title) || 'this listing'}” as ${markAsk ? markAsk.outcome : 'rented'}?`}
+        message={markAsk && markAsk.units > 1
+          ? `${markAsk.units - 1} ${markAsk.units - 1 === 1 ? 'unit stays' : 'units stay'} on the marketplace. This one counts as ${markAsk.outcome} in your analytics.`
+          : `It leaves the marketplace and counts as ${markAsk ? markAsk.outcome : 'rented'} in your analytics. You can relist it later.`}
+        confirmLabel={`Mark as ${markAsk ? markAsk.outcome : 'rented'}`}
+        cancelLabel="Not now"
+        destructive={false}
+        busy={marking}
+        onConfirm={() => { void markRented(); }}
+        onClose={() => { if (!marking) setMarkAsk(null); }}
       />
     </>
   );

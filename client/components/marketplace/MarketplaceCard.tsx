@@ -8,6 +8,7 @@ import {
 import {
   ICON_BATH, ICON_BED, ICON_BOOKMARK_FILLED, ICON_BOOKMARK_OUTLINE, ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT, ICON_PIN,
 } from './marketplaceIcons';
+import { isMarkedStatus, statusLabel } from '../../lib/listings/listingAction';
 
 // One Marketplace listing card: a full-bleed photo (or the listing's muted
 // looping video once the card is near the viewport), a category tag, and a
@@ -116,6 +117,8 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave,
     .map((item) => resolveStoredPhotoUrl(item.storage_path, 'listing-photos', client, PHOTO_WIDTH.card))
     .filter((url): url is string => Boolean(url));
   const price = formatPrice(listing.listing_booking_details, listing.category, listing.listing_purpose);
+  // A guest's saved card says when it is gone; any card shows a sale under offer.
+  const flag = isMarkedStatus(listing.availability_status) ? statusLabel(listing.availability_status) : listing.under_offer ? 'Under offer' : null;
   const location = cardLocation(listing);
   const rooms = propertyRooms(listing);
   const showVideo = Boolean(video && video.videoUrl && !videoFailed);
@@ -221,6 +224,7 @@ export default function MarketplaceCard({ listing, saved, token, onOpen, onSave,
               ? <div className="card-price">{`${price.isStarting ? 'From ' : ''}KSh ${price.amount.toLocaleString()}`}</div>
               : <div className="card-price">{`KSh ${price.amount.toLocaleString()}`}<span>{`/${price.unit}`}</span></div>)
             : <div className="card-price"><span>Price on request</span></div>}
+          {!owner && flag && <div className="card-flag">{flag}</div>}
         </div>
         {owner ? (
           <span className={`card-status ${owner.status.className}`.trim()} data-listing-status style={owner.status.style}>{owner.status.label}</span>

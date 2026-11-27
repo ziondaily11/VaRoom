@@ -58,6 +58,8 @@ export interface BookingListing {
   address_visibility: string | null;
   category: string | null;
   listing_purpose: string | null;
+  /** A sale property with an offer in progress (migration 000087). */
+  under_offer?: boolean | null;
   verified: boolean | null;
   availability_status: string | null;
   paid_listing_until: string | null;
@@ -86,7 +88,7 @@ export interface ReviewSummary { average_rating: number | null; review_count: nu
 export interface ReviewsResult { reviews: Review[]; summary: ReviewSummary; error: string | null }
 export interface DocumentsResult { documents: ListingDocument[]; loaded: boolean }
 
-export const LISTING_SELECT = 'id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,live_until,host_id,supports_stay,supports_table_reservation,'
+export const LISTING_SELECT = 'id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,under_offer,verified,availability_status,paid_listing_until,live_until,host_id,supports_stay,supports_table_reservation,'
   + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path),'
   + 'listing_booking_details(*)';
 
@@ -264,7 +266,9 @@ export function bookingKind(listing: BookingListing, now: number = Date.now()): 
     availabilityMessage: listingUnavailable
       // Its own status first (booked, paused…); offline only says so for an otherwise available listing.
       ? (listing.availability_status && listing.availability_status !== 'available'
-        ? `This listing is currently ${String(listing.availability_status).replace('_', ' ')} and cannot accept new bookings.`
+        ? (['sold', 'rented', 'leased'].includes(listing.availability_status)
+          ? `This listing has been ${listing.availability_status}.`
+          : `This listing is currently ${String(listing.availability_status).replace('_', ' ')} and cannot accept new bookings.`)
         : listing.paid_listing_until ? 'This listing’s 30-day paid listing period has ended.' : 'This listing is offline right now and cannot accept new bookings.')
       : '',
   };

@@ -124,6 +124,9 @@ export const listingCardStyles = (scope: string): string => `
     color:inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   ${scope} .card-price span{ margin-left:.15em; font-weight:500; font-size:clamp(.54rem, 3.6cqw, .75rem); color:var(--mkt-panel-muted); }
+  /* Under offer, or (on a guest's saved card) sold / rented / leased. */
+  ${scope} .card-flag{ margin-top:1cqw; font-size:clamp(.54rem, 3.3cqw, .7rem); font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#B45309; }
+  [data-theme="dark"] ${scope} .card-flag{ color:#FBBF24; }
   ${scope} .card-save{
     flex:none; display:grid; place-items:center; width:clamp(26px, 12cqw, 36px); height:clamp(26px, 12cqw, 36px);
     border:0; border-radius:clamp(7px, 3.2cqw, 10px); background:var(--mkt-accent-soft); color:var(--mkt-accent);

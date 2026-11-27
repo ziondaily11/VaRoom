@@ -6,6 +6,7 @@ import type { HostReview, ListingDraft, ProfileCategory } from '../../lib/profil
 import { listingStatus } from '../../lib/profile/profilePage';
 import MarketplaceCard from '../marketplace/MarketplaceCard';
 import HostListingMenu from '../listings/HostListingMenu';
+import type { ListingPatch, ToastAction } from '../../lib/listings/hostListingActions';
 import SegmentedTabs from '../ui/SegmentedTabs';
 import { CardGrid, CardSkeletons, DraftCard, EmptyState } from './ProfileCards';
 import SavedListings, { SavedTab } from './SavedListings';
@@ -55,8 +56,8 @@ export interface HostListingsProps {
   tab: Tab;
   onTab: (tab: Tab) => void;
   token: string | null;
-  notify: (message: string) => void;
-  onStatus: (id: string, status: string) => void;
+  notify: (message: string, action?: ToastAction) => void;
+  onChange: (id: string, patch: ListingPatch) => void;
   onDeleted: (id: string) => void;
   /** A saved draft was discarded (Discard draft). */
   onDraftDiscarded: (draftId: string) => void;
@@ -68,7 +69,7 @@ export interface HostListingsProps {
 }
 
 export default function HostListings(props: HostListingsProps) {
-  const { userId, listings, listingsError, drafts, categories, reviews, tab, onTab, token, notify, onStatus, onDeleted, onDraftDiscarded, onRetry, onManage, onSelectListings, onCategoryMenu } = props;
+  const { userId, listings, listingsError, drafts, categories, reviews, tab, onTab, token, notify, onChange, onDeleted, onDraftDiscarded, onRetry, onManage, onSelectListings, onCategoryMenu } = props;
   const router = useRouter();
   const longPress = useRef<{ timer: number | null; suppressUntil: number }>({ timer: null, suppressUntil: 0 });
   const rows = listings || [];
@@ -176,12 +177,12 @@ export default function HostListings(props: HostListingsProps) {
                     onSave={() => undefined}
                     owner={{
                       href: draft ? `/list?draft=${encodeURIComponent(draft.id)}` : undefined,
-                      status: listingStatus(listing.availability_status, listing.live_until ?? null),
+                      status: listingStatus(listing.availability_status, listing.live_until ?? null, Date.now(), Boolean(listing.under_offer)),
                       menu: (
                         <HostListingMenu
-                          listing={{ id: listing.id, title: listing.title, availability_status: listing.availability_status, listing_draft_id: draft ? draft.id : null }}
+                          listing={{ ...listing, listing_draft_id: draft ? draft.id : null }}
                           notify={notify}
-                          onStatus={onStatus}
+                          onChange={onChange}
                           onDeleted={onDeleted}
                         />
                       ),

@@ -39,7 +39,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function expiringListings(listings: AttentionListing[], now: number = Date.now()): ExpiringListing[] {
   return listings
-    .filter((listing) => listing.paid_listing_until)
+    // A listing marked sold, rented or leased is off the market: its term ending is no news.
+    .filter((listing) => listing.paid_listing_until && !['sold', 'rented', 'leased'].includes(String(listing.availability_status)))
     .map((listing) => {
       const until = Date.parse(String(listing.paid_listing_until));
       return { id: listing.id, title: listing.title || 'Your listing', until: String(listing.paid_listing_until), days: Math.ceil((until - now) / DAY_MS) };

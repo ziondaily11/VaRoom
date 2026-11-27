@@ -86,7 +86,8 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(cardListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
   assert.match(hostProfileView, /const isOwner = Boolean\(viewerId && hostId && viewerId === hostId\)/);
   assert.match(hostProfileView, /loadHostCardListings\(client, viewerId, hostId, isOwner\)/, 'visitors read only active, available listings; the owner reads all');
-  assert.match(hostListingControls, /\{ status: 'draft', label: 'Save as draft' \}/);
+  // The menu pauses or makes available; Save as draft, Mark booked and Mark unavailable were removed (the values stay valid).
+  assert.match(hostListingControls, /export type ListingStatus = 'available' \| 'paused';/);
 
   assert.match(listingRoutes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\)/);
   assert.match(draftStatusMigration, /availability_status in \('available', 'booked', 'unavailable', 'paused', 'draft'\)/);

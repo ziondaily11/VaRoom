@@ -39,7 +39,7 @@ test('the upload refuses a poor listing photo and removes it; listings need 5 ph
   assert.match(photoRoutes, /await mediaStorageService\.deleteR2Object\(key\)[\s\S]{0,200}return res\.status\(422\)\.json\(\{ error: problem, code: 'PHOTO_QUALITY' \}\);/);
   const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
   assert.match(listingRoutes, /const MIN_PHOTOS = 5;\s*const MIN_PHOTOS_RESTAURANT = 3;/);
-  assert.match(listingRoutes, /if \(req\.body\.status === 'available' && listing\.publication_state !== 'published'\) \{\s*const needed = listing\.category === 'hotel' && listing\.supports_stay === false \? MIN_PHOTOS_RESTAURANT : MIN_PHOTOS;/);
+  assert.match(listingRoutes, /if \(status === 'available' && listing\.publication_state !== 'published'\) \{\s*const needed = listing\.category === 'hotel' && listing\.supports_stay === false \? MIN_PHOTOS_RESTAURANT : MIN_PHOTOS;/);
   assert.match(listingRoutes, /code: 'PHOTOS_REQUIRED'/);
   // A listing with a video goes online only with a free video place on the plan.
   assert.match(listingRoutes, /const videoCount = await getPropertyVideoCount\(supabaseAdmin, req\.params\.id\);[\s\S]*if \(allowance\.used >= allowance\.limit\)[\s\S]*code: 'VIDEO_LIMIT_REACHED'/);

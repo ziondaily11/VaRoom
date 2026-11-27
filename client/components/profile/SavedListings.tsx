@@ -28,6 +28,7 @@ function asCard(listing: SavedListing): MarketplaceListing {
     listing_photos: listing.listing_photos,
     listing_booking_details: listing.listing_booking_details as MarketplaceListing['listing_booking_details'],
     availability_status: listing.availability_status,
+    under_offer: listing.under_offer,
   };
 }
 

@@ -341,6 +341,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
             <>
               {rentAction && confirmButton('Request to rent')}
               {showsSale && <button type="button" className={`property-purchase-btn${rentAction ? '' : ' property-purchase-primary'}`} id="property-purchase-btn" onClick={onMessageHost}>Contact host about purchase</button>}
+              {showsSale && listing.under_offer && !listingUnavailable && <p className="form-note"><strong>Under offer.</strong> You can still contact the host about buying.</p>}
               <p className="form-note">{note}</p>
             </>
           )}

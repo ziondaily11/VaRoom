@@ -36,7 +36,8 @@ test('publishing sets how long a listing stays online, and only the server can c
 });
 
 test('Airbnb, Hotel and Venue listings publish only with a running plan, within its listing cap, online until it ends', () => {
-  const branch = routes.slice(routes.indexOf("const changes = { availability_status: req.body.status };"), routes.indexOf("} else if (req.body.status === 'draft')"));
+  // The status route and Relist share applyListingStatus(…, status).
+  const branch = routes.slice(routes.indexOf("const changes = { availability_status: status };"), routes.indexOf("} else if (status === 'draft')"));
   assert.match(branch, /plan = await planAllowance\(supabaseAdmin, user\.id, listing\.category, \{ exceptId: req\.params\.id \}\)/);
   assert.match(branch, /if \(!plan\) return res\.status\(402\)\.json\(\{ error: 'Choose a plan to put this listing online\.', code: 'PLAN_REQUIRED' \}\);/);
   assert.match(branch, /if \(plan\.limit && plan\.used >= plan\.limit\) \{\s*return res\.status\(409\)\.json\(\{ error: `Your \$\{plan\.planName\} plan includes \$\{plan\.limit\} listing/);

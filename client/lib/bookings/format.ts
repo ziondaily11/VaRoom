@@ -11,6 +11,11 @@ export interface BookingListing {
   title?: string | null;
   location_text?: string | null;
   listing_photos?: BookingPhoto[] | null;
+  /** Read for the host: approving a rental asks whether to mark the listing rented. */
+  category?: string | null;
+  listing_purpose?: string | null;
+  availability_status?: string | null;
+  listing_booking_details?: unknown;
 }
 
 export interface BookingPerson {
