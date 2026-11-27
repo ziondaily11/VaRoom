@@ -11,8 +11,8 @@ const path = require('node:path');
 // list-wizard-page.test.js. These checks pin the pricing return and the
 // server's entitlement rule.
 const clientFile = (file) => fs.readFileSync(path.join(__dirname, '..', '..', 'client', file), 'utf8');
-// The native pricing page and its billing module (legacy pricing.html is retired).
-const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts'].map(clientFile).join('\n');
+// The native pricing page, its plan cards and billing module (legacy pricing.html is retired).
+const pricingPage = ['pages/pricing.tsx', 'components/pricing/PlanCards.tsx', 'lib/billing/pricing.ts'].map(clientFile).join('\n');
 const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
 test('Silver and Gold are bought by tier from pricing; monthly plans by plan id; neither sends a price', () => {

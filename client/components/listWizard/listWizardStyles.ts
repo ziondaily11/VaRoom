@@ -20,9 +20,10 @@ export const LIST_WIZARD_STYLES = `
   #listing-page *, #listing-page *::before, #listing-page *::after{ box-sizing:border-box; }
   /* Anything marked hidden stays hidden, whatever display a class gives it (conditional fields). */
   #listing-page [hidden]{ display:none !important; }
-  #listing-page :where(h1,h2,h3,h4,p,ul,ol,li){ margin:0; padding:0; }
+  /* The resets leave the plan choice's pricing page (PRICING_STYLES) to its own styles. */
+  #listing-page :where(h1,h2,h3,h4,p,ul,ol,li):where(:not(.pricing-page *)){ margin:0; padding:0; }
   #listing-page :where(ul,ol){ list-style:none; }
-  #listing-page :where(button){ font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  #listing-page :where(button):where(:not(.pricing-page *)){ font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
   #listing-page :where(a){ color:inherit; }
   #listing-page :focus-visible{ outline:3px solid rgba(196,30,58,.45); outline-offset:2px; }
   .lw-checking{ text-align:center; padding:6rem 1rem; color:var(--muted); }
@@ -287,35 +288,20 @@ export const LIST_WIZARD_STYLES = `
   #listing-page .submit-btn:not(:disabled):active{ transform:scale(var(--press-scale,.97)); }
   #listing-page .submit-btn:disabled{ opacity:.5; cursor:not-allowed; }
 
-  /* Silver / Gold: over the whole step card until the host has a paid listing to use. */
+  /* The plan choice: the pricing page (PRICING_STYLES) over the whole step card until the host can publish. */
   #listing-page .step-frame.active{ position:relative; }
-  #listing-page .tier-choice-overlay{ position:absolute; inset:0; z-index:14; display:flex; align-items:center; justify-content:center; overflow-y:auto; overscroll-behavior:contain;
-    padding:clamp(.75rem,3vw,2rem); background:rgba(0,0,0,.32); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); animation:lw-fade-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
-  #listing-page .tier-choice-dialog{ width:min(100%,720px); margin:auto; padding:clamp(1.2rem,3vw,1.8rem); border:1px solid var(--line); border-radius:20px; background:var(--card); color:var(--ink);
-    box-shadow:0 24px 60px rgba(0,0,0,.3); animation:lw-pop-in var(--motion-standard,250ms) var(--ease-out,ease) both; }
-  #listing-page .tier-choice-dialog h2{ margin:0 0 .4rem; font-size:1.3rem; font-weight:700; line-height:1.25; }
-  #listing-page .tier-choice-dialog > p{ margin:0 0 1.1rem; color:var(--muted); font-size:.92rem; line-height:1.5; }
-  #listing-page .tier-choice-options{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.8rem; }
-  #listing-page .tier-choice-option{ display:flex; flex-direction:column; gap:.8rem; padding:1rem; border:1.5px solid var(--line); border-radius:16px; background:var(--card); }
-  #listing-page .tier-choice-option.featured{ border-color:var(--red); background:var(--red-tint); }
-  #listing-page .tier-choice-head{ display:flex; align-items:baseline; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
-  #listing-page .tier-choice-name{ font-size:1.05rem; font-weight:700; }
-  #listing-page .tier-choice-price{ font-weight:700; }
-  #listing-page .tier-choice-price small{ color:var(--muted); font-weight:500; }
-  #listing-page .tier-choice-option ul{ display:grid; gap:.4rem; margin:0; padding:0; list-style:none; font-size:.84rem; line-height:1.4; }
-  #listing-page .tier-choice-option li{ display:flex; gap:.45rem; }
-  #listing-page .tier-choice-option .check{ flex:none; color:var(--ok); font-weight:700; }
-  #listing-page .tier-choice-option button{ margin-top:auto; min-height:48px; padding:.7rem 1rem; border:1.5px solid var(--line-strong); border-radius:999px; background:var(--card); color:var(--ink);
-    font:inherit; font-weight:600; cursor:pointer; transition:background-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }
-  #listing-page .tier-choice-option.featured button{ border-color:var(--red); background:var(--red); color:#fff; }
-  @media (hover:hover){ #listing-page .tier-choice-option button:not(:disabled):hover{ border-color:var(--ink); } #listing-page .tier-choice-option.featured button:not(:disabled):hover{ border-color:var(--red-deep); background:var(--red-deep); } }
-  #listing-page .tier-choice-option button:not(:disabled):active{ transform:scale(var(--press-scale,.97)); }
-  #listing-page .tier-choice-option button:focus-visible, #listing-page .tier-choice-back:focus-visible{ outline:3px solid rgba(196,30,58,.45); outline-offset:2px; }
-  #listing-page .tier-choice-back{ display:block; width:max-content; margin:1rem auto 0; color:var(--muted); font-size:.86rem; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
-  @media (max-width:640px){
-    #listing-page .tier-choice-overlay{ align-items:flex-start; }
-    #listing-page .tier-choice-options{ grid-template-columns:1fr; }
-  }
+  #listing-page .tier-choice-overlay{ position:absolute; inset:0; z-index:14; overflow-y:auto; overscroll-behavior:contain; border-radius:inherit; container-type:inline-size;
+    animation:lw-fade-in var(--motion-quick,200ms) var(--ease-out,ease) both; }
+  #listing-page .tier-choice-overlay .pricing-page{ min-height:100%; }
+  #listing-page .tier-choice-overlay .pricing-wrap{ padding-top:2.2em; }
+  #listing-page .tier-choice-title{ position:relative; z-index:1; text-align:center; font-size:2.3em; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+  #listing-page .tier-choice-sub{ position:relative; z-index:1; max-width:56ch; margin:.5em auto 1.6em; text-align:center; font-size:1.1em; line-height:1.5; color:var(--muted); }
+  #listing-page .tier-choice-back{ position:relative; z-index:1; display:block; width:max-content; margin:1.6em auto 0; color:var(--muted); font-size:1em; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+  #listing-page .tier-choice-back:focus-visible{ outline:3px solid rgba(196,30,58,.45); outline-offset:2px; }
+  /* Four plans (Hotel) in a card narrower than the screen: two rows. */
+  @container (max-width:1000px){ #listing-page .tier-choice-overlay .plans.plans--four{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  /* Phones: the step card is only as tall as its form, so the plans cover the screen. */
+  @media (max-width:900px){ #listing-page .tier-choice-overlay{ position:fixed; z-index:300; border-radius:0; } }
   #listing-page .form-note{ flex:1 1 100%; margin-top:.3rem; text-align:center; font-size:.8rem; color:var(--muted); }
 
   /* ---------- Moving on ---------- */
@@ -418,7 +404,7 @@ export const LIST_WIZARD_STYLES = `
 
   @media (prefers-reduced-motion:reduce){
     #listing-page *, #listing-page *::before, #listing-page *::after, .listing-leave-dialog, .listing-leave-dialog *, .photo-lightbox{ animation-duration:1ms !important; animation-delay:0ms !important; transition-duration:1ms !important; }
-    #listing-page :is(.step-btn, .submit-btn, .tier-choice-option button, .amenities-library-open, .amenities-library-done, .office-shop-type button, .hotel-offer-option, .property-purpose-option, .sale-mode-option):active,
+    #listing-page :is(.step-btn, .submit-btn, .amenities-library-open, .amenities-library-done, .office-shop-type button, .hotel-offer-option, .property-purpose-option, .sale-mode-option):active,
     .listing-leave-actions button:active{ transform:none; }
   }
 `;

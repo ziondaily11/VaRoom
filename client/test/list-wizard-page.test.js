@@ -78,22 +78,33 @@ test('the office/shop choice marks only the chosen kind as selected', () => {
   assert.match(styles, /\.submit-row \[hidden\]\{ display:none !important; \}/);
 });
 
-test('the Silver / Gold choice: both plans with their prices, Gold first in focus, a way back home', () => {
+test('the plan choice is the pricing page over the step card: no eyebrow or Pricing headline, the same cards, a way back home', () => {
   const html = renderToStaticMarkup(React.createElement(ListingTierChoice, { cards: pricingCards.LISTING_TIER_CARDS, onChoose: noop }));
   assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="tier-choice-title"/);
-  assert.match(html, /<h2 id="tier-choice-title">Choose your listing plan<\/h2>/);
+  assert.match(html, /<div class="pricing-page"><div class="pricing-bg" aria-hidden="true"><\/div><div class="pricing-wrap">/);
+  assert.doesNotMatch(html, /class="eyebrow"|class="pricing-title"|Host plans/);
+  assert.match(html, /<h2 class="tier-choice-title" id="tier-choice-title">Choose your listing plan<\/h2>/);
   assert.match(html, /It stays live for 30 days from when you publish it\./);
-  assert.deepEqual([...html.matchAll(/class="tier-choice-name">(\w+)</g)].map((match) => match[1]), ['Silver', 'Gold']);
-  assert.deepEqual([...html.matchAll(/<button type="button">Pay KSh (?:<!-- -->)?([\d,]+)<\/button>/g)].map((match) => match[1]), ['1,000', '2,000']);
-  assert.match(html, /tier-choice-option featured[\s\S]*Gold/, 'Gold is the highlighted plan');
+  assert.match(html, /class="plans plans--two"/, 'two plans sit centred like /pricing');
+  assert.deepEqual([...html.matchAll(/class="plan-name" id="[\w-]+">(\w+)</g)].map((match) => match[1]), ['Silver', 'Gold']);
+  assert.deepEqual([...html.matchAll(/<span class="amt">([\d,]+)<\/span> <span class="per">\/listing<\/span>/g)].map((match) => match[1]), ['1,000', '2,000']);
+  assert.match(html, /<article class="plan plan--featured" data-plan="gold"/, 'Gold is the highlighted plan');
+  assert.match(html, /class="plan-cta plan-cta--primary"[^>]*>Choose Gold<\/button>/);
   assert.match(html, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
 
   // Airbnb, Hotel, Venue: the niche's monthly plans, priced per month.
   const hotel = renderToStaticMarkup(React.createElement(ListingTierChoice, { cards: pricingCards.NICHE_PLAN_CARDS.hotel, onChoose: noop }));
-  assert.match(hotel, /<h2 id="tier-choice-title">Choose your plan<\/h2>/);
+  assert.match(hotel, /<h2 class="tier-choice-title" id="tier-choice-title">Choose your plan<\/h2>/);
   assert.match(hotel, /Your listings stay online while your plan is paid\./);
-  assert.deepEqual([...hotel.matchAll(/class="tier-choice-name">([\w ]+)</g)].map((match) => match[1]), ['Dining', 'Boutique', 'Hotel', 'Hotel Plus']);
+  assert.match(hotel, /class="plans plans--four"/);
+  assert.deepEqual([...hotel.matchAll(/class="plan-name" id="[\w-]+">([\w ]+)</g)].map((match) => match[1]), ['Dining', 'Boutique', 'Hotel', 'Hotel Plus']);
   assert.equal((hotel.match(/\/month</g) || []).length, 4);
+
+  // The pricing page's own cards and styles, so the two never drift apart.
+  const source = fs.readFileSync(path.join(root, 'components', 'listWizard', 'ListingTierChoice.tsx'), 'utf8');
+  assert.match(source, /import \{ PlanCards \} from '\.\.\/pricing\/PlanCards'/);
+  assert.match(source, /__html: PRICING_STYLES/);
+  assert.match(fs.readFileSync(path.join(root, 'pages', 'pricing.tsx'), 'utf8'), /<PlanCards cards=\{cards\}/);
 });
 
 const { CheckoutWindow, CHECKOUT_STYLES } = loadTsx('components/billing/CheckoutWindow.tsx');
