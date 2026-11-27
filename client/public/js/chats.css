@@ -959,8 +959,11 @@
   /* Elie uses the normal chat canvas and message geometry.  These rules only
      style its search content inside that shared conversation surface. */
   .elie-intro{ align-self:flex-start; max-width:560px; padding:4px 0 8px; }
-  .elie-intro h2{ font-size:1rem; color:var(--text-dark); margin-bottom:7px; }
-  .elie-intro p{ font-size:0.875rem; line-height:1.5; color:var(--text-gray-2); }
+  /* One short question at a time; the animation lasts as long as each line (ELIE_START_LINE_MS). */
+  .elie-intro h2{ min-height:1.25em; font-size:clamp(1.35rem, 4.4vw, 1.9rem); font-weight:500; letter-spacing:-.01em; line-height:1.25; color:var(--text-dark); }
+  .elie-intro h2 span{ display:inline-block; animation:elie-intro-line 3.2s ease both; }
+  @keyframes elie-intro-line{ 0%{ opacity:0; transform:translateY(8px); } 12%,86%{ opacity:1; transform:none; } 100%{ opacity:0; transform:translateY(-8px); } }
+  @media (prefers-reduced-motion:reduce){ .elie-intro h2 span{ animation:none; } }
   .elie-suggestions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
   .elie-suggestions button,.elie-history-item{ border:1px solid var(--border); background:var(--bg-soft); color:var(--text-dark); border-radius:10px; padding:8px 11px; font:inherit; font-size:0.75rem; cursor:pointer; text-align:left; }
   .elie-suggestions button:hover,.elie-history-item:hover{ border-color:var(--mint-dark); background:#e6f8f0; }
@@ -987,7 +990,7 @@
   .elie-history-new{ display:flex; align-items:center; justify-content:space-between; width:100%; font-weight:600; }
   /* Before Elie's first question: the intro above, the composer mid-screen, the suggestions below it. */
   .chat-col.elie-fresh .messages{ justify-content:flex-end; }
-  .chat-col.elie-fresh .elie-intro{ align-self:center; max-width:520px; padding:0 0 4px; text-align:center; }
+  .chat-col.elie-fresh .elie-intro{ align-self:center; max-width:520px; padding:0 0 14px; text-align:center; }
   .chat-col.elie-fresh .elie-start-suggestions{ flex:1 1 0; min-height:0; align-content:flex-start; justify-content:center; margin:14px 28px 0; }
   @media (max-width:760px){ .chat-col.elie-fresh .elie-start-suggestions{ margin:12px 14px 0; } }
   /* Elie's composer (desktop): a rounder box, centred by auto margins so its
@@ -1002,6 +1005,12 @@
     .chat-input-area.is-elie.elie-compact .input-toolbar{ margin-top:0; flex-shrink:0; }
   }
   @media (min-width:761px) and (prefers-reduced-motion:reduce){ .chat-input-area.is-elie{ transition:none; } }
+  /* Upgrade (right of Elie's header): hosts whose plan doesn't include Elie. */
+  .elie-upgrade{ display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 16px 0 13px; border-radius:999px; background:#C41E3A; color:#fff;
+    font-size:0.8125rem; font-weight:600; text-decoration:none; white-space:nowrap; transition:background .15s ease; }
+  .elie-upgrade:hover{ background:#a3172f; }
+  .elie-upgrade svg{ width:16px; height:16px; fill:currentColor; }
+  @media (max-width:760px){ .elie-upgrade{ height:34px; padding:0 12px 0 10px; font-size:0.75rem; } }
   /* Elie's search history button (left of the header) */
   .elie-history-toggle{
     display:none;

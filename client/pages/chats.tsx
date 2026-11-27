@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { RealtimeChannel, Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
@@ -1699,6 +1700,13 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
             </div>
 
             <div className="chat-header-actions">
+              {/* A host's own account whose plan doesn't include Elie: plans with Elie are a tap away. */}
+              {isElie && isHost && !workingAs && elie.wallet && !elie.wallet.included && (
+                <Link href="/pricing" className="elie-upgrade" title="See plans that include Elie">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3Z" /></svg>
+                  Upgrade
+                </Link>
+              )}
               <button
                 type="button"
                 title="Toggle information panel"

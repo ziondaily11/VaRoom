@@ -154,7 +154,7 @@ test('compact phone chat header: identity in a row, 38px avatar', () => {
 test('Elie: its thread, the composer beam and the header in Elie mode', () => {
   const { html } = renderChatsPage({ initialConversationId: 'elie' });
   assert.match(html, /<main class="chat-col is-elie elie-fresh">/, 'before the first question: composer mid-screen');
-  assert.match(html, /<h2>Ask Elie to find you a space\.<\/h2>/, 'ElieThread, empty');
+  assert.match(html, /<h2 aria-label="Ask Elie to find you a space\."><span aria-hidden="true">What’s the occasion\?<\/span><\/h2>/, 'ElieThread, empty');
   assert.match(html, /<div class="chat-header-name" id="chatName">Elie<\/div>/);
   assert.match(html, /data-placeholder="Ask Elie about spaces, prices, amenities\.\.\."/);
   assert.match(html, /<textarea placeholder="Ask Elie\.\.\."><\/textarea>/);
