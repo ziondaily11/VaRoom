@@ -39,9 +39,12 @@ function listingsTable() {
     eq: (column, value) => { update.filters[column] = value; return query; },
     in: (column, values) => { update.filters[column] = values; return query; },
     is: (column, value) => { update.filters[column] = value; return query; },
-    then: (resolve) => resolve({ error: null }),
+    order: () => query,
+    limit: (count) => { update.limit = count; return query; },
+    // A select (the listings a capped plan keeps online) returns the host's newest first.
+    then: (resolve) => resolve({ data: [{ id: 'listing-new' }, { id: 'listing-mid' }, { id: 'listing-old' }].slice(0, update.limit), error: null }),
   };
-  return { update(value) { update.value = value; listingUpdates.push(update); return query; } };
+  return { update(value) { update.value = value; listingUpdates.push(update); return query; }, select: () => query };
 }
 
 function paymentSupabase() {
@@ -397,6 +400,27 @@ test('a confirmed plan payment keeps the host\'s listings online through the pai
   assert.equal(listingUpdates.length, 0, 'a failed payment keeps nothing online');
 });
 
+test('a plan with a listing cap keeps only that many listings online: the ones online now first, then the newest', async () => {
+  const { extendPlanListings } = require('../lib/listingLive');
+  listingUpdates.length = 0;
+  const picks = [];
+  const db = { from: () => { const table = listingsTable(); const select = table.select; table.select = () => { picks.push(true); return select(); }; return table; } };
+  await extendPlanListings(db, { hostId: 'host-1', niche: 'airbnb', until: '2026-12-27T00:00:00.000Z', since: '2026-11-27T00:00:00.000Z', limit: 2 });
+  assert.equal(picks.length, 1);
+  const [update] = listingUpdates;
+  assert.deepEqual(update.filters.id, ['listing-new', 'listing-mid']);
+  assert.deepEqual(update.filters.category, ['airbnb']);
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'lib', 'listingLive.js'), 'utf8');
+  assert.match(source, /\.eq\('availability_status', 'available'\)\s*\.is\('paid_listing_until', null\)\.order\('live_until', \{ ascending: false, nullsFirst: false \}\)\.order\('created_at', \{ ascending: false \}\)\.limit\(limit\)/,
+    'paused listings never take a place');
+
+  listingUpdates.length = 0;
+  picks.length = 0;
+  await extendPlanListings(db, { hostId: 'host-1', niche: 'hotel', until: '2026-12-27T00:00:00.000Z', since: '2026-11-27T00:00:00.000Z', limit: null });
+  assert.equal(picks.length, 0, 'no cap (Hotel, older plans): every published listing');
+  assert.equal(listingUpdates[0].filters.id, undefined);
+});
+
 test('a monthly renewal keeps the plan\'s listings online for the new month, counting from the renewal', () => {
   const { categoriesCovered, plansCovering } = require('../lib/listingLive');
   assert.deepEqual(categoriesCovered('hotel'), ['hotel']);
@@ -405,5 +429,5 @@ test('a monthly renewal keeps the plan\'s listings online for the new month, cou
   assert.deepEqual(plansCovering('office'), ['shops_offices']);
   assert.deepEqual(categoriesCovered('nonsense'), []);
   const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'lib', 'billingService.js'), 'utf8');
-  assert.match(source, /if \(updateError\) throw new Error\('Unable to renew host subscription'\);\s*\/\/[^\n]*\n\s*await extendPlanListings\(supabaseAdmin, \{ hostId: subscription\.host_id, niche: subscription\.niche \|\| plan\.niche \|\| 'legacy', until: periodEnd\.toISOString\(\), since: paidAt \}\);/);
+  assert.match(source, /if \(updateError\) throw new Error\('Unable to renew host subscription'\);\s*\/\/[^\n]*\n\s*await extendPlanListings\(supabaseAdmin, \{ hostId: subscription\.host_id, niche: subscription\.niche \|\| plan\.niche \|\| 'legacy', until: periodEnd\.toISOString\(\), since: paidAt, limit: listingCap\(\{ billing_plans: plan \}\) \}\);/);
 });

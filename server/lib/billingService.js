@@ -1,7 +1,7 @@
 'use strict';
 
 const { createNotification } = require('./notifications');
-const { extendPlanListings } = require('./listingLive');
+const { extendPlanListings, listingCap } = require('./listingLive');
 const { creditVcoinPurchase } = require('./vcoins');
 
 function paystackStatus(data) {
@@ -105,7 +105,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
     // The plan's listings stay online through the new period; Discover counts from today.
-    await extendPlanListings(supabaseAdmin, { hostId: payment.host_id, niche: subscriptionUpdate.niche, until: subscriptionUpdate.current_period_end, since: paidAt });
+    await extendPlanListings(supabaseAdmin, { hostId: payment.host_id, niche: subscriptionUpdate.niche, until: subscriptionUpdate.current_period_end, since: paidAt, limit: listingAllowanceLimit });
   } else if (kind === 'subscription' && ['failed', 'abandoned', 'refunded'].includes(status)) {
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
     if (subscriptionError) throw new Error('Unable to close failed pending subscription');
@@ -222,14 +222,12 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
     status: 'active',
     current_period_start: paidAt,
     current_period_end: periodEnd.toISOString(),
-    listing_allowance_limit: Number(plan.features && plan.features.max_active_listings) > 0
-      ? Number(plan.features.max_active_listings)
-      : null,
+    listing_allowance_limit: listingCap({ billing_plans: plan }),
     provider_metadata: transaction,
   }).eq('id', subscription.id);
   if (updateError) throw new Error('Unable to renew host subscription');
   // A renewal keeps the plan's listings online for the new month; Discover counts from the renewal.
-  await extendPlanListings(supabaseAdmin, { hostId: subscription.host_id, niche: subscription.niche || plan.niche || 'legacy', until: periodEnd.toISOString(), since: paidAt });
+  await extendPlanListings(supabaseAdmin, { hostId: subscription.host_id, niche: subscription.niche || plan.niche || 'legacy', until: periodEnd.toISOString(), since: paidAt, limit: listingCap({ billing_plans: plan }) });
   return { payment: { provider_reference: transaction.reference, status: 'succeeded' }, activated: !insertError };
 }
 

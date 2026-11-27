@@ -204,7 +204,15 @@ test('the allowance check returns a running plan for this niche and the paid Sil
   assert.equal((await check(200, plan({ status: 'active', niche: 'legacy' }), 'venue')).planActive, true);
   assert.equal((await check(200, plan({ status: 'active', niche: 'airbnb' }), 'hotel')).planActive, false, 'another niche');
   assert.equal((await check(200, plan({ status: 'active', niche: 'property' }, false))).planActive, false, 'allowance used up');
-  assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, credits: { silver: 1, gold: 2 }, videoListings: { limit: 0, used: 0 } });
+  assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, limitReached: null, credits: { silver: 1, gold: 2 }, videoListings: { limit: 0, used: 0 } });
+  // Airbnb, Venue: every listing the plan includes is online, so the plan choice offers an upgrade from it.
+  const atLimit = (allowance) => ({ entitlements: { active: true, subscription: { status: 'active', niche: 'airbnb' }, canCreateAnotherListing: allowance } });
+  const full = await check(200, atLimit({ allowed: false, limit: 2, activeCount: 2, planId: 'airbnb_starter' }), 'airbnb');
+  assert.equal(full.planActive, false);
+  assert.deepEqual(full.limitReached, { planId: 'airbnb_starter', limit: 2 });
+  assert.equal((await check(200, atLimit({ allowed: true, limit: 2, activeCount: 1, planId: 'airbnb_starter' }), 'airbnb')).limitReached, null, 'a free place');
+  assert.equal((await check(200, plan({ status: 'active', niche: 'property' }, false))).limitReached, null, 'no plan to upgrade from: Silver / Gold');
+  assert.equal((await check(200, plan({ status: 'active', niche: 'hotel' }, false), 'airbnb')).limitReached, null, 'another niche plan');
   // The plan's video allowance comes through for the photo step.
   const withVideo = { entitlements: { active: true, subscription: { status: 'active', niche: 'airbnb' }, canCreateAnotherListing: { allowed: true }, videoListings: { limit: 2, used: 1 } } };
   assert.deepEqual((await check(200, withVideo, 'airbnb')).videoListings, { limit: 2, used: 1 });

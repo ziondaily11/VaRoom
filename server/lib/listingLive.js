@@ -25,28 +25,61 @@ function categoriesCovered(niche) {
   return [];
 }
 
-/** When the host's running plan for this category ends, or null with none. */
-async function planCoverageEnd(supabaseAdmin, hostId, category, now = new Date()) {
+/** A plan's listing cap (billing_plans.features.max_active_listings, or the subscription's own), or null with none. */
+function listingCap(subscription) {
+  const features = subscription && subscription.billing_plans && subscription.billing_plans.features || {};
+  const cap = Number(subscription && subscription.listing_allowance_limit != null ? subscription.listing_allowance_limit : features.max_active_listings);
+  return Number.isInteger(cap) && cap > 0 ? cap : null;
+}
+
+/**
+ * The host's running plan for this category, or null with none: when it ends,
+ * its listing cap (null: no cap) and how many of its listings are online now
+ * (`exceptId` left out, so republishing a listing doesn't count it twice).
+ */
+async function planAllowance(supabaseAdmin, hostId, category, { exceptId = null, now = new Date() } = {}) {
   const niches = plansCovering(category);
   if (!niches.length) return null;
-  const { data, error } = await supabaseAdmin.from('host_subscriptions').select('current_period_end')
+  const { data: plan, error } = await supabaseAdmin.from('host_subscriptions')
+    .select('plan_id,niche,current_period_end,listing_allowance_limit,billing_plans(display_name,features)')
     .eq('host_id', hostId).in('status', LIVE_STATUSES).in('niche', niches).gt('current_period_end', now.toISOString())
     .order('current_period_end', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error('Unable to check the host plan');
-  return data ? data.current_period_end : null;
+  if (!plan) return null;
+  const limit = listingCap(plan);
+  let used = 0;
+  if (limit) {
+    const query = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+      .eq('host_id', hostId).in('category', categoriesCovered(plan.niche)).eq('publication_state', 'published')
+      .eq('availability_status', 'available').gt('live_until', now.toISOString());
+    if (exceptId) query.neq('id', exceptId);
+    const { count, error: countError } = await query;
+    if (countError) throw new Error('Unable to count the online listings');
+    used = count || 0;
+  }
+  return { planId: plan.plan_id, planName: plan.billing_plans && plan.billing_plans.display_name || 'current', end: plan.current_period_end, limit, used };
 }
 
 /**
  * A confirmed plan payment: the host's published listings the plan covers
  * stay online until `until`, and Discover counts their days from `since`.
+ * With a cap, only that many: the ones online now first, then the newest.
  * Listings on their own Silver / Gold term keep it.
  */
-async function extendPlanListings(supabaseAdmin, { hostId, niche, until, since }) {
+async function extendPlanListings(supabaseAdmin, { hostId, niche, until, since, limit = null }) {
   const categories = categoriesCovered(niche);
   if (!hostId || !categories.length || !until) return;
-  const { error } = await supabaseAdmin.from('listings').update({ live_until: until, live_since: since })
+  const update = supabaseAdmin.from('listings').update({ live_until: until, live_since: since })
     .eq('host_id', hostId).in('category', categories).eq('publication_state', 'published').is('paid_listing_until', null);
+  if (Number.isInteger(limit) && limit > 0) {
+    const { data: kept, error: pickError } = await supabaseAdmin.from('listings').select('id')
+      .eq('host_id', hostId).in('category', categories).eq('publication_state', 'published').eq('availability_status', 'available')
+      .is('paid_listing_until', null).order('live_until', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(limit);
+    if (pickError) throw new Error('Unable to keep the plan listings online');
+    update.in('id', (kept || []).map((row) => row.id));
+  }
+  const { error } = await update;
   if (error) throw new Error('Unable to keep the plan listings online');
 }
 
-module.exports = { PLAN_CATEGORIES, plansCovering, categoriesCovered, planCoverageEnd, extendPlanListings };
+module.exports = { PLAN_CATEGORIES, plansCovering, categoriesCovered, listingCap, planAllowance, extendPlanListings };

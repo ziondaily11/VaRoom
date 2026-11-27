@@ -52,9 +52,16 @@ export const LISTING_TIER_CARDS: PlanCard[] = [
     features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
 ];
 
-// Airbnb, Hotel and Event Venue plans unlock features; the included listings,
-// rooms or spaces are shown here but not enforced on publishing yet. The
-// server's plans (matched by id) set the price and which cards appear.
+// Airbnb, Hotel and Event Venue monthly plans. Airbnb and Venue plans cap the
+// listings online at the numbers shown (billing_plans.features.max_active_listings);
+// Hotel plans count rooms. The server's plans (matched by id) set the price
+// and which cards appear.
+/** An upgrade: the host's plan and the plans above it (cheapest first). A plan not in the list: all of them. */
+export function upgradeCards(cards: PlanCard[], currentId: string): PlanCard[] {
+  const at = cards.findIndex((card) => card.id === currentId);
+  return at < 0 ? cards : cards.slice(at);
+}
+
 const nicheCard = (id: string, name: string, monthly: number, description: string, features: string[], cta: string, featured = false): PlanCard => (
   { id, name, description, features, cta, monthly, yearly: null, featured }
 );

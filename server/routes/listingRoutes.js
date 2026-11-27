@@ -10,7 +10,7 @@ const { decideListingMediaAccess, LISTING_HOST_STATE } = require('../lib/listing
 const { promoteListingMedia } = require('../lib/listingMediaPromotion');
 const { draftStillKept, UNPUBLISHED_STATES } = require('../lib/draftRetention');
 const { createDestinationCounts } = require('../lib/destinationCounts');
-const { planCoverageEnd } = require('../lib/listingLive');
+const { planAllowance } = require('../lib/listingLive');
 const { getPropertyVideoCount, videoListingAllowance } = require('../lib/videoEntitlement');
 // Photos a listing needs before its first publication (client/lib/listWizard/photoQuality.ts PHOTO_RULES).
 const MIN_PHOTOS = 5;
@@ -547,11 +547,15 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
       return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
     }
-    // Airbnb, Hotel, Venue: online only while the host's plan runs (listings.live_until).
-    let planEnd;
-    try { planEnd = await planCoverageEnd(supabaseAdmin, user.id, listing.category); }
+    // Airbnb, Hotel, Venue: online only while the host's plan runs (listings.live_until),
+    // and no more listings online than the plan includes (pausing one frees its place).
+    let plan;
+    try { plan = await planAllowance(supabaseAdmin, user.id, listing.category, { exceptId: req.params.id }); }
     catch { return res.status(503).json({ error: 'Unable to check your plan right now' }); }
-    if (!planEnd) return res.status(402).json({ error: 'Choose a plan to put this listing online.', code: 'PLAN_REQUIRED' });
+    if (!plan) return res.status(402).json({ error: 'Choose a plan to put this listing online.', code: 'PLAN_REQUIRED' });
+    if (plan.limit && plan.used >= plan.limit) {
+      return res.status(409).json({ error: `Your ${plan.planName} plan includes ${plan.limit} listing${plan.limit === 1 ? '' : 's'} online, and all are in use. Upgrade your plan, or pause a listing first.`, code: 'LISTING_LIMIT_REACHED' });
+    }
     // A listing with a video needs one of the plan's video places (pausing another listing frees one).
     try {
       const videoCount = await getPropertyVideoCount(supabaseAdmin, req.params.id);
@@ -567,7 +571,7 @@ router.patch('/listings/:id/status', async (req, res) => {
         }
       }
     } catch { return res.status(503).json({ error: 'Unable to check your plan right now' }); }
-    changes.live_until = planEnd;
+    changes.live_until = plan.end;
     // Discover counts from now when the listing comes (back) online.
     if (!(listing.live_until && new Date(listing.live_until).getTime() > Date.now())) changes.live_since = new Date().toISOString();
     const { data: unfinished, error: readinessError } = await supabaseAdmin.from('property_media')
