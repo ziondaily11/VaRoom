@@ -49,14 +49,20 @@ router.post('/chat/conversations/:conversationId/attachments/upload-init', async
     const conversation = await conversationMember(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
 
-    const { filename, mimeType, fileSize, kind } = req.body || {};
+    // width/height: a photo's size as shown, so its bubble opens at that size.
+    const { filename, mimeType, fileSize, kind, width, height } = req.body || {};
+    const sized = kind === 'photo' && width !== undefined && height !== undefined;
     try {
-      assertAllowedKeys(req.body, ['filename', 'mimeType', 'fileSize', 'kind']);
+      assertAllowedKeys(req.body, ['filename', 'mimeType', 'fileSize', 'kind', 'width', 'height']);
       uuid(conversationId, 'conversation id');
       text(filename, 'filename', { max: 255 });
       text(mimeType, 'mimeType', { max: 150 });
       number(fileSize, 'fileSize', { integer: true, min: 1, max: MAX_FILE_SIZE });
       enumValue(kind, 'kind', ['photo', 'file', 'voice']);
+      if (sized) {
+        number(width, 'width', { integer: true, min: 1, max: 100000 });
+        number(height, 'height', { integer: true, min: 1, max: 100000 });
+      }
     } catch (error) {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid attachment metadata' });
       throw error;
@@ -85,6 +91,7 @@ router.post('/chat/conversations/:conversationId/attachments/upload-init', async
       mime_type: mimeType,
       file_size_bytes: fileSize,
       kind,
+      ...(sized ? { width, height } : {}),
       status: 'pending',
     });
     if (error) {

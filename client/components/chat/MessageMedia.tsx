@@ -34,13 +34,16 @@ function MediaLoader() {
 }
 
 /**
- * A photo message bubble. The image shows a loader until it loads, then the
- * bubble narrows to the rendered width (330 px desktop, 340 px phone).
+ * A photo message bubble. With its size known (`size`) it opens at that size
+ * (chats.css .has-photo-size: within 330 × 360 desktop, 340 × 420 phone);
+ * older photos show a loader, then the bubble narrows to the rendered width.
  * Without a caption the time and ticks sit over the image in a thin frame.
  */
-export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children, footer, overlay }: {
+export function PhotoBubble({ attachmentId, localUrl, size, alt, api, onOpen, children, footer, overlay }: {
   attachmentId: string | null;
   localUrl?: string;
+  /** The photo's size as it shows (stored with the attachment). */
+  size?: { width?: number | null; height?: number | null } | null;
   alt: string;
   api: ChatApi;
   onOpen: (url: string, alt: string) => void;
@@ -59,9 +62,12 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
 
   useEffect(() => { setLoaded(false); setWidth(null); }, [src]);
 
+  const sized = size?.width && size?.height ? { '--photo-w': `${size.width}px`, '--photo-ratio': `${size.width} / ${size.height}` } as React.CSSProperties : null;
+
   const onLoad = () => {
     setLoaded(true);
     const image = imageRef.current;
+    if (sized) return;
     if (!image || !image.naturalWidth) return;
     const maxAllowed = photoMaxWidth(window.matchMedia('(max-width: 760px)').matches);
     const rendered = Math.min(image.offsetWidth || image.naturalWidth, maxAllowed);
@@ -69,9 +75,9 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
   };
 
   return (
-    <div className="bubble bubble-media" style={width ? { maxWidth: width + 6 } : undefined}>
+    <div className={`bubble bubble-media${sized ? ' has-photo-size' : ''}`} style={sized || (width ? { maxWidth: width + 6 } : undefined)}>
       {children}
-      <div className="chat-media-wrap" style={width ? { width } : undefined}>
+      <div className="chat-media-wrap" style={!sized && width ? { width } : undefined}>
         {!loaded && !remote.failed && <MediaLoader />}
         {src && (
           <img

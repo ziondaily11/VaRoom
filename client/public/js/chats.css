@@ -429,6 +429,16 @@
     cursor:zoom-in;
     user-select:none;
   }
+  /* A photo whose size is known opens at it: its own shape within the same
+     box as .chat-message-image (330 × 360; phones below), before it loads. */
+  .bubble-media.has-photo-size{
+    --photo-max-w:330px;
+    --photo-max-h:360px;
+    --photo-box:min(var(--photo-w), var(--photo-max-w), calc(var(--photo-max-h) * var(--photo-ratio)));
+    max-width:min(calc(var(--photo-box) + 6px), 100%);
+  }
+  .has-photo-size > .chat-media-wrap{ width:var(--photo-box); aspect-ratio:var(--photo-ratio); }
+  .has-photo-size .chat-message-image{ width:100%; height:100%; max-width:none; max-height:none; }
   .bubble-media .chat-message-caption{
     display:flow-root;
     margin:0;
@@ -483,6 +493,7 @@
       max-height:420px;
     }
     .chat-album{ width:min(340px, 78vw); }
+    .bubble-media.has-photo-size{ --photo-max-w:min(340px, 78vw); --photo-max-h:420px; }
   }
   @media (max-width:760px){
     .chat-media-preview-header{

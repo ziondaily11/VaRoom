@@ -36,6 +36,9 @@ export interface ChatAttachment {
   kind: 'photo' | 'file' | 'voice' | string;
   status: 'pending' | 'ready' | 'failed' | 'deleted' | string;
   storage_key?: string | null;
+  /** A photo's size as it shows; null for older photos not yet measured. */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface ChatListingSummary {

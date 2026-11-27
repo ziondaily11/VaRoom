@@ -324,7 +324,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (attachmentIds.length) {
       const attachmentResult = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .select('id,original_filename,mime_type,file_size_bytes,kind,status,width,height')
         .in('id', attachmentIds);
       if (attachmentResult.error) throw attachmentResult.error;
       attachments = attachmentResult.data || [];
@@ -754,7 +754,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (attachmentId) {
       const { data: readyAttachment, error: attachmentError } = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .select('id,original_filename,mime_type,file_size_bytes,kind,status,width,height')
         .eq('id', attachmentId)
         .eq('conversation_id', conversationId)
         .maybeSingle();
