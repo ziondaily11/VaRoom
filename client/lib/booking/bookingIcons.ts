@@ -9,6 +9,30 @@ export const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="curren
 export const ICON_LOCATION = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11s-8-6-8-11a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 export const ICON_HEART_OUTLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
 export const ICON_HEART_FILLED = '<svg viewBox="0 0 24 24" fill="var(--red)" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+// Event venues: what a venue offers an event (lib/listWizard/amenities.ts VENUE_AMENITY_OPTIONS).
+const venueIcon = (paths: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+export const VENUE_AMENITY_ICON: Record<string, string> = {
+  venue_sound_system: venueIcon('<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/>'),
+  venue_microphones: venueIcon('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/>'),
+  venue_projector: venueIcon('<rect x="2" y="7" width="20" height="10" rx="2"/><circle cx="16" cy="12" r="2.5"/><path d="M6 17v3m12-3v3M6 11h4"/>'),
+  venue_stage: venueIcon('<path d="M2 16h20v4H2zM4 16V6l8-3 8 3v10"/><path d="M9 16v-5h6v5"/>'),
+  venue_dance_floor: venueIcon('<path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/>'),
+  venue_event_lighting: venueIcon('<path d="M9 18h6m-5 4h4m-6-7a7 7 0 1 1 8 0c-.8.6-1 1.3-1 3h-6c0-1.7-.2-2.4-1-3Z"/>'),
+  venue_tables_chairs: venueIcon('<path d="M3 10h18M6 10v10m12-10v10M8 14h8"/><path d="M4 6h16"/>'),
+  venue_tents: venueIcon('<path d="M3 20 12 4l9 16H3Z"/><path d="M12 4v16m-4 0 4-7 4 7"/>'),
+  venue_outdoor_space: venueIcon('<path d="M12 21V11M12 15c-4 0-6-2-6-6 4 0 6 2 6 6Zm0 0c4 0 6-2 6-6-4 0-6 2-6 6Z"/><path d="M3 21h18"/>'),
+  venue_catering_kitchen: venueIcon('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20m14-7V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>'),
+  venue_in_house_catering: venueIcon('<path d="M4 18h16M5 18a7 7 0 0 1 14 0M12 8V6m-2 0h4"/>'),
+  venue_outside_catering: venueIcon('<path d="M3 17h14M4 17a6 6 0 0 1 12 0"/><path d="m16 8 3 3 3-3m-3 3V4"/>'),
+  venue_bar: venueIcon('<path d="M8 22h8m-4-11v11M5 3h14l-7 8-7-8Z"/>'),
+  venue_restrooms: venueIcon('<circle cx="7" cy="4" r="2"/><circle cx="17" cy="4" r="2"/><path d="M5 22v-7H3l2-7h4l2 7H9v7m6 0V8h4v14"/>'),
+  venue_changing_room: venueIcon('<path d="M12 4a2 2 0 1 1 2 2c-1 0-2 .7-2 2L3 17h18l-9-9"/>'),
+  venue_breakout_rooms: venueIcon('<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>'),
+  venue_wheelchair_access: venueIcon('<circle cx="12" cy="4" r="2"/><path d="M5 8h8l2 4h4M10 8l-2 6h5l2 5m-7-5-3 5m3-5a5 5 0 1 0 9 2"/>'),
+  venue_event_coordinator: venueIcon('<circle cx="12" cy="7" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="m15 13 2 2 4-4"/>'),
+  venue_cleaning: venueIcon('<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/>'),
+  venue_decor_allowed: venueIcon('<path d="M12 2v4m0 0a4 4 0 0 1 4 4c0 3-4 4-4 8m0-12a4 4 0 0 0-4 4c0 3 4 4 4 8m0 0v2"/>'),
+};
 export const AMENITY_ICON: Record<string, string> = {
   wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
   mountain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
@@ -37,9 +61,15 @@ export const AMENITY_ICON: Record<string, string> = {
   unfurnished: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m3 9 18 0M9 21V9"/></svg>',
   in_unit_laundry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="18" x="4" y="3" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M8 6h.01M16 6h.01"/></svg>',
   onsite_laundry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M12 10a3 3 0 0 1 3 3"/></svg>',
-  borehole_water: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'
+  borehole_water: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+  ...VENUE_AMENITY_ICON,
 };
 export const AMENITY_LABEL: Record<string, string> = {
+  venue_sound_system: 'Sound system', venue_microphones: 'Microphones', venue_projector: 'Projector & screen', venue_stage: 'Stage',
+  venue_dance_floor: 'Dance floor', venue_event_lighting: 'Event lighting', venue_tables_chairs: 'Tables & chairs provided', venue_tents: 'Tents / marquee available',
+  venue_outdoor_space: 'Outdoor event space', venue_catering_kitchen: 'Catering kitchen', venue_in_house_catering: 'In-house catering', venue_outside_catering: 'Outside caterers allowed',
+  venue_bar: 'Bar service', venue_restrooms: 'Guest restrooms', venue_changing_room: 'Changing / bridal room', venue_breakout_rooms: 'Breakout rooms',
+  venue_wheelchair_access: 'Wheelchair accessible', venue_event_coordinator: 'Event coordinator on site', venue_cleaning: 'Cleaning after the event', venue_decor_allowed: 'Own décor allowed',
   wifi: 'Free Wi-Fi', mountain: 'Mountain View', parking: 'Free Parking', kitchen: 'Kitchen',
   heating: 'Heating', tv: 'TV', workspace: 'Workspace', balcony: 'Balcony',
   breakfast: 'Breakfast', bonfire: 'Bonfire Area', pet: 'Pet Friendly', power: '24/7 Power Backup',

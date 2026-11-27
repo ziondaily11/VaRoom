@@ -356,3 +356,11 @@ test('hosts book stays too: Hosting | My trips on their own account, linked as ?
   assert.match(read('pages', 'booking-approved.tsx'), /const listHref = ownBookingHref\(null, profile\?\.role === 'host'\);/);
   assert.match(read('components', 'booking', 'BookingWidget.tsx'), /href=\{ownBookingHref\(null, profile\?\.role === 'host'\)\}/);
 });
+
+test('a venue booked by the day shows its first and last day and counts both', () => {
+  const rows = format.detailRows(booking({ start_date: '2026-12-05', end_date: '2026-12-06', price_unit: 'day' }));
+  assert.deepEqual(rows.map((r) => r.label), ['First day', 'Last day', 'Duration']);
+  assert.equal(rows[2].value, '2 days');
+  assert.equal(format.detailRows(booking({ start_date: '2026-12-05', end_date: '2026-12-05', price_unit: 'day' }))[2].value, '1 day');
+  assert.equal(format.perUnit(booking({ start_date: '2026-12-05', end_date: '2026-12-05', price_unit: 'day' })), ' / day');
+});

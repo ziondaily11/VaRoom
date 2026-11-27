@@ -119,6 +119,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
   };
 
   if (category === 'hotel') copy.bookingSub = 'Choose what this hotel offers to set up the right booking experience.';
+  else if (category === 'venue') copy.bookingSub = 'Priced per day or hour, with real availability.';
   else if (SHORT_STAY.includes(category)) copy.bookingSub = 'Priced per night or hour, with real availability.';
   else copy.bookingSub = 'Priced per month, for longer-term arrangements.';
 
@@ -222,11 +223,13 @@ export interface PriceUnitOption { value: string; label: string }
 /** The price-unit choices for a niche (office/shop narrow it to the commercial basis elsewhere). */
 export function priceUnitOptions(category: Category): PriceUnitOption[] {
   if (category === 'hotel') return [{ value: 'night', label: 'Per night' }];
+  // Venues are hired for events: by the hour or by the day, never by the night.
+  if (category === 'venue') return [{ value: 'hour', label: 'Per hour' }, { value: 'day', label: 'Per day' }];
   if (SHORT_STAY.includes(category)) return [{ value: 'hour', label: 'Per hour' }, { value: 'night', label: 'Per night' }];
   return [{ value: 'month', label: 'Per month' }];
 }
 
-export const defaultPriceUnit = (category: Category) => (category === 'hotel' || SHORT_STAY.includes(category) ? 'night' : 'month');
+export const defaultPriceUnit = (category: Category) => (category === 'venue' ? 'day' : category === 'hotel' || SHORT_STAY.includes(category) ? 'night' : 'month');
 
 export function unitLabel(unit: string): string {
   switch (unit) {

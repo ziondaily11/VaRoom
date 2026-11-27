@@ -12,20 +12,42 @@ test('each category gets its own amenity checklist', () => {
   assert.equal(am.HOTEL_AMENITY_OPTIONS.length, 20);
   assert.equal(am.PROPERTY_AMENITY_OPTIONS.length, 20);
   assert.equal(am.amenityOptionsFor('airbnb'), am.AMENITY_OPTIONS);
-  assert.equal(am.amenityOptionsFor('venue'), am.AMENITY_OPTIONS);
+  assert.equal(am.amenityOptionsFor('venue'), am.VENUE_AMENITY_OPTIONS);
   assert.equal(am.amenityOptionsFor('office'), am.AMENITY_OPTIONS, 'office/shop keep the home-stay grid (hidden)');
   assert.equal(am.amenityOptionsFor('hotel'), am.HOTEL_AMENITY_OPTIONS);
   assert.equal(am.amenityOptionsFor('property'), am.PROPERTY_AMENITY_OPTIONS);
   assert.deepEqual(keys(am.AMENITY_OPTIONS).slice(0, 4), ['wifi', 'mountain', 'parking', 'kitchen']);
   assert.ok(keys(am.HOTEL_AMENITY_OPTIONS).every((key) => key.startsWith('hotel_')));
   assert.deepEqual(keys(am.PROPERTY_AMENITY_OPTIONS).slice(0, 3), ['security', 'security_cameras', 'power']);
-  for (const list of [am.AMENITY_OPTIONS, am.HOTEL_AMENITY_OPTIONS, am.PROPERTY_AMENITY_OPTIONS]) {
+  for (const list of [am.AMENITY_OPTIONS, am.HOTEL_AMENITY_OPTIONS, am.PROPERTY_AMENITY_OPTIONS, am.VENUE_AMENITY_OPTIONS]) {
     assert.equal(new Set(keys(list)).size, list.length, 'keys are unique');
     for (const [, label, icon] of list) {
       assert.ok(label);
       assert.match(icon, /^<svg viewBox="0 0 24 24"[^>]*>[\s\S]*<\/svg>$/);
     }
   }
+});
+
+test('event venues list what a venue offers an event, never home-stay comforts', () => {
+  const venue = keys(am.VENUE_AMENITY_OPTIONS);
+  assert.equal(venue.length, 28);
+  for (const key of ['venue_sound_system', 'venue_projector', 'venue_stage', 'venue_tables_chairs', 'venue_catering_kitchen', 'venue_outside_catering', 'venue_restrooms', 'venue_wheelchair_access']) {
+    assert.ok(venue.includes(key), key);
+  }
+  for (const key of ['hair_dryer', 'towels_linens', 'washing_machine', 'heating', 'bonfire', 'breakfast', 'hot_tub', 'pet', 'kitchen', 'balcony', 'tv']) {
+    assert.ok(!venue.includes(key), `${key} is not a venue amenity`);
+  }
+  // Keys that mean the same for a venue stay shared, so earlier venue selections still count.
+  for (const key of ['wifi', 'parking', 'power', 'air_conditioning', 'security', 'security_cameras', 'garden', 'pool']) assert.ok(venue.includes(key), key);
+  // The booking page and Elie show the same labels and icons (lib/booking/bookingIcons.ts).
+  const icons = loadTs(path.join(__dirname, '..', 'lib', 'booking', 'bookingIcons.ts'));
+  for (const [key, label, icon] of am.VENUE_AMENITY_OPTIONS) {
+    assert.equal(icons.AMENITY_LABEL[key], label, key);
+    assert.equal(icons.AMENITY_ICON[key], icon, key);
+  }
+  assert.equal(am.amenitiesFieldCopy('venue').label, 'Venue facilities');
+  assert.deepEqual(am.selectedAmenityKeys('venue', [{ key: 'venue_stage', checked: true }, { key: 'hair_dryer', checked: true }]), ['venue_stage'],
+    'a home-stay key saved before is dropped the next time the venue is saved');
 });
 
 test('shared icons are reused from the home-stay list', () => {
@@ -123,4 +145,18 @@ test('field copy per category', () => {
   assert.equal(am.amenitiesFieldCopy('airbnb').label, 'Amenities');
   assert.equal(am.amenitiesFieldCopy('hotel').label, 'Room & hotel amenities');
   assert.equal(am.amenitiesFieldCopy('property').label, 'Property features & amenities');
+});
+
+test('venues are priced per hour or per day (never per night); other niches keep their units', () => {
+  const copy = loadTs(path.join(__dirname, '..', 'lib', 'listWizard', 'copy.ts'));
+  const units = (category) => copy.priceUnitOptions(category).map((option) => [option.value, option.label]);
+  assert.deepEqual(units('venue'), [['hour', 'Per hour'], ['day', 'Per day']]);
+  assert.equal(copy.defaultPriceUnit('venue'), 'day');
+  assert.deepEqual(units('airbnb'), [['hour', 'Per hour'], ['night', 'Per night']]);
+  assert.deepEqual(units('hotel'), [['night', 'Per night']]);
+  assert.equal(copy.unitLabel('day'), ' / day');
+  // A venue saved per night opens per day (the only daily choice); the migration moved the saved ones.
+  const publish = loadTs(path.join(__dirname, '..', 'lib', 'listWizard', 'publish.ts'));
+  assert.equal(publish.effectivePriceUnit('venue', { 'price-unit': 'night' }), 'day');
+  assert.equal(publish.effectivePriceUnit('venue', { 'price-unit': 'hour' }), 'hour');
 });
