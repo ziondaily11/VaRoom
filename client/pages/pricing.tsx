@@ -5,12 +5,13 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  applyPlans, cardsForNiche, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans, formatPrice,
+  applyPlans, cardsForNiche, checkReturnedPayment, currentPlanId, DEFAULT_PLAN_CARDS, fetchEntitlements, fetchPlans,
   RETURN_MAX_ATTEMPTS, RETURN_MESSAGES, RETURN_POLL_MS, startCheckout, startListingTierCheckout, checkListingPayment,
   readCachedPlans, writeCachedPlans, yearlyReady, type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
 } from '../lib/billing/pricing';
 import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
+import { PlanCards } from '../components/pricing/PlanCards';
 import { clearHostBillingCache } from '../lib/billing/hostBilling';
 
 // Host plans (migrated from legacy-pages/pricing.html): the plans for the
@@ -22,15 +23,6 @@ type Billing = 'monthly' | 'yearly';
 
 /** One message box under the title: busy (with a spinner), done, failed, or plans that could not load. */
 type Notice = { tone: 'busy' | 'good' | 'bad'; text: string; retry?: boolean } | null;
-
-function CheckIcon() {
-  return (
-    <svg className="check" viewBox="0 0 20 20" aria-hidden="true">
-      <circle className="pc-ring" cx="10" cy="10" r="9.25" />
-      <path className="pc-tick" d="m6.2 10.3 2.5 2.5 5-5.4" />
-    </svg>
-  );
-}
 
 const queryValue = (value: string | string[] | undefined) => (typeof value === 'string' && value ? value : null);
 
@@ -44,9 +36,6 @@ export default function PricingPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [plansAttempt, setPlansAttempt] = useState(0);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const plansRef = useRef<HTMLDivElement>(null);
-  const startedAtRef = useRef(false);
   const cardsRef = useRef<PlanCard[] | null>(null);
   /** The plan being paid for in the checkout window. */
   const [checkoutCard, setCheckoutCard] = useState<PlanCard | null>(null);
@@ -162,40 +151,6 @@ export default function PricingPage() {
     setNotice({ tone: 'good', text: `Your ${card.name} plan is active.` });
   };
 
-  // Phones show the plans as a sideways list: the dots follow it, and it opens
-  // on the host's current plan (else the recommended one).
-  useEffect(() => {
-    const list = plansRef.current;
-    if (!list || !cards || !cards.length || startedAtRef.current) return;
-    if (!window.matchMedia('(max-width: 980px)').matches) return;
-    const start = Math.max(0, cards.findIndex((card) => card.id === currentId) >= 0
-      ? cards.findIndex((card) => card.id === currentId)
-      : cards.findIndex((card) => card.featured));
-    const target = list.children[start] as HTMLElement | undefined;
-    if (target) list.scrollTo({ left: target.offsetLeft - list.offsetLeft, behavior: 'auto' });
-    setActiveIndex(start);
-    if (currentId || !cards.some((card) => card.featured) || start > 0) startedAtRef.current = true;
-  }, [cards, currentId]);
-  const onPlansScroll = () => {
-    const list = plansRef.current;
-    if (!list) return;
-    const children = Array.from(list.children) as HTMLElement[];
-    const left = list.scrollLeft;
-    let best = 0;
-    children.forEach((child, index) => {
-      if (Math.abs(child.offsetLeft - list.offsetLeft - left) < Math.abs((children[best].offsetLeft - list.offsetLeft) - left)) best = index;
-    });
-    setActiveIndex(best);
-  };
-  const goToPlan = (index: number) => {
-    const list = plansRef.current;
-    const target = list?.children[index] as HTMLElement | undefined;
-    if (!list || !target) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    list.scrollTo({ left: target.offsetLeft - list.offsetLeft, behavior: reduced ? 'auto' : 'smooth' });
-    setActiveIndex(index);
-  };
-
   const yearly = billing === 'yearly';
   return (
     <>
@@ -224,42 +179,7 @@ export default function PricingPage() {
               )}
             </div>
           )}
-          <div ref={plansRef} onScroll={onPlansScroll} className={`plans${cards && cards.length === 4 ? ' plans--four' : cards && cards.length === 2 ? ' plans--two' : ''}`} aria-busy={cards ? undefined : 'true'}>
-            {(cards || []).map((card, index) => {
-              const current = card.id === currentId;
-              const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;
-              const price = yearly ? card.yearly : card.monthly;
-              return (
-                <article key={index} className={`plan${card.featured ? ' plan--featured' : ''}`} data-plan={card.id} aria-labelledby={nameId}>
-                  <p className="plan-price"><span className="cur">KSh</span> <span className="amt">{formatPrice(price || 0)}</span> <span className="per">{card.perListing ? '/listing' : yearly ? '/year' : '/month'}</span></p>
-                  <h2 className="plan-name" id={nameId}>{card.name}</h2>
-                  <p className="plan-desc">{card.description}</p>
-                  <hr className="plan-divider" />
-                  <ul className="plan-features">
-                    {card.features.map((feature) => <li key={feature}><CheckIcon /><span>{feature}</span></li>)}
-                  </ul>
-                  <button
-                    type="button"
-                    className={`plan-cta${card.featured ? ' plan-cta--primary' : ''}`}
-                    aria-describedby={nameId}
-                    aria-current={current ? 'true' : undefined}
-                    disabled={current || checkoutCard !== null}
-                    onClick={() => { setNotice(null); setCheckoutCard(card); }}
-                  >
-                    {current ? 'Current Plan' : card.cta}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-
-          {cards && cards.length > 1 && (
-            <div className="plan-dots" role="group" aria-label="Choose a plan to view">
-              {cards.map((card, index) => (
-                <button key={card.id} type="button" aria-label={`Show ${card.name}`} aria-current={activeIndex === index ? 'true' : undefined} onClick={() => goToPlan(index)} />
-              ))}
-            </div>
-          )}
+          <PlanCards cards={cards} currentId={currentId} yearly={yearly} busy={checkoutCard !== null} onChoose={(card) => { setNotice(null); setCheckoutCard(card); }} />
 
           {perListing ? (
             <div className="pricing-msgs">

@@ -8,6 +8,8 @@ const root = path.join(__dirname, '..');
 const pricing = loadTs(path.join(root, 'lib', 'billing', 'pricing.ts'));
 const theme = loadTs(path.join(root, 'lib', 'theme.ts'));
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
+// The plan cards, shared by /pricing and the listing wizard's plan choice.
+const planCards = () => read('components', 'pricing', 'PlanCards.tsx');
 const json = (status, body) => ({ ok: status < 300, status, json: async () => body });
 
 test('Property and Shops & Offices show Silver and Gold, priced per listing by the server', () => {
@@ -29,10 +31,10 @@ test('Property and Shops & Offices show Silver and Gold, priced per listing by t
   assert.equal(pricing.yearlyReady(unchanged), false, 'yearly billing stays "Soon"');
 
   const page = read('pages', 'pricing.tsx');
-  assert.match(page, /card\.perListing \? '\/listing'/, 'priced per listing, not per month');
+  assert.match(planCards(), /card\.perListing \? '\/listing'/, 'priced per listing, not per month');
   assert.match(page, /perListing \? \(/, 'the monthly / yearly switch is hidden for per-listing plans');
   assert.ok(page.includes('the 30 days start when you publish it'));
-  assert.match(page, /cards && cards\.length === 2 \? ' plans--two'/, 'two plans get their own layout');
+  assert.match(planCards(), /cards && cards\.length === 2 \? ' plans--two'/, 'two plans get their own layout');
   const styles = read('components', 'pricing', 'pricingStyles.ts');
   assert.match(styles, /@media \(min-width:981px\)\{\s*\.pricing-page \.plans\.plans--two\{ grid-template-columns:repeat\(2, calc\(\(100% - 3\.2em\) \/ 3\)\); justify-content:center; \}/,
     'Silver and Gold are centred at three-card width on wide screens; phones keep the sideways list');
@@ -76,7 +78,7 @@ test('Airbnb, Hotel and Venue plans use their own cards, priced and listed by th
   )));
   assert.deepEqual(venue.map((c) => [c.name, c.monthly]), [['Venue', 2500], ['Venue Pro', 5000], ['Venue Premium', 10000]]);
   assert.equal(pricing.NICHE_PLAN_CARDS.airbnb[0].features.length, 4, 'niche defaults are not mutated');
-  assert.match(read('pages', 'pricing.tsx'), /plans--four/);
+  assert.match(planCards(), /plans--four/);
 });
 
 test('first paint shows only the host\'s own niche cards, never another niche\'s', () => {
@@ -196,12 +198,12 @@ test('pricing is dark unless the user chose Light, from the first paint', () => 
 test('page: hosts only, legacy wording, checkout in VaRoom\'s window, polling stops on unmount', () => {
   const page = read('pages', 'pricing.tsx');
   for (const text of ['Host plans', 'Pricing', '← Back to dashboard', 'Yearly billing is coming soon. Prices shown are per month.', 'Current Plan', 'Please log in again to continue.']) {
-    assert.ok(page.includes(text), text);
+    assert.ok(page.includes(text) || planCards().includes(text), text);
   }
   assert.match(page, /router\.replace\(loginUrl\('\/pricing'\)\)/);
   assert.match(page, /router\.replace\('\/client-home'\)/);
   assert.doesNotMatch(page, /window\.location\.assign/, 'checkout no longer replaces the page');
-  assert.match(page, /onClick=\{\(\) => \{ setNotice\(null\); setCheckoutCard\(card\); \}\}/);
+  assert.match(page, /onChoose=\{\(card\) => \{ setNotice\(null\); setCheckoutCard\(card\); \}\}/);
   assert.match(page, /<CheckoutWindow open allowMpesa=\{Boolean\(checkoutCard\.perListing\)\}/, 'M-Pesa for Silver / Gold; monthly plans renew on cards only');
   assert.match(page, /if \(card\.perListing\) \{ void router\.push\(`\/list\?payment=verified&reference=\$\{encodeURIComponent\(reference\)\}`\); return; \}/, 'paid Silver / Gold goes on to list the space');
   assert.match(page, /return result\.kind === 'active' \? 'paid' : result\.kind === 'failed' \? 'failed' : 'pending';/, 'a monthly plan counts only once the server reports it active');
@@ -228,7 +230,7 @@ test('upgrade: one message box, plan names, retry, phone dots, keyboard labels, 
   assert.match(page, /setNotice\(\{ tone: 'busy', text: RETURN_MESSAGES\.verifying \}\)/);
   assert.match(page, /'Plans could not load\. Please check your connection and try again\.', retry: true/);
   assert.match(page, /setPlansAttempt\(\(n\) => n \+ 1\)/);
-  assert.match(page, /<div className="plan-dots" role="group" aria-label="Choose a plan to view">/);
+  assert.match(planCards(), /<div className="plan-dots" role="group" aria-label="Choose a plan to view">/);
   assert.match(page, /<button type="button" className=\{`billing-label/);
   assert.doesNotMatch(page, /<span className=\{`billing-label[^>]*onClick/);
   assert.doesNotMatch(page, /fonts\.googleapis/);
