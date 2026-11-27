@@ -182,8 +182,16 @@ export const LEGAL_STYLES = `
 }
 
 /* Wordmark under both columns: faint at rest. On hover (or tap) it slowly
-   grows and a drifting brand gradient blooms in from a soft blur. The glow
-   layer sits exactly over the base and scales with it. */
+   grows and soft pastel colour blooms in patch by patch, then flows gently;
+   on leaving, the patches dissolve in a different order. The glow layer sits
+   exactly over the base and scales with it. Each patch is a mask blob whose
+   radius (--pp-b1..5) transitions with its own delay. */
+@property --pp-b1 { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@property --pp-b2 { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@property --pp-b3 { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@property --pp-b4 { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@property --pp-b5 { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+
 .pp-wordmark {
   container-type: inline-size;
   position: relative;
@@ -223,29 +231,67 @@ export const LEGAL_STYLES = `
 .pp-wordmark-glow {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(100deg, #bd2337 0%, #f0643c 16%, #f7b54a 32%, #3fb8af 50%, #6c7ae0 66%, #d0479a 82%, #bd2337 100%);
-  background-size: 200% 100%;
+  /* Pastel mesh: butter, periwinkle, teal and a VaRoom rose. Layers differ in
+     size, so the shared position animation moves each by a different amount. */
+  background-image:
+    radial-gradient(closest-side, #fdd38a 35%, rgba(253, 211, 138, 0)),
+    radial-gradient(closest-side, #7c8bd6 35%, rgba(124, 139, 214, 0)),
+    radial-gradient(closest-side, #46b4cc 35%, rgba(70, 180, 204, 0)),
+    radial-gradient(closest-side, #f08a99 30%, rgba(240, 138, 153, 0)),
+    radial-gradient(closest-side, #fdd38a 35%, rgba(253, 211, 138, 0)),
+    radial-gradient(closest-side, #7c8bd6 35%, rgba(124, 139, 214, 0)),
+    linear-gradient(90deg, #5fb9cf, #7f8fd6);
+  background-size: 55% 140%, 45% 150%, 60% 160%, 40% 120%, 50% 150%, 55% 140%, 100% 100%;
+  background-position: -10% 0%, 20% 100%, 45% 50%, 62% 0%, 80% 100%, 110% 20%, 0 0;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  --pp-mask:
+    radial-gradient(circle at 8% 35%, #000 calc(var(--pp-b1) - 20%), transparent var(--pp-b1)),
+    radial-gradient(circle at 30% 70%, #000 calc(var(--pp-b2) - 20%), transparent var(--pp-b2)),
+    radial-gradient(circle at 52% 30%, #000 calc(var(--pp-b3) - 20%), transparent var(--pp-b3)),
+    radial-gradient(circle at 72% 75%, #000 calc(var(--pp-b4) - 20%), transparent var(--pp-b4)),
+    radial-gradient(circle at 92% 40%, #000 calc(var(--pp-b5) - 20%), transparent var(--pp-b5));
+  -webkit-mask-image: var(--pp-mask);
+  mask-image: var(--pp-mask);
   opacity: 0;
-  filter: blur(10px);
-  animation: pp-wordmark-drift 10s linear infinite paused;
+  animation: pp-wordmark-flow 12s ease-in-out infinite alternate paused;
+  /* Leaving: the middle goes first, the left and right edges last. */
   transition:
-    opacity 1800ms cubic-bezier(0.45, 0, 0.55, 1),
-    filter 1800ms cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 1300ms cubic-bezier(0.45, 0, 0.55, 1),
+    --pp-b3 900ms cubic-bezier(0.55, 0, 0.75, 0.6),
+    --pp-b4 900ms cubic-bezier(0.55, 0, 0.75, 0.6) 100ms,
+    --pp-b1 900ms cubic-bezier(0.55, 0, 0.75, 0.6) 220ms,
+    --pp-b5 900ms cubic-bezier(0.55, 0, 0.75, 0.6) 340ms,
+    --pp-b2 900ms cubic-bezier(0.55, 0, 0.75, 0.6) 420ms,
     transform 1600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Arriving: the colour opens from the second letter outward. */
 .pp-wordmark:hover .pp-wordmark-glow,
 .pp-wordmark:active .pp-wordmark-glow {
+  --pp-b1: 100%;
+  --pp-b2: 100%;
+  --pp-b3: 100%;
+  --pp-b4: 100%;
+  --pp-b5: 100%;
   opacity: 1;
-  filter: blur(0);
   animation-play-state: running;
+  transition:
+    opacity 900ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    --pp-b2 1200ms cubic-bezier(0.25, 0.4, 0.45, 1),
+    --pp-b5 1200ms cubic-bezier(0.25, 0.4, 0.45, 1) 140ms,
+    --pp-b1 1200ms cubic-bezier(0.25, 0.4, 0.45, 1) 280ms,
+    --pp-b4 1200ms cubic-bezier(0.25, 0.4, 0.45, 1) 400ms,
+    --pp-b3 1200ms cubic-bezier(0.25, 0.4, 0.45, 1) 500ms,
+    transform 1600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes pp-wordmark-drift { to { background-position: -200% 0; } }
+@keyframes pp-wordmark-flow {
+  to { background-position: 15% 100%, -5% 0%, 70% 0%, 35% 100%, 100% 0%, 85% 100%, 0 0; }
+}
 
 .pp-footer {
   color: var(--pp-muted);
@@ -494,14 +540,23 @@ export const LEGAL_STYLES = `
     transition: none;
   }
 
+  /* Reduced motion: no growth or flow; the colour simply fades in and out. */
   .pp-wordmark-glow,
   .pp-wordmark:hover .pp-wordmark-base,
   .pp-wordmark:hover .pp-wordmark-glow,
   .pp-wordmark:active .pp-wordmark-base,
   .pp-wordmark:active .pp-wordmark-glow {
     animation: none;
-    filter: none;
     transform: none;
+    transition: opacity 600ms ease;
+  }
+
+  .pp-wordmark-glow {
+    --pp-b1: 100%;
+    --pp-b2: 100%;
+    --pp-b3: 100%;
+    --pp-b4: 100%;
+    --pp-b5: 100%;
   }
 
   @keyframes pp-menu-fade-in { from { opacity: 0; } }
