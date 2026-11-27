@@ -1,6 +1,6 @@
 # Elie and Auto-Reply — Production Readiness Plan
 
-**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) merged (PR #723) 2026-11-24 · Phase 2c (Host Elie) merged (PR #724) and migration 000081 run 2026-11-25 · Phase 3 (latency, cold starts) on `elie-phase3-latency` · Next: Phase 5
+**Status:** Approved 2026-11-03 (D1–D4 as recommended) · Phase 0 done · Phase 1 merged (PR #547) and deployed 2026-11-03 · Phase 2 merged (PR #703) 2026-11-23 · Phase 2b (V-Coins) merged (PR #713) 2026-11-23 · Also merged: model timeout fallback (#714), listing cards (#715), thread UX and saved answers (#719), OpenRouter (#721), amenities and descriptions (#722) · Phase 4 (hardening) merged (PR #723) 2026-11-24 · Phase 2c (Host Elie) merged (PR #724) and migration 000081 run 2026-11-25 · Phase 3 (latency, cold starts) merged (PR #728) 2026-11-25 · Also merged: guided search (#730), start screen (#738) · Phase 5 (operations guide, [`OPERATIONS.md`](OPERATIONS.md)) 2026-11-27 · **All phases done.** Left: the §7 sign-off on the deployed services, and a direct Claude API provider for production
 
 This plan makes the two chatbot features production ready:
 
@@ -241,9 +241,21 @@ Branch `elie-phase5-ops` (docs only).
 
 - `docs/elie/OPERATIONS.md`: environment variables per service (`CHATBOT_INTERNAL_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `ELIE_AUTO_REPLY_ENABLED`, `CHATBOT_API_URL`, `NEXT_PUBLIC_ELIE_API_URL`), deploy order, the kill switch, how to trace a request by correlation ID, and rollback.
 
+**Results (2026-11-27):** [`OPERATIONS.md`](OPERATIONS.md), checked against the code. It covers:
+- every setting on `elie1-0`, the main server and the client, including the OpenRouter ones, `ENVIRONMENT` and `CORS_ORIGINS`;
+- the switches (away answers, provider, model);
+- the deploy order and post-deploy checks (`/health`, `/elie/diagnostics`);
+- tracing by request ID (`CLIENT-`, `AR-`, `EW-`), what each error category means, and why an away answer was skipped;
+- the four migrations with their undo, rollback per service, and costs and limits.
+
+Writing it surfaced gaps, listed there in §10. None blocks launch:
+- no reference number is shown to people when Elie fails;
+- there is no per-question summary log line;
+- "Write with Elie" failures are logged without their ID.
+
 ## 6. Files and SQL by phase
 
-**Database:** Phase 2b adds `server/migrations/20261123_000079_elie_vcoins.sql` (the owner runs it before 2b deploys). Otherwise no migrations. The only SQL is the read-only Phase 0 file. If Phase 0 shows a schema or data gap, the fix is written as a separate SQL file and shared for the owner to run before the phase that needs it.
+**Database:** Phase 2b adds `server/migrations/20261123_000079_elie_vcoins.sql` (the owner runs it before 2b deploys). Saved answers (#719) add `20261124_000080_elie_message_results.sql` and Phase 2c adds `20261125_000081_elie_host_actions.sql`. Each is run by the owner before the deploy that needs it; their order and undo are in [`OPERATIONS.md`](OPERATIONS.md) §7. The only SQL is the read-only Phase 0 file. If Phase 0 shows a schema or data gap, the fix is written as a separate SQL file and shared for the owner to run before the phase that needs it.
 
 | Phase | Added | Edited |
 |---|---|---|
