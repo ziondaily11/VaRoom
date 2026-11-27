@@ -77,7 +77,7 @@ import { isModifiedClick } from '../lib/navigation/clicks';
 import { useChatViewport } from '../components/chat/useChatViewport';
 import { keepsKeyboardOpen } from '../lib/chat/chatViewport';
 import { ApiError } from '../lib/api';
-import { elieHostDenial, requestElieDraft } from '../lib/elieHost';
+import { discardElieSavedDraft, elieHostDenial, loadElieSavedDraft, requestElieDraft } from '../lib/elieHost';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
@@ -1083,6 +1083,25 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     } finally {
       if (mountedRef.current) setElieDrafting(false);
     }
+  };
+  // Elie's automatic answer saved as a draft (Chat Settings → Elie): offered
+  // above the composer when the host opens the conversation.
+  const [savedDraft, setSavedDraft] = useState<{ conversationId: string; reply: string } | null>(null);
+  useEffect(() => {
+    setSavedDraft(null);
+    const conversationId = activeId;
+    if (!conversationId || isElie || !isHost) return undefined;
+    let cancelled = false;
+    loadElieSavedDraft(conversationId)
+      .then((draft) => { if (!cancelled && draft) setSavedDraft({ conversationId, reply: draft.reply }); })
+      .catch(() => { /* No draft shown. */ });
+    return () => { cancelled = true; };
+  }, [activeId, isElie, isHost]);
+  const settleSavedDraft = (use: boolean) => {
+    if (!savedDraft) return;
+    if (use) fillComposer(savedDraft.reply);
+    setSavedDraft(null);
+    discardElieSavedDraft(savedDraft.conversationId).catch(() => { /* It shows again next time. */ });
   };
   /** ↑ ↓ Enter Escape while the quick replies are open; true when the key was theirs. */
   const quickReplyKey = (event: React.KeyboardEvent): boolean => {
@@ -2123,6 +2142,14 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               onHover={setQuickIndex}
               onManage={() => { closeQuickReplies(); openChatSettings(); }}
             />
+
+            {savedDraft && savedDraft.conversationId === activeId && (
+              <div className="composer-elie-draft" role="status">
+                <span><strong>Elie drafted a reply</strong> while you were away.</span>
+                <button type="button" onClick={() => settleSavedDraft(true)}>Use draft</button>
+                <button type="button" onClick={() => settleSavedDraft(false)}>Dismiss</button>
+              </div>
+            )}
 
             {/* The listing this chat was opened from: sent with the next message */}
             {enquiryHere && (

@@ -17,7 +17,7 @@ function memory(initial) {
 test('settings: this browser keeps a copy; the profile decides', () => {
   const stored = memory({ awayMode: true, readReceipts: false, awayMessage: '  Back at 5  ' });
   const settings = cs.resolveSettings(cs.readStored(stored), null);
-  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS });
+  assert.deepEqual({ ...settings }, { awayMode: true, messageNotifications: true, messagePreviews: true, readReceipts: false, typingIndicators: true, awayMessage: 'Back at 5', chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS, elieAwayReplies: true, elieAwayDrafts: false, elieNewEnquiries: false, elieSuggestListings: true });
   const fromProfile = cs.resolveSettings(cs.readStored(stored), { awayMode: false, readReceipts: true });
   assert.equal(fromProfile.awayMode, false, 'the profile wins');
   assert.equal(fromProfile.readReceipts, true, 'the profile wins');
@@ -47,11 +47,11 @@ test('profile settings: every Chat Setting is read once per account in one query
       return chain;
     },
   };
-  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS };
+  const loaded = { awayMode: true, awayMessage: cs.DEFAULT_AWAY_MESSAGE, messageNotifications: true, messagePreviews: false, readReceipts: true, typingIndicators: true, chatTheme: 'charcoal', emailAlertMinutes: null, awaySchedule: bh.DEFAULT_BUSINESS_HOURS, elieAwayReplies: true, elieAwayDrafts: false, elieNewEnquiries: false, elieSuggestListings: true };
   const [first, second] = await Promise.all([cs.loadProfileSettings(client, 'h1'), cs.loadProfileSettings(client, 'h1')]);
   assert.deepEqual({ ...first }, loaded, 'unset switches are on; no away message shows the default');
   assert.equal(first, second, 'requests at the same time share one read');
-  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme,email_alert_minutes,away_schedule']], 'one read per account');
+  assert.deepEqual(calls.filter((c) => c[0] === 'select'), [['select', 'profiles', 'away_mode,away_message,message_notifications,message_previews,read_receipts,typing_indicators,chat_theme,email_alert_minutes,away_schedule,elie_away_replies,elie_away_drafts,elie_new_enquiries,elie_suggest_listings']], 'one read per account');
 
   const seen = [];
   const unsubscribe = cs.subscribeProfileSettings('h1', (settings) => seen.push(settings.typingIndicators));
@@ -93,14 +93,14 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   const sections = (html) => [...html.matchAll(/<h2 class="cs-section__title"[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
   const host = render(ChatSettings, { role: 'host', onOpenArchived() {} });
   // Title case in the markup; Chats shows them in capitals (chatSettingsStyles), Settings as written.
-  assert.deepEqual(sections(host), ['Away Mode', 'Theme', 'Notifications', 'Quick Replies', 'Privacy &amp; Messaging', 'Conversations']);
+  assert.deepEqual(sections(host), ['Away Mode', 'Elie', 'Theme', 'Notifications', 'Quick Replies', 'Privacy &amp; Messaging', 'Conversations']);
   for (const text of ['Away Mode', 'Away message', 'Message notifications', 'Message previews', 'Read receipts', 'Typing indicators', 'Archived conversations']) {
     assert.match(host, new RegExp(`<span class="cs-row__label"[^>]*>${text}</span>`), text);
   }
   assert.match(host, new RegExp(cs.DEFAULT_AWAY_MESSAGE.replace(/[.?]/g, '\\$&')), 'the default away message until one is set');
   // Defaults on the first paint (this browser's and the account's values follow once mounted).
-  assert.equal((host.match(/role="switch" aria-checked="true"/g) || []).length, 4, 'notifications, previews, receipts, typing');
-  assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 2, 'away mode and business hours off');
+  assert.equal((host.match(/role="switch" aria-checked="true"/g) || []).length, 6, 'notifications, previews, receipts, typing, Elie away answers and suggestions');
+  assert.equal((host.match(/role="switch" aria-checked="false"/g) || []).length, 4, 'away mode, business hours, Elie new enquiries and drafts off');
   const client = render(ChatSettings, { role: 'client', onOpenArchived() {} });
   assert.deepEqual(sections(client), ['Theme', 'Notifications', 'Quick Replies', 'Privacy &amp; Messaging', 'Conversations'], 'no away mode for clients');
 

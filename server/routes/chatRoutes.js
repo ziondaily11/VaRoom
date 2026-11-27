@@ -6,6 +6,7 @@ const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('.
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 const autoReply = require('../lib/autoReply');
+const { readElieDraft, discardElieDraft } = require('../lib/elieDrafts');
 const { ElieHostDenied } = require('../lib/elieHost');
 const { markDelivered, readReceiptsShared, withVisibleReceipts } = require('../lib/chatReceipts');
 const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
@@ -626,6 +627,27 @@ router.post('/chat/conversations/:conversationId/draft', hostElieRoute('draft', 
   run: (conversation) => autoReply.draftReply(conversation),
   refused: 'Only the host can ask Elie for a reply.',
   failed: 'Elie couldn’t write a draft right now. Please try again.',
+}));
+
+// Elie's automatic answer saved as a draft (Chat Settings → Elie): the host
+// reads it to use in the composer, or dismisses it. Host only.
+async function hostDraftRoute(req, res, run) {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const conversation = await memberConversation(uuid(req.params.conversationId, 'conversation id'), user.id);
+    if (!conversation || conversation.host_id !== user.id) return res.status(403).json({ error: 'Conversation access denied' });
+    return res.json(await run(conversation, user.id));
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Elie draft request failed:', error);
+    return res.status(502).json({ error: 'Unable to load Elie’s draft' });
+  }
+}
+router.get('/chat/conversations/:conversationId/elie-draft', (req, res) => hostDraftRoute(req, res, async (conversation, hostId) => ({ draft: await readElieDraft(supabaseAdmin, conversation.id, hostId) })));
+router.delete('/chat/conversations/:conversationId/elie-draft', (req, res) => hostDraftRoute(req, res, async (conversation, hostId) => {
+  await discardElieDraft(supabaseAdmin, conversation.id, hostId);
+  return { discarded: true };
 }));
 
 router.post('/chat/conversations/:conversationId/messages', async (req, res) => {
