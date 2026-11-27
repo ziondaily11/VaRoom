@@ -49,10 +49,26 @@ function errorMessage(body: Record<string, unknown>, fallback: string): string {
   return typeof body.error === 'string' && body.error ? body.error : fallback;
 }
 
+/** Removes an uploaded photo that won't be used; a draft listing photo then no longer holds up publishing. */
+export async function discardPhoto(client: SupabaseClient, bucket: string, key: string): Promise<void> {
+  try {
+    const token = (await client.auth.getSession()).data.session?.access_token;
+    if (!token) return;
+    await fetch('/api/photos/upload-discard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ category: bucket, key }),
+    });
+  } catch (error) {
+    console.warn('An unused photo upload could not be removed:', error);
+  }
+}
+
 async function uploadPhoto(client: SupabaseClient, bucket: string, requestedPath: string, file: File): Promise<UploadResult> {
   if (!file || !SUPPORTED_PHOTO_TYPES.has(file.type)) {
     return { data: null, error: new Error('Only JPEG, PNG, WebP, and GIF photos are supported.') };
   }
+  let reserved: string | null = null;
   try {
     const { data: sessionData } = await client.auth.getSession();
     const token = sessionData.session?.access_token;
@@ -76,6 +92,7 @@ async function uploadPhoto(client: SupabaseClient, bucket: string, requestedPath
     });
     const init = await readJson(initResponse);
     if (!initResponse.ok) throw new Error(errorMessage(init, 'Unable to prepare photo upload.'));
+    reserved = String(init.key);
 
     const uploadResponse = await fetch(String(init.uploadUrl), { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
     if (!uploadResponse.ok) throw new Error('Photo upload to storage failed.');
@@ -91,6 +108,7 @@ async function uploadPhoto(client: SupabaseClient, bucket: string, requestedPath
     const key = String(complete.key);
     return { data: { path: key, fullPath: key }, error: null };
   } catch (error) {
+    if (reserved) await discardPhoto(client, bucket, reserved);
     return { data: null, error: error instanceof Error ? error : new Error(String(error)) };
   }
 }

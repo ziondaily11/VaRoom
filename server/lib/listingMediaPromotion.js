@@ -4,6 +4,9 @@ const supabaseDefault = require('./supabaseClient');
 const storageDefault = require('./mediaStorageService');
 const { scheduleVariants: scheduleVariantsDefault } = require('./photoVariants');
 
+// A photo upload goes straight from the browser to R2 right after upload-init.
+const ABANDONED_UPLOAD_MS = 2 * 60 * 1000;
+
 function publishedObjectKey(key) {
   if (key.startsWith('drafts/videos/')) return key.replace(/^drafts\/videos\//, 'videos/');
   if (key.startsWith('drafts/photos/')) {
@@ -21,15 +24,21 @@ async function promoteListingMedia(listingId, {
   scheduleVariants = scheduleVariantsDefault,
 } = {}) {
   const { data: sessions, error: sessionsError } = await supabaseAdmin.from('draft_media_upload_sessions')
-    .select('object_key,expires_at,completed_at').eq('listing_id', listingId);
+    .select('object_key,expires_at,completed_at,created_at').eq('listing_id', listingId);
   if (sessionsError) throw new Error(`Unable to verify pending photo uploads: ${sessionsError.message}`);
   const { data: photos, error: photosError } = await supabaseAdmin.from('listing_photos')
     .select('storage_path').eq('listing_id', listingId);
   if (photosError) throw new Error(`Unable to load listing photos: ${photosError.message}`);
   const attachedPhotoKeys = new Set((photos || []).map((photo) => photo.storage_path));
-  if ((sessions || []).some((session) => new Date(session.expires_at).getTime() > Date.now()
-    && (!session.completed_at || !attachedPhotoKeys.has(session.object_key)))) {
-    throw new Error('Listing media upload is still in progress');
+  const pending = (sessions || []).filter((session) => new Date(session.expires_at).getTime() > Date.now()
+    && (!session.completed_at || !attachedPhotoKeys.has(session.object_key)));
+  for (const session of pending) {
+    // An upload that failed or was abandoned (its file never reached R2, or was
+    // refused and removed) no longer blocks publishing once it can't still be landing.
+    const recent = Date.now() - new Date(session.created_at).getTime() < ABANDONED_UPLOAD_MS;
+    if (recent || await mediaStorageService.verifyR2ObjectExists(session.object_key)) {
+      throw new Error('Listing media upload is still in progress');
+    }
   }
 
   const { data: media, error: mediaError } = await supabaseAdmin.from('property_media')
