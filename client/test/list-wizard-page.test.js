@@ -45,6 +45,7 @@ const { LeaveDialog } = loadTsx('components/listWizard/LeaveDialog.tsx');
 const { OfficeShopTypeChoice } = loadTsx('components/listWizard/WizardFields.tsx');
 const { ListingTierChoice } = loadTsx('components/listWizard/ListingTierChoice.tsx');
 const pricingCards = loadTsx('lib/billing/pricing.ts');
+const { PRICING_STYLES } = loadTsx('components/pricing/pricingStyles.ts');
 
 const noop = () => {};
 const leave = (props) => renderToStaticMarkup(React.createElement(LeaveDialog, {
@@ -91,6 +92,11 @@ test('the plan choice is the pricing page over the step card: no eyebrow or Pric
   assert.match(html, /<article class="plan plan--featured" data-plan="gold"/, 'Gold is the highlighted plan');
   assert.match(html, /class="plan-cta plan-cta--primary"[^>]*>Choose Gold<\/button>/);
   assert.match(html, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
+  // Silver and Gold are literal: the part above the divider is a silver or gold gradient, edge to edge.
+  assert.equal((html.match(/<div class="plan-head"><p class="plan-price">[\s\S]*?<p class="plan-desc">[^<]*<\/p><\/div><hr class="plan-divider"\/>/g) || []).length, 2);
+  assert.match(PRICING_STYLES, /\.plan\[data-plan="silver"\] \.plan-head\{ background:linear-gradient\(115deg, #fdfdfd/);
+  assert.match(PRICING_STYLES, /\.plan\[data-plan="gold"\] \.plan-head\{ color:#241a03; background:linear-gradient\(115deg, #fff4c4/);
+  assert.match(PRICING_STYLES, /\.plan-head\{\s*margin:calc\(-1 \* var\(--plan-pad-t\)\) calc\(-1 \* var\(--plan-pad-x\)\) 0;/);
 
   // Airbnb, Hotel, Venue: the niche's monthly plans, priced per month.
   const hotel = renderToStaticMarkup(React.createElement(ListingTierChoice, { cards: pricingCards.NICHE_PLAN_CARDS.hotel, onChoose: noop }));
@@ -120,7 +126,10 @@ test('the checkout window: VaRoom summary and M-Pesa first, Card second, never a
   assert.match(html, /<span class="va">Va<\/span>Room checkout/);
   assert.match(html, /Gold listing/);
   assert.match(html, /<h2 id="vr-checkout-title">Pay KSh 2,000<\/h2>/);
-  assert.deepEqual([...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([\w-]+)</g)].map((match) => [match[2], match[1]]), [['M-Pesa', 'true'], ['Card', 'false']]);
+  // Each method shows its logo (decorative) before its name.
+  assert.deepEqual([...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*><svg class="vr-pay-mark"[^>]*aria-hidden="true"[\s\S]*?<\/svg>([\w-]+)</g)].map((match) => [match[2], match[1]]), [['M-Pesa', 'true'], ['Card', 'false']]);
+  assert.match(html, /<path fill="#39b54a"/, 'the M-Pesa logo is drawn in its green');
+  assert.match(html, /<circle cx="10" cy="10" r="10" fill="#EB001B"><\/circle><circle cx="22" cy="10" r="10" fill="#F79E1B">/, 'the card tab shows the Mastercard circles');
   assert.match(html, /<label for="vr-checkout-phone">M-Pesa number<\/label>/);
   assert.match(html, /type="tel"[^>]*placeholder="0712 345 678"/);
   assert.match(html, /You&#x27;ll get a prompt on your phone to enter your M-Pesa PIN\./);
@@ -151,7 +160,7 @@ test('the checkout window is dark like the auth panel, above the page, full scre
   assert.match(source, /createPortal\(layer, document\.body\)/);
 });
 
-test('a blocked Paystack card window never traps the host (Brave Shields)', () => {
+test('a blocked Paystack card window never traps the host (privacy settings, ad blockers)', () => {
   const source = fs.readFileSync(path.join(root, 'components', 'billing', 'CheckoutWindow.tsx'), 'utf8');
   const card = source.slice(source.indexOf('const payCard = async'), source.indexOf('const leaveForPaystack'));
   // Paystack's own page is offered from the moment its card window is asked for, not only after an error.
@@ -160,7 +169,13 @@ test('a blocked Paystack card window never traps the host (Brave Shields)', () =
   // No sign of the card window within 8 s: say so (it may be blocked) instead of waiting for ever.
   assert.match(source, /const POPUP_SHOW_MS = 8000;/);
   assert.match(card, /if \(!shown && attempt\.current === mine\) setError\(BLOCKED_TEXT\);/);
-  assert.match(source, /Brave Shields or an ad blocker may be stopping it\. Open Paystack in this tab instead/);
+  assert.match(source, /A browser privacy setting or an ad blocker may be stopping it\. Open Paystack in this tab instead/);
+  // Every browser may load Paystack: its card script and the API it calls are allowed by the site's CSP.
+  const csp = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8')).headers
+    .flatMap((rule) => rule.headers).find((header) => header.key === 'Content-Security-Policy').value;
+  assert.match(csp, /script-src [^;]*https:\/\/js\.paystack\.co/);
+  assert.match(csp, /connect-src [^;]*https:\/\/\*\.paystack\.co/);
+  assert.match(csp, /frame-src [^;]*https:\/\/\*\.paystack\.com/);
   // Close always works; the window never disables it.
   assert.match(source, /const close = useCallback\(\(\) => \{ attempt\.current \+= 1; onClose\(\); \}, \[onClose\]\);/);
   assert.doesNotMatch(source, /aria-label="Close"[^>]*disabled/);
