@@ -1,87 +1,77 @@
 /**
- * Video Entitlement Logic
+ * Who may add a video, and how many.
  *
- * Centralized authorization for video uploads.
- * During development, VIDEO_PREMIUM_REQUIRED=false allows all authenticated users to upload.
- * Later, VIDEO_PREMIUM_REQUIRED=true enforces premium subscription checks.
- * This ensures the architecture doesn't change when premium enforcement is activated.
+ * Videos come with Airbnb, Hotel and Venue plans: each plan allows video on
+ * a number of listings (billing_plans.features.video_listing_limit), with at
+ * most VIDEO_MAX_COUNT_PER_PROPERTY videos on each. Property and Shops &
+ * Offices (Silver / Gold) are photos only; videos already on their listings
+ * stay until the listing goes offline.
+ *
+ * A listing counts towards the limit while it has a video and is either
+ * still a draft or published, set to available and online. Pausing a listing
+ * that has a video frees its place.
  */
 
 require('dotenv').config();
 
 const VIDEO_UPLOADS_ENABLED = process.env.VIDEO_UPLOADS_ENABLED === 'true';
-const VIDEO_PREMIUM_REQUIRED = process.env.VIDEO_PREMIUM_REQUIRED === 'true';
 const VIDEO_MAX_FILE_SIZE_MB = parseInt(process.env.VIDEO_MAX_FILE_SIZE_MB || '100', 10);
-const VIDEO_MAX_COUNT_PER_PROPERTY = parseInt(process.env.VIDEO_MAX_COUNT_PER_PROPERTY || '10', 10);
+/** Videos on one listing (it shares the 8 photo-and-video places). */
+const VIDEO_MAX_COUNT_PER_PROPERTY = 2;
 const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '60', 10);
+const ACTIVE_VIDEO_STATUSES = ['pending', 'uploading', 'processing', 'ready'];
+const PHOTO_ONLY_CATEGORIES = new Set(['property', 'shop', 'office']);
 const { getHostEntitlements } = require('./billingEntitlement');
 
-/**
- * Check if a user can upload a video for a property
- *
- * Returns: { allowed: boolean, reason?: string }
- *
- * Authorization checks in order:
- * 1. Video feature must be enabled globally
- * 2. User must be authenticated (required by caller)
- * 3. User must own/edit the property (required by caller)
- * 4. Premium requirement check (if enabled)
- * 5. Video count limit check
- * 6. User has not exceeded storage quota (future)
- *
- * This function does NOT check:
- * - File type/size (done in upload-init endpoint)
- * - Authentication (caller responsibility)
- * - Property ownership (caller responsibility)
- */
-async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVideoCount = 0) {
-  // Step 1: Check feature flag
-  if (!VIDEO_UPLOADS_ENABLED) {
-    return {
-      allowed: false,
-      reason: 'Video uploads are currently disabled.',
-    };
-  }
-
-  // Step 2: Check premium requirement
-  const usesListingPublicationEntitlement = ['property', 'shop', 'office'].includes(property.category);
-  if (VIDEO_PREMIUM_REQUIRED && !usesListingPublicationEntitlement) {
-    let entitlements;
-    try {
-      entitlements = await getHostEntitlements(supabaseAdmin, user.id);
-    } catch (error) {
-      console.error('Error fetching billing entitlements:', error);
-      return {
-        allowed: false,
-        reason: 'Could not verify subscription status.',
-      };
-    }
-    if (!entitlements.canUploadPremiumVideo) {
-      return {
-        allowed: false,
-        reason: 'Video uploads require an active plan that includes video listings.',
-      };
-    }
-  }
-
-  // Step 3: Check video count limit
-  if (currentVideoCount >= VIDEO_MAX_COUNT_PER_PROPERTY) {
-    return {
-      allowed: false,
-      reason: `Property has reached maximum video limit (${VIDEO_MAX_COUNT_PER_PROPERTY}).`,
-    };
-  }
-
-  // Step 4: All checks passed
-  return {
-    allowed: true,
-  };
+/** The host's video allowance: how many listings may have video, and how many (other than `exceptListingId`) do. */
+async function videoListingAllowance(supabaseAdmin, hostId, exceptListingId = null, now = new Date()) {
+  const entitlements = await getHostEntitlements(supabaseAdmin, hostId);
+  const features = (entitlements.subscription && entitlements.subscription.billing_plans && entitlements.subscription.billing_plans.features) || {};
+  const limit = entitlements.active ? Math.max(0, Number(features.video_listing_limit) || 0) : 0;
+  const { data: listings, error } = await supabaseAdmin.from('listings').select('id,publication_state,availability_status,live_until')
+    .eq('host_id', hostId).in('publication_state', ['draft', 'payment_pending', 'failed', 'published']);
+  if (error) throw new Error('Unable to count video listings');
+  const counted = (listings || []).filter((listing) => listing.id !== exceptListingId && (listing.publication_state !== 'published'
+    || (listing.availability_status === 'available' && listing.live_until && Date.parse(listing.live_until) > now.getTime()))).map((listing) => listing.id);
+  if (!counted.length) return { limit, used: 0 };
+  const { data: videos, error: videoError } = await supabaseAdmin.from('property_media').select('property_id')
+    .in('property_id', counted).eq('media_type', 'video').in('status', ACTIVE_VIDEO_STATUSES).is('deleted_at', null);
+  if (videoError) throw new Error('Unable to count video listings');
+  return { limit, used: new Set((videos || []).map((video) => video.property_id)).size };
 }
 
+const listingsWord = (n) => `${n} listing${n === 1 ? '' : 's'}`;
+
 /**
- * Get current video count for a property
- * Used to check against VIDEO_MAX_COUNT_PER_PROPERTY
+ * Whether this host may add a video to this listing (which has
+ * `currentVideoCount` already). Returns { allowed, reason? }.
+ * File type, size and ownership are checked by the caller.
  */
+async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVideoCount = 0) {
+  if (!VIDEO_UPLOADS_ENABLED) return { allowed: false, reason: 'Video uploads are currently disabled.' };
+  if (PHOTO_ONLY_CATEGORIES.has(property.category)) {
+    return { allowed: false, reason: 'Silver and Gold listings use photos. Video tours come with Airbnb, Hotel and Venue plans.' };
+  }
+  if (currentVideoCount >= VIDEO_MAX_COUNT_PER_PROPERTY) {
+    return { allowed: false, reason: `A listing can have up to ${VIDEO_MAX_COUNT_PER_PROPERTY} videos.` };
+  }
+  let allowance;
+  try { allowance = await videoListingAllowance(supabaseAdmin, user.id, property.id || null); } catch (error) {
+    console.error('Video allowance check failed:', error.message || error);
+    return { allowed: false, reason: 'Could not verify your plan.' };
+  }
+  if (!allowance.limit) return { allowed: false, reason: 'Your plan does not include video. Upgrade to add video tours.' };
+  // A listing that already has a video keeps its place.
+  if (currentVideoCount === 0 && allowance.used >= allowance.limit) {
+    return {
+      allowed: false,
+      reason: `Your plan includes video on ${listingsWord(allowance.limit)}, and all are in use. Upgrade for more, or pause a listing that has a video.`,
+    };
+  }
+  return { allowed: true };
+}
+
+/** The videos on one listing (checked against VIDEO_MAX_COUNT_PER_PROPERTY). */
 async function getPropertyVideoCount(supabaseAdmin, propertyId) {
   const { error, count } = await supabaseAdmin
     .from('property_media')
@@ -159,12 +149,12 @@ function getFileExtension(fileName) {
 
 module.exports = {
   canUploadPropertyVideo,
+  videoListingAllowance,
   getPropertyVideoCount,
   validateVideoFile,
   getFileExtension,
   // Configuration constants
   VIDEO_UPLOADS_ENABLED,
-  VIDEO_PREMIUM_REQUIRED,
   VIDEO_MAX_FILE_SIZE_MB,
   VIDEO_MAX_COUNT_PER_PROPERTY,
   VIDEO_MAX_DURATION_SECONDS,

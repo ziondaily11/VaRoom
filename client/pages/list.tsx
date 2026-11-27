@@ -12,7 +12,7 @@ import { createListingDraftCache } from '../lib/listWizard/draftCache';
 import type { DocumentRefs, WizardMedia } from '../lib/listWizard/drafts';
 import { captureSnapshot } from '../lib/listWizard/drafts';
 import {
-  activateListing, addMediaFiles, deleteListingShell, deleteRemoteDraft, isVideoFile, latestRef, saveBookingDetails, saveDiningConfig, saveListing,
+  activateListing, addMediaFiles, deleteListingShell, deleteRemoteDraft, isVideoFile, latestRef, MAX_MEDIA, saveBookingDetails, saveDiningConfig, saveListing,
   uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
@@ -25,6 +25,7 @@ import type { OfficeShopFiles, OfficeShopKind } from '../lib/listWizard/officeSh
 import { listingDocumentMimeType, officeShopBusinessHoursError, officeShopConditions } from '../lib/listWizard/officeShop';
 import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSession';
 import { INITIAL_FLAGS, hasListingCredit, startWizard } from '../lib/listWizard/startup';
+import { differenceHash, judgePhoto, measurePhoto, minPhotosFor } from '../lib/listWizard/photoQuality';
 import {
   checkListingPayment, checkReturnedPayment, LISTING_TIER_CARDS, NICHE_PLAN_CARDS, startCheckout, startListingTierCheckout,
   type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
@@ -265,6 +266,13 @@ export default function ListPage() {
     hasListingCredit: hasListingCredit(flags), listingIsPaused: flags.listingIsPaused, listingNeedsPublication: flags.listingNeedsPublication,
   };
   const paymentNeeded = needsListingPayment(publication);
+  // Why videos can't be added to this listing, or null when they can (the server checks the same: lib/videoEntitlement.js).
+  const videoAllowance = flags.videoListings;
+  const videoNote = isPaidNiche(category) ? 'Silver and Gold listings use photos. Video tours come with Airbnb, Hotel and Venue plans.'
+    : !videoAllowance.limit ? 'Your plan does not include video. Upgrade to add video tours.'
+      : !mediaFiles.some(isVideoFile) && videoAllowance.used >= videoAllowance.limit
+        ? `Your plan includes video on ${videoAllowance.limit} listing${videoAllowance.limit === 1 ? '' : 's'}, and all are in use. Upgrade for more, or pause a listing that has a video.`
+        : null;
   const amount = text(form.fields, 'price-amount');
   const saleAmount = text(form.fields, 'property-sale-price');
   const preview = pricePreview(category, form.propertyPurpose, form.propertySalePriceMode, amount, saleAmount, priceUnit);
@@ -323,9 +331,17 @@ export default function ListPage() {
         return false;
       }
     }
-    if (step === 4 && isOfficeShop(cat)) {
-      if (state.media.mediaFiles.length === 0 && existingPhotos.length === 0) {
-        setPhotoError('Add at least one photo or video of the actual unit before continuing.');
+    if (step === 4) {
+      // A new listing needs enough photos (videos don't count); a hotel restaurant-only listing needs fewer.
+      const photos = state.media.mediaFiles.filter((file) => !isVideoFile(file)).length + existingPhotos.length;
+      const needed = minPhotosFor(cat === 'hotel' && state.form.hotelListingMode === 'table');
+      const missing = !editMode && photos < needed
+        ? `Add at least ${needed} photos (${photos} so far). Videos don't count towards this.`
+        : isOfficeShop(cat) && state.media.mediaFiles.length === 0 && existingPhotos.length === 0
+          ? 'Add at least one photo or video of the actual unit before continuing.'
+          : null;
+      if (missing) {
+        setPhotoError(missing);
         dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
       }
@@ -429,11 +445,48 @@ export default function ListPage() {
   }, [status, client, userId, session]);
 
   // ---------- Media ----------
-  const addMedia = (incoming: File[]) => {
+  // Each photo's hash, for spotting the same photo twice (restored photos are measured when next compared).
+  const photoHashes = useRef(new WeakMap<File, string>());
+  const hashOf = async (file: File) => {
+    const known = photoHashes.current.get(file);
+    if (known) return known;
+    const { gray, grayWidth, grayHeight } = await measurePhoto(file);
+    const hash = differenceHash(gray, grayWidth, grayHeight);
+    photoHashes.current.set(file, hash);
+    return hash;
+  };
+  /**
+   * Adds picked files: the type, count and video rules, then each photo's
+   * quality (photoQuality.ts). Clear failures are refused with the reason;
+   * borderline photos are kept with a note.
+   */
+  const addMedia = async (incoming: File[]) => {
     if (editMode) return;
-    const result = addMediaFiles(latest.current.media.mediaFiles, incoming);
-    setPhotoError(result.error);
-    patchMedia({ mediaFiles: result.files });
+    const before = latest.current.media.mediaFiles;
+    const result = addMediaFiles(before, incoming, videoNote);
+    const added = result.files.filter((file) => !before.includes(file));
+    const refused: string[] = result.error ? [result.error] : [];
+    const notes: string[] = [];
+    const accepted: File[] = [];
+    const hashes: string[] = [];
+    for (const file of before) if (!isVideoFile(file)) { try { hashes.push(await hashOf(file)); } catch { /* An unreadable earlier photo is not compared. */ } }
+    for (const file of added) {
+      if (isVideoFile(file)) { accepted.push(file); continue; }
+      try {
+        const verdict = judgePhoto(file.name, await measurePhoto(file), hashes);
+        if (verdict.refused) { refused.push(verdict.refused); continue; }
+        photoHashes.current.set(file, verdict.hash);
+        hashes.push(verdict.hash);
+        accepted.push(file);
+        if (verdict.notes.length) notes.push(`"${file.name}" ${verdict.notes.join(' and ')}. You can keep it or replace it.`);
+      } catch {
+        refused.push(`"${file.name}" could not be read as a photo.`);
+      }
+    }
+    const message = [...refused, ...notes].join(' ');
+    setPhotoError(message || null);
+    // Photos added meanwhile stay; the limit still holds.
+    patchMedia({ mediaFiles: latest.current.media.mediaFiles.concat(accepted).slice(0, MAX_MEDIA) });
     queueSave();
   };
   const removeMedia = (index: number) => {
@@ -903,7 +956,7 @@ export default function ListPage() {
               <h1 className="step-title" id="media-title">{copy.mediaTitle}</h1>
               <p className="step-sub" id="media-sub">{copy.mediaSub}</p>
               <div className="step-fields" ref={dropzoneRef}>
-                <MediaPicker files={mediaFiles} urls={mediaUrls} existingPhotos={existingPhotos} editMode={editMode} hint={copy.photoHint} error={photoError}
+                <MediaPicker files={mediaFiles} urls={mediaUrls} existingPhotos={existingPhotos} editMode={editMode} allowVideo={!videoNote} hint={copy.photoHint} error={photoError}
                   onAdd={addMedia} onRemove={removeMedia} onMove={moveMedia} onPreview={setLightbox} />
                 {officeShop && (
                   <OfficeShopDocuments files={officeShopFiles} onFiles={(nextFiles: OfficeShopFiles) => { patchMedia({ officeShopFiles: nextFiles }); queueSave(); }}

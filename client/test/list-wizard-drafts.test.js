@@ -186,17 +186,27 @@ test('a returned payment is polled until it succeeds', async () => {
   assert.equal(payment.status, 'succeeded');
 });
 
-test('media choices follow the type, size, count and duplicate rules (WEBM included)', () => {
+test('media choices follow the type, size, count, video and duplicate rules (WEBM included)', () => {
   const api = load('api.ts');
   const file = (name, type, size = 10) => ({ name, type, size });
-  let result = api.addMediaFiles([], [file('a.webm', 'video/webm'), file('b.gif', 'image/gif'), file('c.jpg', 'image/jpeg', 6 * 1024 * 1024), file('d.mov', 'video/quicktime', 90 * 1024 * 1024)]);
-  assert.deepEqual(result.files.map((item) => item.name), ['a.webm', 'd.mov']);
-  assert.equal(result.error, '"c.jpg" is over 5MB.');
+  // Photos up to 25MB (they are shrunk before upload); bigger ones are refused.
+  let result = api.addMediaFiles([], [file('a.webm', 'video/webm'), file('b.gif', 'image/gif'), file('c.jpg', 'image/jpeg', 6 * 1024 * 1024), file('d.mov', 'video/quicktime', 90 * 1024 * 1024), file('e.jpg', 'image/jpeg', 26 * 1024 * 1024)]);
+  assert.deepEqual(result.files.map((item) => item.name), ['a.webm', 'c.jpg', 'd.mov']);
+  assert.equal(result.error, '"e.jpg" is over 25MB.');
   result = api.addMediaFiles(result.files, [file('a.webm', 'video/webm')]);
-  assert.equal(result.files.length, 2, 'a duplicate is skipped');
-  result = api.addMediaFiles([], Array.from({ length: 7 }, (_, index) => file(`${index}.png`, 'image/png')));
-  assert.equal(result.files.length, 6);
-  assert.equal(result.error, 'You can add up to 6 photos or videos.');
+  assert.equal(result.files.length, 3, 'a duplicate is skipped');
+  // At most 2 videos on a listing.
+  result = api.addMediaFiles(result.files, [file('f.mp4', 'video/mp4')]);
+  assert.equal(result.files.length, 3);
+  assert.equal(result.error, 'A listing can have up to 2 videos.');
+  // 8 photos and videos in all.
+  result = api.addMediaFiles([], Array.from({ length: 9 }, (_, index) => file(`${index}.png`, 'image/png')));
+  assert.equal(result.files.length, 8);
+  assert.equal(result.error, 'You can add up to 8 photos or videos.');
+  // No video when the plan (or Silver / Gold) does not allow it: the reason is shown.
+  result = api.addMediaFiles([], [file('g.mp4', 'video/mp4'), file('h.jpg', 'image/jpeg')], 'Silver and Gold listings use photos.');
+  assert.deepEqual(result.files.map((item) => item.name), ['h.jpg']);
+  assert.equal(result.error, 'Silver and Gold listings use photos.');
 });
 
 // ---------- Publishing ----------

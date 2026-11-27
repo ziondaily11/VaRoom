@@ -50,7 +50,9 @@ const INTRO_PLACEHOLDERS: Record<'airbnb' | 'hotel' | 'venue' | 'commercial', { 
 
 const DEFAULT_ABOUT_SUB = 'Give it a clear title, then describe what makes it worth choosing.';
 const DEFAULT_LOCATION_SUB = 'Add the neighbourhood and city. You can add the exact location later.';
-const DEFAULT_PHOTO_HINT = 'Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.';
+// At least 5 photos (3 for a restaurant-only hotel), 8 photos and videos in all, videos with a plan that includes them (photoQuality.ts).
+const DEFAULT_PHOTO_HINT = 'At least 5 sharp photos, up to 8 photos and videos (2 video tours with a plan that includes video) · JPG, PNG or WEBP photos · MP4, MOV or WEBM videos up to 60 seconds.';
+const PHOTOS_ONLY_HINT = 'At least 5 sharp photos, up to 8 · JPG, PNG or WEBP. Silver and Gold listings use photos only.';
 
 /** Every label, heading and placeholder the steps show. */
 export interface WizardCopy {
@@ -130,7 +132,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       descriptionPlaceholder: 'Describe the room, bed configuration, bathroom, breakfast, hotel facilities, and anything guests should know before check-in.',
       mediaTitle: 'Showcase the stay.',
       mediaSub: 'Lead with the guest room, then include the bathroom, lobby, dining, and standout hotel facilities.',
-      photoHint: 'Up to 6 room, hotel, or facility photos/videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.',
+      photoHint: 'At least 5 sharp room, hotel or facility photos, up to 8 photos and videos (2 video tours with a plan that includes video) · JPG, PNG or WEBP photos · MP4, MOV or WEBM videos up to 60 seconds.',
       amenitiesLabel: 'Room & hotel amenities',
       amenitiesHint: 'Choose the comforts and hotel facilities available to guests booking this room.',
       maxGuestsLabel: 'Guests per room',
@@ -143,6 +145,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     if (hotelMode === 'table') {
       Object.assign(copy, {
         titleLabel: 'Restaurant / dining name',
+        photoHint: 'At least 3 sharp photos of the restaurant, up to 8 photos and videos (2 video tours with a plan that includes video).',
         pricingHeading: 'Set up table reservations.',
         bookingSub: 'Add the hours and table capacity guests need before sending a request.',
       });
@@ -164,7 +167,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       locationTitle: 'Where is your property?',
       locationSub: 'Add the neighbourhood and town. You can add the exact location later.',
       mediaSub: 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.',
-      photoHint: DEFAULT_PHOTO_HINT,
+      photoHint: PHOTOS_ONLY_HINT,
       amenitiesLabel: 'Property features & amenities',
       amenitiesHint: 'Select the key features and facilities this property offers to prospective tenants or buyers.',
     });
@@ -181,10 +184,10 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       locationTitle: 'Where is your space?',
       locationSub: 'Add the neighbourhood and city, separated by a comma. You can add the exact location later.',
       mediaTitle: 'Show the actual space.',
-      mediaSub: 'Add at least one photo or video of the actual unit. The first one is the cover.',
+      mediaSub: 'Add at least 5 photos of the actual unit. The first one is the cover.',
       spaceTitle: 'About the space.',
       spaceSub: 'Size, fit-out, amenities, opening hours and parking.',
-      photoHint: 'At least one photo or video of the actual unit is required. Up to 6 files · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.',
+      photoHint: PHOTOS_ONLY_HINT,
       pricingHeading: 'Set the commercial terms.',
       bookingSub: 'Choose the pricing basis, then add costs and availability clearly.',
     });

@@ -42,11 +42,13 @@ export function PhotoLightbox({ item, onClose }: { item: LightboxItem; onClose: 
   );
 }
 
-export function MediaPicker({ files, urls, existingPhotos, editMode, hint, error, onAdd, onRemove, onMove, onPreview }: {
+export function MediaPicker({ files, urls, existingPhotos, editMode, allowVideo = true, hint, error, onAdd, onRemove, onMove, onPreview }: {
   files: File[];
   urls: Map<File, string>;
   existingPhotos: Array<{ url: string }>;
   editMode: boolean;
+  /** Videos can be added (the host's plan allows them on this listing). */
+  allowVideo?: boolean;
   hint: string;
   error: string | null;
   onAdd: (files: File[]) => void;
@@ -62,8 +64,8 @@ export function MediaPicker({ files, urls, existingPhotos, editMode, hint, error
   const [drawn, setDrawn] = useState(files.length > 0);
   useEffect(() => { if (files.length) setDrawn(true); }, [files.length]);
   const dropzoneText = editMode ? 'Photos are locked while editing this listing'
-    : files.length === 0 ? 'Click to choose photos or videos, or drag them here'
-      : `${files.length} of ${MAX_MEDIA} photos/videos selected — drag to reorder, first is the cover`;
+    : files.length === 0 ? (allowVideo ? 'Click to choose photos or videos, or drag them here' : 'Click to choose photos, or drag them here')
+      : `${files.length} of ${MAX_MEDIA} ${allowVideo ? 'photos/videos' : 'photos'} selected — drag to reorder, first is the cover`;
 
   return (
     <div className="field">
@@ -82,7 +84,7 @@ export function MediaPicker({ files, urls, existingPhotos, editMode, hint, error
           ref={input}
           type="file"
           id="photo-input"
-          accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm"
+          accept={allowVideo ? "image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : "image/png,image/jpeg,image/webp"}
           multiple
           disabled={editMode}
           onChange={(event) => { setDrawn(true); onAdd(Array.from(event.target.files || [])); event.target.value = ''; }}
@@ -127,7 +129,7 @@ export function MediaPicker({ files, urls, existingPhotos, editMode, hint, error
               );
             })}
             {drawn && files.length < MAX_MEDIA && (
-              <button type="button" className="photo-thumb add-tile" aria-label="Add another photo or video" onClick={() => input.current?.click()}>
+              <button type="button" className="photo-thumb add-tile" aria-label={allowVideo ? "Add another photo or video" : "Add another photo"} onClick={() => input.current?.click()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg><span>Add</span>
               </button>
             )}

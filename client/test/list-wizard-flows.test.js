@@ -204,7 +204,10 @@ test('the allowance check returns a running plan for this niche and the paid Sil
   assert.equal((await check(200, plan({ status: 'active', niche: 'legacy' }), 'venue')).planActive, true);
   assert.equal((await check(200, plan({ status: 'active', niche: 'airbnb' }), 'hotel')).planActive, false, 'another niche');
   assert.equal((await check(200, plan({ status: 'active', niche: 'property' }, false))).planActive, false, 'allowance used up');
-  assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, credits: { silver: 1, gold: 2 } });
+  assert.deepEqual(await check(200, plan(null, false, { silver: 1, gold: 2 })), { planActive: false, credits: { silver: 1, gold: 2 }, videoListings: { limit: 0, used: 0 } });
+  // The plan's video allowance comes through for the photo step.
+  const withVideo = { entitlements: { active: true, subscription: { status: 'active', niche: 'airbnb' }, canCreateAnotherListing: { allowed: true }, videoListings: { limit: 2, used: 1 } } };
+  assert.deepEqual((await check(200, withVideo, 'airbnb')).videoListings, { limit: 2, used: 1 });
   assert.deepEqual((await check(200, plan(null, false, { silver: -1, gold: 'x' }))).credits, { silver: 0, gold: 0 }, 'nonsense counts are zero');
   assert.deepEqual((await check(200, plan(null, false))).credits, { silver: 0, gold: 0 });
   await assert.rejects(check(500, {}), /Unable to confirm your listing allowance/);
