@@ -32,9 +32,10 @@ test('arriving from another page, Chats stays hidden until its stylesheet applie
       return Object.assign({
         sheet: null,
         listeners,
-        getAttribute: (name) => (name === 'href' ? attrs.href : null),
+        getAttribute(name) { return name === 'href' ? this.href : null; },
         addEventListener: (type, fn) => listeners.set(type, fn),
         removeEventListener: (type, fn) => { if (listeners.get(type) === fn) listeners.delete(type); },
+        remove() { links.splice(links.indexOf(this), 1); },
       }, attrs);
     };
     const links = existing ? [make(existing)] : [];
@@ -52,30 +53,35 @@ test('arriving from another page, Chats stays hidden until its stylesheet applie
   // Not in the document: added, shown once it loads.
   const doc = fakeDoc(null);
   let ready = 0;
-  const added = stylesheet.awaitStylesheet(doc, href, () => { ready += 1; }, clock);
-  assert.equal(added.added, doc.appended[0]);
-  assert.equal(added.added.rel, 'stylesheet');
-  assert.equal(added.added.href, href);
+  const stop = stylesheet.awaitStylesheet(doc, href, () => { ready += 1; }, clock);
+  const added = doc.appended[0];
+  assert.equal(added.rel, 'stylesheet');
+  assert.equal(added.href, href);
   assert.equal(ready, 0, 'hidden until it applies');
-  added.added.listeners.get('load')();
+  added.listeners.get('load')();
   assert.equal(ready, 1);
   assert.equal(timers[0][1], 4000, 'never stays hidden longer than 4 s');
-  added.stop();
-  assert.equal(added.added.listeners.size, 0);
+  stop();
+  assert.equal(added.listeners.size, 0);
   assert.equal(timers[0], null);
+  stylesheet.releaseStylesheet(doc, href);
+  assert.equal(doc.links.length, 0, 'leaving Chats removes the link it added');
 
   // Already in the document and applied: ready at once, nothing added.
   const present = fakeDoc({ href, sheet: {} });
   let early = 0;
-  const reused = stylesheet.awaitStylesheet(present, href, () => { early += 1; }, clock);
-  assert.equal(reused.added, null);
+  stylesheet.awaitStylesheet(present, href, () => { early += 1; }, clock);
   assert.equal(early, 1);
   assert.equal(present.appended.length, 0);
+  // Its rules are global (body flex-centring shrank /settings): the document's own copy leaves too.
+  stylesheet.releaseStylesheet(present, href);
+  assert.equal(present.links.length, 0, 'opened directly, leaving Chats still removes it');
 
   // A failed load shows the page too.
   const failing = fakeDoc(null);
   let shown = 0;
-  stylesheet.awaitStylesheet(failing, href, () => { shown += 1; }, clock).added.listeners.get('error')();
+  stylesheet.awaitStylesheet(failing, href, () => { shown += 1; }, clock);
+  failing.appended[0].listeners.get('error')();
   assert.equal(shown, 1);
 
   // Hidden while waiting; opened directly (server render) it is styled from the first paint.
@@ -87,7 +93,7 @@ test('arriving from another page, Chats stays hidden until its stylesheet applie
   // While hydrating it renders as the server did (no mismatch); the check runs from the next render.
   assert.match(source, /return useSyncExternalStore\(noSubscription, \(\) => true, \(\) => false\);/);
   assert.match(source, /const stylesReady = !hydrated \|\| stylesLoaded \|\| chatsStylesheetApplied\(\);/);
-  assert.match(source, /useEffect\(\(\) => \(\) => \{ addedStylesheetRef\.current\?\.remove\(\); \}, \[\]\);/, 'chat styles do not leak onto other pages');
+  assert.match(source, /useEffect\(\(\) => \(\) => releaseStylesheet\(document, chatsCssHref\), \[\]\);/, 'chat styles do not leak onto other pages');
   const app = read('pages', '_app.tsx');
   // One dark-theme file on every route (nothing reloads entering Chats); the
   // always-light landing page only fetches it ahead, so it never blocks that first paint.
