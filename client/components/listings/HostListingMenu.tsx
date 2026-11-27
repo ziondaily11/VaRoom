@@ -8,6 +8,7 @@ import {
   setUnderOffer, sharesWithSheet, statusControls, undoOutcome, unitsPatch, type ListingPatch, type ListingStatus, type MenuListing, type ToastAction,
 } from '../../lib/listings/hostListingActions';
 import { isMarkedStatus, unitsLeft, type ListingOutcome } from '../../lib/listings/listingAction';
+import { hasCalendar } from '../../lib/calendar/hostCalendar';
 
 // The ⋮ menu on a host's own listing card (it replaced
 // public/js/host-listing-controls.js). Every niche can edit, pause or make
@@ -359,6 +360,7 @@ export default function HostListingMenu({ listing, notify, onChange, onDeleted, 
           ))}
           {item('Share listing', () => { void share(); })}
           {requests && item(requests, () => { void router.push(`/bookings?listing=${encodeURIComponent(listing.id)}`); })}
+          {hasCalendar(listing.category) && item('Open calendar', () => { void router.push(`/calendar?listing=${encodeURIComponent(listing.id)}`); })}
           {item('View analytics', () => { void router.push(`/analytics?listing=${encodeURIComponent(listing.id)}`); })}
           {item('Duplicate listing', () => { void duplicate(); })}
           {item(deleteLabel(listing), () => openDialog({ kind: 'delete' }), { className: 'destructive' })}

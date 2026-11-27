@@ -115,7 +115,7 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
     minStayLabel: 'Min. stay (nights)',
     minStayPlaceholder: 'e.g. 2',
     cleaningFeeLabel: 'Cleaning fee (KES, optional)',
-    availabilityHint: "Tap dates to open them for booking. Clients will only be able to request dates you've opened here.",
+    availabilityHint: 'Guests can book any day within your booking window. Close the days you’re not available in Calendar.',
   };
 
   if (category === 'hotel') copy.bookingSub = 'Choose what this hotel offers to set up the right booking experience.';
@@ -141,7 +141,6 @@ export function wizardCopy(category: Category, hotelMode: HotelMode | null, purp
       minStayLabel: 'Minimum nights',
       minStayPlaceholder: 'e.g. 1',
       cleaningFeeLabel: 'Service fee (KES, optional)',
-      availabilityHint: 'Open the dates this room can be reserved. Guests will only be able to request available stay dates.',
     });
     if (hotelMode === 'table') {
       Object.assign(copy, {

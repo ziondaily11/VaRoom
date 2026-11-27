@@ -7,6 +7,7 @@ import { profileUsernameFromPath } from '../profile/usernames';
 export const HOST_INTERNAL_ROUTES = [
   '/host-home',
   '/bookings',
+  '/calendar',
   '/chats',
   '/notifications',
   '/profile',

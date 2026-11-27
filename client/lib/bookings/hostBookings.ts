@@ -59,7 +59,7 @@ export const RESPOND_FAILED = { approve: 'Failed to approve booking. Please try 
  */
 export async function respondToBooking(
   client: SupabaseClient,
-  { booking, userId, decision, now = new Date() }: { booking: HostBooking; userId: string; decision: 'approve' | 'decline'; now?: Date },
+  { booking, userId, decision, now = new Date() }: { booking: Pick<HostBooking, 'id'>; userId: string; decision: 'approve' | 'decline'; now?: Date },
 ): Promise<{ status: 'approved' | 'declined' }> {
   const status = decision === 'approve' ? 'approved' : 'declined';
   const { data, error } = await client

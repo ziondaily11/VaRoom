@@ -45,7 +45,6 @@ export interface WizardForm {
   propertyPurpose: PropertyPurpose;
   propertySalePriceMode: SaleMode;
   hotelListingMode: HotelMode | null;
-  availableDates: string[];
   currentStep: number;
   furthestStep: number;
   /** Amenity checkboxes in the Amenities Library (airbnb, hotel, venue, property). */
@@ -63,7 +62,6 @@ export const emptyForm = (): WizardForm => ({
   propertyPurpose: 'rent',
   propertySalePriceMode: 'exact',
   hotelListingMode: null,
-  availableDates: [],
   currentStep: 1,
   furthestStep: 1,
   amenities: [],

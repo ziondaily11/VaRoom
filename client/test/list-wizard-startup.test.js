@@ -217,14 +217,13 @@ test('edit mode reads only the host\'s own listing', async () => {
       listings: (query) => (query.filters.some(([column, value]) => column === 'host_id' && value === 'host-1') ? listing : null),
       listing_booking_details: { price_amount: 3000, price_unit: 'night' },
       listing_photos: [{ storage_path: 'host-1/l1/a.jpg' }],
-      availability: [{ date: '2026-12-01' }],
     },
   });
   const outcome = await v.run(params({ edit: 'l1' }));
   assert.equal(outcome.status, 'ready');
   assert.equal(outcome.form.fields.title, 'Loft');
   assert.equal(outcome.flags.listingIsPaused, true);
-  assert.deepEqual(outcome.edit.savedDates, ['2026-12-01']);
+  assert.equal(v.client.queries.some((query) => query.table === 'availability'), false, 'dates live in Calendar now');
   const listingQueries = v.client.queries.filter((query) => query.table === 'listings');
   assert.equal(listingQueries.length, 2);
   for (const query of listingQueries) assert.deepEqual(query.filters, [['id', 'l1'], ['host_id', 'host-1']]);

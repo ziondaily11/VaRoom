@@ -11,9 +11,9 @@ const bd = loadTs(path.join(root, 'lib', 'settings', 'bookingDefaults.ts'));
 
 test('booking window: minimum notice and how far ahead limit the days a guest can pick', () => {
   const today = new Date(2026, 10, 10);
-  assert.deepEqual({ ...bl.bookingWindow({}, today) }, { first: '2026-11-10', last: null });
+  assert.deepEqual({ ...bl.bookingWindow({}, today) }, { first: '2026-11-10', last: '2027-11-10' }, 'no limit set: 365 days, as the database');
   assert.deepEqual({ ...bl.bookingWindow({ min_notice_days: 2, max_advance_days: 30 }, today) }, { first: '2026-11-12', last: '2026-12-10' });
-  const dates = { open: new Set(['2026-11-10', '2026-11-12', '2026-12-10', '2026-12-11']), unavailable: new Set() };
+  const dates = { open: new Set(['2026-11-10', '2026-11-12', '2026-12-10', '2026-12-11']), unavailable: new Set(), roomsLeft: new Map() };
   const windowed = bl.windowedCalendar(dates, { first: '2026-11-12', last: '2026-12-10' });
   assert.deepEqual(Array.from(windowed.open), ['2026-11-12', '2026-12-10']);
 });

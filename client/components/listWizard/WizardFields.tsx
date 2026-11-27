@@ -220,7 +220,7 @@ export function BookingFields({ binding, copy, category, hotelMode, purpose, sal
   saleMode: SaleMode;
   priceUnit: string;
   onSaleMode: (mode: SaleMode) => void;
-  /** The availability calendar (short stays). */
+  /** Where the host manages dates: a note pointing to Calendar (short stays). */
   calendar: React.ReactNode;
   /** Clears a "greater than 0" message as the host types. */
   onPriceEdit: (event: Change) => void;

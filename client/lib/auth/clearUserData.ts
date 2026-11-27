@@ -3,6 +3,7 @@ import { clearChatSettingsCache } from '../chat/chatSettings';
 import { clearQuickRepliesCache } from '../chat/quickReplies';
 import { clearPropertyNewsCache } from '../propertyNewsCache';
 import { clearBookingsCache } from '../bookings/bookingsCache';
+import { clearCalendarCache } from '../calendar/hostCalendar';
 import { clearBookmarks } from '../bookmarks/bookmarks';
 import { clearHostBillingCache } from '../billing/hostBilling';
 import type { ProfileStore } from './profileStore';
@@ -94,6 +95,7 @@ export async function clearUserData(userId: string | null, options: ClearUserDat
   clearQuickRepliesCache();
   clearPropertyNewsCache();
   clearBookingsCache();
+  clearCalendarCache();
   clearBookmarks();
   clearHostBillingCache();
 

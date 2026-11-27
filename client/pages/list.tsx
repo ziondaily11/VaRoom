@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
@@ -16,7 +17,7 @@ import {
   listingPhotoFingerprints, photoFingerprint, uploadListingDocument, uploadListingPhoto, uploadListingVideo,
 } from '../lib/listWizard/api';
 import {
-  bookingDetailsFor, diningBody, effectivePriceUnit, hasStayDetails, isPaidNiche, isPlanNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
+  bookingDetailsFor, diningBody, effectivePriceUnit, isPaidNiche, isPlanNiche, listingPayload, mediaUploadBlocksPublish, needsListingPayment, officeShopDetailsFor,
   reviewActions, savesBookingDetails, shellPayload, shouldActivate, uploadPendingMedia, withOfficeShopDocuments,
 } from '../lib/listWizard/publish';
 import type { PublicationState } from '../lib/listWizard/publish';
@@ -40,7 +41,6 @@ import type { SaveStatus } from '../components/listWizard/StepFrame';
 import { BookingFields, HotelModeChoice, IntroFields, OfficeShopTypeChoice, PropertyPurposeChoice, SpaceFields } from '../components/listWizard/WizardFields';
 import { MediaPicker, PhotoLightbox, useObjectUrls } from '../components/listWizard/MediaPicker';
 import type { LightboxItem } from '../components/listWizard/MediaPicker';
-import { AvailabilityCalendar } from '../components/listWizard/AvailabilityCalendar';
 import { ReviewCard, ReviewHero } from '../components/listWizard/ReviewStep';
 import type { ReviewLine } from '../components/listWizard/ReviewStep';
 import { PolicyField, PolicyPreviewOverlay } from '../components/listWizard/PolicyDocument';
@@ -143,8 +143,6 @@ export default function ListPage() {
   const publishing = useRef(false);
   /** Media already uploaded by an earlier publish attempt (a retry skips them). */
   const uploadedMedia = useRef(new Set<File>());
-  /** The open dates already saved (edit mode, or a retried publish). */
-  const savedDates = useRef<Set<string> | null>(null);
   const editOfficeDocs = useRef<Record<string, unknown> | null>(null);
   const draftCache = useMemo(() => (typeof window === 'undefined' ? null : createListingDraftCache()), []);
 
@@ -431,7 +429,6 @@ export default function ListPage() {
         setExistingPolicyUrl(outcome.edit.existingPolicyUrl);
         if (isOfficeShop(outcome.category)) setExistingDocuments(outcome.edit.documents as ExistingListingDocument[]);
         editOfficeDocs.current = outcome.edit.officeShopDocuments;
-        savedDates.current = new Set(outcome.edit.savedDates);
       }
       setReady(true);
       const last = outcome.messages[outcome.messages.length - 1];
@@ -745,26 +742,6 @@ export default function ListPage() {
       const dining = diningBody(cat, stateForm);
       if (dining) await saveDiningConfig(accessToken, listingId, dining);
 
-      if (hasStayDetails(cat, stateForm)) {
-        const open = new Set(stateForm.availableDates);
-        const saved = savedDates.current;
-        if (saved) {
-          const removed = Array.from(saved).filter((date) => !open.has(date));
-          const added = Array.from(open).filter((date) => !saved.has(date));
-          if (removed.length) {
-            const { error } = await client.from('availability').delete().eq('listing_id', listingId).in('date', removed);
-            if (error) throw error;
-          }
-          if (added.length) {
-            const { error } = await client.from('availability').insert(added.map((date) => ({ listing_id: listingId, date })));
-            if (error) throw error;
-          }
-        } else if (open.size) {
-          const { error } = await client.from('availability').insert(Array.from(open).map((date) => ({ listing_id: listingId, date })));
-          if (error) throw error;
-        }
-        savedDates.current = open;
-      }
 
       const files = latest.current.media.mediaFiles;
       // Photos an earlier attempt already saved (before a reload or a reopened draft) aren't uploaded again.
@@ -989,7 +966,16 @@ export default function ListPage() {
                 {officeShop ? <OfficeShopPricing {...officeProps} /> : <div className="office-shop-section" id="office-shop-pricing-fields" />}
                 <BookingFields binding={binding} copy={copy} category={category} hotelMode={form.hotelListingMode} purpose={form.propertyPurpose} saleMode={form.propertySalePriceMode}
                   priceUnit={priceUnit} onSaleMode={(mode: SaleMode) => update({ propertySalePriceMode: mode })} onPriceEdit={(event) => (event.target as HTMLInputElement).setCustomValidity('')}
-                  calendar={<AvailabilityCalendar hint={copy.availabilityHint} openDates={form.availableDates} onChange={(dates) => update({ availableDates: dates })} />} />
+                  calendar={(
+                    <div className="field">
+                      <label>Availability</label>
+                      <p className="booking-hint" id="availability-hint">
+                        {copy.availabilityHint} {editListingId
+                          ? <Link href={`/calendar?listing=${encodeURIComponent(editListingId)}`}>Open the calendar</Link>
+                          : 'You can close days in Calendar once it’s published.'}
+                      </p>
+                    </div>
+                  )} />
                 <PolicyField hidden={category !== 'property'} filename={policyName} removing={policyRemoving} onChoose={choosePolicy} onPreview={() => { void previewPolicy(); }} onRemove={() => { void removePolicy(); }} />
               </div>
               <PanelActions onBack={back} next="Continue to review" onNext={next} alert={stepError && stepError.step === 5 ? stepError.text : null} />

@@ -10,6 +10,7 @@ export function hostActiveNav(pathname: string, rawAsPath: string, view: string 
   // A listing's booking page belongs to the Marketplace.
   if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace') || asPath === '/booking' || currentPath === '/booking') return 'marketplace';
   if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) return 'bookings';
+  if (asPath.startsWith('/calendar') || currentPath.startsWith('/calendar')) return 'calendar';
   if (asPath.startsWith('/chats') || currentPath.startsWith('/chats')) return 'chats';
   if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) return 'notifications';
   if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/') || currentPath === '/[username]') return 'profile';

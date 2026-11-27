@@ -26,7 +26,7 @@ export function getAccountLayout(pathname: string | null | undefined, asPath: st
 
   // Host-only: the host shell with the icon-only rail (see usesIconRail).
   // The listing wizard (/list, also served as /properties) is host-only too.
-  if (matches('/analytics') || matches('/list') || matches('/properties')) return role === 'host' ? 'host' : 'none';
+  if (matches('/analytics') || matches('/calendar') || matches('/list') || matches('/properties')) return role === 'host' ? 'host' : 'none';
 
   const isClientHome = matches('/client-home');
   const isHostHome = matches('/host-home');
@@ -62,5 +62,5 @@ export function homeShellHint(pathname: string | null | undefined): ShellRole | 
  * icon-only rail, so wide pages get the room. The sidebar stays mounted.
  */
 export function usesIconRail(pathname: string | null | undefined, asPath: string | null | undefined): boolean {
-  return [pathname || '', asPath || ''].some((path) => ['/analytics', '/marketplace', '/booking', '/list', '/properties'].some((route) => matchesPath(path, route)));
+  return [pathname || '', asPath || ''].some((path) => ['/analytics', '/calendar', '/marketplace', '/booking', '/list', '/properties'].some((route) => matchesPath(path, route)));
 }

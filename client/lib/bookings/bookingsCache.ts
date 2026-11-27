@@ -80,6 +80,11 @@ export function setHostBookings(next: HostBookingsSnapshot): void {
   hostSnapshot = next;
 }
 
+/** Forget the host's loaded requests (a change made elsewhere, e.g. the Calendar). */
+export function clearHostBookings(): void {
+  hostSnapshot = null;
+}
+
 export function clearBookingsCache(): void {
   snapshot = null;
   reviews.clear();

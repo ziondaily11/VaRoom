@@ -455,10 +455,11 @@ const dayString = (date: Date) => `${date.getFullYear()}-${String(date.getMonth(
 const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
 
 /** The first and last day a guest can start a booking (minimum notice, how far ahead). */
-export function bookingWindow(details: BookingDetails, today: Date = new Date()): { first: string; last: string | null } {
+export function bookingWindow(details: BookingDetails, today: Date = new Date()): { first: string; last: string } {
   return {
     first: dayString(addDays(today, Math.max(0, Number(details.min_notice_days) || 0))),
-    last: details.max_advance_days ? dayString(addDays(today, Number(details.max_advance_days))) : null,
+    // Without the host's own limit, 365 days (the database's default too).
+    last: dayString(addDays(today, Number(details.max_advance_days) || 365)),
   };
 }
 

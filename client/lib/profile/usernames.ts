@@ -18,7 +18,7 @@ export const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 export const RESERVED_USERNAMES: readonly string[] = [
   // Next.js internals and app pages (client/pages).
   '404', '500', '_app', '_document', '_error', '_next', 'index',
-  'admin', 'analytics', 'api', 'booking', 'bookings', 'chats', 'host', 'list',
+  'admin', 'analytics', 'api', 'booking', 'bookings', 'calendar', 'chats', 'host', 'list',
   'map', 'marketplace', 'notifications', 'onboarding', 'pricing', 'privacy',
   'profile', 'properties', 'settings', 'support', 'terms',
   // Redirects (client/next.config.js) and server paths (server/server.js).

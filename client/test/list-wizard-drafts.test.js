@@ -89,13 +89,12 @@ test('a snapshot keeps the legacy form_data keys and round-trips through restore
   const form = emptyForm();
   form.fields = { title: 'Garden suite', 'location-text': 'Karen, Nairobi', 'price-amount': '4500' };
   form.hotelListingMode = 'both';
-  form.availableDates = ['2026-12-01', 'not-a-date'];
   form.currentStep = 4;
   form.furthestStep = 4;
   form.amenities = [{ key: 'hotel_high_speed_wifi', checked: true }];
   const policy = new File(['pdf'], 'rules.pdf', { type: 'application/pdf', lastModified: 5 });
   const snapshot = drafts.captureSnapshot(identity, 'hotel', form, { ...noMedia(), policyFile: policy }, 'night');
-  assert.deepEqual(Object.keys(drafts.draftFormData(snapshot)), ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode', 'availableDates',
+  assert.deepEqual(Object.keys(drafts.draftFormData(snapshot)), ['fields', 'controls', 'propertyPurpose', 'propertySalePriceMode', 'hotelListingMode',
     'currentStep', 'furthestStep', 'stepVersion', 'amenities', 'officeShopAmenitySelections', 'officeShopPermittedUses', 'officeShopCharges', 'uploadedDocumentRefs', 'documentSelections']);
   assert.equal(snapshot.fields['price-unit'], 'night');
   assert.equal(snapshot.policyFile, null);
@@ -105,7 +104,7 @@ test('a snapshot keeps the legacy form_data keys and round-trips through restore
   const restored = drafts.restoreSnapshot(plain(snapshot), 'hotel');
   assert.equal(restored.form.fields.title, 'Garden suite');
   assert.equal(restored.form.hotelListingMode, 'both');
-  assert.deepEqual(restored.form.availableDates, ['2026-12-01']);
+  assert.equal('availableDates' in restored.form, false, 'dates are managed in Calendar, not in drafts');
   assert.equal(restored.form.currentStep, 4);
   assert.ok(restored.form.amenities.some((item) => item.key === 'hotel_high_speed_wifi' && item.checked));
 });
