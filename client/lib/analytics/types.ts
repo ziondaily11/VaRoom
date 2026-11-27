@@ -54,6 +54,14 @@ export interface PeriodMetrics {
   chatReplied: number;
   chatRepliedWithinHour: number;
   chatResponseMinutes: number | null;
+  /** Units the host marked sold, rented or leased in the period (listing_outcomes; Undo removes them). */
+  sold: number;
+  rented: number;
+  leased: number;
+  /** Sum of the agreed sale prices hosts entered (optional when marking). */
+  soldValue: number;
+  /** Median days from going on the market to being marked. */
+  marketDays: number | null;
 }
 
 export interface Portfolio {
@@ -76,6 +84,8 @@ export interface TrendPoint {
   requests: number;
   approved: number;
   approvedValue: number;
+  /** Units marked sold, rented or leased. */
+  outcomes: number;
 }
 
 export interface ListingRow {
@@ -93,6 +103,8 @@ export interface ListingRow {
   requests: number;
   approved: number;
   approvedValue: number;
+  /** Units marked sold, rented or leased. */
+  outcomes: number;
 }
 
 export interface DiningSummary {

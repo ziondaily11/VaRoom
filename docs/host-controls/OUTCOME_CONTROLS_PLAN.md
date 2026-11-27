@@ -1,6 +1,6 @@
 # Host listing controls by niche: plan
 
-Status: **approved 2026-11-27. Part 1 (controls) built on `claude/host-outcome-controls`; part 2 (analytics) not started.**
+Status: **approved 2026-11-27. Part 1 (controls) merged (PR #746) and migration 000087 applied on 2026-11-27. Part 2 (analytics) built on `claude/outcome-analytics`, with migration 000088.**
 
 ## Goal
 
@@ -93,7 +93,7 @@ Asks how many units are available again (for a property), then uses the existing
 
 New period metrics, computed in SQL from `listing_outcomes` (voided records excluded):
 - **Places rented / sold / leased**: the sum of units recorded in the period
-- **Time on market**: median days from going live (`live_since`) to the outcome
+- **Time on market**: median days from going on the market (`listings.on_market_since`) to the outcome. Not `live_since`: every plan payment moves `live_since` forward (`extendPlanListings`), so it would only count days since the last renewal. `on_market_since` is set when a listing is created and again by Relist, and the outcome record takes it as `listed_since`.
 - **Agreed value**: the sum of the prices hosts entered, labelled "from prices you entered"
 
 Where they show (`niche.ts`):
@@ -137,7 +137,9 @@ Marking an outcome clears that account's analytics cache (`invalidateAnalytics`,
 - One `security definer` function each for record, void and set-under-offer. Each checks ownership and that the outcome fits the category and purpose, then updates units, status and the record in one transaction. The server calls them with the service role.
 
 **`20261127_000088_analytics_outcomes.sql`**
-- Redefines `host_analytics_period` and `host_analytics_overview` from their latest versions, adding the outcome fields and the per-listing column.
+- `listings.on_market_since` (backfilled from `created_at`), and a trigger that copies it into each new outcome record's `listed_since`.
+- `host_analytics_outcomes(host, listing, from, to)`, internal: units sold / rented / leased, the agreed sale value, and the median time on market.
+- Redefines `host_analytics_overview` from its latest version (000068). It merges those fields into `current` and `previous`, and adds an `outcomes` series to the trend and an `outcomes` column to each listing row. `host_analytics_period` is unchanged.
 
 Run order: 000087 before the first PR deploys, 000088 before the second. As a safety net, the client also treats missing analytics fields as 0, so a deploy that lands first can't break the page.
 

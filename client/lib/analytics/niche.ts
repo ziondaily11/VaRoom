@@ -24,7 +24,7 @@ export interface FunnelStep { key: string; label: string; value: number; previou
 export type TrendKey = Exclude<keyof TrendPoint, 'bucket'>;
 export interface TrendMetric { key: TrendKey; label: string; format: MetricFormat }
 
-export type ListingKey = 'views' | 'contacts' | 'enquiries' | 'likes' | 'saves' | 'requests' | 'approved' | 'approvedValue';
+export type ListingKey = 'views' | 'contacts' | 'enquiries' | 'likes' | 'saves' | 'requests' | 'approved' | 'approvedValue' | 'outcomes';
 export interface ListingColumn { key: ListingKey; label: string; format: MetricFormat }
 
 /** Which booking model the page reports on. */
@@ -68,6 +68,16 @@ const avgNightly = (m: PeriodMetrics) => ratio(m.stayValue, m.nights);
 const avgStay = (m: PeriodMetrics) => ratio(m.nights, m.stays);
 const occupancy = (m: PeriodMetrics) => ratio(m.occupiedDays, m.capacityDays);
 const avgLease = (m: PeriodMetrics) => ratio(m.leaseMonths, m.leaseApproved);
+const placed = (m: PeriodMetrics) => m.sold + m.rented + m.leased;
+
+/** What the host's places do when they go: sold, rented, leased, or a mix (the listings' categories and purposes). */
+function outcomeWord(mode: Mode, portfolio: Portfolio): string {
+  if (mode === 'sale') return 'sold';
+  if (mode === 'leases') return portfolio.hasSale ? 'rented or sold' : 'rented';
+  const office = portfolio.categories.includes('office');
+  const shop = portfolio.categories.includes('shop');
+  return office && shop ? 'leased or rented' : shop ? 'rented' : 'leased';
+}
 
 /** The booking model, from the niche and what the host actually lists. */
 export function modeFor(niche: HostNiche | null, portfolio: Portfolio): Mode {
@@ -117,6 +127,8 @@ const K: Record<string, KpiFactory> = {
   monthlyRent: (c, p) => kpi('monthlyRent', 'Average monthly rent', c, p, (m) => m.leaseMonthlyValue, 'kes', 'Across approved monthly leases'),
   leaseLength: (c, p) => kpi('leaseLength', 'Average lease length', c, p, avgLease, 'months', 'Months per approved lease'),
   leaseValue: (c, p) => kpi('leaseValue', 'Approved lease value', c, p, (m) => m.approvedValue, 'kes', 'Quoted total for the lease term. Not money collected.'),
+  marketDays: (c, p) => kpi('marketDays', 'Time on market', c, p, (m) => m.marketDays, 'days', 'Median, from listing to marked', 'down'),
+  soldValue: (c, p) => kpi('soldValue', 'Agreed sale value', c, p, (m) => m.soldValue, 'kes', 'From the prices you entered'),
 };
 
 const pick = (c: PeriodMetrics, p: PeriodMetrics, keys: string[]) => keys.map((key) => K[key](c, p));
@@ -164,6 +176,9 @@ type NicheConfig = Omit<NicheView, 'hero' | 'tiles' | 'showRequests'>;
 function nicheConfig(overview: AnalyticsOverview): NicheConfig {
   const { niche, portfolio, current: c, previous: p } = overview;
   const mode = modeFor(niche, portfolio);
+  const word = outcomeWord(mode, portfolio);
+  const places = kpi('places', `Places ${word}`, c, p, placed, 'count', 'Units you marked in this period');
+  const outcomes: ListingColumn = { key: 'outcomes', label: word[0].toUpperCase() + word.slice(1), format: 'count' };
   const base = {
     mode,
     funnel: funnelFor(mode, c, p),
@@ -206,30 +221,30 @@ function nicheConfig(overview: AnalyticsOverview): NicheConfig {
       return {
         ...base,
         bookingsTitle: 'Lease requests',
-        headline: pick(c, p, ['enquiries', 'leaseRequests', 'leaseApproved', 'monthlyRent']),
-        secondary: pick(c, p, ['leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
+        headline: [K.enquiries(c, p), places, ...pick(c, p, ['leaseRequests', 'leaseApproved', 'monthlyRent'])],
+        secondary: pick(c, p, ['marketDays', 'leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
         trendMetrics: [TREND.enquiries, TREND.requests, TREND.views, TREND.contacts],
-        listingColumns: [COL.views, COL.enquiries, COL.saves, COL.requests, COL.approved],
+        listingColumns: [COL.views, COL.enquiries, COL.saves, COL.requests, COL.approved, outcomes],
         listingSort: 'enquiries',
       };
     case 'sale':
       return {
         ...base,
         bookingsTitle: 'Buyer interest',
-        headline: pick(c, p, ['views', 'enquiries', 'contacts', 'interest']),
-        secondary: pick(c, p, ['viewers', 'enquiryRate', 'chatResponse']),
+        headline: [places, ...pick(c, p, ['marketDays', 'soldValue', 'views'])],
+        secondary: pick(c, p, ['enquiries', 'contacts', 'interest', 'viewers', 'enquiryRate', 'chatResponse']),
         trendMetrics: [TREND.views, TREND.enquiries, TREND.contacts],
-        listingColumns: [COL.views, COL.contacts, COL.enquiries, COL.likes, COL.saves],
+        listingColumns: [COL.views, COL.contacts, COL.enquiries, COL.likes, COL.saves, outcomes],
         listingSort: 'enquiries',
       };
     case 'commercial':
       return {
         ...base,
         bookingsTitle: 'Lease requests',
-        headline: pick(c, p, ['enquiries', 'leaseRequests', 'leaseApproved', 'leaseValue']),
-        secondary: pick(c, p, ['leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
+        headline: [K.enquiries(c, p), places, ...pick(c, p, ['leaseRequests', 'leaseApproved', 'leaseValue'])],
+        secondary: pick(c, p, ['marketDays', 'leaseLength', 'moveInLead', 'enquiryRate', 'chatResponse']),
         trendMetrics: [TREND.enquiries, TREND.requests, TREND.views, TREND.value],
-        listingColumns: [COL.views, COL.enquiries, COL.requests, COL.approved, COL.leaseValue],
+        listingColumns: [COL.views, COL.enquiries, COL.requests, COL.approved, COL.leaseValue, outcomes],
         listingSort: 'enquiries',
       };
     default:
@@ -260,6 +275,7 @@ export function trendKeyFor(kpiKey: string): TrendKey | null {
   const map: Record<string, TrendKey> = {
     value: 'approvedValue', leaseValue: 'approvedValue', requests: 'requests', leaseRequests: 'requests',
     approved: 'approved', leaseApproved: 'approved', views: 'views', enquiries: 'enquiries', contacts: 'contacts',
+    places: 'outcomes',
   };
   return map[kpiKey] ?? null;
 }
@@ -271,9 +287,9 @@ export function lockedFeatures(niche: HostNiche | null): string[] {
     case 'airbnb': return ['Nights booked and occupancy', 'Average nightly rate and length of stay', 'Booking lead time and cancellations', ...shared];
     case 'hotel': return ['Room nights, occupancy and nightly rate', 'Table reservations: covers, peak days and times', 'Special occasions', ...shared];
     case 'venue': return ['Days and hours booked', 'Utilisation of your spaces', 'Lead time and cancellations', ...shared];
-    case 'property': return ['Enquiries and lease requests', 'Average monthly rent and lease length', 'Buyer interest in homes for sale', ...shared];
+    case 'property': return ['Places rented and sold, and time on market', 'Enquiries and lease requests', 'Average monthly rent and lease length', 'Buyer interest in homes for sale', ...shared];
     case 'office':
-    case 'shop': return ['Enquiries and lease requests', 'Lease value and lease length', 'Time to move-in', ...shared];
+    case 'shop': return ['Places leased or rented, and time on market', 'Enquiries and lease requests', 'Lease value and lease length', 'Time to move-in', ...shared];
     default: return ['Booking requests and value', 'Reviews and ratings', ...shared];
   }
 }

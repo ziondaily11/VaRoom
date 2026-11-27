@@ -119,12 +119,14 @@ test('Relist: only a sold, rented or leased listing; a property\'s units first, 
     assert.equal(calls.length, 0);
   });
   const activated = { listing: { id: listingId, availability_status: 'available' } };
-  await withServer({ listing: { availability_status: 'sold' }, rpc: async () => ({ data: activated, error: null }) }, async ({ send, calls, bookingDetails }) => {
+  await withServer({ listing: { availability_status: 'sold' }, rpc: async () => ({ data: activated, error: null }) }, async ({ send, calls, bookingDetails, listings }) => {
     assert.equal((await send('POST', '/relist', { units: 3 }, 'other')).status, 403);
+    const before = Date.now();
     const relisted = await send('POST', '/relist', { units: 3 });
     assert.equal(relisted.status, 200);
     assert.deepEqual(relisted.body, activated);
     assert.equal(bookingDetails[0].units_available, 3);
+    assert.ok(Date.parse(listings[0].on_market_since) >= before, 'time on market starts again');
     assert.deepEqual(calls, [['activate_listing_with_entitlement', { p_listing_id: listingId, p_host_id: ownerId }]]);
   });
 });

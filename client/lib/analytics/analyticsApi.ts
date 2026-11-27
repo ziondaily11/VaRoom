@@ -98,6 +98,12 @@ export function parsePeriod(value: unknown): PeriodMetrics {
     chatReplied: count(row.chat_replied),
     chatRepliedWithinHour: count(row.chat_replied_within_hour),
     chatResponseMinutes: optional(row.chat_response_minutes),
+    // Outcome fields arrive with migration 000088; until then they read as none.
+    sold: count(row.sold ?? 0),
+    rented: count(row.rented ?? 0),
+    leased: count(row.leased ?? 0),
+    soldValue: count(row.sold_value ?? 0),
+    marketDays: optional(row.market_days),
   };
 }
 
@@ -125,6 +131,7 @@ function parseTrend(value: unknown): TrendPoint[] {
     requests: count(row.requests),
     approved: count(row.approved),
     approvedValue: count(row.approved_value),
+    outcomes: count(row.outcomes ?? 0),
   }));
 }
 
@@ -144,6 +151,7 @@ function parseListings(value: unknown): ListingRow[] {
     requests: count(row.requests),
     approved: count(row.approved),
     approvedValue: count(row.approved_value),
+    outcomes: count(row.outcomes ?? 0),
   }));
 }
 

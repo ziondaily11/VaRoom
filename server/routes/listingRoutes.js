@@ -693,6 +693,9 @@ router.post('/listings/:id/relist', async (req, res) => {
     const { error } = await supabaseAdmin.from('listing_booking_details').update({ units_available: units }).eq('listing_id', req.params.id);
     if (error) return res.status(500).json({ error: 'Unable to save the units available' });
   }
+  // Time on market starts again (migration 000088); plan payments never move it.
+  const { error: marketError } = await supabaseAdmin.from('listings').update({ on_market_since: new Date().toISOString() }).eq('id', req.params.id);
+  if (marketError) return res.status(500).json({ error: 'Unable to relist this listing' });
   return applyListingStatus(req, res, user, listing, 'available');
 });
 
