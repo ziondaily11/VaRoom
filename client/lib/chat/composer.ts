@@ -164,21 +164,36 @@ export function optimisticUpload({ tempId, conversationId, senderId, content, cr
   };
 }
 
+/** A photo's size as it shows (EXIF rotation applied), or null when it can't be read. */
+export async function photoSize(url: string): Promise<{ width: number; height: number } | null> {
+  if (typeof Image === 'undefined') return null;
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = url; });
+    return image.naturalWidth && image.naturalHeight ? { width: image.naturalWidth, height: image.naturalHeight } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Uploads one file straight to storage: the server reserves it (its
  * attachment id is reported through `onReserved`, which recognises the
  * server's copy of the message), the file is PUT to the signed URL, then
- * the upload is completed. Resolves with the attachment id.
+ * the upload is completed. Resolves with the attachment id. A photo sends
+ * its size (read from `localUrl`), so its bubble opens at that size for everyone.
  */
-export async function uploadAttachment({ api, fetchFn, conversationId, file, kind, onReserved }: {
+export async function uploadAttachment({ api, fetchFn, conversationId, file, kind, localUrl, onReserved }: {
   api: ChatApi;
   fetchFn: typeof fetch;
   conversationId: string;
   file: File;
   kind: 'photo' | 'file';
+  localUrl?: string;
   onReserved: (attachmentId: string) => void;
 }): Promise<string> {
   const fileMimeType = inferMimeType(file);
+  const size = kind === 'photo' && localUrl ? await photoSize(localUrl) : null;
   const initRes = await api<{ uploadUrl: string; attachmentId: string }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
     method: 'POST',
     body: JSON.stringify({
@@ -186,6 +201,7 @@ export async function uploadAttachment({ api, fetchFn, conversationId, file, kin
       mimeType: fileMimeType,
       fileSize: file.size,
       kind: kind,
+      ...size,
     }),
   });
   onReserved(initRes.attachmentId);

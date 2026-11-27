@@ -1175,12 +1175,13 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
       : m)));
 
     // 1–3: each file uploads straight to storage, all at once.
-    const uploaded = uploads.map(({ file, tempId }) => uploadAttachment({
+    const uploaded = uploads.map(({ file, tempId, localUrl }) => uploadAttachment({
       api,
       fetchFn: (input, init) => fetch(input, init),
       conversationId,
       file,
       kind,
+      localUrl,
       // The server's copy of this message is recognised by its attachment.
       onReserved: (attachmentId) => setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: attachmentId } : m))),
     }));
@@ -1962,6 +1963,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                       <PhotoBubble
                         attachmentId={(m as OptimisticChatMessage)._optimistic ? null : attachmentId}
                         localUrl={(m as OptimisticChatMessage)._localUrl}
+                        size={m.attachment}
                         alt={m.attachment?.original_filename || 'Shared image'}
                         api={api}
                         onOpen={(url, alt) => setSelectedPhotoPreview({ items: [{ url, alt }], index: 0 })}
