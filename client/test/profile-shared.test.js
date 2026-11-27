@@ -95,7 +95,10 @@ test('listing menu: legacy wording for edit, delete and the confirmation', () =>
   assert.equal(actions.deleteLabel({ id: '1', availability_status: 'draft' }), 'Delete draft permanently');
   assert.deepEqual({ ...actions.deleteConfirmText({ id: '1', availability_status: 'draft', title: 'Loft' }) }, { title: 'Delete draft listing?', body: 'This permanently removes "Loft" and its listing media from VaRoom, including Discover and all profiles. This cannot be undone.' });
   assert.equal(actions.deleteConfirmText({ id: '1' }).body, 'This is permanent. The listing, its photos, and discovery record will be removed.');
-  assert.deepEqual(actions.STATUS_ACTIONS.map((a) => a.label), ['Make available', 'Mark booked', 'Mark unavailable', 'Pause listing', 'Save as draft']);
+  // One status control: a live listing pauses; anything else (including the retired booked / unavailable) is made available.
+  assert.deepEqual({ ...actions.statusToggle({ id: '1', availability_status: 'available' }) }, { status: 'paused', label: 'Pause listing' });
+  for (const status of ['paused', 'booked', 'unavailable', 'draft']) assert.equal(actions.statusToggle({ id: '1', availability_status: status }).status, 'available', status);
+  assert.equal(actions.STATUS_ACTIONS, undefined, 'Mark booked, Mark unavailable and Save as draft are gone');
   assert.equal(actions.listingShareUrl('https://varoom.co.ke', 'a b'), 'https://varoom.co.ke/booking?listing=a%20b');
 });
 
@@ -135,7 +138,7 @@ test('listing duplicate and delete go to the listings API; deletion updates cach
   assert.deepEqual(cacheCalls.slice(-2), [['remove', 'L1'], ['invalidate']]);
   await assert.rejects(actions.deleteListing('t', 'L1', async () => json(409, { error: 'Media is still being finalised', code: 'MEDIA_FINALIZATION_IN_PROGRESS' })), (error) => error.code === 'MEDIA_FINALIZATION_IN_PROGRESS' && /finalised/.test(error.message));
   const menu = read('components', 'listings', 'HostListingMenu.tsx');
-  for (const text of ['Manage listing', 'Change listing status', 'Share listing', 'Copy listing link', 'View bookings', 'View analytics', 'Duplicate listing', 'Keep listing', 'Delete permanently', 'Saving...', 'Listing link copied', 'Listing duplicated', 'Draft listing permanently deleted', 'Listing deleted']) assert.ok(menu.includes(text), text);
+  for (const text of ['Manage listing', 'Change listing status', 'Share listing', 'View analytics', 'Duplicate listing', 'Keep listing', 'Delete permanently', 'Saving...', 'Listing link copied', 'Listing duplicated', 'Draft listing permanently deleted', 'Listing deleted']) assert.ok(menu.includes(text), text);
 });
 
 // ---------- Host profile data ----------

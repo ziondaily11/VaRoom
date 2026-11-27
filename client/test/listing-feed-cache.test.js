@@ -114,7 +114,7 @@ function runSuite(name, createFeedCache) {
     const storage = new Map([[
       `varoom:listings:feed:v1:${encodeURIComponent(key)}`,
       JSON.stringify({
-        version: 3,
+        version: 4,
         updatedAt: Date.now(),
         pages: { 0: [{ title: 'Missing listing identity' }] },
         itemOrder: [],
@@ -132,11 +132,11 @@ function runSuite(name, createFeedCache) {
     assert.deepEqual(Array.from(result.items, (item) => item.id), ['valid-listing']);
   });
 
-  t('entries saved before version 3 (no purpose fields for the card wording) are dropped', () => {
+  t('entries saved before version 4 (without the fields the cards now need) are dropped', () => {
     const key = 'client:account-a:home:all::';
     const storage = new Map([[
       `varoom:listings:feed:v1:${encodeURIComponent(key)}`,
-      JSON.stringify({ version: 2, updatedAt: Date.now(), pages: { 0: [{ id: 'old', category: 'property' }] }, itemOrder: ['old'], endOffset: null }),
+      JSON.stringify({ version: 3, updatedAt: Date.now(), pages: { 0: [{ id: 'old', category: 'property' }] }, itemOrder: ['old'], endOffset: null }),
     ]]);
     const { api } = createFeedCache(storage);
     assert.equal(api.snapshot(key).hasCachedPage, false);

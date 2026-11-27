@@ -46,9 +46,10 @@ export type ListingFeedCache = {
   invalidateAll(): void;
 };
 
-// Entries saved before version 3 lack the fields the cards' action wording
-// needs (listing_purpose, supports_stay…), so they are dropped, not reused.
-const ENTRY_VERSION = 3;
+// Older entries lack fields the cards need (version 3: listing_purpose and
+// supports_stay for the action wording; version 4: under_offer and the unit
+// count for the owner's controls), so they are dropped, not reused.
+const ENTRY_VERSION = 4;
 
 interface FeedEntry {
   version: number;

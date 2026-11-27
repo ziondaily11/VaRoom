@@ -8,6 +8,7 @@ import {
 } from '../../lib/team/team';
 import { DetailHead, INFO_ICONS } from './SettingsIcons';
 import SettingsBox from './SettingsBox';
+import { statusLabel } from '../../lib/listings/listingAction';
 
 // Settings → Team: a host's team (invite by username, roles, remove), and the
 // teams this account belongs to (accept, work as the company, leave).
@@ -48,7 +49,7 @@ function CompanyListings({ hostId }: { hostId: string }) {
       <div className="team-listings-head"><strong>Listings</strong><Link href="/list" className="team-link">+ Add a listing</Link></div>
       {listings === null ? <p className="team-empty">Loading listings…</p> : !listings.length ? <p className="team-empty">No listings yet.</p> : listings.map((listing) => (
         <div className="team-listing" key={listing.id}>
-          <span>{listing.title || 'Untitled listing'}{listing.publication_state !== 'published' ? ' · Draft' : listing.availability_status === 'paused' ? ' · Paused' : ''}</span>
+          <span>{listing.title || 'Untitled listing'}{listing.publication_state !== 'published' ? ' · Draft' : ['paused', 'sold', 'rented', 'leased'].includes(String(listing.availability_status)) ? ` · ${statusLabel(listing.availability_status)}` : ''}</span>
           <Link href={`/list?edit=${encodeURIComponent(listing.id)}`} className="team-link">Edit</Link>
         </div>
       ))}

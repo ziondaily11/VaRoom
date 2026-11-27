@@ -50,7 +50,7 @@ test('header labels keep the legacy wording', () => {
   assert.equal(pp.listingStatus('available', '2026-12-20T00:00:00Z', now).label, 'Available');
   assert.equal(pp.listingStatus('paused', '2026-11-20T00:00:00Z', now).label, 'Paused', 'its own status otherwise');
   assert.equal(pp.listingStatus('available').label, 'Available', 'callers without the date keep the old label');
-  assert.match(read('components', 'profile', 'HostListings.tsx'), /status: listingStatus\(listing\.availability_status, listing\.live_until \?\? null\)/);
+  assert.match(read('components', 'profile', 'HostListings.tsx'), /status: listingStatus\(listing\.availability_status, listing\.live_until \?\? null, Date\.now\(\), Boolean\(listing\.under_offer\)\)/);
   assert.equal(pp.draftTitle(null, 'airbnb'), 'Airbnb draft');
 });
 

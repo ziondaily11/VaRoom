@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import HostListingMenu from '../listings/HostListingMenu';
+import type { ListingPatch, ToastAction } from '../../lib/listings/hostListingActions';
 import { useVideoPlayer } from '../media/lazyVideoPlayer';
 import { timeAgo, type FeedListing } from '../../lib/hostHome/hostHome';
 import { MOBILE_QUERY, sizeStage } from '../../lib/hostHome/mediaStage';
@@ -9,7 +10,7 @@ import type { FeedLikeState } from '../../lib/listings/listingLikes';
 import { hostProfilePath } from '../../lib/profile/usernames';
 import { ICONS, Svg } from './hostHomeIcons';
 import { MapLink } from '../maps/LocationCard';
-import { listingAction } from '../../lib/listings/listingAction';
+import { listingAction, statusLabel } from '../../lib/listings/listingAction';
 
 // One Discover card on Host home, unchanged from legacy-pages/host-home.html:
 // the host (your own listings link to your profile and show the owner menu,
@@ -38,8 +39,8 @@ interface Props {
   onSave: () => void;
   onChat: () => void;
   onReport: () => void;
-  notify: (message: string) => void;
-  onStatus: (id: string, status: string) => void;
+  notify: (message: string, action?: ToastAction) => void;
+  onChange: (id: string, patch: ListingPatch) => void;
   onDeleted: (id: string) => void;
   refreshVideo: () => Promise<string | null>;
 }
@@ -224,7 +225,7 @@ function CardVideoStage({ listing, index, video, hostName, username, avatarUrl, 
 }
 
 export default function FeedCard(props: Props) {
-  const { listing, index, userId, photoUrl, avatarUrl, like, saved, video, mediaState, layoutVersion, menuOpen, onMenu, onLike, onSave, onChat, onReport, notify, onStatus, onDeleted, refreshVideo } = props;
+  const { listing, index, userId, photoUrl, avatarUrl, like, saved, video, mediaState, layoutVersion, menuOpen, onMenu, onLike, onSave, onChat, onReport, notify, onChange, onDeleted, refreshVideo } = props;
   const host = listing.host || { full_name: null, verified: null, avatar_url: null, username: null };
   const own = listing.host_id === userId;
   const hostName = host.full_name || 'Host';
@@ -264,7 +265,7 @@ export default function FeedCard(props: Props) {
         </div>
         <div className="card-time">{timeAgo(listing.created_at)}</div>
         {own ? (
-          <HostListingMenu listing={{ id: listing.id, title: listing.title, availability_status: listing.availability_status }} notify={notify} onStatus={onStatus} onDeleted={onDeleted} />
+          <HostListingMenu listing={listing} notify={notify} onChange={onChange} onDeleted={onDeleted} />
         ) : (
           <div className="card-menu-wrap">
             <button type="button" className="card-menu-btn" data-menu-toggle={listing.id} aria-label="More options" onClick={(event) => { event.stopPropagation(); onMenu(!menuOpen); }}>
@@ -277,7 +278,8 @@ export default function FeedCard(props: Props) {
         )}
       </div>
       <p className="card-caption" data-listing-caption="">{listing.description || listing.title}</p>
-      {unavailableListing && <div className="listing-status-banner" data-listing-status=""> Status: {listing.availability_status}</div>}
+      {unavailableListing ? <div className="listing-status-banner" data-listing-status=""> Status: {statusLabel(listing.availability_status)}</div>
+        : listing.under_offer && <div className="listing-status-banner" data-listing-status="">Under offer</div>}
       {media}
       <div className="action-row"><ActionRow {...actionProps} /></div>
     </div>

@@ -12,7 +12,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export const CATEGORIES = ['all', ...Object.keys(CATEGORY_LABELS)];
 export const PAGE_SIZE = 12;
 
-export const MARKETPLACE_SELECT = 'id,title,description,location_text,category,listing_purpose,verified,created_at,host_id,'
+export const MARKETPLACE_SELECT = 'id,title,description,location_text,category,listing_purpose,under_offer,verified,created_at,host_id,'
   + 'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),'
   + 'listing_photos(storage_path),listing_booking_details(*)';
 
@@ -41,6 +41,8 @@ export interface MarketplaceListing {
   category: string | null;
   /** Property: 'rent', 'sale' or 'both'. */
   listing_purpose?: string | null;
+  /** A sale property with an offer in progress (migration 000085). */
+  under_offer?: boolean | null;
   verified: boolean | null;
   created_at: string;
   host_id: string;

@@ -209,6 +209,8 @@ export interface PublicationState {
   hasListingCredit: boolean;
   listingIsPaused: boolean;
   listingNeedsPublication: boolean;
+  /** Marked sold, rented or leased: editing saves details only; Relist (the ⋮ menu) brings it back. */
+  listingIsMarked?: boolean;
 }
 
 /**
@@ -216,7 +218,7 @@ export interface PublicationState {
  * running) for Property and Shops & Offices; a running plan for Airbnb, Hotel
  * and Venue. Editing a listing that is already published needs none.
  */
-export const needsListingPayment = (state: PublicationState) => (isPaidNiche(state.category)
+export const needsListingPayment = (state: PublicationState) => !(state.editMode && state.listingIsMarked) && (isPaidNiche(state.category)
   && !state.hasActiveNichePlan && !state.paymentVerified && !state.hasListingCredit && !(state.editMode && state.hasCurrentListingFee))
   || (isPlanNiche(state.category) && !state.hasActiveNichePlan && (!state.editMode || state.listingNeedsPublication));
 
@@ -260,6 +262,7 @@ export const mediaUploadBlocksPublish = (editMode: boolean, total: number, faile
 export function shouldActivate(state: PublicationState): boolean {
   const paid = isPaidNiche(state.category);
   const covered = state.hasActiveNichePlan || state.hasListingCredit;
+  if (state.editMode && state.listingIsMarked) return false;
   return state.paymentVerified
     || (!state.editMode && covered && paid)
     || (state.editMode && state.listingIsPaused && (state.hasCurrentListingFee || covered))

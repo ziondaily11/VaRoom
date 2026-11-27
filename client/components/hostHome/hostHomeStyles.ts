@@ -103,6 +103,7 @@ export const HOST_HOME_STYLES = `
     transition:opacity .25s ease, transform .25s ease;
   }
   .host-home-page .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .host-home-page .toast .toast-action{ pointer-events:auto; margin-left:.9rem; padding:0; border:0; background:none; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; }
 
   /* ---------- MAIN COLUMN ----------
      A single grid controls both the topbar row and the dashboard body,

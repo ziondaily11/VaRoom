@@ -495,15 +495,20 @@ router.patch('/listings/:id/status', async (req, res) => {
   }
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
+  return applyListingStatus(req, res, user, listing, req.body.status);
+});
+
+/** A status change the host asked for (also Relist, below); the listing is already theirs. */
+async function applyListingStatus(req, res, user, listing, status) {
   // First publication: enough photos (videos don't count). Listings published before this rule keep publishing as they are.
-  if (req.body.status === 'available' && listing.publication_state !== 'published') {
+  if (status === 'available' && listing.publication_state !== 'published') {
     const needed = listing.category === 'hotel' && listing.supports_stay === false ? MIN_PHOTOS_RESTAURANT : MIN_PHOTOS;
     const { count, error: photoCountError } = await supabaseAdmin.from('listing_photos')
       .select('id', { count: 'exact', head: true }).eq('listing_id', req.params.id);
     if (photoCountError) return res.status(500).json({ error: 'Unable to count the listing photos' });
     if ((count || 0) < needed) return res.status(422).json({ error: `Add at least ${needed} photos before publishing.`, code: 'PHOTOS_REQUIRED' });
   }
-  if (req.body.status === 'available' && OFFICE_SHOP_CATEGORIES.has(listing.category)) {
+  if (status === 'available' && OFFICE_SHOP_CATEGORIES.has(listing.category)) {
     const { data: details, error: detailsError } = await supabaseAdmin.from('listing_booking_details')
       .select('office_shop_details,office_shop_last_confirmed_at').eq('listing_id', req.params.id).maybeSingle();
     const { count: photoCount, error: photoError } = await supabaseAdmin.from('listing_photos')
@@ -520,7 +525,7 @@ router.patch('/listings/:id/status', async (req, res) => {
       return res.status(422).json({ error: 'Add at least one photo or video of the actual Office or Shop space before publishing' });
     }
   }
-  if (req.body.status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
+  if (status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
     if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
       return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
     }
@@ -542,8 +547,8 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (!result || !result.listing) return res.status(404).json({ error: 'Listing not found or could not be activated' });
     return res.json({ listing: result.listing });
   }
-  const changes = { availability_status: req.body.status };
-  if (req.body.status === 'available') {
+  const changes = { availability_status: status };
+  if (status === 'available') {
     if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
       return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
     }
@@ -588,7 +593,7 @@ router.patch('/listings/:id/status', async (req, res) => {
       .eq('status', 'ready').is('deleted_at', null);
     if (visibilityError) return res.status(500).json({ error: 'Unable to prepare listing media for publication' });
     changes.publication_state = 'published';
-  } else if (req.body.status === 'draft') {
+  } else if (status === 'draft') {
     changes.publication_state = 'draft';
   }
   const { data, error } = await supabaseAdmin.from('listings')
@@ -602,6 +607,116 @@ router.patch('/listings/:id/status', async (req, res) => {
     return res.status(500).json({ error: 'Unable to update listing status' });
   }
   if (!data) return res.status(409).json({ error: 'This listing can no longer be changed' });
+  return res.json({ listing: data });
+}
+
+// ---------- Outcomes: sold / rented / leased (migration 000085) ----------
+
+const OUTCOME_ERRORS = {
+  LISTING_NOT_FOUND: 404, OUTCOME_NOT_FOUND: 404,
+  LISTING_NOT_MARKABLE: 409, BOOKING_ALREADY_COUNTED: 409, UNDO_NOT_LATEST: 409, UNDO_EXPIRED: 409,
+  OUTCOME_NOT_ALLOWED: 422, UNITS_INVALID: 422, AMOUNT_INVALID: 422, BOOKING_INVALID: 422,
+};
+
+function outcomeResult(res, data, error, failure) {
+  if (error) {
+    console.error(`${failure}:`, error.message);
+    return res.status(500).json({ error: failure });
+  }
+  if (data && data.code) return res.status(OUTCOME_ERRORS[data.code] || 400).json({ error: data.error, code: data.code });
+  return res.json(data);
+}
+
+// Mark a listing (or some of a property's units) sold, rented or leased; the last unit takes it offline.
+router.post('/listings/:id/outcomes', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  let input;
+  try {
+    assertAllowedKeys(req.body, ['outcome', 'units', 'agreed_amount', 'booking_id']);
+    uuid(req.params.id, 'listing id');
+    input = {
+      outcome: enumValue(req.body.outcome, 'outcome', ['sold', 'rented', 'leased']),
+      units: req.body.units == null ? 1 : number(req.body.units, 'units', { min: 1, max: 100000, integer: true }),
+      amount: req.body.agreed_amount == null ? null : number(req.body.agreed_amount, 'agreed amount', { min: 0, max: 999999999999 }),
+      booking: req.body.booking_id == null ? null : uuid(req.body.booking_id, 'booking id'),
+    };
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  const { data, error } = await supabaseAdmin.rpc('record_listing_outcome', {
+    p_host: user.id, p_listing: req.params.id, p_outcome: input.outcome, p_units: input.units, p_amount: input.amount, p_booking: input.booking,
+  });
+  return outcomeResult(res, data, error, 'Unable to mark the listing');
+});
+
+// Undo within 10 minutes (a mis-tap): the record is voided, the status and units come back.
+router.post('/listings/:id/outcomes/:outcomeId/void', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  try {
+    uuid(req.params.id, 'listing id');
+    uuid(req.params.outcomeId, 'outcome id');
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  const { data, error } = await supabaseAdmin.rpc('void_listing_outcome', { p_host: user.id, p_outcome: req.params.outcomeId });
+  return outcomeResult(res, data, error, 'Unable to undo');
+});
+
+// Relist a sold / rented / leased listing: a property says how many units are available again,
+// then it goes online exactly as Make available does (plan, term and media checks).
+router.post('/listings/:id/relist', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  let units;
+  try {
+    assertAllowedKeys(req.body, ['units']);
+    uuid(req.params.id, 'listing id');
+    units = req.body.units == null ? null : number(req.body.units, 'units', { min: 1, max: 100000, integer: true });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  if (!['sold', 'rented', 'leased'].includes(listing.availability_status)) {
+    return res.status(409).json({ error: 'Only a sold, rented or leased listing can be relisted', code: 'NOT_RELISTABLE' });
+  }
+  if (units != null && listing.category === 'property') {
+    const { error } = await supabaseAdmin.from('listing_booking_details').update({ units_available: units }).eq('listing_id', req.params.id);
+    if (error) return res.status(500).json({ error: 'Unable to save the units available' });
+  }
+  return applyListingStatus(req, res, user, listing, 'available');
+});
+
+// Under offer: a sale property stays live with a badge; cleared when it is marked sold.
+router.patch('/listings/:id/under-offer', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  try {
+    assertAllowedKeys(req.body, ['under_offer']);
+    uuid(req.params.id, 'listing id');
+    if (typeof req.body.under_offer !== 'boolean') throw new ValidationError('under_offer must be true or false');
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  const { data: details } = await supabaseAdmin.from('listing_booking_details').select('listing_purpose').eq('listing_id', req.params.id).maybeSingle();
+  const purpose = listing.listing_purpose || (details && details.listing_purpose) || 'rent';
+  if (listing.category !== 'property' || !['sale', 'both'].includes(purpose)) {
+    return res.status(422).json({ error: 'Only a property for sale can be under offer', code: 'NOT_FOR_SALE' });
+  }
+  if (['sold', 'rented', 'leased', 'draft'].includes(listing.availability_status)) {
+    return res.status(409).json({ error: 'This listing is not on the market', code: 'NOT_ON_MARKET' });
+  }
+  const { data, error } = await supabaseAdmin.from('listings').update({ under_offer: req.body.under_offer })
+    .eq('id', req.params.id).eq('host_id', user.id).select('id,under_offer').maybeSingle();
+  if (error || !data) return res.status(500).json({ error: 'Unable to save the offer status' });
   return res.json({ listing: data });
 });
 

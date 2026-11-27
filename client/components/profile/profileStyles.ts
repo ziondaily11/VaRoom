@@ -395,6 +395,7 @@ export const PROFILE_STYLES = `
     transition:opacity .25s ease, transform .25s ease;
   }
   .profile-page .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .profile-page .toast .toast-action{ pointer-events:auto; margin-left:.9rem; padding:0; border:0; background:none; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; }
   
   /* ============================================================
      MOBILE BOTTOM BAR (only nav for narrow viewports)

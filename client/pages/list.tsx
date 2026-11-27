@@ -263,7 +263,7 @@ export default function ListPage() {
   const mediaUrls = useObjectUrls(mediaFiles);
   const publication: PublicationState = {
     category, editMode, paymentVerified: flags.paymentVerified, hasActiveNichePlan: flags.hasActiveNichePlan, hasCurrentListingFee: flags.hasCurrentListingFee,
-    hasListingCredit: hasListingCredit(flags), listingIsPaused: flags.listingIsPaused, listingNeedsPublication: flags.listingNeedsPublication,
+    hasListingCredit: hasListingCredit(flags), listingIsPaused: flags.listingIsPaused, listingNeedsPublication: flags.listingNeedsPublication, listingIsMarked: flags.listingIsMarked,
   };
   const paymentNeeded = needsListingPayment(publication);
   // Why videos can't be added to this listing, or null when they can (the server checks the same: lib/videoEntitlement.js).
@@ -779,7 +779,7 @@ export default function ListPage() {
       const now = latest.current.flags;
       if (shouldActivate({
         category: cat, editMode, paymentVerified: now.paymentVerified, hasActiveNichePlan: now.hasActiveNichePlan, hasCurrentListingFee: now.hasCurrentListingFee,
-        hasListingCredit: hasListingCredit(now), listingIsPaused: now.listingIsPaused, listingNeedsPublication: now.listingNeedsPublication,
+        hasListingCredit: hasListingCredit(now), listingIsPaused: now.listingIsPaused, listingNeedsPublication: now.listingNeedsPublication, listingIsMarked: now.listingIsMarked,
       })) {
         const activationToken = (await token()) || accessToken;
         await activateListing(activationToken, listingId);

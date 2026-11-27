@@ -1,17 +1,30 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, type Booking, type BookingPerson } from './format';
+import { listingOutcomes, unitsLeft, type ListingOutcome } from '../listings/listingAction';
 
 // The host's booking requests (migrated from legacy-pages/bookings.html):
 // loading, approve / decline, the month filter, listing videos and table
 // reservations.
 
 export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,client_id,'
-  + 'listing:listings(id,title,location_text,listing_photos(storage_path)),'
+  + 'listing:listings(id,title,location_text,category,listing_purpose,availability_status,listing_photos(storage_path),listing_booking_details(units_available,listing_purpose)),'
   + 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)';
 
 export interface HostBooking extends Omit<Booking, 'host'> {
   client_id: string;
   client: BookingPerson | null;
+}
+
+/**
+ * After approving a rental or lease request on a live property, office or
+ * shop: what to offer to mark it as (one unit), and how many units it has.
+ * Null for stays, sales and listings already off the market.
+ */
+export function markAfterApproval(booking: Pick<HostBooking, 'lease_months' | 'listing'>): { outcome: ListingOutcome; units: number } | null {
+  const listing = booking.listing;
+  if (!listing || !listing.id || booking.lease_months == null || listing.availability_status !== 'available') return null;
+  const outcome = listingOutcomes(listing).find((option) => option !== 'sold');
+  return outcome ? { outcome, units: unitsLeft(listing) } : null;
 }
 
 export type HostTab = 'pending' | 'confirmed' | 'declined' | 'completed' | 'table-reservations';

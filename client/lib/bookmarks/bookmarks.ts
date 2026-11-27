@@ -88,6 +88,7 @@ export interface SavedListing {
   location_text: string | null;
   category: string | null;
   availability_status: string | null;
+  under_offer?: boolean | null;
   listing_photos: Array<{ storage_path: string | null }> | null;
   listing_booking_details: SavedListingPrice | SavedListingPrice[] | null;
 }
@@ -98,7 +99,7 @@ export interface SavedListingPrice {
   sale_price_amount?: number | string | null;
 }
 
-const SAVED_SELECT = 'created_at,listing:listings(id,title,location_text,category,availability_status,'
+const SAVED_SELECT = 'created_at,listing:listings(id,title,location_text,category,availability_status,under_offer,'
   + 'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,listing_purpose,sale_price_amount))';
 const SAVED_TTL_MS = 2 * 60 * 1000;
 
