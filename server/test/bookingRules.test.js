@@ -84,6 +84,21 @@ test('calendar part 2: open by default, closed ranges, conversion, and the host 
   assert.match(sql, /'bookings', 'calendar', 'chats'/, 'calendar is a reserved username');
 });
 
+test('calendar part 3: events, offline bookings counted like bookings, weekly closed days', () => {
+  const sql = read('migrations', '20261127_000091_calendar_planner.sql');
+  assert.match(sql, /join public\.calendar_entries e on e\.id = o\.entry_id and e\.blocks/, 'only "booked offline" events take days');
+  assert.match(sql, /select n\.night::date, e\.units/, 'on a hotel, the rooms entered');
+  assert.match(sql, /for insert to authenticated with check \(\s+kind = 'event' and public\.varoom_can_act_for\(host_id, 'manager'\)/);
+  assert.match(sql, /l\.host_id = calendar_entries\.host_id/, 'an event only on the host\'s own listing');
+  assert.match(sql, /raise exception 'calendar: Those days are already booked\./, 'an offline booking never overbooks');
+  assert.match(sql, /after insert or update on public\.calendar_entries/);
+  assert.match(sql, /extract\(dow from g\.day\)::smallint = any \(rules\.closed_weekdays\)/, 'bookings refuse weekly closed nights');
+  assert.match(sql, /and not \(extract\(dow from g\.day\)::smallint = any \(rules\.weekdays\)\)/, 'and guests don\'t see them as open');
+  assert.match(sql, /create or replace function public\.varoom_event_occurrences[\s\S]+?language sql\s+stable\s+set search_path = public/, 'security invoker: a host reads only their own events');
+  assert.match(sql, /'events', coalesce\(/);
+  assert.doesNotMatch(sql.split("'booked', coalesce")[1].split('$$')[0], /title|client_name/, 'guests never see event details');
+});
+
 test('hosts are reminded once, about 6 hours before a request expires', async () => {
   const { remindExpiringRequests } = require('../lib/bookingExpiry');
   const calls = [];

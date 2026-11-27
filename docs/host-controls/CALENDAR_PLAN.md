@@ -1,6 +1,6 @@
 # Host calendar: plan
 
-Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Part 1 (booking rules, migration 000089) merged (PR #758) and applied. Part 2 (Calendar page, open by default, migration 000090) on `claude/host-calendar-page`; 000090 applied 2026-11-27.**
+Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Part 1 (booking rules, 000089) and Part 2 (Calendar page, open by default, 000090) merged and applied. Part 3 (planner, 000091) on `claude/calendar-planner`; 000091 applied 2026-11-28.**
 
 ## Goal
 
@@ -190,7 +190,7 @@ One branch and PR per part, each tested and shipped before the next:
 
 1. **Fix the booking rules** (P1, P3, P4, P6, P7): `listing_calendar`, changeover, hotel room counts, 48-hour hold, closed days in the trigger, the booking page reading `listing_calendar`. Guests benefit first, even before the host page exists.
 2. **Host Calendar page**: month and agenda views, day panel with approve/decline, close/reopen, the open-by-default conversion, sidebar item, listing menu link. The listing wizard's date step became a note linking to Calendar, so dates have one editor (two would overwrite each other).
-3. **Events and planner**: `calendar_entries` (offline bookings, closed, notes, colours, repeat), timeline view, bulk select, weekly closed days.
+3. **Events and planner**: events in `calendar_entries` (booked offline, which takes its days and hotel rooms like a booking; notes, which never do), colours, times, client details, amount, weekly or monthly repeat; timeline view; weekly closed days. Bulk select shipped in part 2. A closed day's reason is written as a note, so closed ranges keep merging cleanly.
 4. **Venues by the hour and hotels**: start/end times, hire hours, buffers, day view, close rooms, table reservations in day view. Then server-side price calculation (P8), so per-date prices (weekend and season prices) can follow safely.
 5. **iCal export and import.**
 6. **Planner for property, office and shop** (viewings, move-ins, renewals) and occupancy in analytics.

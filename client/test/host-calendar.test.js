@@ -89,3 +89,38 @@ test('the Calendar page sits in the host shell, the sidebar and the listing menu
   assert.doesNotMatch(read('pages', 'list.tsx'), /from\('availability'\)/);
   assert.match(read('pages', 'list.tsx'), /<Link href=\{`\/calendar\?listing=\$\{encodeURIComponent\(editListingId\)\}`\}>Open the calendar<\/Link>/);
 });
+
+test('the planner: events take their days inclusively, weekly closed days, readable refusals, saving', async () => {
+  const event = { start_date: '2026-12-05', end_date: '2026-12-06' };
+  assert.deepEqual(['2026-12-04', '2026-12-05', '2026-12-06', '2026-12-07'].map((d) => cal.eventOn(event, d)), [false, true, true, false]);
+  assert.equal(cal.weekday('2026-12-06'), 0, 'a Sunday');
+  assert.equal(cal.closedWeekly({ ...night, closed_weekdays: [0] }, '2026-12-06'), true);
+  assert.equal(cal.closedWeekly({ ...night, closed_weekdays: [0] }, '2026-12-07'), false);
+  assert.equal(cal.calendarErrorText({ message: 'calendar: Those days are already booked.' }, 'x'), 'Those days are already booked.');
+  assert.equal(cal.calendarErrorText({ message: 'new row violates check constraint "calendar_entries_shape"' }, 'x').startsWith('Check the dates'), true);
+  assert.equal(cal.calendarErrorText({ message: 'network down' }, 'Try again.'), 'Try again.');
+  // Offline bookings count as booked nights; their money is apart.
+  const days = cal.daysBetweenInclusive('2026-12-01', '2026-12-10');
+  const data = { listings: [night, hotel], bookings: [], closed: [], events: [
+    { id: 'e1', listing_id: 'H', blocks: true, units: 2, amount: 30000, start_date: '2026-12-03', end_date: '2026-12-04' },
+    { id: 'e2', listing_id: null, blocks: false, units: 1, amount: null, start_date: '2026-12-03', end_date: '2026-12-03' },
+  ] };
+  const summary = cal.monthSummary(data, [night, hotel], days, () => false);
+  assert.equal(summary.nightsBooked, 4, '2 rooms × 2 nights');
+  assert.equal(summary.offline, 30000);
+  assert.equal(summary.earned, 0);
+  const calls = [];
+  const table = { insert: (row) => { calls.push(['insert', row]); return Promise.resolve({ error: null }); },
+    update: (row) => { calls.push(['update', row]); return { eq: (c, v) => { calls.push(['eq', c, v]); return { eq: (c2, v2) => { calls.push(['eq', c2, v2]); return Promise.resolve({ error: null }); } }; } }; },
+    delete: () => ({ eq: (c, v) => { calls.push(['delete', c, v]); return { eq: () => Promise.resolve({ error: null }) }; } }) };
+  const client = { from: (name) => { calls.push(['from', name]); return table; }, rpc: (name, args) => { calls.push([name, args]); return Promise.resolve({ error: null }); } };
+  await cal.saveEvent(client, 'h1', { title: 'Wedding', blocks: true, listing_id: 'V' });
+  assert.deepEqual(calls.slice(0, 2), [['from', 'calendar_entries'], ['insert', { title: 'Wedding', blocks: true, listing_id: 'V', kind: 'event', host_id: 'h1' }]]);
+  await cal.saveEvent(client, 'h1', { title: 'Wedding 2' }, 'ev1');
+  assert.deepEqual(calls.slice(3, 6), [['update', { title: 'Wedding 2', kind: 'event', host_id: 'h1' }], ['eq', 'id', 'ev1'], ['eq', 'kind', 'event']]);
+  await cal.setWeekdays(client, 'A', [0, 6]);
+  assert.deepEqual(calls[calls.length - 1], ['calendar_set_weekdays', { p_listing: 'A', p_days: [0, 6] }]);
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /\{selected >= today && !weekly && \(/, 'a weekly closed day is changed in "Closed every week", not by Reopen');
+  assert.match(read('components', 'calendar', 'EventForm.tsx'), /const lastDay = stay \? previousDay\(end\) : end;/, 'a stay entered by check-out is stored as its nights');
+});
