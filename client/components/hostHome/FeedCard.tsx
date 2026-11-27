@@ -9,11 +9,12 @@ import type { FeedLikeState } from '../../lib/listings/listingLikes';
 import { hostProfilePath } from '../../lib/profile/usernames';
 import { ICONS, Svg } from './hostHomeIcons';
 import { MapLink } from '../maps/LocationCard';
+import { listingAction } from '../../lib/listings/listingAction';
 
 // One Discover card on Host home, unchanged from legacy-pages/host-home.html:
 // the host (your own listings link to your profile and show the owner menu,
 // others show Report), the caption, a status banner, the photos (carousel)
-// or the video, and Book · Chat · Like · Save.
+// or the video, and Book (Rent, Buy, Lease… by listing type) · Chat · Like · Save.
 
 export interface CardVideo { url: string; thumbnailUrl: string | null; width?: number | null; height?: number | null }
 export type MediaState = 'unknown' | 'loading' | 'ready' | 'no-media' | 'unavailable';
@@ -51,8 +52,8 @@ function ActionRow({ listing, own, like, saved, onLike, onSave, onChat, extraCla
   return (
     <>
       {own || unavailableListing
-        ? <span className={cls('action-btn disabled')} title="This is your listing"><Svg markup={ICONS.book} />Book</span>
-        : <Link href={`/booking?listing=${listing.id}`} className={cls('action-btn')}><Svg markup={ICONS.book} />Book</Link>}
+        ? <span className={cls('action-btn disabled')} title="This is your listing"><Svg markup={ICONS.book} />{listingAction(listing)}</span>
+        : <Link href={`/booking?listing=${listing.id}`} className={cls('action-btn')}><Svg markup={ICONS.book} />{listingAction(listing)}</Link>}
       {own
         ? <span className={cls('action-btn disabled')} title="This is your listing"><Svg markup={ICONS.chat} />Chat</span>
         : <button type="button" className={cls('action-btn chat-btn')} data-listing-id={listing.id} data-host-id={listing.host_id} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onChat(); }}><Svg markup={ICONS.chat} />Chat</button>}

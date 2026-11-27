@@ -3,6 +3,7 @@ import { createCache } from '../cache/createCache';
 import { CACHE_NAMESPACES } from '../cache/namespaces';
 import { fetchListingContact, type ListingContact } from '../reachOut/reachOut';
 import { startListingChat } from '../chat/startChat';
+import { listingAction, type ActionListing } from '../listings/listingAction';
 
 // The booking page (migrated from legacy-pages/booking.html): what it loads
 // about a listing, the rules that decide which booking widget it shows, the
@@ -92,7 +93,7 @@ export const LISTING_SELECT = 'id,title,description,property_description,locatio
 export const MESSAGES = {
   noListing: 'No listing specified.',
   loadFailed: "Couldn't load that listing.",
-  ownListing: 'This is your own listing. Guests book it here.',
+  ownListing: (listing: ActionListing) => `This is your own listing. Guests ${listingAction(listing).toLowerCase()} it here.`,
   ownContact: 'This is your own contact. Guests use these buttons to reach you.',
   noDetails: 'This listing has no booking details set up yet.',
   noDining: 'This hotel has not finished setting up table reservations yet.',

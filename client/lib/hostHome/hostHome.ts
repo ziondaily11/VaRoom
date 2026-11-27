@@ -15,6 +15,9 @@ export interface FeedListing {
   description: string | null;
   location_text: string | null;
   category: string | null;
+  listing_purpose?: string | null;
+  supports_stay?: boolean | null;
+  supports_table_reservation?: boolean | null;
   verified: boolean | null;
   availability_status: string | null;
   created_at: string;
@@ -35,7 +38,7 @@ export interface GlanceListing {
 }
 
 // Typed as plain strings so the client's select-string parser stays shallow.
-export const FEED_SELECT: string = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height),listing_booking_details(price_amount,price_unit)';
+export const FEED_SELECT: string = 'id,title,description,location_text,category,listing_purpose,supports_stay,supports_table_reservation,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height),listing_booking_details(price_amount,price_unit,listing_purpose)';
 export const GLANCE_SELECT: string = 'id,title,availability_status,paid_listing_until';
 
 export const CATEGORY_TABS: Array<{ value: string; label: string }> = [

@@ -15,6 +15,7 @@ import Svg from './Svg';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { ownBookingHref } from '../../lib/bookings/links';
 import type { RatingInfo } from './ListingDetails';
+import { listingAction } from '../../lib/listings/listingAction';
 
 // The booking widget beside the listing. Nightly stays pick check-in then
 // check-out on the calendar; hourly spaces a date and hours; rentals a move-in
@@ -106,11 +107,11 @@ function SentCard({ text }: { text: string }) {
 }
 
 /** In place of the actions on the owner's own listing. */
-function OwnerNote({ listingId }: { listingId: string }) {
+function OwnerNote({ listing }: { listing: BookingListing }) {
   return (
     <div className="owner-note" role="note">
-      <p>{MESSAGES.ownListing}</p>
-      <Link className="owner-note-link" href={`/list?edit=${encodeURIComponent(listingId)}`}>Edit listing</Link>
+      <p>{MESSAGES.ownListing(listing)}</p>
+      <Link className="owner-note-link" href={`/list?edit=${encodeURIComponent(listing.id)}`}>Edit listing</Link>
     </div>
   );
 }
@@ -124,7 +125,7 @@ const LEGEND = (
 );
 
 export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, isOwner, onBook, onOpenTable, onMessageHost }: Props) {
-  const { details, isShortStay, isHourly, isHotel, isProperty, usesRentalBooking, supportsBoth, propertyPurpose, listingUnavailable, availabilityMessage } = kind;
+  const { details, isShortStay, isHourly, isHotel, isProperty, usesRentalBooking, supportsBoth, listingUnavailable, availabilityMessage } = kind;
   const bookable = useMemo(() => bookingWindow(details), [details]);
   const instant = isInstantBooking(kind);
   // Only days inside the host's booking window can be picked.
@@ -270,7 +271,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         <p className="picker-title">Reserve a table</p>
         <p className="picker-sub">{dining.restaurant_name} · {dining.opening_hours}</p>
         {isOwner
-          ? <OwnerNote listingId={listing.id} />
+          ? <OwnerNote listing={listing} />
           : <><button type="button" className="confirm-btn" id="table-reserve-btn" onClick={onOpenTable}>Reserve a Table</button>
             <p className="form-note">Send a reservation request directly to the hotel.</p></>}
       </div>
@@ -336,9 +337,9 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
           {showsRent && picker}
           {showsRent && <DetailsBox line={line} isHotel={isHotel} />}
           {policy && <PropertyPolicy policy={policy} loading={!documents} />}
-          {isOwner ? <OwnerNote listingId={listing.id} /> : (
+          {isOwner ? <OwnerNote listing={listing} /> : (
             <>
-              {rentAction && confirmButton(propertyPurpose === 'both' ? 'Request to rent' : 'Send inquiry')}
+              {rentAction && confirmButton('Request to rent')}
               {showsSale && <button type="button" className={`property-purchase-btn${rentAction ? '' : ' property-purchase-primary'}`} id="property-purchase-btn" onClick={onMessageHost}>Contact host about purchase</button>}
               <p className="form-note">{note}</p>
             </>
@@ -378,7 +379,7 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         </div>
       )}
       {mode === 'table' && tablesToo ? (
-        <div className="mode-view" key="table">{isOwner ? <OwnerNote listingId={listing.id} /> : reserveTable}</div>
+        <div className="mode-view" key="table">{isOwner ? <OwnerNote listing={listing} /> : reserveTable}</div>
       ) : (
         <div className="mode-view" key="stay">
           {picker}
@@ -393,9 +394,9 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
           <DetailsBox line={line} isHotel={isHotel} />
           {policy && <PropertyPolicy policy={policy} loading={!documents} />}
           <CommercialDocuments documents={extraDocuments} />
-          {isOwner ? <OwnerNote listingId={listing.id} /> : !sent && (
+          {isOwner ? <OwnerNote listing={listing} /> : !sent && (
             <>
-              {confirmButton(isHotel ? 'Reserve room' : 'Book now')}
+              {confirmButton(isHotel ? 'Reserve room' : kind.isOfficeShop ? `Request to ${listingAction(listing).toLowerCase()}` : 'Book now')}
               <p className="form-note">{availabilityMessage || (instant ? 'Instant book: your stay is confirmed as soon as you book.' : isHotel ? 'This sends a reservation request to the hotel. You pay only after it is confirmed.' : 'This sends a request. The host approves it before it is confirmed, and you pay only after that.')}</p>
             </>
           )}

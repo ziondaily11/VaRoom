@@ -46,6 +46,10 @@ export type ListingFeedCache = {
   invalidateAll(): void;
 };
 
+// Entries saved before version 3 lack the fields the cards' action wording
+// needs (listing_purpose, supports_stay…), so they are dropped, not reused.
+const ENTRY_VERSION = 3;
+
 interface FeedEntry {
   version: number;
   updatedAt: number;
@@ -72,7 +76,7 @@ export function createListingFeedCache(options: ListingFeedCacheOptions = {}): L
   const storageKey = (key: string) => STORAGE_PREFIX + encodeURIComponent(key);
 
   function blankEntry(): FeedEntry {
-    return { version: 2, updatedAt: 0, pages: {}, itemOrder: [], endOffset: null };
+    return { version: ENTRY_VERSION, updatedAt: 0, pages: {}, itemOrder: [], endOffset: null };
   }
 
   function validPage(page: unknown): page is FeedListing[] {
@@ -91,13 +95,13 @@ export function createListingFeedCache(options: ListingFeedCacheOptions = {}): L
 
   function normalise(raw: unknown): FeedEntry {
     const entry = raw as FeedEntry | null;
-    if (!entry || (entry.version !== 1 && entry.version !== 2) || !entry.pages || typeof entry.pages !== 'object') {
+    if (!entry || entry.version !== ENTRY_VERSION || !entry.pages || typeof entry.pages !== 'object') {
       return blankEntry();
     }
     Object.keys(entry.pages).forEach((offset) => {
       if (!validPage(entry.pages[offset])) delete entry.pages[offset];
     });
-    if (entry.version === 1 || !Array.isArray(entry.itemOrder)) {
+    if (!Array.isArray(entry.itemOrder)) {
       entry.itemOrder = [];
       const seen: Record<string, boolean> = {};
       Object.keys(entry.pages)
@@ -110,9 +114,7 @@ export function createListingFeedCache(options: ListingFeedCacheOptions = {}): L
             entry.itemOrder.push(listing.id);
           });
         });
-      if (entry.version === 1) shuffle(entry.itemOrder);
     }
-    entry.version = 2;
     if (typeof entry.updatedAt !== 'number') entry.updatedAt = 0;
     if (typeof entry.endOffset !== 'number') entry.endOffset = null;
     return entry;
