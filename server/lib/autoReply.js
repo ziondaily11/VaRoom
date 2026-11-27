@@ -13,6 +13,13 @@ const crypto = require('crypto');
 const supabaseAdmin = require('./supabaseClient');
 const { notifyNewMessage } = require('./chatNotifications');
 const { hostAwayNow } = require('./businessHours');
+const { saveElieDraft } = require('./elieDrafts');
+
+// The host's Elie settings (Chat Settings → Elie) with the away settings.
+const HOST_SETTINGS = 'away_mode,away_message,away_schedule,elie_away_replies,elie_away_drafts,elie_new_enquiries,elie_suggest_listings';
+
+/** Elie's answer without suggested listings when the host turned them off. */
+const withSuggestions = (generated, profile) => (profile && profile.elie_suggest_listings === false ? { ...generated, alternativeListingIds: [] } : generated);
 const { accountCanCreateActivity } = require('./accountAccess');
 const { encryptMessage, decryptMessage } = require('./messageEncryptionService');
 const { ChatbotError, ElieHostDenied, postToChatbot, withHostAction } = require('./elieHost');
@@ -265,8 +272,9 @@ async function answerForHost(conversation, trigger, correlationId, deliver) {
 
 /** The host typed @reply: answer the guest's messages now. */
 async function replyOnCommand(conversation, { correlationId = newCorrelationId() } = {}) {
+  const { data: profile } = await supabaseAdmin.from('profiles').select('elie_suggest_listings').eq('id', conversation.host_id).maybeSingle();
   const result = await answerForHost(conversation, 'command', correlationId, async (generated) => {
-    const messages = await persistReply(conversation, generated, correlationId);
+    const messages = await persistReply(conversation, withSuggestions(generated, profile), correlationId);
     log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'command', messages: messages.length });
     return { reply: generated.reply, skipped: false, message: messages[0], messages };
   });
@@ -291,13 +299,17 @@ async function awayReplyOnce(conversation, state, correlationId) {
   };
 
   const { data: hostProfile, error: profileError } = await supabaseAdmin
-    .from('profiles').select('away_mode,away_message,away_schedule').eq('id', conversation.host_id).maybeSingle();
+    .from('profiles').select(HOST_SETTINGS).eq('id', conversation.host_id).maybeSingle();
   if (profileError) throw new AutoReplyError('Unable to read the host profile', { stage: 'profile' });
-  // Away mode on, or outside the host's business hours.
-  if (!hostAwayNow(hostProfile)) return skip('host not away');
+  if (!hostProfile) return skip('host not away');
+  // Away (Away mode on, or outside business hours): the away message, then Elie.
+  // Not away: Elie answers only a new enquiry, when the host asked it to.
+  const away = hostAwayNow(hostProfile);
+  if (!away && hostProfile.elie_new_enquiries !== true) return skip('host not away');
   if (!(await accountCanCreateActivity(conversation.host_id))) return skip('host suspended');
 
   const history = await loadHistory(conversation.id);
+  if (!away && history.some((row) => row.sender_id === conversation.host_id)) return skip('not a new enquiry');
   const unanswered = unansweredGuestMessages(history, conversation, state.answeredUpTo);
   if (!unanswered.length) return skip('already answered');
 
@@ -323,18 +335,20 @@ async function awayReplyOnce(conversation, state, correlationId) {
   // The host's own away message goes out first, at once, even while Elie is
   // asleep or switched off; Elie's answer follows.
   const awayText = awayMessageText(hostProfile.away_message);
-  if (!awayMessageSent(history, conversation, awayText)) {
+  if (away && !awayMessageSent(history, conversation, awayText)) {
     const awayMessage = await insertHostMessage(conversation, awayText);
     log('info', 'away message sent', { conversationId: conversation.id, correlationId });
     await notifyGuest(conversation, awayMessage, correlationId);
   }
-  if (!awayRepliesEnabled()) {
+  if (!awayRepliesEnabled() || (away && hostProfile.elie_away_replies === false)) {
     state.answeredUpTo = unanswered[unanswered.length - 1].created_at;
-    return skip('elie disabled');
+    return skip(awayRepliesEnabled() ? 'away message only' : 'elie disabled');
   }
+  // Drafts (Chat Settings): Elie's answer waits for the host instead of being sent.
+  const asDraft = hostProfile.elie_away_drafts === true;
 
   try {
-    await withHostAction(conversation.host_id, 'away', async () => {
+    await withHostAction(conversation.host_id, asDraft ? 'draft' : 'away', async () => {
       const generated = await requestGeneration({
         conversation,
         trigger: 'away',
@@ -345,7 +359,12 @@ async function awayReplyOnce(conversation, state, correlationId) {
         timeoutMs: AWAY_TIMEOUT_MS,
       });
       log('info', 'generated', { conversationId: conversation.id, correlationId, trigger: 'away' });
-      const messages = await persistReply(conversation, generated, correlationId);
+      if (asDraft) {
+        await saveElieDraft(supabaseAdmin, conversation, generated.reply);
+        log('info', 'drafted', { conversationId: conversation.id, correlationId, trigger: 'away' });
+        return;
+      }
+      const messages = await persistReply(conversation, withSuggestions(generated, hostProfile), correlationId);
       log('info', 'persisted', { conversationId: conversation.id, correlationId, trigger: 'away', messages: messages.length });
     });
   } catch (error) {

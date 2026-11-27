@@ -10,6 +10,7 @@ import { DEFAULT_BUSINESS_HOURS, readBusinessHours, type BusinessHours } from '.
 // - message_notifications: "New message" notifications are created;
 // - message_previews: notifications show the message (decrypted on view);
 // - read_receipts: read ticks; typing_indicators: "typing…" in a chat;
+// - elie_*: when Elie answers guests for a host (server/lib/autoReply);
 // - chat_theme: the colours of message bubbles on this person's screen.
 // This browser keeps a copy, shown until the profile has loaded.
 
@@ -36,6 +37,11 @@ export interface ChatSettingsState {
   emailAlertMinutes: EmailAlertMinutes | null;
   /** Business hours: away automatically outside them (lib/chat/businessHours). */
   awaySchedule: BusinessHours;
+  /** Elie (hosts): answers while away; saves them as drafts instead; answers new enquiries; suggests other listings. */
+  elieAwayReplies: boolean;
+  elieAwayDrafts: boolean;
+  elieNewEnquiries: boolean;
+  elieSuggestListings: boolean;
 }
 
 export type EmailAlertMinutes = 0 | 15 | 60;
@@ -51,7 +57,8 @@ export function effectiveEmailAlertMinutes(value: EmailAlertMinutes | null, role
   return value ?? (role === 'host' ? 15 : 0);
 }
 
-export type ToggleKey = 'awayMode' | 'messageNotifications' | 'messagePreviews' | 'readReceipts' | 'typingIndicators';
+export type ToggleKey = 'awayMode' | 'messageNotifications' | 'messagePreviews' | 'readReceipts' | 'typingIndicators'
+  | 'elieAwayReplies' | 'elieAwayDrafts' | 'elieNewEnquiries' | 'elieSuggestListings';
 
 export const DEFAULTS: ChatSettingsState = {
   awayMode: false,
@@ -63,6 +70,10 @@ export const DEFAULTS: ChatSettingsState = {
   chatTheme: DEFAULT_CHAT_THEME,
   emailAlertMinutes: null,
   awaySchedule: DEFAULT_BUSINESS_HOURS,
+  elieAwayReplies: true,
+  elieAwayDrafts: false,
+  elieNewEnquiries: false,
+  elieSuggestListings: true,
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'> | null;
@@ -107,6 +118,10 @@ const PROFILE_COLUMNS: Record<ProfileSettingKey, string> = {
   chatTheme: 'chat_theme',
   emailAlertMinutes: 'email_alert_minutes',
   awaySchedule: 'away_schedule',
+  elieAwayReplies: 'elie_away_replies',
+  elieAwayDrafts: 'elie_away_drafts',
+  elieNewEnquiries: 'elie_new_enquiries',
+  elieSuggestListings: 'elie_suggest_listings',
 };
 
 /** Settings to show: the profile's values win over this browser's copy. */
@@ -123,6 +138,10 @@ export function resolveSettings(stored: Partial<ChatSettingsState>, profile: Pro
     chatTheme: isChatThemeId(stored.chatTheme) ? stored.chatTheme : DEFAULT_CHAT_THEME,
     emailAlertMinutes: asAlertMinutes(stored.emailAlertMinutes),
     awaySchedule: readBusinessHours(stored.awaySchedule),
+    elieAwayReplies: bool(stored.elieAwayReplies, true),
+    elieAwayDrafts: bool(stored.elieAwayDrafts, false),
+    elieNewEnquiries: bool(stored.elieNewEnquiries, false),
+    elieSuggestListings: bool(stored.elieSuggestListings, true),
   };
 }
 
@@ -138,6 +157,10 @@ export function profileSettingsFromRow(row: Record<string, unknown>): ProfileCha
     chatTheme: isChatThemeId(row.chat_theme) ? row.chat_theme : DEFAULT_CHAT_THEME,
     emailAlertMinutes: asAlertMinutes(row.email_alert_minutes),
     awaySchedule: readBusinessHours(row.away_schedule),
+    elieAwayReplies: row.elie_away_replies !== false,
+    elieAwayDrafts: row.elie_away_drafts === true,
+    elieNewEnquiries: row.elie_new_enquiries === true,
+    elieSuggestListings: row.elie_suggest_listings !== false,
   };
 }
 

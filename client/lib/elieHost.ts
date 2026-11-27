@@ -32,6 +32,13 @@ export const fetchElieHostUsage = () => apiFetch<ElieHostUsage>('/api/elie/host'
 export const requestElieDraft = (conversationId: string) =>
   apiFetch<{ reply: string; skipped: boolean }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/draft`, { method: 'POST', body: {} });
 
+/** Elie's automatic answer saved as a draft for the host (Chat Settings → Elie), or null. */
+export const loadElieSavedDraft = (conversationId: string) =>
+  apiFetch<{ draft: { reply: string; createdAt: string } | null }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/elie-draft`).then((result) => result.draft);
+
+export const discardElieSavedDraft = (conversationId: string) =>
+  apiFetch<{ discarded: boolean }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/elie-draft`, { method: 'DELETE' });
+
 /** A summary highlight or description written from the listing's details (improving `current` when given). */
 export const writeWithElie = (input: { field: ElieWriteField; category: string; facts: Record<string, string>; current: string }) =>
   apiFetch<{ text: string }>('/api/elie/write', { method: 'POST', body: input }).then((result) => result.text);

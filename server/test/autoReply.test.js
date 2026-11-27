@@ -582,3 +582,68 @@ test('a draft is Elie\'s reply for the host to edit: nothing is sent, one action
     assert.deepEqual(empty.elieActions, [], 'no action used when there is nothing to answer');
   });
 });
+
+// --- Chat Settings → Elie ------------------------------------------------------
+
+const hostProfile = (db) => db.profiles.find((p) => p.id === HOST);
+
+test('"Elie answers while I\'m away" off: only the away message, no Elie action used', async () => {
+  const db = makeDb();
+  hostProfile(db).elie_away_replies = false;
+  await withServer(db, () => jsonResponse(200, { reply: 'Elie here.', alternative_listing_ids: [] }), async ({ call, chatbot }) => {
+    assert.equal((await sendAsGuest(call, 'Hello')).status, 201);
+    await waitForIdle();
+    assert.equal(chatbot.calls.length, 0);
+    assert.deepEqual(autoReplies(db).map(plain), [autoReply.DEFAULT_AWAY_MESSAGE]);
+    assert.equal(db.elieActions.length, 0);
+  });
+});
+
+test('drafts on: Elie\'s answer waits encrypted for the host instead of being sent, using a draft action', async () => {
+  const db = makeDb();
+  hostProfile(db).elie_away_drafts = true;
+  await withServer(db, () => jsonResponse(200, { reply: 'Yes, it is free.', alternative_listing_ids: [OWN_ALTERNATIVE] }), async ({ call }) => {
+    assert.equal((await sendAsGuest(call, 'Is it free?')).status, 201);
+    await waitForIdle();
+    assert.deepEqual(autoReplies(db).map(plain), [autoReply.DEFAULT_AWAY_MESSAGE], 'only the away message reaches the guest');
+    assert.equal(db.messages.filter((row) => row.message_type === 'listing').length, 0);
+    const [draft] = db.elie_away_drafts;
+    assert.equal(draft.conversation_id, CONVERSATION);
+    assert.equal(draft.host_id, HOST);
+    assert.equal(draft.body, undefined, 'no plaintext column');
+    assert.equal(decryptMessage(draft.ciphertext, draft.iv, draft.key_version), 'Yes, it is free.');
+    assert.deepEqual(db.elieActions.map((a) => a.kind), ['draft']);
+  });
+});
+
+test('"Answer new enquiries": Elie answers a first enquiry while the host is not away, without the away message; never once the host has written', async () => {
+  const db = makeDb({ awayMode: false });
+  hostProfile(db).elie_new_enquiries = true;
+  await withServer(db, () => jsonResponse(200, { reply: 'Welcome! It is free.', alternative_listing_ids: [] }), async ({ call }) => {
+    assert.equal((await sendAsGuest(call, 'Is it free this weekend?')).status, 201);
+    await waitForIdle();
+    assert.deepEqual(autoReplies(db).map(plain), ['Welcome! It is free.']);
+    assert.deepEqual(db.elieActions.map((a) => a.kind), ['away']);
+  });
+  const answered = makeDb({ awayMode: false });
+  hostProfile(answered).elie_new_enquiries = true;
+  seedMessage(answered, { sender: HOST, text: 'Hi, how can I help?', minutesAgo: 30 });
+  await withServer(answered, () => jsonResponse(200, { reply: 'x', alternative_listing_ids: [] }), async ({ call, chatbot }) => {
+    assert.equal((await sendAsGuest(call, 'Is it free?')).status, 201);
+    await waitForIdle();
+    assert.equal(chatbot.calls.length, 0, 'not a new enquiry');
+  });
+});
+
+test('"Suggest my other listings" off: Elie\'s answer goes without listing cards (away and @reply)', async () => {
+  const db = makeDb();
+  hostProfile(db).elie_suggest_listings = false;
+  await withServer(db, () => jsonResponse(200, { reply: 'Here are options.', alternative_listing_ids: [OWN_ALTERNATIVE] }), async ({ call }) => {
+    assert.equal((await sendAsGuest(call, 'Any options?')).status, 201);
+    await waitForIdle();
+    assert.equal(db.messages.filter((row) => row.message_type === 'listing').length, 0);
+    assert.ok(autoReplies(db).map(plain).includes('Here are options.'));
+    assert.equal((await commandReply(call, 'host-token')).status, 200);
+    assert.equal(db.messages.filter((row) => row.message_type === 'listing').length, 0, '@reply too');
+  });
+});

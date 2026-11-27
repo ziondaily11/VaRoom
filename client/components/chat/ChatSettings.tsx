@@ -262,6 +262,14 @@ export default function ChatSettings({ role, onOpenArchived }: { role: 'host' | 
           {settings.awaySchedule.enabled && <BusinessHoursEditor value={settings.awaySchedule} onChange={setSchedule} />}
         </Section>
       )}
+      {role === 'host' && (
+        <Section title="Elie" anchor="cs-elie-settings">
+          <ToggleRow anchor="cs-elie-away" label="Elie answers while I’m away" description={settings.elieAwayReplies ? 'Guests get your away message, then Elie’s answer.' : 'Guests get only your away message.'} checked={settings.elieAwayReplies} onChange={(v) => setToggle('elieAwayReplies', v)} />
+          <ToggleRow anchor="cs-elie-new" label="Answer new enquiries" description="Elie also answers a guest’s first message when you’re not away." checked={settings.elieNewEnquiries} onChange={(v) => setToggle('elieNewEnquiries', v)} />
+          <ToggleRow anchor="cs-elie-drafts" label="Save Elie’s answers as drafts" description={settings.elieAwayDrafts ? 'Elie’s answers wait in the chat for you to use or dismiss.' : 'Elie’s answers are sent to the guest straight away.'} checked={settings.elieAwayDrafts} onChange={(v) => setToggle('elieAwayDrafts', v)} />
+          <ToggleRow anchor="cs-elie-listings" label="Suggest my other listings" description="Elie may add up to 3 of your other listings when they fit." checked={settings.elieSuggestListings} onChange={(v) => setToggle('elieSuggestListings', v)} />
+        </Section>
+      )}
       <Section title="Theme" anchor="cs-theme">
         <ThemePicker value={settings.chatTheme} onChange={setTheme} />
       </Section>
