@@ -190,7 +190,7 @@ test('3b. Header subtitle, empty and error states', () => {
   assert.match(pageSource, /loadFailed \? 'Notifications could not load'/, 'a failed load never says "all caught up"');
   assert.match(pageSource, /await fetchNotifications\(userId, client, false\)/);
   // Notification settings open beside the list, never by leaving for Settings.
-  assert.match(pageSource, /className="pill-btn" onClick=\{\(\) => \{ setSettingsMounted\(true\); setSettingsOpen\(true\); \}\}>Notification settings<\/button>/);
+  assert.match(pageSource, /className="pill-btn" onClick=\{\(\) => setPanel\(true\)\}>Notification settings<\/button>/);
   assert.doesNotMatch(pageSource, /\/settings\?section=notifications/);
   // A failed "mark all" keeps the list and shows a banner instead.
   assert.equal(pageSource.match(/setActionError\('Unable to update notifications\. Please try again\.'\)/g).length, 2);
@@ -684,4 +684,30 @@ test('21. Migration: a recipient may delete only their own notifications', () =>
   const sql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261127_000086_notifications_delete_own.sql'), 'utf8');
   assert.match(sql, /create policy notifications_delete_own\s+on public\.notifications for delete\s+using \(recipient_user_id = auth\.uid\(\)\);/);
   assert.match(sql, /-- drop policy if exists notifications_delete_own on public\.notifications;/, 'undo is documented');
+});
+
+test('22. Settings panel motion follows animation.md (drawer in 250 ms, out 200 ms, list glides, reduced motion)', () => {
+  const pageSource = readPage();
+  const panelSource = fs.readFileSync(path.join(root, 'components', 'notifications', 'NotificationSettingsPanel.tsx'), 'utf8');
+  const flipSource = fs.readFileSync(path.join(root, 'lib', 'motion', 'flip.ts'), 'utf8');
+  const styles = readStyles();
+
+  // Enter from the right, contents settle 40 ms later; exit ease-in, kept mounted by usePresence, ignoring input.
+  assert.match(styles, /\.notif-settings-panel\.is-open\{ animation:notif-panel-in var\(--motion-standard,250ms\) var\(--ease-out,ease\) both; \}/);
+  assert.match(styles, /\.notif-settings-panel\.is-open \.cs-embedded\{ animation:notif-panel-settle var\(--motion-quick,200ms\) var\(--ease-out,ease\) 40ms both; \}/);
+  assert.match(styles, /\.notif-settings-panel\.is-closing\{ pointer-events:none; animation:notif-panel-out var\(--motion-quick,200ms\) var\(--ease-in,ease\) both; \}/);
+  assert.match(styles, /@keyframes notif-panel-in\{ from\{ transform:translateX\(100%\); \}/);
+  assert.match(styles, /\.notif-settings-scrim\.is-closing\{ pointer-events:none; animation:notif-fade-out var\(--motion-micro,150ms\)/);
+  assert.match(panelSource, /export const PANEL_EXIT_MS = exitMs\(DURATION\.standard\);/);
+  assert.match(panelSource, /usePresence\(open, PANEL_EXIT_MS\)/);
+  assert.match(panelSource, /hidden=\{!mounted\}/);
+  assert.match(panelSource, /focus\(\{ preventScroll: true \}\)/);
+  // Leaving, the panel is pinned at its box so the list can glide back under it (transform only).
+  assert.match(panelSource, /position: 'fixed', left: `\$\{box\.left\}px`/);
+  assert.match(pageSource, /useFlipX\(mainRef, settingsOpen, \{/);
+  assert.match(flipSource, /el\.animate\(\[\{ transform: `translateX\(\$\{delta\}px\)` \}, \{ transform: 'none' \}\], timing\)/);
+  assert.match(flipSource, /prefersReducedMotion\(\)/);
+  assert.doesNotMatch(styles, /transition:[^;]*width/, 'no width animation');
+  // Reduced motion: near-instant both ways.
+  assert.match(styles, /\.notifications-page \.notif-settings-panel, \.notifications-page \.notif-settings-panel \.cs-embedded,\s*\.notifications-page \.notif-settings-scrim\{ animation-duration:1ms; animation-delay:0ms; \}/);
 });
