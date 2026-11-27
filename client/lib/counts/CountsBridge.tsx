@@ -21,6 +21,11 @@ function countsStore(): CountsStore {
   });
 }
 
+/** Recount now: realtime does not report deleted notifications to a filtered channel. */
+export function refreshCounts(): void {
+  void countsStore().refresh();
+}
+
 /** Create the store once and share it with legacy scripts. Called from _app. */
 export function installCounts(): void {
   if (typeof window === 'undefined' || window.VaRoomCounts) return;

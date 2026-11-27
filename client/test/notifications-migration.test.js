@@ -189,7 +189,9 @@ test('3b. Header subtitle, empty and error states', () => {
   assert.match(pageSource, /onClick=\{retryLoad\}/, 'a failed load offers Try again');
   assert.match(pageSource, /loadFailed \? 'Notifications could not load'/, 'a failed load never says "all caught up"');
   assert.match(pageSource, /await fetchNotifications\(userId, client, false\)/);
-  assert.match(pageSource, /<Link href="\/settings\?section=notifications" className="pill-btn">Notification settings<\/Link>/);
+  // Notification settings open beside the list, never by leaving for Settings.
+  assert.match(pageSource, /className="pill-btn" onClick=\{\(\) => \{ setSettingsMounted\(true\); setSettingsOpen\(true\); \}\}>Notification settings<\/button>/);
+  assert.doesNotMatch(pageSource, /\/settings\?section=notifications/);
   // A failed "mark all" keeps the list and shows a banner instead.
   assert.equal(pageSource.match(/setActionError\('Unable to update notifications\. Please try again\.'\)/g).length, 2);
 });
@@ -612,4 +614,74 @@ test('17. Page look, accessible rows, scoped styles and motion', () => {
   assert.match(styles, /\.notif-dot\.is-read\{ opacity:0;/);
   assert.match(pageSource, /setJustMarkedAll\(true\)/);
   assert.match(styles, /@media \(prefers-reduced-motion:reduce\)/);
+});
+
+test('18. Delete: the recipient-only request, the ids it really deleted, and the local list', async () => {
+  const { data, cache } = loadModules();
+  const { client, queries } = fakeSupabase(() => ({ data: [{ id: 'a' }], error: null }));
+  const deleted = await data.deleteNotificationsRequest(client, ['a', 'b'], 'user-1');
+  assert.deepEqual(deleted, ['a'], 'row security deleted only one: the other is reported as kept');
+  const [query] = queries;
+  assert.equal(query.table, 'notifications');
+  assert.deepEqual(op(query, 'delete'), [[]]);
+  assert.deepEqual(op(query, 'in'), [['id', ['a', 'b']]]);
+  assert.deepEqual(op(query, 'eq'), [['recipient_user_id', 'user-1']]);
+  assert.deepEqual(op(query, 'select'), [['id']]);
+
+  const failing = fakeSupabase(() => ({ data: null, error: { message: 'denied' } }));
+  await assert.rejects(data.deleteNotificationsRequest(failing.client, ['a'], 'user-1'), { message: 'denied' });
+
+  const items = [notification({ id: 'a' }), notification({ id: 'b', read: true }), notification({ id: 'c' })];
+  const next = data.removeLocally(items, 5, ['a', 'b'], 'user-1');
+  assert.deepEqual(next.items.map((n) => n.id), ['c']);
+  assert.equal(next.unreadCount, 4, 'only the unread one leaves the count');
+  const cached = cache.getCachedNotifications('user-1');
+  assert.deepEqual(cached.items.map((n) => n.id), ['c']);
+  assert.equal(cached.unreadCount, 4);
+});
+
+test('19. A row menu: mark as read (unread only), select, select all, delete; delete asks once', () => {
+  const { view } = loadModules();
+  assert.deepEqual(view.notificationMenuItems(false).map((i) => i.action), ['read', 'select', 'select-all', 'delete']);
+  assert.deepEqual(view.notificationMenuItems(true).map((i) => i.action), ['select', 'select-all', 'delete']);
+  assert.equal(view.deleteNotificationsQuestion(1).title, 'Delete this notification?');
+  assert.equal(view.deleteNotificationsQuestion(3).title, 'Delete 3 notifications?');
+  assert.equal(view.deleteNotificationsQuestion(3).confirmLabel, 'Delete 3');
+});
+
+test('20. Page wiring: settings panel, right-click/long-press menu, selection mode and delete', () => {
+  const pageSource = readPage();
+  const panelSource = fs.readFileSync(path.join(root, 'components', 'notifications', 'NotificationSettingsPanel.tsx'), 'utf8');
+  const styles = readStyles();
+
+  // The gear toggles the panel beside the list (as Chat Settings in Chats).
+  assert.match(pageSource, /aria-expanded=\{settingsOpen\}\s+onClick=\{toggleSettings\}/);
+  assert.match(pageSource, /<NotificationSettingsPanel userId=\{userId\} isHost=\{userRole === 'host'\} open=\{settingsOpen\}/);
+  assert.match(panelSource, /loadPreferences\(client, userId\)/);
+  assert.match(panelSource, /savePreferences\(client, userId, \{ \[key\]: value \}\)/);
+  assert.match(panelSource, /NOTIFICATION_ROWS\.filter\(\(row\) => isHost \|\| !row\.hostOnly\)/);
+  assert.match(panelSource, /<ToggleRow /);
+  assert.match(styles, /\.notifications-page \.notif-settings-panel\{/);
+  assert.match(styles, /@media \(max-width:1080px\)\{\s*\.notifications-page \.notif-settings-panel\{\s*position:fixed;/, 'narrower screens: the panel covers the list');
+
+  // Right-click on laptops, long-press on phones, the shared chat menu.
+  assert.match(pageSource, /onContextMenu=\{\(e\) => onRowContextMenu\(e, notification\)\}/);
+  assert.match(pageSource, /onTouchStart=\{\(e\) => onRowTouchStart\(e, notification\)\}/);
+  assert.match(pageSource, /<MessageActionMenu<NotificationAction>/);
+
+  // Selection mode ticks rows; the bar selects all shown or deletes after one confirmation.
+  assert.match(pageSource, /if \(selected \|\| event\.ctrlKey \|\| event\.metaKey\) \{\s*setSelected\(\(current\) => toggleSelection\(current, notification\.id\)\);/);
+  assert.match(pageSource, /role=\{selected \? 'checkbox' : undefined\}/);
+  assert.match(pageSource, /onClick=\{\(\) => setPendingDelete\(selectedItems\)\}/);
+  assert.match(pageSource, /<ConfirmSheet\s+open=\{Boolean\(pendingDelete\)\}/);
+  // Delete is optimistic, puts back what the server kept, and recounts the sidebars.
+  assert.match(pageSource, /deleted = await deleteNotificationsRequest\(client, ids, userId\);/);
+  assert.match(pageSource, /if \(deleted\.length\) refreshCounts\(\);/);
+  assert.match(pageSource, /removeLocally\(before\.items, before\.unreadCount, deleted, userId\)/);
+});
+
+test('21. Migration: a recipient may delete only their own notifications', () => {
+  const sql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261127_000086_notifications_delete_own.sql'), 'utf8');
+  assert.match(sql, /create policy notifications_delete_own\s+on public\.notifications for delete\s+using \(recipient_user_id = auth\.uid\(\)\);/);
+  assert.match(sql, /-- drop policy if exists notifications_delete_own on public\.notifications;/, 'undo is documented');
 });

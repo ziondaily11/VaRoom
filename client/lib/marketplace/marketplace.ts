@@ -41,7 +41,7 @@ export interface MarketplaceListing {
   category: string | null;
   /** Property: 'rent', 'sale' or 'both'. */
   listing_purpose?: string | null;
-  /** A sale property with an offer in progress (migration 000085). */
+  /** A sale property with an offer in progress (migration 000087). */
   under_offer?: boolean | null;
   verified: boolean | null;
   created_at: string;

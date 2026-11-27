@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
@@ -18,25 +17,36 @@ import {
   timeAgo,
 } from '../lib/notificationsCache';
 import {
+  deleteNotificationsRequest,
   fetchNotificationsSnapshot,
   markAllNotificationsReadRequest,
   markAllReadLocally,
   markNotificationReadRequest,
   markReadLocally,
+  removeLocally,
   restoreNotificationsSnapshot,
   subscribeToNotificationChanges,
   syncSidebarUnreadCount,
 } from '../lib/notifications/notificationsData';
 import {
   NOTIFICATION_TABS,
+  NotificationAction,
   NotificationsFilter,
   countByTab,
+  deleteNotificationsQuestion,
   emptyNotificationsMessage,
   filterNotifications,
   groupNotificationsByDate,
+  notificationMenuItems,
   notificationsSubtitle,
 } from '../lib/notifications/notificationsView';
+import { toggleSelection } from '../lib/chat/inbox';
+import { refreshCounts } from '../lib/counts/CountsBridge';
+import { usePresentValue } from '../lib/motion/usePresence';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
+import MessageActionMenu, { MESSAGE_MENU_EXIT_MS } from '../components/chat/MessageActionMenu';
+import ConfirmSheet from '../components/bookings/ConfirmSheet';
+import NotificationSettingsPanel from '../components/notifications/NotificationSettingsPanel';
 import { NOTIFICATIONS_STYLES } from '../components/notifications/notificationsStyles';
 import {
   AlertIcon,
@@ -45,12 +55,16 @@ import {
   MarkAllIcon,
   MenuIcon,
   NotificationKindIcon,
+  NotificationSprite,
   SearchIcon,
   SettingsIcon,
+  SpriteIcon,
 } from '../components/notifications/NotificationIcons';
 
 /** How long the first-load row reveal runs before new rows stop animating. */
 const REVEAL_MS = 700;
+/** A press this long opens a row's menu on touch screens (as in Chats). */
+const LONG_PRESS_MS = 500;
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -70,7 +84,20 @@ export default function NotificationsPage() {
   const [justMarkedAll, setJustMarkedAll] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<'host' | 'client'>('client');
   const [userId, setUserId] = useState<string | null>(null);
+  // Notification Settings beside the list (as Chat Settings in Chats); mounted on first open, then kept.
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [settingsMounted, setSettingsMounted] = useState<boolean>(false);
+  // A row's menu (right-click, or long-press on phones), and the rows ticked in selection mode (null: not selecting).
+  const [menu, setMenu] = useState<{ notification: NotificationItem; x: number; y: number } | null>(null);
+  const { shown: shownMenu, closing: menuClosing } = usePresentValue(menu, MESSAGE_MENU_EXIT_MS);
+  const [selected, setSelected] = useState<Set<string> | null>(null);
+  // Notifications waiting for Delete's confirmation.
+  const [pendingDelete, setPendingDelete] = useState<NotificationItem[] | null>(null);
 
+  const settingsBtnRef = useRef<HTMLButtonElement | null>(null);
+  const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const pressOpenedMenuRef = useRef<boolean>(false);
+  const deleteCountRef = useRef<number>(1);
   const requestVersionRef = useRef<number>(0);
   const mountedRef = useRef<boolean>(true);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
@@ -289,6 +316,121 @@ export default function NotificationsPage() {
 
   const tabCounts = useMemo(() => countByTab(notifications), [notifications]);
 
+  // ---------- Notification Settings panel ----------
+  const toggleSettings = () => {
+    setSettingsMounted(true);
+    setSettingsOpen((open) => !open);
+  };
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    settingsBtnRef.current?.focus();
+  }, []);
+
+  // ---------- Selection mode and delete ----------
+  const selectedItems = selected ? notifications.filter((n) => selected.has(n.id)) : [];
+  const allShownSelected = Boolean(selected) && filteredNotifications.every((n) => selected!.has(n.id));
+  const selectAllShown = () => setSelected((current) => new Set(Array.from(current || []).concat(filteredNotifications.map((n) => n.id))));
+
+  // Another tab or account: start again. Escape leaves selection mode.
+  useEffect(() => { setSelected(null); }, [currentFilter, userId]);
+  useEffect(() => {
+    if (!selected) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selected]);
+
+  const cancelDelete = useCallback(() => setPendingDelete(null), []);
+  if (pendingDelete) deleteCountRef.current = pendingDelete.length;
+  const deleteQuestion = deleteNotificationsQuestion(deleteCountRef.current);
+
+  // Removed at once; the ones the server keeps come back with a note.
+  const deleteNotifications = async (doomed: NotificationItem[]) => {
+    setPendingDelete(null);
+    setSelected(null);
+    const client = clientRef.current || getSupabaseClient();
+    if (!userId || !client || !doomed.length) return;
+    const ids = doomed.map((n) => n.id);
+    const before = { items: notifications, unreadCount };
+    requestVersionRef.current += 1; // a load already under way would bring them back
+    setActionError(null);
+    const next = removeLocally(notifications, unreadCount, ids, userId);
+    setNotifications(next.items);
+    setUnreadCount(next.unreadCount);
+    syncSidebarUnreadCount(next.unreadCount);
+
+    let deleted: string[] = [];
+    try {
+      deleted = await deleteNotificationsRequest(client, ids, userId);
+    } catch (e) {
+      console.error('Unable to delete notifications:', e);
+    }
+    // The sidebars' booking count includes unread booking notifications.
+    if (deleted.length) refreshCounts();
+    if (deleted.length === ids.length) return;
+    const restored = removeLocally(before.items, before.unreadCount, deleted, userId);
+    setNotifications(restored.items);
+    setUnreadCount(restored.unreadCount);
+    syncSidebarUnreadCount(restored.unreadCount);
+    setActionError(ids.length === 1 ? 'That notification could not be deleted. Please try again.' : 'Some notifications could not be deleted. Please try again.');
+  };
+
+  const onMenuAction = (notification: NotificationItem, action: NotificationAction) => {
+    setMenu(null);
+    if (action === 'read') void handleMarkRead(notification);
+    else if (action === 'select') setSelected((current) => new Set(current || []).add(notification.id));
+    else if (action === 'select-all') selectAllShown();
+    else setPendingDelete([notification]);
+  };
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  // Right-click (or the keyboard's menu key) on laptops and desktops; phones use the long-press below.
+  const onRowContextMenu = (event: React.MouseEvent<HTMLButtonElement>, notification: NotificationItem) => {
+    event.preventDefault();
+    if (window.matchMedia('(max-width: 760px)').matches) return;
+    let { clientX: x, clientY: y } = event;
+    if (!x && !y) {
+      const box = event.currentTarget.getBoundingClientRect();
+      x = box.left + 24;
+      y = box.bottom;
+    }
+    setMenu({ notification, x, y });
+  };
+  const cancelPress = () => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+  };
+  useEffect(() => cancelPress, []);
+  const onRowTouchStart = (event: React.TouchEvent, notification: NotificationItem) => {
+    if (event.touches.length !== 1) return;
+    cancelPress();
+    pressOpenedMenuRef.current = false;
+    const { clientX: x, clientY: y } = event.touches[0];
+    const timer = window.setTimeout(() => {
+      pressRef.current = null;
+      pressOpenedMenuRef.current = true;
+      setMenu({ notification, x, y });
+    }, LONG_PRESS_MS);
+    pressRef.current = { timer, x, y };
+  };
+  const onRowTouchMove = (event: React.TouchEvent) => {
+    const press = pressRef.current;
+    const touch = event.touches[0];
+    if (press && touch && Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > 10) cancelPress();
+  };
+  // Selecting (or Ctrl/⌘-click) ticks the row; otherwise it opens.
+  const onRowClick = (event: React.MouseEvent, notification: NotificationItem) => {
+    if (pressOpenedMenuRef.current) {
+      pressOpenedMenuRef.current = false;
+      return;
+    }
+    if (selected || event.ctrlKey || event.metaKey) {
+      setSelected((current) => toggleSelection(current, notification.id));
+      return;
+    }
+    void handleNotificationClick(notification);
+  };
+
   // The reveal plays once; rows that arrive later (realtime) appear at once.
   useEffect(() => {
     if (!revealing) return undefined;
@@ -319,6 +461,7 @@ export default function NotificationsPage() {
       <style dangerouslySetInnerHTML={{ __html: NOTIFICATIONS_STYLES }} />
 
       <div className="notifications-page">
+        <NotificationSprite />
         <div className="main-inner">
           {loading ? (
             <div className="notifications-skeleton" role="status" aria-label="Loading notifications">
@@ -374,11 +517,13 @@ export default function NotificationsPage() {
                     <MarkAllIcon done={isAllRead} animate={justMarkedAll} />
                   </button>
                   <button
-                    className="notif-btn"
+                    ref={settingsBtnRef}
+                    className={`notif-btn${settingsOpen ? ' is-active' : ''}`}
                     type="button"
                     title="Notification settings"
                     aria-label="Notification settings"
-                    onClick={() => router.push('/settings?section=notifications')}
+                    aria-expanded={settingsOpen}
+                    onClick={toggleSettings}
                   >
                     <SettingsIcon />
                   </button>
@@ -419,6 +564,23 @@ export default function NotificationsPage() {
                 </div>
               </div>
 
+              {selected && (
+                <div className="notif-select-bar" role="toolbar" aria-label="Selected notifications">
+                  <button type="button" className="notif-select-cancel" aria-label="Cancel selection" title="Cancel" onClick={() => setSelected(null)}>
+                    <SpriteIcon id="nt-close" />
+                  </button>
+                  <span className="notif-select-count" aria-live="polite">{selectedItems.length} selected</span>
+                  <button type="button" className="notif-select-action" disabled={allShownSelected} onClick={selectAllShown}>
+                    <SpriteIcon id="nt-select-all" />
+                    <span>Select all</span>
+                  </button>
+                  <button type="button" className="notif-select-action danger" disabled={!selectedItems.length} onClick={() => setPendingDelete(selectedItems)}>
+                    <SpriteIcon id="nt-trash" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              )}
+
               {actionError && (
                 <div className="notif-banner" role="alert">
                   <AlertIcon />
@@ -448,7 +610,7 @@ export default function NotificationsPage() {
                       {searchQuery.trim() ? (
                         <button type="button" className="pill-btn" onClick={() => setSearchQuery('')}>Clear search</button>
                       ) : (
-                        <Link href="/settings?section=notifications" className="pill-btn">Notification settings</Link>
+                        <button type="button" className="pill-btn" onClick={() => { setSettingsMounted(true); setSettingsOpen(true); }}>Notification settings</button>
                       )}
                     </div>
                   </div>
@@ -469,17 +631,26 @@ export default function NotificationsPage() {
                             const messageId = notificationMessageId(notification);
                             const preview = messageId ? messagePreviews[messageId] : null;
                             const index = Math.min(rowIndex++, 10);
+                            const isSelected = Boolean(selected && selected.has(notification.id));
 
                             return (
                               <li key={notification.id} style={{ '--i': index } as React.CSSProperties}>
                                 <button
                                   type="button"
-                                  className={`notif-row${notification.read ? '' : ' is-unread'}`}
+                                  className={`notif-row${notification.read ? '' : ' is-unread'}${isSelected ? ' is-selected' : ''}`}
                                   data-notification-id={notification.id}
-                                  onClick={() => handleNotificationClick(notification)}
+                                  role={selected ? 'checkbox' : undefined}
+                                  aria-checked={selected ? isSelected : undefined}
+                                  onClick={(e) => onRowClick(e, notification)}
+                                  onContextMenu={(e) => onRowContextMenu(e, notification)}
+                                  onTouchStart={(e) => onRowTouchStart(e, notification)}
+                                  onTouchMove={onRowTouchMove}
+                                  onTouchEnd={cancelPress}
+                                  onTouchCancel={cancelPress}
                                 >
                                   <span className={`notif-badge ${details.tint}`}>
                                     <NotificationKindIcon kind={details.iconKind} />
+                                    {isSelected && <span className="notif-select-check" aria-hidden="true"><SpriteIcon id="nt-read" /></span>}
                                   </span>
                                   <span className="notif-body">
                                     <span className="notif-top">
@@ -510,7 +681,35 @@ export default function NotificationsPage() {
             </div>
           )}
         </div>
+
+        {settingsMounted && userId && (
+          <NotificationSettingsPanel userId={userId} isHost={userRole === 'host'} open={settingsOpen} onClose={closeSettings} onError={setActionError} />
+        )}
+        {/* Below 1080px the panel covers the list; a tap outside closes it. */}
+        {settingsOpen && <div className="notif-settings-scrim" aria-hidden="true" onClick={closeSettings} />}
+
+        {shownMenu && (
+          <MessageActionMenu<NotificationAction>
+            x={shownMenu.x}
+            y={shownMenu.y}
+            closing={menuClosing}
+            label="Notification actions"
+            items={notificationMenuItems(shownMenu.notification.read)}
+            onSelect={(action) => onMenuAction(shownMenu.notification, action)}
+            onClose={closeMenu}
+          />
+        )}
       </div>
+
+      <ConfirmSheet
+        open={Boolean(pendingDelete)}
+        title={deleteQuestion.title}
+        message={deleteQuestion.message}
+        confirmLabel={deleteQuestion.confirmLabel}
+        cancelLabel="Cancel"
+        onConfirm={() => { if (pendingDelete) void deleteNotifications(pendingDelete); }}
+        onClose={cancelDelete}
+      />
     </>
   );
 }

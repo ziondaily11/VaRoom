@@ -26,7 +26,7 @@ function storage(): Storage | null {
 }
 
 // anchor: the row's element id (Settings search scrolls to it).
-function ToggleRow({ label, description, checked, onChange, anchor }: { label: string; description?: string; checked: boolean; onChange: (value: boolean) => void; anchor?: string }) {
+export function ToggleRow({ label, description, checked, onChange, anchor }: { label: string; description?: string; checked: boolean; onChange: (value: boolean) => void; anchor?: string }) {
   const id = useId();
   return (
     // The whole row is the tap target; the switch is the one keyboard stop.
@@ -164,7 +164,7 @@ function ThemePicker({ value, onChange }: { value: ChatThemeId; onChange: (theme
   );
 }
 
-function Section({ title, children, anchor }: { title: string; children: React.ReactNode; anchor?: string }) {
+export function Section({ title, children, anchor }: { title: string; children: React.ReactNode; anchor?: string }) {
   const id = useId();
   return (
     <section className="cs-section" id={anchor} aria-labelledby={id}>

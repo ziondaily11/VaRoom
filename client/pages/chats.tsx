@@ -40,6 +40,7 @@ import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
 import { useQuickReplies } from '../components/chat/useQuickReplies';
+import { usePanelMotion } from '../components/chat/usePanelMotion';
 import QuickReplyPicker from '../components/chat/QuickReplyPicker';
 import { matchQuickReplies, slashQuery, type QuickReply } from '../lib/chat/quickReplies';
 import { activeChatTheme, chatShellStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
@@ -60,7 +61,7 @@ import {
   postListingMessage, previewUrlFor, releasePreviewUrls, REPLY_COMMAND, saveAttachmentMessages, sendComposerMessage, uploadAttachment,
   uploadContent,
 } from '../lib/chat/composer';
-import { awaitStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
+import { awaitStylesheet, releaseStylesheet, stylesheetApplied } from '../lib/chat/chatsStylesheet';
 import { readStored, resolveSettings, writeStored } from '../lib/chat/chatSettings';
 import { messageStatus, type ChatApi } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
@@ -902,16 +903,14 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   const hydrated = useHydrated();
   const [stylesLoaded, setStylesLoaded] = useState(false);
   const stylesReady = !hydrated || stylesLoaded || chatsStylesheetApplied();
-  const addedStylesheetRef = useRef<HTMLLinkElement | null>(null);
-  useEffect(() => () => { addedStylesheetRef.current?.remove(); }, []);
+  // Its rules are global (body, *, .app-shell): leaving Chats removes it, even the document's copy.
+  useEffect(() => () => releaseStylesheet(document, chatsCssHref), []);
   useEffect(() => {
     if (!hydrated || stylesLoaded) return undefined;
     // Already applied (opened directly): remember it, and stop checking.
     if (chatsStylesheetApplied()) { setStylesLoaded(true); return undefined; }
     // Never stays hidden: shown after 4 s whatever happens (lib/chat/chatsStylesheet).
-    const { added, stop } = awaitStylesheet(document, chatsCssHref, () => setStylesLoaded(true), window);
-    if (added) addedStylesheetRef.current = added;
-    return stop;
+    return awaitStylesheet(document, chatsCssHref, () => setStylesLoaded(true), window);
   }, [hydrated, stylesLoaded]);
   useEffect(() => {
     try { setStoredTheme(resolveSettings(readStored(window.localStorage), null).chatTheme); } catch { /* Default theme. */ }
@@ -1174,12 +1173,13 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
       : m)));
 
     // 1–3: each file uploads straight to storage, all at once.
-    const uploaded = uploads.map(({ file, tempId }) => uploadAttachment({
+    const uploaded = uploads.map(({ file, tempId, localUrl }) => uploadAttachment({
       api,
       fetchFn: (input, init) => fetch(input, init),
       conversationId,
       file,
       kind,
+      localUrl,
       // The server's copy of this message is recognised by its attachment.
       onReserved: (attachmentId) => setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: attachmentId } : m))),
     }));
@@ -1351,13 +1351,30 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
 
   // Chat settings: embedded in the information column on desktop, its own
   // page on phones (returning to this conversation).
-  const openChatSettings = () => {
+  // The right column opens out of its trigger and closes back towards it
+  // (usePanelMotion). Chat Settings closes to what was there before it.
+  const infoPanelRef = useRef<HTMLElement | null>(null);
+  const panelMotion = usePanelMotion(infoPanelRef);
+  const infoOpenBeforeSettingsRef = useRef(false);
+  const openChatSettings = (event?: React.MouseEvent<HTMLElement>) => {
     if (window.matchMedia('(max-width: 760px)').matches) {
       void router.push(chatSettingsHref(router.asPath));
       return;
     }
-    setInfoCollapsed(false);
-    setChatSettingsEmbedded(true);
+    if (chatSettingsEmbedded) return;
+    infoOpenBeforeSettingsRef.current = !infoCollapsed;
+    panelMotion.open(event ? event.currentTarget : null, () => {
+      setInfoCollapsed(false);
+      setChatSettingsEmbedded(true);
+    });
+  };
+  const closeChatSettings = (then?: () => void) => {
+    const backToInfo = infoOpenBeforeSettingsRef.current;
+    panelMotion.close(null, () => {
+      setChatSettingsEmbedded(false);
+      if (!backToInfo) setInfoCollapsed(true);
+      then?.();
+    }, backToInfo);
   };
 
   // Generate clean, readable plain-text previews for inbox rows (no literal HTML tags)
@@ -1732,12 +1749,10 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 id="toggle-info-panel"
                 aria-label="Toggle information panel"
                 aria-expanded={!infoCollapsed}
-                onClick={() => {
+                onClick={(e) => {
                   if (window.innerWidth <= 760) setMobileView('info');
-                  else {
-                    setChatSettingsEmbedded(false);
-                    setInfoCollapsed((prev) => !prev);
-                  }
+                  else if (infoCollapsed) panelMotion.open(e.currentTarget, () => setInfoCollapsed(false));
+                  else panelMotion.close(e.currentTarget, () => { setChatSettingsEmbedded(false); setInfoCollapsed(true); });
                 }}
               >
                 <svg className="icon"><use href="#i-panel" /></svg>
@@ -1946,6 +1961,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                       <PhotoBubble
                         attachmentId={(m as OptimisticChatMessage)._optimistic ? null : attachmentId}
                         localUrl={(m as OptimisticChatMessage)._localUrl}
+                        size={m.attachment}
                         alt={m.attachment?.original_filename || 'Shared image'}
                         api={api}
                         onOpen={(url, alt) => setSelectedPhotoPreview({ items: [{ url, alt }], index: 0 })}
@@ -2329,26 +2345,29 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         </main>
 
         {/* 4. INFORMATION COLUMN (Collapsible) */}
-        <aside className={layoutClasses.info} id="infoCol">
+        <aside ref={infoPanelRef} className={`${layoutClasses.info}${panelMotion.phase === 'idle' ? '' : ` is-${panelMotion.phase}`}`} id="infoCol">
           {chatSettingsEmbedded ? (
             <>
               <div className="chat-settings-panel-head">
                 <span>Chat Settings</span>
-                <button type="button" className="info-close-btn" aria-label="Close Chat Settings" title="Close Chat Settings" onClick={() => setChatSettingsEmbedded(false)}>
+                <button type="button" className="info-close-btn" aria-label="Close Chat Settings" title="Close Chat Settings" onClick={() => closeChatSettings()}>
                   <svg className="icon"><use href="#i-close" /></svg>
                 </button>
               </div>
               {/* Rendered here directly (it was an iframe of the settings page). */}
               <ChatSettingsStyles />
               <div className="cs-embedded">
-                <ChatSettings key={role} role={role} onOpenArchived={() => { setChatSettingsEmbedded(false); setInboxView('archived'); }} />
+                <ChatSettings key={role} role={role} onOpenArchived={() => closeChatSettings(() => setInboxView('archived'))} />
               </div>
             </>
           ) : (
           <>
           <div className="info-title-row">
             <div className="info-title">Information</div>
-            <button className="info-close-btn" title="Close" onClick={() => { setInfoCollapsed(true); if (mobileView === 'info') setMobileView('conversation'); }}>
+            <button className="info-close-btn" title="Close" onClick={() => {
+              if (mobileView === 'info') { setInfoCollapsed(true); setMobileView('conversation'); }
+              else panelMotion.close(null, () => setInfoCollapsed(true));
+            }}>
               <svg className="icon"><use href="#i-close" /></svg>
             </button>
           </div>

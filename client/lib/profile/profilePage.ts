@@ -69,7 +69,7 @@ export function listingStatus(status: string | null | undefined, liveUntil?: str
   // Set to available but its 30 days or the host's plan ended: nobody else can see it.
   if (value === 'available' && liveUntil !== undefined && !isOnline(liveUntil, now)) return { label: 'Offline', className: 'unavailable' };
   if (value === 'available' && underOffer) return { label: 'Under offer', className: 'paused' };
-  // Marked sold, rented or leased (migration 000085): off the marketplace until relisted.
+  // Marked sold, rented or leased (migration 000087): off the marketplace until relisted.
   if (value === 'sold' || value === 'rented' || value === 'leased') return { label: value.charAt(0).toUpperCase() + value.slice(1), className: 'booked' };
   if (value === 'booked') return { label: 'Booked', className: 'booked' };
   if (value === 'paused') return { label: 'Paused', className: 'paused' };

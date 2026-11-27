@@ -27,7 +27,7 @@ import { WizardSession, draftContinuationUrl } from '../lib/listWizard/wizardSes
 import { INITIAL_FLAGS, hasListingCredit, startWizard } from '../lib/listWizard/startup';
 import { differenceHash, judgePhoto, measurePhoto, minPhotosFor } from '../lib/listWizard/photoQuality';
 import {
-  checkListingPayment, checkReturnedPayment, LISTING_TIER_CARDS, NICHE_PLAN_CARDS, startCheckout, startListingTierCheckout,
+  checkListingPayment, checkReturnedPayment, LISTING_TIER_CARDS, NICHE_PLAN_CARDS, startCheckout, startListingTierCheckout, upgradeCards,
   type ListingPayment, type ListingTier, type PaymentState, type PlanCard,
 } from '../lib/billing/pricing';
 import { CheckoutWindow } from '../components/billing/CheckoutWindow';
@@ -676,7 +676,7 @@ export default function ListPage() {
     setCheckoutCard(null);
     if (!card) return;
     if (!card.perListing) {
-      setFlags((previous) => ({ ...previous, hasActiveNichePlan: true }));
+      setFlags((previous) => ({ ...previous, hasActiveNichePlan: true, planLimit: null }));
       showMessage(`Payment confirmed. Your ${card.name} plan is active: your listings stay online while it runs.`, false);
       return;
     }
@@ -711,7 +711,7 @@ export default function ListPage() {
       }
       // Airbnb, Hotel, Venue: online only while a plan runs (the server refuses without one too).
       if (isPlanNiche(cat) && !state.flags.hasActiveNichePlan && (!editMode || state.flags.listingNeedsPublication)) {
-        showMessage('Choose a plan before publishing this listing.', true);
+        showMessage(state.flags.planLimit ? 'Upgrade your plan, or pause a listing, before publishing this one.' : 'Choose a plan before publishing this listing.', true);
         return;
       }
       setPublishLabel(editMode ? 'Saving changes...' : 'Publishing...');
@@ -864,9 +864,12 @@ export default function ListPage() {
   const step = form.currentStep;
   const { showTierChoice, submitHidden, entitlementNote } = reviewActions(paymentNeeded, flags.entitlementChecked);
   // Over whichever step is showing (the first, for a new listing) until a paid listing is there to use.
-  // Silver / Gold for Property and Shops & Offices; the niche's monthly plans for Airbnb, Hotel and Venue.
-  const choiceCards = isPaidNiche(category) ? LISTING_TIER_CARDS : (NICHE_PLAN_CARDS[category] || []);
-  const tierChoice = showTierChoice && !flags.publishBlocked && choiceCards.length ? <ListingTierChoice cards={choiceCards} onChoose={setCheckoutCard} /> : null;
+  // Silver / Gold for Property and Shops & Offices; the niche's monthly plans for Airbnb, Hotel and Venue,
+  // or, when all the listings a plan includes are online, that plan and the ones above it.
+  const choiceCards = isPaidNiche(category) ? LISTING_TIER_CARDS
+    : flags.planLimit ? upgradeCards(NICHE_PLAN_CARDS[category] || [], flags.planLimit.planId) : (NICHE_PLAN_CARDS[category] || []);
+  const tierChoice = showTierChoice && !flags.publishBlocked && choiceCards.length
+    ? <ListingTierChoice cards={choiceCards} limit={isPlanNiche(category) ? flags.planLimit : null} onChoose={setCheckoutCard} /> : null;
   const overlayFor = (n: number) => (step === n ? tierChoice : null);
   // Publishing uses the oldest paid Silver / Gold listing (activate_listing_with_entitlement).
   const { silver, gold } = flags.listingCredits;

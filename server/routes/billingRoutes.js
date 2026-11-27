@@ -9,6 +9,10 @@ const { videoListingAllowance } = require('../lib/videoEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
 const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans, mpesaPhone } = require('../lib/listingTiers');
+const { PLAN_CATEGORIES, categoriesCovered, planAllowance } = require('../lib/listingLive');
+
+// A checkout this old that never finished is asked about at Paystack before another can start.
+const UNFINISHED_CHECKOUT_MS = 15 * 60 * 1000;
 
 // Monthly plans still sold. Property and Shops & Offices sell Silver and Gold
 // per listing instead (/billing/listing-checkout).
@@ -19,7 +23,7 @@ const VALID_PLAN_IDS = new Set([
   'venue_basic', 'venue_pro', 'venue_premium',
 ]);
 
-// Niches whose plans unlock features only; publishing is not capped yet.
+// Airbnb, Hotel and Venue: monthly plans; Airbnb and Venue plans cap the listings online.
 const FEATURE_PLAN_NICHES = new Set(['airbnb', 'hotel', 'venue']);
 
 /** The billing_plans.niche for a host's posting niche. */
@@ -185,7 +189,15 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       // Video: how many listings the plan allows a video on, and how many have one (server/lib/videoEntitlement.js).
       entitlements.videoListings = entitlements.listingTiers ? { limit: 0, used: 0 } : await videoListingAllowance(supabaseAdmin, user.id);
       const limit = Number(entitlements.listingLimit);
-      if (!entitlements.active) {
+      const hostCategory = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
+      const plan = entitlements.active && PLAN_CATEGORIES.has(hostCategory) ? await planAllowance(supabaseAdmin, user.id, hostCategory) : null;
+      if (plan && plan.limit) {
+        // Airbnb and Venue: the plan's listings online now against its cap.
+        entitlements.canCreateAnotherListing = {
+          allowed: plan.used < plan.limit, limit: plan.limit, activeCount: plan.used, planId: plan.planId,
+          reason: plan.used < plan.limit ? null : `Your ${plan.planName} plan includes ${plan.limit} listings online.`,
+        };
+      } else if (!entitlements.active) {
         entitlements.canCreateAnotherListing = { allowed: false, limit: null, activeCount: 0, reason: 'No active niche subscription.' };
       } else if (!Number.isInteger(limit) || limit < 1 || !['property', 'shops_offices'].includes(entitlements.subscription.niche)) {
         entitlements.canCreateAnotherListing = { allowed: true, limit: null, activeCount: 0, reason: null };
@@ -226,9 +238,19 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     if (existingError) return res.status(500).json({ error: 'Unable to check the current subscription' });
     if (existing && existing.status === 'pending') {
       const { data: lastPayment, error: lastPaymentError } = await supabaseAdmin.from('billing_payments')
-        .select('id,status').eq('subscription_id', existing.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        .select('id,status,provider_reference,created_at').eq('subscription_id', existing.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (lastPaymentError) return res.status(500).json({ error: 'Unable to check the pending subscription payment' });
-      if (!lastPayment || ['failed', 'abandoned', 'refunded'].includes(lastPayment.status)) {
+      let lastStatus = lastPayment && lastPayment.status;
+      // A checkout left unfinished: Paystack says how it ended, so an abandoned one never locks the host out.
+      if (lastPayment && ['initialized', 'pending'].includes(lastStatus) && Date.now() - new Date(lastPayment.created_at).getTime() > UNFINISHED_CHECKOUT_MS) {
+        try { lastStatus = (await applyVerifiedTransaction(supabaseAdmin, await paystack.verifyTransaction(lastPayment.provider_reference))).payment.status; }
+        catch { return res.status(503).json({ error: 'Unable to check your previous checkout. Please try again shortly.' }); }
+      }
+      if (lastStatus === 'succeeded') return res.status(409).json({ error: 'Your previous plan payment went through. Refresh the page to see your plan.' });
+      if (lastPayment && ['initialized', 'pending'].includes(lastStatus)) {
+        return res.status(409).json({ error: 'Your previous checkout is still open. Finish it, or try again in a few minutes.' });
+      }
+      if (!lastPayment || ['failed', 'abandoned', 'refunded'].includes(lastStatus)) {
         const { error: staleSubscriptionError } = await supabaseAdmin.from('host_subscriptions')
           .update({ status: 'failed' }).eq('id', existing.id).eq('status', 'pending');
         if (staleSubscriptionError) return res.status(500).json({ error: 'Unable to clear the previous failed subscription attempt' });
@@ -254,11 +276,8 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
         }
       } else if (targetLimit <= currentLimit) return res.status(409).json({ error: 'Choose a plan with a higher listing allowance to upgrade.' });
       if (currentLimit > 0 && targetLimit > 0) {
-        const activeListingsQuery = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
-          .eq('host_id', user.id).eq('availability_status', 'available').is('paid_listing_until', null);
-        if (niche === 'property') activeListingsQuery.eq('category', 'property');
-        else activeListingsQuery.in('category', ['shop', 'office']);
-        const { count, error: activeListingsError } = await activeListingsQuery;
+        const { count, error: activeListingsError } = await supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+          .eq('host_id', user.id).eq('availability_status', 'available').is('paid_listing_until', null).in('category', categoriesCovered(niche));
         if (activeListingsError) return res.status(503).json({ error: 'Unable to reconcile the current listing allowance' });
         activeListingCount = count || 0;
       }

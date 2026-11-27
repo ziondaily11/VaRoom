@@ -228,21 +228,22 @@ test('the review has only Publish; Pay to list and Go Pro are gone', () => {
 });
 
 test('the Silver / Gold choice covers the showing step until a paid listing is there to use', () => {
-  assert.match(page, /const tierChoice = showTierChoice && !flags\.publishBlocked && choiceCards\.length \? <ListingTierChoice /);
+  assert.match(page, /const tierChoice = showTierChoice && !flags\.publishBlocked && choiceCards\.length\s*\? <ListingTierChoice /);
   for (let step = 1; step <= 6; step += 1) assert.ok(page.includes(`<StepFrame step={${step}} active={step === ${step}} overlay={overlayFor(${step})}`), `step ${step}`);
   assert.match(page, /hasListingCredit: hasListingCredit\(flags\)/, 'a paid listing counts as covered');
   assert.match(page, /'Choose Silver or Gold before publishing this listing\.'/);
-  assert.match(page, /'Choose a plan before publishing this listing\.'/);
+  assert.match(page, /state\.flags\.planLimit \? 'Upgrade your plan, or pause a listing, before publishing this one\.' : 'Choose a plan before publishing this listing\.'/);
   // Silver / Gold for Property and Shops & Offices; the niche's monthly plans otherwise.
-  assert.match(page, /const choiceCards = isPaidNiche\(category\) \? LISTING_TIER_CARDS : \(NICHE_PLAN_CARDS\[category\] \|\| \[\]\);/);
+  // At an Airbnb or Venue plan's listing cap: that plan and the ones above it.
+  assert.match(page, /const choiceCards = isPaidNiche\(category\) \? LISTING_TIER_CARDS\s*: flags\.planLimit \? upgradeCards\(NICHE_PLAN_CARDS\[category\] \|\| \[\], flags\.planLimit\.planId\) : \(NICHE_PLAN_CARDS\[category\] \|\| \[\]\);/);
 });
 
 test('paying for Silver / Gold happens in the VaRoom window over the wizard; the draft carries on', () => {
-  assert.match(page, /<ListingTierChoice cards=\{choiceCards\} onChoose=\{setCheckoutCard\} \/>/);
+  assert.match(page, /<ListingTierChoice cards=\{choiceCards\} limit=\{isPlanNiche\(category\) \? flags\.planLimit : null\} onChoose=\{setCheckoutCard\} \/>/);
   // M-Pesa for Silver / Gold; monthly plans renew on cards only.
   assert.match(page, /<CheckoutWindow open allowMpesa=\{Boolean\(checkoutCard\.perListing\)\}/);
   assert.match(tierPayment, /if \(!checkoutCard\.perListing\) return startCheckout\(accessToken, checkoutCard\.id\);/);
-  assert.match(tierPayment, /setFlags\(\(previous\) => \(\{ \.\.\.previous, hasActiveNichePlan: true \}\)\);/, 'a confirmed plan unlocks publishing in place');
+  assert.match(tierPayment, /setFlags\(\(previous\) => \(\{ \.\.\.previous, hasActiveNichePlan: true, planLimit: null \}\)\);/, 'a confirmed plan (or upgrade) unlocks publishing in place');
   assert.match(tierPayment, /startListingTierCheckout\(accessToken, checkoutCard\.id as ListingTier, payment, \{ draft: !editMode && current \? current\.draftId : null, edit: editMode \? editListingId : null \}\)/);
   assert.match(tierPayment, /return checkListingPayment\(accessToken, reference, \{ waitingForPin \}\)/);
   assert.match(tierPayment, /listingCredits: \{ \.\.\.previous\.listingCredits, \[tier\]: previous\.listingCredits\[tier\] \+ 1 \}/, 'the confirmed payment unlocks the wizard in place');
@@ -345,4 +346,30 @@ test('office and shop: about 25 questions; amounts the server needs are required
   const saved = os.collectOfficeShopDetails(form, 'office');
   assert.equal(saved.amenities.power_note, '3-phase');
   assert.equal(saved.lease.lock_in, '12 months');
+});
+
+test('at a plan\'s listing cap the choice becomes an upgrade: the host\'s plan marked current, the plans above it to pick', () => {
+  const airbnb = pricingCards.NICHE_PLAN_CARDS.airbnb;
+  const render = (planId, limit) => renderToStaticMarkup(React.createElement(ListingTierChoice, {
+    cards: pricingCards.upgradeCards(airbnb, planId), limit: { planId, limit }, onChoose: noop,
+  }));
+  const starter = render('airbnb_starter', 2);
+  assert.match(starter, /<h2 class="tier-choice-title" id="tier-choice-title">Upgrade to list more<\/h2>/);
+  assert.match(starter, /Your Starter plan includes 2 listings online, and all are in use\. Upgrade for more, or pause a listing to publish this one\./);
+  assert.deepEqual([...starter.matchAll(/class="plan-name" id="[\w-]+">(\w+)</g)].map((match) => match[1]), ['Starter', 'Pro', 'Business']);
+  assert.match(starter, /data-plan="airbnb_starter"[\s\S]*?aria-current="true" disabled="">Current Plan<\/button>/);
+  assert.match(starter, /Go Pro<\/button>[\s\S]*Choose Business<\/button>/);
+  assert.match(starter, /href="\/host-home"[^>]*>Not now, back to Home<\/a>/);
+
+  // From Pro: Pro and Business; the cheaper Starter is never offered.
+  assert.deepEqual(pricingCards.upgradeCards(airbnb, 'airbnb_pro').map((card) => card.id), ['airbnb_pro', 'airbnb_business']);
+  // An older plan the niche doesn't sell: every plan.
+  assert.equal(pricingCards.upgradeCards(airbnb, 'growth').length, 3);
+
+  // On the largest plan: nothing above it, so pausing a listing is the way.
+  const business = render('airbnb_business', 15);
+  assert.match(business, /Your Business plan includes 15 listings online, and all are in use\. Pause a listing to publish this one\./);
+  assert.match(business, /class="plans plans--one"/);
+  const styles = fs.readFileSync(path.join(root, 'components', 'pricing', 'pricingStyles.ts'), 'utf8');
+  assert.match(styles, /\.pricing-page \.plans\.plans--one\{ grid-template-columns:calc\(\(100% - 3\.2em\) \/ 3\); justify-content:center; \}/, 'a single card sits centred');
 });

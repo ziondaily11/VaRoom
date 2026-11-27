@@ -36,7 +36,7 @@ export function listingAction(listing: ActionListing): ListingAction {
   return 'Book';
 }
 
-// ---------- When it changes hands (migration 000085) ----------
+// ---------- When it changes hands (migration 000087) ----------
 
 export type ListingOutcome = 'sold' | 'rented' | 'leased';
 

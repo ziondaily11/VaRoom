@@ -34,6 +34,8 @@ export interface Flags {
   /** Marked sold, rented or leased: editing never puts it back online (Relist does). */
   listingIsMarked: boolean;
   hasActiveNichePlan: boolean;
+  /** Airbnb, Venue: the plan's listings are all online; the plan choice offers an upgrade. */
+  planLimit: { planId: string; limit: number } | null;
   /** Paid Silver / Gold listings not yet used (publishing uses the oldest). */
   listingCredits: ListingCredits;
   /** Listings the host's plan allows a video on, and how many already have one. */
@@ -44,7 +46,7 @@ export interface Flags {
 
 export const INITIAL_FLAGS: Flags = {
   paymentVerified: false, returnedPaymentVerified: false, subscriptionVerified: false, hasCurrentListingFee: false, entitlementChecked: false,
-  listingIsPaused: false, listingNeedsPublication: false, listingIsMarked: false, hasActiveNichePlan: false, listingCredits: { silver: 0, gold: 0 }, videoListings: { limit: 0, used: 0 }, publishBlocked: false,
+  listingIsPaused: false, listingNeedsPublication: false, listingIsMarked: false, hasActiveNichePlan: false, planLimit: null, listingCredits: { silver: 0, gold: 0 }, videoListings: { limit: 0, used: 0 }, publishBlocked: false,
 };
 
 export const hasListingCredit = (flags: Pick<Flags, 'listingCredits'>) => flags.listingCredits.silver + flags.listingCredits.gold > 0;
@@ -259,6 +261,7 @@ export async function startWizard(deps: StartupDeps): Promise<StartupOutcome> {
     try {
       const entitlement = await fetchListingEntitlement(accessToken, niche);
       flags.hasActiveNichePlan = entitlement.planActive;
+      flags.planLimit = entitlement.limitReached;
       flags.listingCredits = entitlement.credits;
       flags.videoListings = entitlement.videoListings;
       flags.entitlementChecked = true;

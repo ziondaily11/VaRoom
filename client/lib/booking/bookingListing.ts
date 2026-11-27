@@ -58,7 +58,7 @@ export interface BookingListing {
   address_visibility: string | null;
   category: string | null;
   listing_purpose: string | null;
-  /** A sale property with an offer in progress (migration 000085). */
+  /** A sale property with an offer in progress (migration 000087). */
   under_offer?: boolean | null;
   verified: boolean | null;
   availability_status: string | null;

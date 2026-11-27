@@ -18,7 +18,7 @@ export interface FeedListing {
   listing_purpose?: string | null;
   supports_stay?: boolean | null;
   supports_table_reservation?: boolean | null;
-  /** A sale property with an offer in progress (migration 000085). */
+  /** A sale property with an offer in progress (migration 000087). */
   under_offer?: boolean | null;
   verified: boolean | null;
   availability_status: string | null;

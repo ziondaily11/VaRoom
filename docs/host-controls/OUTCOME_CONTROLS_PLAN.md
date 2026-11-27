@@ -119,7 +119,7 @@ Marking an outcome clears that account's analytics cache (`invalidateAnalytics`,
 
 ## Database migrations (the owner runs them)
 
-**`20261127_000085_listing_outcomes.sql`**
+**`20261127_000087_listing_outcomes.sql`**
 - CHECK constraint: add `'sold', 'rented', 'leased'`.
 - `listings.under_offer boolean not null default false`.
 - Table `listing_outcomes`:
@@ -136,17 +136,17 @@ Marking an outcome clears that account's analytics cache (`invalidateAnalytics`,
 - RLS: the host reads their own rows; no client writes.
 - One `security definer` function each for record, void and set-under-offer. Each checks ownership and that the outcome fits the category and purpose, then updates units, status and the record in one transaction. The server calls them with the service role.
 
-**`20261127_000086_analytics_outcomes.sql`**
+**`20261127_000088_analytics_outcomes.sql`**
 - Redefines `host_analytics_period` and `host_analytics_overview` from their latest versions, adding the outcome fields and the per-listing column.
 
-Run order: 000085 before the first PR deploys, 000086 before the second. As a safety net, the client also treats missing analytics fields as 0, so a deploy that lands first can't break the page.
+Run order: 000087 before the first PR deploys, 000088 before the second. As a safety net, the client also treats missing analytics fields as 0, so a deploy that lands first can't break the page.
 
 ## Delivery
 
 Two PRs on one branch line:
 
-1. **Controls:** migration 000085, server routes (`POST /api/listings/:id/outcomes`, `POST /api/listings/:id/outcomes/:outcomeId/void`, `POST /api/listings/:id/relist`, `PATCH /api/listings/:id/under-offer`), menu per niche, dialogs, badges, the approve prompt, and the fixes in "Other places to fix".
-2. **Analytics:** migration 000086, `analyticsApi.ts`, `types.ts`, `niche.ts`, the listings table and tests.
+1. **Controls:** migration 000087, server routes (`POST /api/listings/:id/outcomes`, `POST /api/listings/:id/outcomes/:outcomeId/void`, `POST /api/listings/:id/relist`, `PATCH /api/listings/:id/under-offer`), menu per niche, dialogs, badges, the approve prompt, and the fixes in "Other places to fix".
+2. **Analytics:** migration 000088, `analyticsApi.ts`, `types.ts`, `niche.ts`, the listings table and tests.
 
 ## Tests
 
@@ -162,7 +162,7 @@ Two PRs on one branch line:
 
 ## Deploy order (part 1)
 
-The feeds, marketplace, Saved, profile cards and booking page read `listings.under_offer`. **Run migration 000085 before this code deploys**, or those reads fail ("column listings.under_offer does not exist", checked against production on 2026-11-27). The home feed cache moves to version 4, so cards cached without the new fields are fetched again.
+The feeds, marketplace, Saved, profile cards and booking page read `listings.under_offer`. **Run migration 000087 before this code deploys**, or those reads fail ("column listings.under_offer does not exist", checked against production on 2026-11-27). The home feed cache moves to version 4, so cards cached without the new fields are fetched again.
 
 ## Risks
 

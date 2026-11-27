@@ -154,7 +154,7 @@ test('outcomes are recorded only through record_listing_outcome, which clients c
   const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
   // Outcomes are recorded only through record_listing_outcome, never as a plain status.
   assert.match(routes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\);/);
-  const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261127_000085_listing_outcomes.sql'), 'utf8');
+  const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261127_000087_listing_outcomes.sql'), 'utf8');
   assert.match(migration, /grant execute on function public\.record_listing_outcome\(uuid, uuid, text, integer, numeric, uuid\) to service_role;/);
   assert.match(migration, /revoke all on function public\.record_listing_outcome\(uuid, uuid, text, integer, numeric, uuid\) from public, anon, authenticated;/);
 });
