@@ -5,6 +5,7 @@ const { createNotification } = require('../lib/notifications');
 const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
 const enforcement = require('../lib/enforcement');
 const { ticketRef } = require('../lib/supportInbox');
+const investigation = require('../lib/adminInvestigation');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -447,19 +448,26 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ data: users });
   });
 
-  router.get('/users/:id', adminAuth, async (req, res) => {
-    const [{ data: userData, error: userError }, profileResult, listingsResult, activityResult, actionsResult] = await Promise.all([
-      supabaseAdmin.auth.admin.getUserById(req.params.id),
-      supabaseAdmin.from('profiles').select('id,full_name,username').eq('id', req.params.id).maybeSingle(),
-      supabaseAdmin.from('listings').select('id,title,created_at,availability_status,moderation_status,moderation_reason').eq('host_id', req.params.id).order('created_at', { ascending: false }),
-      supabaseAdmin.from('admin_activity').select('*').eq('target_id', req.params.id).order('created_at', { ascending: false }),
-      supabaseAdmin.from('account_enforcement_actions').select('id,action,reason,rule_key,suspended_until,created_at,admin:admins(name)')
-        .eq('user_id', req.params.id).order('created_at', { ascending: false }),
-    ]);
-    if (userError || !userData.user) return res.status(404).json({ error: 'User not found' });
-    const { data: control } = await supabaseAdmin.from('account_controls').select('*').eq('user_id', req.params.id).maybeSingle();
-    return res.json({ user: { id: userData.user.id, email: userData.user.email, created_at: userData.user.created_at, last_sign_in_at: userData.user.last_sign_in_at, profile: profileResult.data || null, account: accountOf(control, userData.user.banned_until) }, listings: listingsResult.data || [], activity: activityResult.data || [], actions: actionsResult.data || [] });
+  // The whole picture of one account (lib/adminInvestigation.js).
+  router.get('/users/:id', adminAuth, caught(async (req, res) => {
+    const overview = await investigation.accountOverview(supabaseAdmin, req.params.id);
+    if (!overview) return res.status(404).json({ error: 'User not found' });
+    return res.json(overview);
+  }));
+
+  // Private notes on an account: for admins only, never shown to the person.
+  router.post('/users/:id/notes', ...adminWrite, async (req, res) => {
+    const body = String(req.body && req.body.body || '').trim();
+    if (!body || body.length > 4000) return res.status(400).json({ error: 'A note of up to 4,000 characters is required' });
+    const { data, error } = await supabaseAdmin.from('admin_notes').insert({ user_id: req.params.id, admin_id: req.admin.id, body })
+      .select('id,body,created_at').single();
+    if (error) return res.status(400).json({ error: error.message });
+    await logActivity(req.admin, 'account_note_added', 'user', req.params.id, null);
+    return res.status(201).json({ note: { ...data, admin: { name: req.admin.name } } });
   });
+
+  // One search box: accounts, listings, tickets (also by #REF) and payments (by reference).
+  router.get('/search', adminAuth, caught(async (req, res) => res.json(await investigation.search(supabaseAdmin, req.query.q))));
 
   // Saved replies for the Support section ({{name}} and {{ticket}} are filled in there).
   router.get('/support/templates', adminAuth, async (_req, res) => {
@@ -587,18 +595,28 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ data: (data || []).map((listing) => ({ ...listing, owner: ownerById[listing.host_id] || null })) });
   });
 
+  /** Hides, takes down or restores a listing, audited. Resolves the listing, or null when there is none. */
+  async function moderateListing(admin, listingId, status, reason) {
+    const changes = { moderation_status: status, moderation_reason: reason || null, moderated_at: new Date().toISOString(), moderated_by: admin.id };
+    if (status === 'removed') changes.availability_status = 'unavailable';
+    const { data, error } = await supabaseAdmin.from('listings').update(changes).eq('id', listingId).select().maybeSingle();
+    if (error) throw error;
+    if (data) await logActivity(admin, status === 'active' ? 'listing_restored' : `listing_${status}`, 'listing', data.id, reason);
+    return data;
+  }
+
   router.post('/listings/:id/moderation', ...adminWrite, async (req, res) => {
     const status = String(req.body && req.body.status || '');
     if (!['active', 'hidden', 'removed'].includes(status)) return res.status(400).json({ error: 'Invalid moderation status' });
     const reason = status === 'active' ? String(req.body && req.body.reason || '').trim() : requiredReason(req, res);
     if (reason === null) return;
-    const changes = { moderation_status: status, moderation_reason: reason || null, moderated_at: new Date().toISOString(), moderated_by: req.admin.id };
-    if (status === 'removed') changes.availability_status = 'unavailable';
-    const { data, error } = await supabaseAdmin.from('listings').update(changes).eq('id', req.params.id).select().maybeSingle();
-    if (error) return res.status(400).json({ error: error.message });
-    if (!data) return res.status(404).json({ error: 'Listing not found' });
-    await logActivity(req.admin, status === 'active' ? 'listing_restored' : `listing_${status}`, 'listing', data.id, reason);
-    return res.json({ listing: data });
+    try {
+      const data = await moderateListing(req.admin, req.params.id, status, reason);
+      if (!data) return res.status(404).json({ error: 'Listing not found' });
+      return res.json({ listing: data });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
   });
 
   router.get('/updates', adminAuth, async (_req, res) => {
@@ -654,20 +672,69 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.get('/reports', adminAuth, async (req, res) => {
-    let query = supabaseAdmin.from('listing_reports').select('*, listing:listings(title)').order('created_at', { ascending: false });
+    let query = supabaseAdmin.from('listing_reports').select('*, listing:listings(title,host_id,moderation_status)').order('created_at', { ascending: false });
     if (req.query.status) query = query.eq('status', req.query.status);
     const { data, error } = await query;
     if (error) return res.status(502).json({ error: error.message });
-    return res.json({ data: (data || []).map((report) => ({ ...report, listing: report.listing && report.listing.title, reporter: report.reporter_user_id, createdAt: report.created_at })) });
+    const ids = [...new Set((data || []).flatMap((r) => [r.reporter_user_id, r.listing && r.listing.host_id]).filter(Boolean))];
+    const { data: profiles } = ids.length ? await supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids) : { data: [] };
+    const nameOf = Object.fromEntries((profiles || []).map((p) => [p.id, p.full_name || p.username]));
+    return res.json({ data: (data || []).map((report) => ({
+      ...report,
+      listing: report.listing && report.listing.title,
+      host_id: report.listing && report.listing.host_id,
+      host: report.listing && nameOf[report.listing.host_id] || null,
+      listing_moderation: report.listing && report.listing.moderation_status,
+      reporter: nameOf[report.reporter_user_id] || report.reporter_user_id,
+      createdAt: report.created_at,
+    })) });
   });
 
+  // Resolving a report can act at the same time: on the listing (hide, take
+  // down) or on its host's account (warn, suspend until reviewed).
+  const LISTING_REPORT_ACTIONS = {
+    hide_listing: { listing: 'hidden' }, remove_listing: { listing: 'removed' },
+    warn_host: { account: 'warning' }, suspend_host: { account: 'suspended' },
+  };
+  // On a chat report, the action is on the reported person's account.
+  const USER_REPORT_ACTIONS = {
+    warn: { account: 'warning' }, suspend_7_days: { account: 'suspended', days: 7 },
+    suspend: { account: 'suspended' }, disable: { account: 'disabled' },
+  };
+
+  /** Validates a report action; responds and returns null when it is not allowed. */
+  function reportAction(req, res, actions) {
+    const key = req.body && req.body.action;
+    if (!key) return {};
+    const action = actions[key];
+    if (!action) { res.status(400).json({ error: 'Invalid report action' }); return null; }
+    if (action.account && req.admin.role !== 'super_admin') { res.status(403).json({ error: 'Only a super admin can act on an account' }); return null; }
+    const reason = requiredReason(req, res);
+    return reason === null ? null : { ...action, key, reason };
+  }
+
   router.patch('/reports/:id', ...adminWrite, async (req, res) => {
-    if (!['pending', 'reviewed', 'actioned', 'dismissed', 'resolved'].includes(req.body && req.body.status)) return res.status(400).json({ error: 'Invalid report status' });
-    const update = { status: req.body.status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() };
-    const { data, error } = await supabaseAdmin.from('listing_reports').update(update).eq('id', req.params.id).select().single();
-    if (error) return res.status(400).json({ error: error.message });
-    await logActivity(req.admin, `listing_report_${req.body.status}`, 'listing_report', data.id, String(req.body.reason || '').trim());
-    return res.json({ report: data });
+    const action = reportAction(req, res, LISTING_REPORT_ACTIONS);
+    if (!action) return;
+    const status = action.key ? 'actioned' : req.body && req.body.status;
+    if (!['pending', 'reviewed', 'actioned', 'dismissed', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid report status' });
+    try {
+      if (action.key) {
+        const { data: report, error } = await supabaseAdmin.from('listing_reports').select('listing_id, listing:listings(host_id)').eq('id', req.params.id).maybeSingle();
+        if (error) throw error;
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+        if (action.listing) await moderateListing(req.admin, report.listing_id, action.listing, action.reason);
+        if (action.account) await enforcement.applyAction(supabaseAdmin, { userId: report.listing.host_id, action: action.account, reason: action.reason, adminId: req.admin.id });
+      }
+      const update = { status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() };
+      const { data, error } = await supabaseAdmin.from('listing_reports').update(update).eq('id', req.params.id).select().maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: 'Report not found' });
+      await logActivity(req.admin, `listing_report_${status}`, 'listing_report', data.id, action.reason || String(req.body.reason || '').trim(), action.key ? { action: action.key } : {});
+      return res.json({ report: data });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
   });
 
   router.get('/user-reports', adminAuth, async (req, res) => {
@@ -694,14 +761,36 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.patch('/user-reports/:id', ...adminWrite, async (req, res) => {
-    const status = String(req.body && req.body.status || '');
+    const action = reportAction(req, res, USER_REPORT_ACTIONS);
+    if (!action) return;
+    const status = action.key ? 'actioned' : String(req.body && req.body.status || '');
     if (!['pending', 'reviewed', 'actioned', 'dismissed', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid report status' });
-    const { data, error } = await supabaseAdmin.from('chat_user_reports').update({ status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
-    if (error) return res.status(400).json({ error: error.message });
-    if (!data) return res.status(404).json({ error: 'User report not found' });
-    await logActivity(req.admin, `user_report_${status}`, 'user_report', data.id, String(req.body && req.body.reason || '').trim());
-    return res.json({ report: data });
+    try {
+      if (action.key) {
+        const { data: report, error } = await supabaseAdmin.from('chat_user_reports').select('reported_user_id').eq('id', req.params.id).maybeSingle();
+        if (error) throw error;
+        if (!report) return res.status(404).json({ error: 'User report not found' });
+        await enforcement.applyAction(supabaseAdmin, { userId: report.reported_user_id, action: action.account, days: action.days || null, reason: action.reason, adminId: req.admin.id });
+      }
+      const { data, error } = await supabaseAdmin.from('chat_user_reports').update({ status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: 'User report not found' });
+      await logActivity(req.admin, `user_report_${status}`, 'user_report', data.id, action.reason || String(req.body && req.body.reason || '').trim(), action.key ? { action: action.key } : {});
+      return res.json({ report: data });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
   });
+
+  // The reported conversation, for the admin investigating the report. Only
+  // reported conversations can be read (Privacy Policy), and every reading is
+  // recorded in Admin activity.
+  router.get('/user-reports/:id/conversation', ...adminWrite, caught(async (req, res) => {
+    const result = await investigation.reportedConversation(supabaseAdmin, req.params.id);
+    if (!result) return res.status(404).json({ error: 'User report not found' });
+    await logActivity(req.admin, 'reported_conversation_viewed', 'user_report', req.params.id, null, { conversation_id: result.report.conversation_id });
+    return res.json(result);
+  }));
 
   // Reviews of VaRoom itself. Approving one lets it appear on the sign-in
   // panel (the most recently approved one is shown); hiding takes it down.
