@@ -1,6 +1,6 @@
 # Host calendar: UI redesign plan
 
-Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, migration 000096) on `claude/calendar-ui-shell`.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
+Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, 000096) merged (#765). PR 2 (Week and Day views) on `claude/calendar-week-day`.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
 
 References: Prodless (week grid, date tile, details panel), Chronicle (filters with colours, Day/Week/Month, all-day row, popover), the "Today's schedule" app (day timeline, pinned cards, widgets).
 

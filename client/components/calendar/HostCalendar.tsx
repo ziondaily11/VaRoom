@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { calendarMonth, dayLabel, ksh, plural, shiftMonth, todayString } from '../../lib/booking/bookingListing';
+import { calendarMonth, dayLabel, ksh, plural, todayString } from '../../lib/booking/bookingListing';
 import {
-  cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth, monthRange,
+  cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth,
   minutesOf, monthSummary, parsePrice, plannerSummary, priceOn, setClosed, setDatePrice, setHours, setWeekdays, weekday,
   type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
 } from '../../lib/calendar/hostCalendar';
 import {
-  ALL_SHOWN, EVENT_HEX, buildItems, itemsOn, monthWeeks, placeColor, saveMode, savedMode, upcoming,
+  ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, upcoming, visibleRange, weekDays,
   type CalendarItem, type CalendarMode, type ShowKey,
 } from '../../lib/calendar/calendarView';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
@@ -23,11 +23,13 @@ import PlaceSettings from './PlaceSettings';
 import { DayPrice } from './PricePanel';
 import EventForm from './EventForm';
 import Timeline from './Timeline';
+import { DayView, WeekView } from './TimeGrid';
 
 // The host's Calendar (docs/host-controls/CALENDAR_UI_PLAN.md): a header with
 // the date and the views; on the left a mini month, the places (each in its
 // colour), what to show and what's coming up; in the middle the month, where
-// stays are bars from check-in to check-out; on the right an overview, the
+// stays are bars from check-in to check-out (or Week and Day: an hour grid,
+// with stays in an all-day row); on the right an overview, the
 // chosen day or the chosen entry. A place's settings (prices, availability,
 // sync) open in a drawer. Below 1280px the side columns slide over the page.
 // Property, office and shop listings are planned, not booked by the night:
@@ -45,10 +47,21 @@ interface Props { client: SupabaseClient; hostId: string; listingId: string | nu
 export default function HostCalendar({ client, hostId, listingId, onListingChange }: Props) {
   const toast = useToast();
   const today = todayString();
-  const [view, setView] = useState(() => ({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) - 1 }));
-  const [data, setData] = useState<HostCalendarData | null>(() => cachedMonth(hostId, view.year, view.month)?.data || null);
+  const [focus, setFocus] = useState(today);
+  const [mode, setModeState] = useState<CalendarMode | null>(() => savedMode(hostId));
+  // Phones start on Day (decided once; layout itself is CSS).
+  const [phone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches);
+  const [listingsSeen, setListingsSeen] = useState<CalendarListing[]>([]);
+  const chosenMode: CalendarMode = mode ?? defaultMode(listingsSeen, phone);
+  const loadRange = visibleRange(chosenMode === 'timeline' ? 'month' : chosenMode, focus);
+  const months = useMemo(() => monthsOf(loadRange.from, loadRange.to), [loadRange.from, loadRange.to]);
+  const monthsKey = months.map((m) => `${m.year}-${m.month}`).join(',');
+  const cachedAll = () => {
+    const parts = months.map((m) => cachedMonth(hostId, m.year, m.month)?.data);
+    return parts.every(Boolean) ? mergeData(parts as HostCalendarData[]) : null;
+  };
+  const [data, setData] = useState<HostCalendarData | null>(cachedAll);
   const [failed, setFailed] = useState(false);
-  const [mode, setModeState] = useState<CalendarMode>(() => savedMode(hostId));
   const [selection, setSelection] = useState<Selection>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
@@ -61,30 +74,38 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [rangePrice, setRangePrice] = useState('');
   const [form, setForm] = useState<{ event: CalendarEvent | null; day?: string; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
 
-  const refresh = useCallback((force: boolean) => {
-    const { year, month } = view;
-    return loadMonth(client, hostId, year, month, force).then((next) => { setData(next); setFailed(false); });
-  }, [client, hostId, view]);
+  const loadAll = useCallback((force: boolean) => Promise.all(months.map((m) => loadMonth(client, hostId, m.year, m.month, force))).then(mergeData),
+    // The months are keyed by monthsKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, hostId, monthsKey]);
+  const refresh = useCallback((force: boolean) => loadAll(force).then((next) => { setData(next); setFailed(false); }), [loadAll]);
 
   useEffect(() => {
     let active = true;
-    setData(cachedMonth(hostId, view.year, view.month)?.data || null);
-    loadMonth(client, hostId, view.year, view.month).then((next) => {
+    setData(cachedAll());
+    loadAll(false).then((next) => {
       if (!active) return;
       setData(next);
+      setListingsSeen(next.listings);
       setFailed(false);
-      const after = shiftMonth(view.year, view.month, 1);
+      // The next month, in the background, for a quick step forward.
+      const last = months[months.length - 1];
+      const after = last.month === 11 ? { year: last.year + 1, month: 0 } : { year: last.year, month: last.month + 1 };
       void loadMonth(client, hostId, after.year, after.month).catch(() => undefined);
     }, (error: unknown) => {
       console.error('Calendar: the month could not be loaded:', error);
       if (active) setFailed(true);
     });
     return () => { active = false; };
-  }, [client, hostId, view]);
+    // The months are keyed by monthsKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadAll]);
 
   // ---------- What is shown ----------
 
-  const month = calendarMonth(view.year, view.month);
+  const focusYear = Number(focus.slice(0, 4));
+  const focusMonth = Number(focus.slice(5, 7)) - 1;
+  const month = calendarMonth(focusYear, focusMonth);
   const all = useMemo(() => data?.listings || [], [data]);
   const byId = useMemo(() => new Map(all.map((l) => [l.id, l])), [all]);
   const colors = useMemo(() => new Map(all.map((l, i) => [l.id, placeColor(i)])), [all]);
@@ -110,11 +131,12 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const planned = useMemo(() => (data && plannerOnly ? plannerSummary(data, shownIds, month.days[0], month.days[month.days.length - 1]) : null),
     [data, plannerOnly, shownIds, month.days]);
 
-  // Each day's state: closed, cleaning, double booked, rooms left, a special price.
+  const viewDays = useMemo(() => (chosenMode === 'week' ? weekDays(focus) : chosenMode === 'day' ? [focus] : month.days), [chosenMode, focus, month.days]);
+  // Each shown day's state: closed, cleaning, double booked, rooms left, a special price.
   const info = useMemo(() => {
     const map = new Map<string, DayInfo>();
     const showClosed = show.has('closed');
-    month.days.forEach((day) => {
+    viewDays.forEach((day) => {
       const taking = bookings.filter((b) => covers(b, byId.get(b.listing_id), day));
       const offline = events.filter((e) => e.blocks && eventOn(e, day));
       const closedCount = stays.filter((l) => closedAt(l.id, day)).length;
@@ -144,13 +166,13 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       });
     });
     return map;
-  }, [month.days, bookings, events, byId, stays, closedAt, stay, data, today, show]);
+  }, [viewDays, bookings, events, byId, stays, closedAt, stay, data, today, show]);
   const busyDays = useMemo(() => new Set(month.days.filter((day) => itemsOn(items, day).length > 0)), [month.days, items]);
 
   // ---------- Actions ----------
 
   const apply = async (targets: CalendarListing[], from: string, to: string | null, closed: boolean) => {
-    const last = to || monthRange(view.year, view.month).to;
+    const last = to || visibleRange('month', focus).to;
     const next = new Map(overrides);
     targets.forEach((l) => daysBetweenInclusive(from < today ? today : from, last).forEach((day) => next.set(`${l.id}|${day}`, closed)));
     setOverrides(next);
@@ -237,7 +259,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       setRange(!range.start || range.end ? { start: day, end: null } : { start: day < range.start ? day : range.start, end: day < range.start ? range.start : day });
       return;
     }
-    if (day.slice(0, 7) !== `${view.year}-${String(view.month + 1).padStart(2, '0')}`) setView({ year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 });
+    if (chosenMode === 'day' || !viewDays.includes(day)) setFocus(day);
     setSelection({ day });
     setPanelOpen(true);
     setSideOpen(false);
@@ -248,9 +270,21 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     setPanelOpen(true);
     setSideOpen(false);
   };
-  const go = (by: 1 | -1) => { setView(shiftMonth(view.year, view.month, by)); setRange((r) => (r ? { start: null, end: null } : r)); };
-  const goToday = () => { setView({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) - 1 }); setSelection({ day: today }); };
+  const shiftMonthOf = (by: 1 | -1) => {
+    const next = new Date(Date.UTC(focusYear, focusMonth + by, 1)).toISOString().slice(0, 10);
+    setFocus(next);
+    setRange((r) => (r ? { start: null, end: null } : r));
+  };
+  // ‹ › step by the view: a day, a week or a month.
+  const go = (by: 1 | -1) => {
+    if (chosenMode === 'day' || chosenMode === 'week') {
+      setFocus(new Date(Date.parse(`${focus}T00:00:00Z`) + by * (chosenMode === 'day' ? 1 : 7) * 86400000).toISOString().slice(0, 10));
+      setRange((r) => (r ? { start: null, end: null } : r));
+    } else shiftMonthOf(by);
+  };
+  const goToday = () => { setFocus(today); setSelection({ day: today }); };
   const setMode = (next: CalendarMode) => { setModeState(next); saveMode(hostId, next); };
+  const openDay = (day: string) => { setFocus(day); setMode('day'); setSelection({ day }); };
   const togglePlace = (id: string) => {
     if (listingId) onListingChange(null);
     setHidden((current) => {
@@ -326,15 +360,21 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       };
 
   const settingsListing = settingsFor ? byId.get(settingsFor) : undefined;
-  const modes: CalendarMode[] = stays.length > 1 ? ['month', 'timeline'] : ['month'];
-  const shownMode = modes.includes(mode) ? mode : 'month';
+  const modes: CalendarMode[] = stays.length > 1 ? ['day', 'week', 'month', 'timeline'] : ['day', 'week', 'month'];
+  const shownMode = modes.includes(chosenMode) ? chosenMode : 'month';
+  const gridProps = {
+    days: viewDays, items, info, today, selectedDay: selection && 'day' in selection ? selection.day : null, selectedKey: selectedItem?.key || null,
+    loading: !data, colorOf: itemColor, listingOf: (id: string | null) => (id ? byId.get(id) : undefined), onPickDay: pickDay, onPickItem: pickItem, onOpenDay: openDay,
+  };
+  const viewTitle = shownMode === 'day' ? dayLabel(focus, true)
+    : shownMode === 'week' ? `${dayLabel(viewDays[0])} – ${dayLabel(viewDays[6], true)}` : month.title;
 
   return (
     <div className="va-analytics vc">
       <style dangerouslySetInnerHTML={{ __html: CALENDAR_CSS }} />
       {toast.element}
       <div className="vc-wrap">
-        <CalendarHeader day={selectedDay || today} monthTitle={month.title} mode={shownMode} modes={modes} selecting={Boolean(range)}
+        <CalendarHeader day={selectedDay || focus} monthTitle={viewTitle} mode={shownMode} modes={modes} selecting={Boolean(range)}
           canSelect={stays.length > 0} canAdd={Boolean(data)} onMode={setMode} onPrev={() => go(-1)} onNext={() => go(1)} onToday={goToday}
           onSelect={() => setRange(range ? null : { start: null, end: null })} onAdd={() => setForm({ event: null, day: selectedDay || today })}
           onFilters={() => setSideOpen(true)} onOverview={() => { setSelection(null); setPanelOpen(true); }} />
@@ -350,22 +390,24 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
 
         {(!data || all.length > 0) && (
           <div className="vc-shell">
-            <CalendarSidebar year={view.year} month={view.month} today={today} selectedDay={selectedDay} busyDays={busyDays}
+            <CalendarSidebar year={focusYear} month={focusMonth} today={today} selectedDay={selectedDay} busyDays={busyDays}
               places={all.map((listing) => ({ listing, color: colors.get(listing.id) || NO_COLOR, shown: shownIds.has(listing.id) }))}
               show={show} coming={upcoming(items, today, 6)} colorOf={itemColor} open={sideOpen} onClose={() => setSideOpen(false)}
-              onPrev={() => go(-1)} onNext={() => go(1)} onPickDay={pickDay} onTogglePlace={togglePlace}
+              onPrev={() => shiftMonthOf(-1)} onNext={() => shiftMonthOf(1)} onPickDay={(day) => { setFocus(day); pickDay(day); }} onTogglePlace={togglePlace}
               onSettings={(l) => setSettingsFor(l.id)} onToggleShow={toggleShow} onPickItem={pickItem} />
 
-            <main className="vc-main" aria-label={month.title}>
+            <main className="vc-main" aria-label={viewTitle}>
               <div className="vc-main-head">
-                <h2 aria-live="polite">{month.title}</h2>
+                <h2 aria-live="polite">{viewTitle}</h2>
                 <div className="vc-legend" aria-hidden="true">
                   <span><i className="is-booking" />Booked</span><span><i className="is-request" />Request</span>
                   <span><i className="is-offline" />Offline</span><span><i className="is-other" />Other site</span>
                   <span><i className="is-closed" />Closed</span>
                 </div>
               </div>
-              {shownMode === 'timeline' ? (
+              {shownMode === 'week' ? <WeekView {...gridProps} />
+                : shownMode === 'day' ? <DayView {...gridProps} />
+                  : shownMode === 'timeline' ? (
                 <Timeline listings={stays} days={month.days} today={today} selected={selectedDay || today} bookings={bookings} events={events} closedAt={closedAt} onPick={pickDay} />
               ) : (
                 <MonthView weeks={monthWeeks(month.days, month.leadingBlanks)} items={items} info={info} today={today}

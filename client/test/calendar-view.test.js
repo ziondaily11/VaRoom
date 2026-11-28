@@ -74,11 +74,59 @@ test('the chosen view is remembered per host on this device', () => {
   const store = new Map();
   global.window = { localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) } };
   try {
-    assert.equal(view.savedMode('h1'), 'month');
-    view.saveMode('h1', 'timeline');
-    assert.equal(view.savedMode('h1'), 'timeline');
-    assert.equal(view.savedMode('h2'), 'month');
+    assert.equal(view.savedMode('h1'), null, 'nothing chosen yet: the default decides');
+    view.saveMode('h1', 'week');
+    assert.equal(view.savedMode('h1'), 'week');
+    assert.equal(view.savedMode('h2'), null);
+    store.set('varoom:calendar:view:v1:h3', 'nonsense');
+    assert.equal(view.savedMode('h3'), null);
   } finally {
     delete global.window;
   }
+});
+
+test('week and day: Sunday weeks across months, the grid hours, side by side when overlapping', () => {
+  assert.deepEqual(view.weekDays('2026-12-02'), ['2026-11-29', '2026-11-30', '2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05']);
+  assert.deepEqual({ ...view.visibleRange('week', '2026-12-02') }, { from: '2026-11-29', to: '2026-12-05' });
+  assert.deepEqual({ ...view.visibleRange('month', '2026-02-14') }, { from: '2026-02-01', to: '2026-02-28' });
+  assert.deepEqual({ ...view.visibleRange('day', '2026-12-02') }, { from: '2026-12-02', to: '2026-12-02' });
+  assert.deepEqual(view.monthsOf('2026-11-29', '2026-12-05').map((m) => ({ ...m })), [{ year: 2026, month: 10 }, { year: 2026, month: 11 }]);
+  assert.deepEqual(view.monthsOf('2026-12-27', '2027-01-02').map((m) => ({ ...m })), [{ year: 2026, month: 11 }, { year: 2027, month: 0 }]);
+  assert.deepEqual({ ...view.timeSpan({ time: '10:00–13:30' }) }, { from: 600, to: 810 });
+  assert.deepEqual({ ...view.timeSpan({ time: '19:30' }) }, { from: 1170, to: 1230 }, 'a table reservation takes an hour');
+  assert.equal(view.timeSpan({ time: null }), null);
+  const at = (key, time) => ({ key, time, start: '2026-12-02', end: '2026-12-02' });
+  const placed = view.layoutTimes([at('a', '10:00–12:00'), at('b', '11:00–13:00'), at('c', '12:00–13:00'), at('d', '15:00–16:00')]);
+  const by = Object.fromEntries(placed.map((p) => [p.item.key, [p.col, p.cols]]));
+  assert.deepEqual(by, { a: [0, 2], b: [1, 2], c: [0, 2], d: [0, 1] }, 'overlaps share the width; a later free slot is reused');
+  assert.deepEqual({ ...view.gridHours([at('x', '05:30–06:00')]) }, { start: 5, end: 24 });
+  assert.deepEqual({ ...view.gridHours([]) }, { start: 6, end: 24 });
+  const { timed, allDay } = view.splitTimed([at('t', '10:00–11:00'), { key: 's', time: null, start: '2026-12-01', end: '2026-12-03' }]);
+  assert.deepEqual([timed.map((i) => i.key), allDay.map((i) => i.key)], [['t'], ['s']]);
+});
+
+test('a week across two months is merged once; the first view suits the host', () => {
+  const nov = { listings: [palm], bookings: [{ id: 'b1' }, { id: 'b2' }], closed: [], events: [{ id: 'e1', start_date: '2026-11-30' }], tables: [], leases: [], outcomes: [], prices: [] };
+  const dec = { listings: [palm], bookings: [{ id: 'b2' }, { id: 'b3' }], closed: [], events: [{ id: 'e1', start_date: '2026-11-30' }, { id: 'e1', start_date: '2026-12-07' }], tables: [], leases: [], outcomes: [], prices: [] };
+  const merged = view.mergeData([nov, dec]);
+  assert.deepEqual(merged.bookings.map((b) => b.id), ['b1', 'b2', 'b3']);
+  assert.equal(merged.events.length, 2, 'a weekly event\'s two dates both stay');
+  assert.equal(view.mergeData([nov]), nov);
+  assert.equal(view.defaultMode([palm], false), 'month');
+  assert.equal(view.defaultMode([{ ...palm, category: 'venue' }], false), 'week');
+  assert.equal(view.defaultMode([{ id: 'P', planner: true }], false), 'day');
+  assert.equal(view.defaultMode([palm], true), 'day', 'phones start on Day');
+});
+
+test('the page offers Day, Week and Month; ‹ › step by the view; the grid marks now', () => {
+  const fs = require('node:fs');
+  const page = fs.readFileSync(path.join(root, 'components', 'calendar', 'HostCalendar.tsx'), 'utf8');
+  assert.match(page, /const modes: CalendarMode\[\] = stays\.length > 1 \? \['day', 'week', 'month', 'timeline'\] : \['day', 'week', 'month'\];/);
+  assert.match(page, /\(chosenMode === 'day' \? 1 : 7\) \* 86400000/, 'a day or a week at a time');
+  assert.match(page, /const chosenMode: CalendarMode = mode \?\? defaultMode\(listingsSeen, phone\);/);
+  assert.match(page, /Promise\.all\(months\.map\(\(m\) => loadMonth\(client, hostId, m\.year, m\.month, force\)\)\)\.then\(mergeData\)/, 'a week across two months loads both');
+  const grid = fs.readFileSync(path.join(root, 'components', 'calendar', 'TimeGrid.tsx'), 'utf8');
+  assert.match(grid, /<div className="vc-now" style=\{\{ top: top\(now\) \}\}/);
+  assert.match(grid, /window\.setInterval\(\(\) => setNow\(read\(\)\), 60000\)/, 'the line moves each minute, and the timer is cleared');
+  assert.match(grid, /return \(\) => window\.clearInterval\(timer\);/);
 });
