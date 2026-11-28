@@ -252,6 +252,15 @@ export default function AdminDashboard() {
       .catch((error: unknown) => setActionError(api.errorMessage(error, "The ticket could not be loaded.")));
   };
 
+  // Free plans and V-Coins; the account and the revenue figures refresh after.
+  const afterMoney = (userId: string) => { void refreshAccount(userId); if (requested.current.has("revenue")) void reload("revenue"); refreshActivity(); };
+  const accountMoney = {
+    loadPlans: api.loadGivablePlans,
+    givePlan: (userId: string, planId: string, days: number, reason: string) => run(async () => { await api.giveFreePlan(userId, planId, days, reason); afterMoney(userId); }),
+    endPlan: (userId: string, reason: string) => run(async () => { await api.endFreePlan(userId, reason); afterMoney(userId); }),
+    grantVcoins: (userId: string, amount: number, reason: string) => run(async () => { await api.grantVcoins(userId, amount, reason); afterMoney(userId); }),
+  };
+
   const addNote = (userId: string, body: string) => run(async () => {
     const { note } = await api.addNote(userId, body);
     setAccounts((current) => current[userId] ? { ...current, [userId]: { ...current[userId], notes: [note, ...current[userId].notes] } } : current);
@@ -338,7 +347,7 @@ export default function AdminDashboard() {
 
   const overview = data.overview || EMPTY_OVERVIEW;
   const signins = data.signins || { rows: [], series: [] };
-  const revenue = data.revenue || { transactions: [], total: 0, series: [] };
+  const revenue = data.revenue || api.EMPTY_REVENUE;
 
   const renderSection = () => {
     switch (active) {
@@ -354,7 +363,7 @@ export default function AdminDashboard() {
       case "signins":
         return <Signins signins={signins.rows} series={signins.series} />;
       case "revenue":
-        return <Revenue transactions={revenue.transactions} total={revenue.total} series={revenue.series} />;
+        return <Revenue report={revenue} openAccount={openAccount} />;
       case "support":
         return (
           <Support
@@ -384,6 +393,7 @@ export default function AdminDashboard() {
             openTicket={openTicket}
             updateStatus={updateUserStatus}
             addNote={addNote}
+            money={accountMoney}
           />
         );
       case "rules":

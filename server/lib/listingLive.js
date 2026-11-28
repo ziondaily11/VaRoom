@@ -82,4 +82,12 @@ async function extendPlanListings(supabaseAdmin, { hostId, niche, until, since, 
   if (error) throw new Error('Unable to keep the plan listings online');
 }
 
-module.exports = { PLAN_CATEGORIES, plansCovering, categoriesCovered, listingCap, planAllowance, extendPlanListings };
+/** The billing_plans.niche for a host's posting niche (profiles.listing_categories[0]). */
+function billingNicheFor(hostNiche) {
+  if (hostNiche === 'property') return 'property';
+  if (['shop', 'office'].includes(hostNiche)) return 'shops_offices';
+  if (PLAN_CATEGORIES.has(hostNiche)) return hostNiche;
+  return 'legacy';
+}
+
+module.exports = { PLAN_CATEGORIES, plansCovering, categoriesCovered, listingCap, planAllowance, extendPlanListings, billingNicheFor };

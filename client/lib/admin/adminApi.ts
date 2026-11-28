@@ -11,7 +11,42 @@ export interface SigninRow { user: string; method: string; time: string; device:
 export interface SigninPoint { day: string; signins: number }
 export interface RevenuePoint { day: string; revenue: number }
 export interface GrowthPoint { day: string; signups: number; listings: number }
-export interface Transaction { id: string; payer: string | null; listing: string | null; amount: number; date: string }
+/** A VaRoom payment (billing_payments): a plan, a Silver/Gold listing, or V-Coins. amount is in KES. */
+export interface Transaction {
+  id: string;
+  host_id: string;
+  payer: string | null;
+  kind: 'subscription' | 'listing' | 'vcoins';
+  plan_id: string | null;
+  listing_tier: string | null;
+  vcoins: number | null;
+  amount: number;
+  status: string;
+  reference: string;
+  date: string;
+}
+
+/** What VaRoom earned over the range (GET /admin/revenue, server/lib/adminMoney.js). Amounts in KES. */
+export interface RevenueReport {
+  range: number;
+  total: number;
+  byKind: { subscription: number; listing: number; vcoins: number };
+  transactions: Transaction[];
+  series: RevenuePoint[];
+  mrr: number;
+  subscribers: { paid: number; pastDue: number; cancelling: number; byPlan: Array<{ plan_id: string; name: string; count: number; monthly: number }> };
+  failed: Transaction[];
+  refunded: Transaction[];
+  freePlans: Array<{ host_id: string; host: string | null; plan_id: string; name: string; until: string }>;
+}
+
+export const EMPTY_REVENUE: RevenueReport = {
+  range: 30, total: 0, byKind: { subscription: 0, listing: 0, vcoins: 0 }, transactions: [], series: [], mrr: 0,
+  subscribers: { paid: 0, pastDue: 0, cancelling: 0, byPlan: [] }, failed: [], refunded: [], freePlans: [],
+};
+
+/** A plan an admin can give a host free: one of their niche's plans. monthly is in KES. */
+export interface GivablePlan { id: string; name: string; niche: string; monthly: number; listings: number | null }
 
 export interface Ticket {
   id: string;
@@ -170,7 +205,7 @@ export interface AccountOverview {
   reports: { received: AccountReport[]; filed: AccountReport[]; onListings: AccountReport[]; filedOnListings: AccountReport[] };
   tickets: Array<{ id: string; subject: string; status: string; category: string | null; source: string | null; created_at: string }>;
   billing: {
-    subscriptions: Array<{ id: string; plan_id: string; niche: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean }>;
+    subscriptions: Array<{ id: string; plan_id: string; niche: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; comp?: boolean | null }>;
     payments: Array<{ id: string; payment_kind: string | null; plan_id: string; amount_minor: number; currency: string; status: string; provider_reference: string; paid_at: string | null; created_at: string }>;
   };
   vcoins: { balance: number; recent: Array<{ delta: number; kind: string; created_at: string }> };
@@ -264,8 +299,8 @@ const rows = <T>(path: string) => adminRequest<{ data?: T[] }>(path).then((resul
 export const loadOverview = () => adminRequest<Overview>('/admin/overview');
 export const loadSignins = () => adminRequest<{ data?: SigninRow[]; series?: SigninPoint[] }>('/admin/signins?range=14')
   .then((result) => ({ rows: result.data || [], series: result.series || [] }));
-export const loadRevenue = () => adminRequest<{ transactions?: Transaction[]; total?: number; series?: RevenuePoint[] }>('/admin/revenue?range=7')
-  .then((result) => ({ transactions: result.transactions || [], total: result.total || 0, series: result.series || [] }));
+export const loadRevenue = () => adminRequest<Partial<RevenueReport>>('/admin/revenue?range=30').then((result) => ({ ...EMPTY_REVENUE, ...result }));
+export const loadGivablePlans = (userId: string) => rows<GivablePlan>(`/admin/users/${userId}/plans`);
 export const loadTickets = () => rows<Ticket>('/admin/support/tickets');
 export const loadReports = () => rows<ListingReport>('/admin/reports');
 export const loadUserReports = () => rows<UserReport>('/admin/user-reports');
@@ -308,6 +343,11 @@ export const setUpdateStatus = (id: string, status: string, reason: string) =>
 export const setReportStatus = (id: string, status: string) => adminRequest<{ report: Partial<ListingReport> }>(`/admin/reports/${id}`, json('PATCH', { status }));
 export const setVaroomReviewStatus = (id: string, status: VaroomReviewRow['status']) =>
   adminRequest<{ review: VaroomReviewRow }>(`/admin/varoom-reviews/${id}`, json('PATCH', { status }));
+export const giveFreePlan = (userId: string, planId: string, days: number, reason: string) =>
+  adminRequest<{ plan_id: string; until: string }>(`/admin/users/${userId}/free-plan`, json('POST', { plan_id: planId, days, reason }));
+export const endFreePlan = (userId: string, reason: string) => adminRequest<{ ended: boolean }>(`/admin/users/${userId}/free-plan/end`, json('POST', { reason }));
+export const grantVcoins = (userId: string, amount: number, reason: string) =>
+  adminRequest<{ granted: number }>(`/admin/users/${userId}/vcoins`, json('POST', { amount, reason }));
 export const addNote = (userId: string, body: string) => adminRequest<{ note: AdminNote }>(`/admin/users/${userId}/notes`, json('POST', { body }));
 /** Resolves a report and acts on it in one step (the server marks it actioned). */
 export const actOnListingReport = (id: string, action: ListingReportAction, reason: string) =>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { AccountOverview } from "../../lib/admin/adminApi";
+import type { AccountOverview, GivablePlan } from "../../lib/admin/adminApi";
 import { ConsequentialButton, SectionHeader, StatusPill } from "./AdminUi";
 
 // One account, everything about it (GET /admin/users/:id): who they are,
@@ -8,7 +8,7 @@ import { ConsequentialButton, SectionHeader, StatusPill } from "./AdminUi";
 // Names open the other person's account; tickets open in Support.
 
 const when = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : "—");
-const money = (minor: number, currency: string) => `${currency} ${(minor / 100).toLocaleString()}`;
+const formatMoney = (minor: number, currency: string) => `${currency} ${(minor / 100).toLocaleString()}`;
 
 function Card({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
@@ -21,11 +21,53 @@ function Card({ title, count, children }: { title: string; count?: number; child
 
 const Empty = () => <div className="text-sm text-[#8a857c]">None</div>;
 
+export interface AccountMoney {
+  loadPlans: (userId: string) => Promise<GivablePlan[]>;
+  givePlan: (userId: string, planId: string, days: number, reason: string) => Promise<boolean>;
+  endPlan: (userId: string, reason: string) => Promise<boolean>;
+  grantVcoins: (userId: string, amount: number, reason: string) => Promise<boolean>;
+}
+
+const field = "border border-[#E4E1DA] rounded-sm p-1 text-sm";
+
+/** Give a free plan of the host's niche (or extend the one they have), end it, or grant V-Coins. Super admins only (server). */
+function MoneyControls({ account, money }: { account: AccountOverview; money: AccountMoney }) {
+  const userId = account.user.id;
+  const [plans, setPlans] = useState<GivablePlan[] | null>(null);
+  const [planId, setPlanId] = useState("");
+  const [days, setDays] = useState("30");
+  const [coins, setCoins] = useState("100");
+  const comp = account.billing.subscriptions.find((s) => s.comp && ["active", "past_due", "cancel_requested"].includes(s.status));
+  const paid = account.billing.subscriptions.find((s) => !s.comp && ["pending", "active", "past_due", "cancel_requested"].includes(s.status));
+  async function showPlans() {
+    const list = await money.loadPlans(userId).catch(() => []);
+    setPlans(list);
+    setPlanId(comp?.plan_id || list[0]?.id || "");
+  }
+  return (
+    <div className="mt-3 pt-3 border-t border-[#E4E1DA] space-y-2 text-sm">
+      {paid ? <div className="text-xs text-[#8a857c]">This host pays through Paystack; change their plan there.</div>
+        : plans === null ? <button onClick={() => { void showPlans(); }} className="text-xs text-[#1F6F5C]">{comp ? "Extend or change the free plan…" : "Give a free plan…"}</button>
+          : plans.length === 0 ? <div className="text-xs text-[#8a857c]">No plans for this host's niche.</div>
+            : <div className="flex flex-wrap items-center gap-2">
+              <select value={planId} onChange={(e) => setPlanId(e.target.value)} className={field}>{plans.map((p) => <option key={p.id} value={p.id}>{p.name} (KES {p.monthly.toLocaleString()}/mo)</option>)}</select>
+              <input type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} className={`${field} w-16`} aria-label="Days" /> days
+              <ConsequentialButton label={comp ? "Extend free plan" : "Give free plan"} onConfirm={(reason) => money.givePlan(userId, planId, Number(days), reason)} />
+            </div>}
+      {comp && <ConsequentialButton label="End free plan" tone="danger" onConfirm={(reason) => money.endPlan(userId, reason)} />}
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="number" min={1} max={10000} value={coins} onChange={(e) => setCoins(e.target.value)} className={`${field} w-20`} aria-label="V-Coins" />
+        <ConsequentialButton label="Grant V-Coins" onConfirm={(reason) => money.grantVcoins(userId, Number(coins), reason)} />
+      </div>
+    </div>
+  );
+}
+
 function List<T>({ rows, render }: { rows: T[]; render: (row: T, index: number) => React.ReactNode }) {
   return rows.length ? <ul className="text-sm space-y-1.5">{rows.map((row, index) => <li key={index}>{render(row, index)}</li>)}</ul> : <Empty />;
 }
 
-export function Account({ account, loading, onBack, openAccount, openTicket, updateStatus, addNote }: {
+export function Account({ account, loading, onBack, openAccount, openTicket, updateStatus, addNote, money }: {
   account: AccountOverview | null;
   loading: boolean;
   onBack: () => void;
@@ -33,6 +75,7 @@ export function Account({ account, loading, onBack, openAccount, openTicket, upd
   openTicket: (id: string) => void;
   updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
   addNote: (userId: string, body: string) => Promise<boolean>;
+  money: AccountMoney;
 }) {
   const [note, setNote] = useState("");
   if (!account) return <div className="text-sm text-[#8a857c]">{loading ? "Loading the account…" : "This account could not be loaded."}</div>;
@@ -113,13 +156,14 @@ export function Account({ account, loading, onBack, openAccount, openTicket, upd
         </Card>
 
         <Card title="Plans and payments">
-          <List rows={account.billing.subscriptions} render={(s) => <>{s.plan_id}{s.niche ? ` (${s.niche})` : ""} <StatusPill status={s.status} /> <span className="text-xs text-[#8a857c]">to {when(s.current_period_end)}{s.cancel_at_period_end ? " · cancels" : ""}</span></>} />
+          <List rows={account.billing.subscriptions} render={(s) => <>{s.plan_id}{s.niche ? ` (${s.niche})` : ""}{s.comp ? " · free from VaRoom" : ""} <StatusPill status={s.status} /> <span className="text-xs text-[#8a857c]">to {when(s.current_period_end)}{s.cancel_at_period_end ? " · cancels" : ""}</span></>} />
           <div className="mt-3" />
-          <List rows={account.billing.payments} render={(p) => <>{money(p.amount_minor, p.currency)} · {p.payment_kind || p.plan_id} <StatusPill status={p.status} /> <span className="text-xs text-[#8a857c] font-mono">{p.provider_reference}</span></>} />
+          <List rows={account.billing.payments} render={(p) => <>{formatMoney(p.amount_minor, p.currency)} · {p.payment_kind || p.plan_id} <StatusPill status={p.status} /> <span className="text-xs text-[#8a857c] font-mono">{p.provider_reference}</span></>} />
         </Card>
 
         <Card title={`V-Coins · balance ${account.vcoins.balance}`}>
           <List rows={account.vcoins.recent} render={(v) => <>{v.delta > 0 ? "+" : ""}{v.delta} · {v.kind} <span className="text-xs text-[#8a857c]">{when(v.created_at)}</span></>} />
+          <MoneyControls account={account} money={money} />
         </Card>
 
         <Card title="Warnings, suspensions and restores" count={account.actions.length}>

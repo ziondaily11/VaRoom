@@ -43,7 +43,7 @@ test('admin requests: unchanged paths, payloads and the reply idempotency key', 
   assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), [
     'POST /admin/support/tickets/t1/replies', 'PATCH /admin/support/tickets/t1', 'POST /admin/listings/l1/moderation',
     'POST /admin/updates/up1/status', 'PATCH /admin/reports/r1', 'PATCH /admin/user-reports/ur1', 'POST /admin/news/n1/approve',
-    'POST /admin/admins', 'GET /admin/signins?range=14', 'GET /admin/revenue?range=7', 'GET /admin/growth?range=14',
+    'POST /admin/admins', 'GET /admin/signins?range=14', 'GET /admin/revenue?range=30', 'GET /admin/growth?range=14',
   ]);
   assert.equal(calls[0].headers['Idempotency-Key'], 'key-1');
   assert.deepEqual(JSON.parse(calls[0].body), { message: 'Hi' });
@@ -100,4 +100,20 @@ test('investigation: account page, search, notes, report actions and the reporte
   const shell = read('components', 'admin', 'AdminDashboard.tsx');
   assert.match(shell, /<SearchBox openAccount=\{openAccount\} openTicket=\{openTicket\} \/>/);
   assert.match(read('lib', 'legal', 'privacyContent.ts'), /Varoom staff do not read your conversations/);
+});
+
+test('money: revenue report defaults, free plans and V-Coin grants', async () => {
+  const { calls, api } = withFetch([{ status: 200, body: { total: 1200, mrr: 2500 } }]);
+  const report = await api.loadRevenue();
+  assert.deepEqual([report.total, report.mrr, report.failed, report.byKind.vcoins], [1200, 2500, [], 0]);
+  await api.loadGivablePlans('h1');
+  await api.giveFreePlan('h1', 'airbnb_pro', 30, 'Launch partner');
+  await api.endFreePlan('h1', 'Paying now');
+  await api.grantVcoins('h1', 250, 'Outage');
+  assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), [
+    'GET /admin/revenue?range=30', 'GET /admin/users/h1/plans', 'POST /admin/users/h1/free-plan', 'POST /admin/users/h1/free-plan/end', 'POST /admin/users/h1/vcoins',
+  ]);
+  assert.deepEqual(JSON.parse(calls[2].body), { plan_id: 'airbnb_pro', days: 30, reason: 'Launch partner' });
+  assert.deepEqual(JSON.parse(calls[4].body), { amount: 250, reason: 'Outage' });
+  assert.doesNotMatch(read('components', 'admin', 'ChartSections.tsx'), /\$\$\{/, 'amounts are in KES, not dollars');
 });

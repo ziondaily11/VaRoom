@@ -9,7 +9,8 @@ const { videoListingAllowance } = require('../lib/videoEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
 const { LISTING_TIERS, LISTING_TIER_NICHES, listingTierPlans, mpesaPhone } = require('../lib/listingTiers');
-const { PLAN_CATEGORIES, categoriesCovered, planAllowance } = require('../lib/listingLive');
+const { PLAN_CATEGORIES, categoriesCovered, planAllowance, billingNicheFor } = require('../lib/listingLive');
+const { isComp } = require('../lib/adminMoney');
 
 // A checkout this old that never finished is asked about at Paystack before another can start.
 const UNFINISHED_CHECKOUT_MS = 15 * 60 * 1000;
@@ -26,13 +27,6 @@ const VALID_PLAN_IDS = new Set([
 // Airbnb, Hotel and Venue: monthly plans; Airbnb and Venue plans cap the listings online.
 const FEATURE_PLAN_NICHES = new Set(['airbnb', 'hotel', 'venue']);
 
-/** The billing_plans.niche for a host's posting niche. */
-function billingNicheFor(hostNiche) {
-  if (hostNiche === 'property') return 'property';
-  if (['shop', 'office'].includes(hostNiche)) return 'shops_offices';
-  if (FEATURE_PLAN_NICHES.has(hostNiche)) return hostNiche;
-  return 'legacy';
-}
 
 function normalizeRequestedPlan(value) {
   const planId = text(value, 'plan', { max: 20 });
@@ -233,7 +227,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const paystackPlanCode = plan.paystack_plan_env ? process.env[plan.paystack_plan_env] : plan.paystack_plan_code;
     if (!paystackPlanCode) return res.status(503).json({ error: 'Checkout is not configured for this plan yet' });
     let { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
-      .select('id,plan_id,status,current_period_end,listing_allowance_limit,provider_subscription_code,provider_email_token,niche,billing_plans(monthly_amount_minor,features,niche)')
+      .select('id,plan_id,status,current_period_end,listing_allowance_limit,provider_subscription_code,provider_email_token,niche,comp:provider_metadata->comp,billing_plans(monthly_amount_minor,features,niche)')
       .eq('host_id', user.id).in('status', ['pending', 'active', 'past_due', 'cancel_requested']).maybeSingle();
     if (existingError) return res.status(500).json({ error: 'Unable to check the current subscription' });
     if (existing && existing.status === 'pending') {
@@ -259,6 +253,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     let replacingSubscription = null;
     let activeListingCount = 0;
+    // A free plan from VaRoom runs to its end (or Support ends it early); then the host can pay.
+    if (existing && isComp(existing)) {
+      return res.status(409).json({ error: `You have a free plan from VaRoom until ${new Date(existing.current_period_end).toDateString()}. Contact Support to change it.` });
+    }
     if (existing) {
       // A legacy subscriber of a feature-plan niche may move onto that niche's new plans.
       const legacyToNichePlan = existing.niche === 'legacy' && FEATURE_PLAN_NICHES.has(niche);
