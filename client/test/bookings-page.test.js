@@ -255,15 +255,16 @@ test('host: tabs, month filter, dates and request age (legacy rules)', () => {
   assert.equal(host.telHref('+254 700-123 456'), 'tel:+254700123456');
 });
 
-test('host: approve/decline only the host\'s own pending request (the database tells the guest)', async () => {
-  const b = { ...booking(), status: 'pending', client_id: 'c1', client: null };
-  const client = fakeClient([{ data: { id: 'b1' }, error: null }]);
-  assert.deepEqual({ ...(await host.respondToBooking(client, { booking: b, userId: 'h1', decision: 'approve' })) }, { status: 'approved' });
-  const ops = client.calls[0].ops;
-  assert.equal(ops.find((op) => op[0] === 'update')[1].status, 'approved');
-  assert.deepEqual(ops.filter((op) => op[0] === 'eq'), [['eq', 'id', 'b1'], ['eq', 'host_id', 'h1'], ['eq', 'status', 'pending']]);
-  assert.deepEqual({ ...(await host.respondToBooking(fakeClient([{ data: { id: 'b1' }, error: null }]), { booking: b, userId: 'h1', decision: 'decline' })) }, { status: 'declined' });
-  await assert.rejects(host.respondToBooking(fakeClient([{ data: null, error: null }]), { booking: b, userId: 'h1', decision: 'approve' }), /already been processed/);
+test('host: approve/decline goes through the server (it checks the host and tells the guest); who can be messaged', async () => {
+  const calls = [];
+  const viaServer = loadTs(path.join(root, 'lib', 'bookings', 'hostBookings.ts'), {
+    mocks: { '../api': { apiFetch: async (url, init) => { calls.push([url, init]); return { status: 'approved' }; } } },
+  });
+  assert.deepEqual({ ...(await viaServer.respondToBooking('b 1', 'approve')) }, { status: 'approved' });
+  await viaServer.respondToBooking('b 1', 'decline');
+  assert.deepEqual(calls.map(([url, init]) => [url, init.method, init.body.decision]), [['/api/bookings/b%201/respond', 'POST', 'approve'], ['/api/bookings/b%201/respond', 'POST', 'decline']]);
+  for (const status of ['pending', 'approved', 'completed']) assert.equal(host.canMessageGuest({ status }), true, status);
+  for (const status of ['declined', 'cancelled', 'expired']) assert.equal(host.canMessageGuest({ status }), false, status);
 });
 
 test('host: listing video loads once per listing; videos are kept for less than their 5-minute URL', async () => {
@@ -363,4 +364,22 @@ test('a venue booked by the day shows its first and last day and counts both', (
   assert.equal(rows[2].value, '2 days');
   assert.equal(format.detailRows(booking({ start_date: '2026-12-05', end_date: '2026-12-05', price_unit: 'day' }))[2].value, '1 day');
   assert.equal(format.perUnit(booking({ start_date: '2026-12-05', end_date: '2026-12-05', price_unit: 'day' })), ' / day');
+});
+
+test('approved booking: the guest can message the host or use their Reach Out channels; not before approval', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const auth = { useAuth: () => ({ user: { id: 'g1' }, session: null }) };
+  const Detail = loadTs(path.join(root, 'components', 'bookings', 'BookingDetail.tsx'), {
+    mocks: {
+      'next/link': { __esModule: true, default: ({ href, children, ...rest }) => React.createElement('a', { href, ...rest }, children) },
+      '../../lib/auth/AuthProvider': auth,
+      '../../lib/supabase/client': { getSupabaseClient: () => null },
+      '../maps/LocationCard': { MapLink: ({ children }) => React.createElement('a', null, children) },
+    },
+  }).default;
+  const actions = { onCancel: async () => {}, onMessageHost: () => {}, onReviewed: () => {} };
+  const html = (status) => renderToStaticMarkup(React.createElement(Detail, { booking: booking({ status, start_date: '2026-12-21', end_date: '2026-12-24' }), viewerName: 'Wanjiku', reviewed: false, actions }));
+  assert.match(html('approved'), /<div class="booking-detail-contact" role="group" aria-label="Contact the host"><button type="button" class="bk-btn booking-detail-contact-msg">.*Message host<\/button><\/div>/, 'channels follow once the host\'s are loaded');
+  assert.doesNotMatch(html('pending'), /booking-detail-contact/);
 });

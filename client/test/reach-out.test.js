@@ -27,6 +27,24 @@ test('email: mailto with the subject and a body naming the listing, encoded', ()
   assert.doesNotMatch(href.split('&body=')[1], /&/, 'the & in the title is encoded');
 });
 
+test('approved booking: WhatsApp and email say the booking is approved; contact loads once per listing, failures retried', async () => {
+  const text = decodeURIComponent(ro.bookingWhatsappHref('0712345678', enquiry).split('?text=')[1]);
+  assert.match(ro.bookingWhatsappHref('0712345678', enquiry), /^https:\/\/wa\.me\/254712345678\?text=/);
+  assert.equal(text, 'Hello, my booking for your space on VaRoom is approved: Palm View\nhttps://varoom.example/booking?listing=L1');
+  const mail = ro.bookingMailtoHref('host@example.com', enquiry);
+  assert.match(mail, /^mailto:host@example\.com\?subject=My%20VaRoom%20Booking&body=/);
+  assert.match(decodeURIComponent(mail.split('&body=')[1]), /approved\.\n\nListing: Palm View\nLink: https:\/\/varoom\.example/);
+  let calls = 0;
+  const client = { rpc: async () => { calls += 1; return calls === 1 ? { data: null, error: { message: 'down' } } : { data: [{ whatsapp: '+254712345678', email: null, phone: null }], error: null }; } };
+  const warn = console.warn; console.warn = () => {};
+  try {
+    assert.equal(await ro.cachedListingContact(client, 'L9'), ro.NO_CONTACT, 'a failure is not kept');
+    assert.equal((await ro.cachedListingContact(client, 'L9')).whatsapp, '+254712345678');
+    await ro.cachedListingContact(client, 'L9');
+    assert.equal(calls, 2, 'loaded once it worked');
+  } finally { console.warn = warn; }
+});
+
 test('phone: tel links in +254 form; the listing URL is the booking page', () => {
   assert.equal(ro.telHref('0712 345 678'), 'tel:+254712345678');
   assert.equal(ro.telHref('+254712345678'), 'tel:+254712345678');

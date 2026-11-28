@@ -39,7 +39,8 @@ test('wiring: Settings → Team, the banner, and bookings for the company', () =
   assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\}/);
   const view = read('components', 'bookings', 'HostBookingsView.tsx');
   assert.match(view, /const userId = ownId \? \(hostId === ownId \? ownId : `\$\{ownId\}@\$\{hostId\}`\) : null;/, 'a company\'s bookings are cached apart from the account\'s own');
-  assert.match(view, /respondToBooking\(client, \{ booking, userId: hostId, decision \}\)/);
+  assert.match(view, /respondToBooking\(booking\.id, decision\)/, 'the server acts for the company (workspace header)');
+  assert.match(view, /const canMessage = hostId === ownId \|\| Boolean\(workspace && workspace\.hostId === hostId && workspace\.roles\.includes\('messaging'\)\);/, 'Message guest: the account itself, or the company\'s Messaging staff');
   assert.match(read('lib', 'bookings', 'hostBookings.ts'), /if \(hostId\) headers\['X-VaRoom-Host'\] = hostId;/);
   assert.match(read('lib', 'notificationsCache.ts'), /if \(notification\.related_entity_type === 'team'\) return '\/settings\?section=team';/);
 });

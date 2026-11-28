@@ -19,3 +19,15 @@ export async function startListingChat(listingId: string): Promise<string> {
   });
   return listingChatPath(conversationId, listingId);
 }
+
+/**
+ * "Message guest" on a booking: the host's chat with its guest (a company's
+ * Messaging staff work as it through the workspace header). Returns where to go.
+ */
+export async function startBookingChat(bookingId: string): Promise<string> {
+  const { conversationId } = await apiFetch<{ conversationId: string }>('/api/chat/conversations/start', {
+    method: 'POST',
+    body: { bookingId },
+  });
+  return `/chats?c=${encodeURIComponent(conversationId)}`;
+}

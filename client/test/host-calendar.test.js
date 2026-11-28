@@ -79,7 +79,7 @@ test('the Calendar page sits in the host shell, the sidebar and the listing menu
   assert.match(read('components', 'shell', 'HostSidebar.tsx'), /<PinnableRow page="\/calendar" label="Calendar" href="\/calendar"/);
   assert.match(read('components', 'listings', 'HostListingMenu.tsx'), /\{item\('Open calendar', \(\) => \{ void router\.push\(`\/calendar\?listing=/);
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearCalendarCache\(\);/, 'cleared on sign-out and account switch');
-  assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /respondToBooking\(client, \{ booking, userId: hostId, decision \}\);\s+clearCalendarCache\(hostId\);/);
+  assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /respondToBooking\(booking\.id, decision\);\s+clearCalendarCache\(hostId\);/);
   const page = read('components', 'calendar', 'HostCalendar.tsx');
   assert.match(page, /clearCalendarCache\(hostId\);\s+clearHostBookings\(\);/, 'approving here refreshes Bookings too');
   assert.match(read('pages', 'calendar.tsx'), /<HostCalendar key=\{hostId\}/, 'keyed by account');

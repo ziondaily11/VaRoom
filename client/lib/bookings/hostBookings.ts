@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, timeRange, type Booking, type BookingPerson } from './format';
 import { applyExpiry } from './clientBookings';
 import { listingOutcomes, unitsLeft, type ListingOutcome } from '../listings/listingAction';
+import { apiFetch } from '../api';
 
 // The host's booking requests (migrated from legacy-pages/bookings.html):
 // loading, approve / decline, the month filter, listing videos and table
@@ -40,6 +41,9 @@ export function hostTabFor(status: string): HostTab | null {
   return status === 'pending' || status === 'declined' || status === 'completed' ? status : null;
 }
 
+/** Bookings whose guest the host may message: open requests (expiry applied), approved and completed (as the server allows). */
+export const canMessageGuest = (b: Pick<HostBooking, 'status'>) => b.status === 'pending' || b.status === 'approved' || b.status === 'completed';
+
 export async function fetchHostBookings(client: SupabaseClient, userId: string): Promise<HostBooking[]> {
   const { data, error } = await client
     .from('bookings')
@@ -54,25 +58,13 @@ export async function fetchHostBookings(client: SupabaseClient, userId: string):
 export const RESPOND_FAILED = { approve: 'Failed to approve booking. Please try again.', decline: 'Failed to decline booking. Please try again.' };
 
 /**
- * Approve or decline a pending request (only the host's own, only while still
- * pending). The database tells the guest.
+ * Approve or decline a pending request through the server (the host's own, or
+ * a company's for its Managers, through the workspace header). The database
+ * tells the guest; approving also posts a message in the chat with them.
+ * Rejects with the server's reason ("booking_rule: …" for a booking rule).
  */
-export async function respondToBooking(
-  client: SupabaseClient,
-  { booking, userId, decision, now = new Date() }: { booking: Pick<HostBooking, 'id'>; userId: string; decision: 'approve' | 'decline'; now?: Date },
-): Promise<{ status: 'approved' | 'declined' }> {
-  const status = decision === 'approve' ? 'approved' : 'declined';
-  const { data, error } = await client
-    .from('bookings')
-    .update({ status, responded_at: now.toISOString() })
-    .eq('id', booking.id)
-    .eq('host_id', userId)
-    .eq('status', 'pending')
-    .select('id')
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error('This booking request has already been processed.');
-  return { status };
+export function respondToBooking(bookingId: string, decision: 'approve' | 'decline'): Promise<{ status: 'approved' | 'declined' }> {
+  return apiFetch(`/api/bookings/${encodeURIComponent(bookingId)}/respond`, { method: 'POST', body: { decision } });
 }
 
 export function validDate(value: string | null | undefined): boolean {

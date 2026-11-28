@@ -45,6 +45,32 @@ export function mailtoHref(email: string, listing: { title: string; url: string 
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+// ---------- A guest whose booking was approved ----------
+
+export function bookingWhatsappHref(phone: string, listing: { title: string; url: string }): string {
+  const text = `Hello, my booking for your space on VaRoom is approved: ${listing.title}\n${listing.url}`;
+  return `https://wa.me/${normalisePhone(phone).slice(1)}?text=${encodeURIComponent(text)}`;
+}
+
+export function bookingMailtoHref(email: string, listing: { title: string; url: string }): string {
+  const body = `Hello,\n\nMy booking for your listing on VaRoom is approved.\n\nListing: ${listing.title}\nLink: ${listing.url}\n\nThank you.`;
+  return `mailto:${email}?subject=${encodeURIComponent('My VaRoom Booking')}&body=${encodeURIComponent(body)}`;
+}
+
+const contacts = new Map<string, ListingContact>();
+
+/**
+ * A listing's channels, once per listing for the session (the same for every
+ * viewer, so not per account). A failed load is not kept, so it is retried.
+ */
+export async function cachedListingContact(client: SupabaseClient, listingId: string): Promise<ListingContact> {
+  const hit = contacts.get(listingId);
+  if (hit) return hit;
+  const contact = await fetchListingContact(client, listingId);
+  if (contact !== NO_CONTACT) contacts.set(listingId, contact);
+  return contact;
+}
+
 // ---------- A host's public profile ----------
 
 /** What a profile visitor's WhatsApp / email opens with: the profile's name and link. */

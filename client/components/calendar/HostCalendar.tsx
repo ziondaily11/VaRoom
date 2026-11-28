@@ -248,7 +248,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const respond = async (booking: CalendarBooking, decision: 'approve' | 'decline') => {
     setBusy(booking.id);
     try {
-      await respondToBooking(client, { booking, userId: hostId, decision });
+      await respondToBooking(booking.id, decision);
       clearCalendarCache(hostId);
       clearHostBookings();
       await refresh(true);
