@@ -29,6 +29,7 @@ const enforcement = require('./lib/enforcement');
 const createSupportInboundRoutes = require('./routes/supportInboundRoutes');
 const supportInbox = require('./lib/supportInbox');
 const adminMoney = require('./lib/adminMoney');
+const { scheduleJob } = require('./lib/jobHealth');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
@@ -875,104 +876,58 @@ app.use((error, _req, res, _next) => {
   return sendError(res, 500, 'Internal server error', ERROR_CODES.INTERNAL_ERROR);
 });
 
+// Background jobs (lib/jobHealth.js): each logs its outcome and reports its
+// last run and last error to the admin health panel. A missed run (the
+// server asleep) is caught up by the next one.
+
 // Deactivated accounts: permanent deletion once their 30 days pass without a
-// sign-in (Privacy Policy, "Account Deletion"), and plans that still renew.
-// Hourly; a missed run (the server asleep) is caught up by the next one.
-const DEACTIVATION_MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+// sign-in (Privacy Policy, "Account Deletion"), and plans that still renew (hourly).
 const deactivationPaystack = createPaystackClient();
-function runDeactivationMaintenanceNow() {
-  runDeactivationMaintenance(supabaseAdmin, deactivationPaystack, { deleteAccount: permanentlyDeleteAccount })
-    .then((result) => {
-      if (result.deleted.length || result.failed.length || result.renewalFailures) {
-        console.log('Deactivation maintenance:', { deleted: result.deleted.length, failed: result.failed, renewalFailures: result.renewalFailures });
-      }
-    })
-    .catch((error) => console.error('Deactivation maintenance failed:', error));
-}
-setTimeout(runDeactivationMaintenanceNow, 60 * 1000).unref();
-setInterval(runDeactivationMaintenanceNow, DEACTIVATION_MAINTENANCE_INTERVAL_MS).unref();
+scheduleJob('Deactivated accounts', { first: 60 * 1000, every: 60 * 60 * 1000 },
+  () => runDeactivationMaintenance(supabaseAdmin, deactivationPaystack, { deleteAccount: permanentlyDeleteAccount }),
+  (result) => (result.deleted.length || result.failed.length || result.renewalFailures
+    ? `Deactivation maintenance: ${JSON.stringify({ deleted: result.deleted.length, failed: result.failed, renewalFailures: result.renewalFailures })}` : null));
 
 // Booking requests left unanswered: the host is reminded 6 hours before they
-// expire, and they expire after 48 hours (hourly).
-const BOOKING_EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
-function expireStaleBookingRequestsNow() {
-  remindExpiringRequests(supabaseAdmin)
-    .catch((error) => console.error('Booking request reminders failed:', error))
-    .then(() => expireStaleRequests(supabaseAdmin))
-    .then((expired) => {
-      if (!expired.length) return;
-      console.log(`Expired ${expired.length} unanswered booking request(s).`);
-      return enforcement.checkExpiredRequests(supabaseAdmin, expired.map((row) => row.host_id));
-    })
-    .catch((error) => console.error('Booking request expiry failed:', error));
-}
-setTimeout(expireStaleBookingRequestsNow, 90 * 1000).unref();
-setInterval(expireStaleBookingRequestsNow, BOOKING_EXPIRY_INTERVAL_MS).unref();
+// expire, and they expire after 48 hours; hosts who let them expire meet the
+// expired_requests rule (hourly). A failed reminder run never stops expiry.
+scheduleJob('Booking request expiry', { first: 90 * 1000, every: 60 * 60 * 1000 }, async () => {
+  await remindExpiringRequests(supabaseAdmin).catch((error) => console.error('Booking request reminders failed:', error));
+  const expired = await expireStaleRequests(supabaseAdmin);
+  if (expired.length) await enforcement.checkExpiredRequests(supabaseAdmin, expired.map((row) => row.host_id));
+  return expired.length;
+}, (count) => (count ? `Expired ${count} unanswered booking request(s).` : null));
 
 // Timed suspensions that have ended are lifted and the person told, every 10
 // minutes (enforcement already treats them as ended when they end).
-function liftEndedSuspensionsNow() {
-  enforcement.liftEndedSuspensions(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Lifted ${count} ended suspension(s).`); })
-    .catch((error) => console.error('Lifting ended suspensions failed:', error));
-}
-setTimeout(liftEndedSuspensionsNow, 75 * 1000).unref();
-setInterval(liftEndedSuspensionsNow, 10 * 60 * 1000).unref();
+scheduleJob('Ended suspensions', { first: 75 * 1000, every: 10 * 60 * 1000 },
+  () => enforcement.liftEndedSuspensions(supabaseAdmin), (count) => (count ? `Lifted ${count} ended suspension(s).` : null));
 
 // Support tickets answered with no word back for 7 days are closed (hourly).
-function closeStaleTicketsNow() {
-  supportInbox.closeStaleTickets(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Closed ${count} quiet support ticket(s).`); })
-    .catch((error) => console.error('Closing quiet support tickets failed:', error));
-}
-setTimeout(closeStaleTicketsNow, 4 * 60 * 1000).unref();
-setInterval(closeStaleTicketsNow, 60 * 60 * 1000).unref();
+scheduleJob('Quiet support tickets', { first: 4 * 60 * 1000, every: 60 * 60 * 1000 },
+  () => supportInbox.closeStaleTickets(supabaseAdmin), (count) => (count ? `Closed ${count} quiet support ticket(s).` : null));
 
 // Free plans from VaRoom end when their time is up, so the host can pay for one (hourly).
-function expireFreePlansNow() {
-  adminMoney.expireFreePlans(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Ended ${count} free plan(s).`); })
-    .catch((error) => console.error('Ending free plans failed:', error));
-}
-setTimeout(expireFreePlansNow, 5 * 60 * 1000).unref();
-setInterval(expireFreePlansNow, 60 * 60 * 1000).unref();
+scheduleJob('Free plans', { first: 5 * 60 * 1000, every: 60 * 60 * 1000 },
+  () => adminMoney.expireFreePlans(supabaseAdmin), (count) => (count ? `Ended ${count} free plan(s).` : null));
 
 // Calendar links from other sites (Airbnb.com, Booking.com…): read every 30
 // minutes, so their bookings block those days on VaRoom (lib/calendarSync.js).
-function syncCalendarLinksNow() {
-  syncAllFeeds(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Synced ${count} calendar link(s).`); })
-    .catch((error) => console.error('Calendar link sync failed:', error));
-}
-setTimeout(syncCalendarLinksNow, 2 * 60 * 1000).unref();
-setInterval(syncCalendarLinksNow, SYNC_INTERVAL_MS).unref();
+scheduleJob('Calendar links', { first: 2 * 60 * 1000, every: SYNC_INTERVAL_MS },
+  () => syncAllFeeds(supabaseAdmin), (count) => (count ? `Synced ${count} calendar link(s).` : null));
 
 // Calendar reminders: tomorrow's check-ins, move-ins, viewings and events (in
 // the evening) and leases ending in 60 days, once each (lib/calendarReminders.js).
-function sendCalendarRemindersNow() {
-  sendCalendarReminders(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Calendar reminders handled: ${count}.`); })
-    .catch((error) => console.error('Calendar reminders failed:', error));
-}
-setTimeout(sendCalendarRemindersNow, 3 * 60 * 1000).unref();
-setInterval(sendCalendarRemindersNow, REMINDER_INTERVAL_MS).unref();
+scheduleJob('Calendar reminders', { first: 3 * 60 * 1000, every: REMINDER_INTERVAL_MS },
+  () => sendCalendarReminders(supabaseAdmin), (count) => (count ? `Calendar reminders handled: ${count}.` : null));
 
 // Chat messages left unread: emailed about after each person's chosen time
 // (Chat Settings), checked every 5 minutes.
-function sendUnreadChatAlertsNow() {
-  sendUnreadChatAlerts(supabaseAdmin)
-    .then((count) => { if (count) console.log(`Sent ${count} unread chat email(s).`); })
-    .catch((error) => console.error('Unread chat emails failed:', error));
-}
-setTimeout(sendUnreadChatAlertsNow, 2 * 60 * 1000).unref();
-setInterval(sendUnreadChatAlertsNow, 5 * 60 * 1000).unref();
+scheduleJob('Unread chat emails', { first: 2 * 60 * 1000, every: 5 * 60 * 1000 },
+  () => sendUnreadChatAlerts(supabaseAdmin), (count) => (count ? `Sent ${count} unread chat email(s).` : null));
 
-const videoCleanupTimer = setInterval(() => {
-  runFullCleanup().catch((error) => {
-    console.error('Scheduled video cleanup failed:', error);
-  });
-}, VIDEO_CLEANUP_INTERVAL_MS);
-videoCleanupTimer.unref();
+// Unused video and media cleanup: once at start, then every VIDEO_CLEANUP_INTERVAL_HOURS.
+scheduleJob('Media cleanup', { first: 0, every: VIDEO_CLEANUP_INTERVAL_MS }, () => runFullCleanup());
 
 // Prune stale entries from in-memory rate-limiter Maps every 5 minutes so they
 // cannot grow unboundedly when the server receives traffic from many distinct IPs.
@@ -991,7 +946,4 @@ setInterval(() => {
 
 app.listen(PORT, () => {
   console.log(`VaRoom server listening on port ${PORT}`);
-  runFullCleanup().catch((error) => {
-    console.error('Initial scheduled cleanup failed:', error);
-  });
 });

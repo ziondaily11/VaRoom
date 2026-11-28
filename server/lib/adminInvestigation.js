@@ -40,7 +40,7 @@ async function accountOverview(admin, userId) {
   const authUser = userData.user;
   const recent = (query) => query.order('created_at', { ascending: false }).limit(10);
   const [profile, control, listings, hostBookings, guestBookings, group, teamsOwned, teamsJoined, filedChat, receivedChat, filedListing,
-    ticketsById, ticketsByEmail, subscriptions, payments, ledger, actions, notes, activity] = await all([
+    ticketsById, ticketsByEmail, subscriptions, payments, ledger, actions, notes, activity, documents] = await all([
     admin.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle(),
     admin.from('account_controls').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('listings').select('id,title,category,created_at,availability_status,moderation_status,moderation_reason,publication_state').eq('host_id', userId).order('created_at', { ascending: false }),
@@ -60,6 +60,8 @@ async function accountOverview(admin, userId) {
     admin.from('account_enforcement_actions').select('id,action,reason,rule_key,suspended_until,created_at,admin:admins(name)').eq('user_id', userId).order('created_at', { ascending: false }),
     admin.from('admin_notes').select('id,body,created_at,admin:admins(name)').eq('user_id', userId).order('created_at', { ascending: false }),
     admin.from('admin_activity').select('id,action,reason,created_at,admin:admins(name)').eq('target_id', userId).order('created_at', { ascending: false }).limit(50),
+    admin.from('listing_documents').select('id,listing_id,document_type,original_filename,visibility,created_at')
+      .eq('host_id', userId).eq('status', 'ready').is('deleted_at', null).order('created_at', { ascending: false }),
   ]);
 
   const listingIds = (listings.data || []).map((l) => l.id);
@@ -106,6 +108,7 @@ async function accountOverview(admin, userId) {
     actions: actions.data || [],
     notes: notes.data || [],
     activity: activity.data || [],
+    documents: (documents.data || []).map((d) => ({ ...d, listing: titles[d.listing_id] || null })),
   };
 }
 

@@ -81,7 +81,23 @@ waiting for an admin, and gives admins what they need to investigate.
    explains a running free plan. A plan paid through Paystack is changed in
    Paystack (its renewals would overwrite changes here), and refunds are
    issued there.
-5. **Coverage and hardening** — guest reviews and listing documents queues,
-   paging past 1,000 users (`listUsers` cap), admin two-step verification,
-   removing admins and changing roles, a health panel (failed emails,
-   webhooks, background jobs, Elie, Property News).
+5. **Coverage and hardening** — done in `claude/admin-hardening` (migration
+   `20261129_000100_admin_hardening.sql`).
+   - Two-step sign-in for admins (authenticator app, `lib/adminSecurity.js`;
+     the secret is encrypted under a key derived from `ADMIN_SESSION_SECRET`,
+     so rotating that secret means setting it up again). A banner asks every
+     admin without it to turn it on; a super admin can reset it.
+   - The sign-in lockout lives on the admin row (survives restarts).
+   - Super admins change roles and remove admins (never themselves); a
+     removed admin is signed out on their next request.
+   - Users, sign-ins, sign-ups and the Overview count every account in the
+     database (`admin_list_accounts`, `admin_recent_signins`,
+     `admin_signup_days`), 50 accounts a page, searched on the server.
+   - Guest reviews of listings can be hidden or restored (Reports).
+   - Host verification: the account page lists the host's documents (opened
+     through `/admin/documents/:id/open`, recorded) and marks the Verified
+     host badge (`profiles.verified`).
+   - Health panel: background jobs (`lib/jobHealth.js`), failed emails and
+     Paystack webhooks, Paystack plans whose renewal never arrived, failing
+     calendar links and media cleanup, Elie and Property News, and missing
+     settings.

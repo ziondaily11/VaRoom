@@ -1,9 +1,45 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import type { Admin, AdminRole, NewAdmin } from "../../lib/admin/adminApi";
-import { SectionHeader } from "./AdminUi";
+import type { Admin, AdminRole, NewAdmin, SessionAdmin } from "../../lib/admin/adminApi";
+import { ConsequentialButton, SectionHeader } from "./AdminUi";
 
-export function Admins({ admins, addAdmin }: { admins: Admin[]; addAdmin: (admin: NewAdmin) => Promise<boolean> }) {
+/** Admin management: roles, removal and two-step resets (super admins, never on themselves). */
+export interface AdminControls {
+  setRole: (id: string, role: AdminRole) => Promise<boolean>;
+  remove: (id: string) => Promise<boolean>;
+  resetTwoStep: (id: string) => Promise<boolean>;
+  setupTwoStep: () => Promise<{ secret: string; uri: string } | null>;
+  enableTwoStep: (code: string) => Promise<boolean>;
+  disableTwoStep: (code: string) => Promise<boolean>;
+}
+
+/** The signed-in admin's own two-step sign-in: set up with an authenticator app, confirm a code, or turn off. */
+function TwoStep({ me, controls }: { me: SessionAdmin; controls: AdminControls }) {
+  const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
+  const [code, setCode] = useState("");
+  const field = "border border-[#E4E1DA] rounded-sm p-2 text-sm tracking-widest w-28";
+  const codeInput = <input inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" className={field} aria-label="Code" />;
+  return (
+    <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4 max-w-xl">
+      <div className="text-sm text-[#24211E] mb-1">Your two-step sign-in</div>
+      {me.totp_enabled ? <>
+        <p className="text-xs text-[#8a857c] mb-2">On. Signing in asks for a code from your authenticator app. To turn it off, enter a current code.</p>
+        <div className="flex gap-2">{codeInput}<button disabled={code.length !== 6} onClick={async () => { if (await controls.disableTwoStep(code)) setCode(""); }} className="px-3 py-1.5 text-sm border border-[#B5482E]/40 text-[#B5482E] rounded-sm disabled:opacity-50">Turn off</button></div>
+      </> : setup ? <>
+        <p className="text-xs text-[#8a857c] mb-2">In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…), add an account with this key, or open the link on your phone. Then enter the 6-digit code it shows.</p>
+        <div className="font-mono text-sm break-all bg-[#F7F6F3] p-2 rounded-sm mb-1">{setup.secret.replace(/(.{4})/g, "$1 ").trim()}</div>
+        <a href={setup.uri} className="text-xs text-[#1F6F5C] hover:underline">Open in authenticator app</a>
+        <div className="flex gap-2 mt-3">{codeInput}<button disabled={code.length !== 6} onClick={async () => { if (await controls.enableTwoStep(code)) { setCode(""); setSetup(null); } }} className="px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm disabled:opacity-50">Turn on</button></div>
+      </> : <>
+        <p className="text-xs text-[#8a857c] mb-2">Off. With it on, a stolen password alone cannot open the admin page.</p>
+        <button onClick={async () => setSetup(await controls.setupTwoStep())} className="px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm">Set up two-step sign-in</button>
+      </>}
+    </div>
+  );
+}
+
+export function Admins({ admins, addAdmin, me, controls }: { admins: Admin[]; addAdmin: (admin: NewAdmin) => Promise<boolean>; me: SessionAdmin | null; controls: AdminControls }) {
+  const canManage = me?.role === "super_admin";
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,6 +61,8 @@ export function Admins({ admins, addAdmin }: { admins: Admin[]; addAdmin: (admin
         description="There's no public admin signup — accounts are only created here, by an already-logged-in admin."
       />
 
+      {me && <TwoStep me={me} controls={controls} />}
+
       <div className="border border-[#E4E1DA] rounded-sm bg-white overflow-hidden mb-4">
         <table className="w-full text-sm">
           <thead>
@@ -33,6 +71,8 @@ export function Admins({ admins, addAdmin }: { admins: Admin[]; addAdmin: (admin
               <th className="px-4 py-2 font-normal">Email</th>
               <th className="px-4 py-2 font-normal">Role</th>
               <th className="px-4 py-2 font-normal">Last login</th>
+              <th className="px-4 py-2 font-normal">Two-step</th>
+              {canManage && <th className="px-4 py-2 font-normal">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -41,11 +81,24 @@ export function Admins({ admins, addAdmin }: { admins: Admin[]; addAdmin: (admin
                 <td className="px-4 py-2">{a.name}</td>
                 <td className="px-4 py-2 text-[#8a857c]">{a.email}</td>
                 <td className="px-4 py-2">
-                  <span className="text-xs px-2 py-0.5 rounded-sm bg-[#1F6F5C]/10 text-[#1F6F5C]">
-                    {a.role.replace("_", " ")}
-                  </span>
+                  {canManage && a.id !== me?.id ? (
+                    <select value={a.role} onChange={(e) => { void controls.setRole(a.id, e.target.value as AdminRole); }} className="text-xs border border-[#E4E1DA] rounded-sm px-1 py-0.5">
+                      <option value="support">support</option>
+                      <option value="read_only">read only</option>
+                      <option value="super_admin">super admin</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-sm bg-[#1F6F5C]/10 text-[#1F6F5C]">
+                      {a.role.replace("_", " ")}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-2 text-[#8a857c]">{a.lastLogin}</td>
+                <td className="px-4 py-2 text-xs">{a.totp_enabled ? "On" : <span className="text-[#B5482E]">Off</span>}</td>
+                {canManage && <td className="px-4 py-2"><div className="flex gap-2">
+                  {a.id !== me?.id && a.totp_enabled && <ConsequentialButton label="Reset two-step" onConfirm={() => controls.resetTwoStep(a.id)} />}
+                  {a.id !== me?.id && <ConsequentialButton label="Remove" tone="danger" onConfirm={() => controls.remove(a.id)} />}
+                </div></td>}
               </tr>
             ))}
           </tbody>

@@ -151,7 +151,7 @@ test('wiring: routes, hourly job, hidden listings, chats, profiles, reviews, mig
   const server = read('server.js');
   assert.doesNotMatch(server, /app\.post\('\/api\/delete-account'/, 'moved to routes/accountRoutes.js');
   assert.match(server, /app\.use\('\/api', createAccountRoutes\(\{ supabaseAdmin \}\)\);/);
-  assert.match(server, /setInterval\(runDeactivationMaintenanceNow, DEACTIVATION_MAINTENANCE_INTERVAL_MS\)\.unref\(\);/);
+  assert.match(server, /scheduleJob\('Deactivated accounts', \{ first: 60 \* 1000, every: 60 \* 60 \* 1000 \},/);
   assert.match(server, /deleteAccount: permanentlyDeleteAccount/);
 
   const routes = read('routes', 'accountRoutes.js');

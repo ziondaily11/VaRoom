@@ -102,14 +102,13 @@ export function Signins({ signins, series }: { signins: SigninRow[]; series: Sig
         </ResponsiveContainer>
       </div>
       <Table
-        columns={["User", "Method", "Time", "Device"]}
+        columns={["User", "Method", "Time"]}
         rows={signins}
         renderRow={(r, i) => (
           <tr key={i} className="border-b border-[#E4E1DA] last:border-0">
             <td className="px-4 py-2">{r.user}</td>
             <td className="px-4 py-2 text-[#8a857c]">{r.method}</td>
             <td className="px-4 py-2 text-[#8a857c]">{r.time}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.device}</td>
           </tr>
         )}
       />

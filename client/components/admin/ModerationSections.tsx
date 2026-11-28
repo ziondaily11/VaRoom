@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { loadReportedConversation, errorMessage } from "../../lib/admin/adminApi";
-import type { AccountDeletion, ActivityEntry, AdminListing, AdminUser, ListingReport, ListingReportAction, NewsEntry, ReportedConversation, UserReport, UserReportAction, VaroomUpdate } from "../../lib/admin/adminApi";
+import React, { useEffect, useState } from "react";
+import { loadReportedConversation, loadUsersPage, errorMessage } from "../../lib/admin/adminApi";
+import type { AccountDeletion, ActivityEntry, AdminListing, ListingReport, ListingReportAction, ListingReview, NewsEntry, ReportedConversation, UserPage, UserReport, UserReportAction, VaroomUpdate } from "../../lib/admin/adminApi";
 import { ConsequentialButton, SectionHeader, StatusPill, Table } from "./AdminUi";
 
 const shortDate = (value: string) => new Date(value).toLocaleString();
@@ -34,8 +34,9 @@ function ConversationViewer({ conversation, onClose }: { conversation: ReportedC
   );
 }
 
-export function ListingReports({ reports, userReports, accountDeletions, resolveReport, resolveUserReport, actOnReport, actOnUserReport, openAccount }: {
+export function ListingReports({ reports, userReports, accountDeletions, listingReviews, setReviewStatus, resolveReport, resolveUserReport, actOnReport, actOnUserReport, openAccount }: {
   reports: ListingReport[]; userReports: UserReport[]; accountDeletions: AccountDeletion[];
+  listingReviews: ListingReview[]; setReviewStatus: (id: string, status: "published" | "removed", reason: string) => Promise<unknown>;
   resolveReport: (id: string, status: string) => void; resolveUserReport: (id: string, status: string) => void;
   actOnReport: (id: string, action: ListingReportAction, reason: string) => Promise<unknown>;
   actOnUserReport: (id: string, action: UserReportAction, reason: string) => Promise<unknown>;
@@ -102,6 +103,25 @@ export function ListingReports({ reports, userReports, accountDeletions, resolve
       {conversationError && <div className="mt-3 text-sm text-[#B5482E]" role="alert">{conversationError}</div>}
       {conversation && <ConversationViewer conversation={conversation} onClose={() => setConversation(null)} />}
       <div className="mt-6" />
+      <SectionHeader title="Guest reviews of listings" description="Hide a review that breaks the rules (it leaves the listing and its rating); restore it if hidden by mistake." />
+      <Table
+        columns={["Listing", "Guest", "Rating", "Review", "Status", "Posted", "Action"]}
+        rows={listingReviews}
+        renderRow={(r) => (
+          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0 align-top">
+            <td className="px-4 py-2"><a href={`/booking?listing=${r.listing_id}`} target="_blank" rel="noopener noreferrer" className={linkButton}>{r.listing || "Listing"}</a></td>
+            <td className="px-4 py-2"><button onClick={() => openAccount(r.client_id)} className={linkButton}>{r.guest || "Guest"}</button></td>
+            <td className="px-4 py-2">{"★".repeat(r.rating)}</td>
+            <td className="px-4 py-2 text-[#8a857c] max-w-[40ch]">{r.comment}</td>
+            <td className="px-4 py-2"><StatusPill status={r.status} /></td>
+            <td className="px-4 py-2 text-xs text-[#8a857c]">{shortDate(r.created_at)}</td>
+            <td className="px-4 py-2">{r.status === "removed"
+              ? <ConsequentialButton label="Restore" onConfirm={(reason) => setReviewStatus(r.id, "published", reason)} />
+              : <ConsequentialButton label="Hide" tone="danger" onConfirm={(reason) => setReviewStatus(r.id, "removed", reason)} />}</td>
+          </tr>
+        )}
+      />
+      <div className="mt-6" />
       <SectionHeader title="Deleted accounts" description="Permanent account deletions and the reasons users provided." />
       <Table
         columns={["Account", "Email", "Reason", "Additional detail", "Deleted"]}
@@ -120,23 +140,43 @@ export function ListingReports({ reports, userReports, accountDeletions, resolve
   );
 }
 
-export function UsersControl({ users, openAccount, updateStatus }: {
-  users: AdminUser[]; openAccount: (id: string) => void; updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
+/** Accounts newest first, 50 at a time; the search runs on the server across every account. */
+export function UsersControl({ page, openAccount, updateStatus }: {
+  page: UserPage; openAccount: (id: string) => void; updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
 }) {
   const [search, setSearch] = useState("");
-  const visible = users.filter((u) => [u.email, u.profile?.full_name, u.profile?.username].filter(Boolean).join(" ").toLowerCase().includes(search.toLowerCase()));
+  // A search, or more than the first page; null shows the first page.
+  const [view, setView] = useState<UserPage | null>(null);
+  const shown = view || page;
+  const refreshView = (q: string) => loadUsersPage(q, 0).then(setView).catch(() => setView({ users: [], total: 0 }));
+  useEffect(() => {
+    const q = search.trim();
+    if (!q) { setView(null); return undefined; }
+    const timer = window.setTimeout(() => { void refreshView(q); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  async function showMore() {
+    const next = await loadUsersPage(search.trim(), shown.users.length);
+    setView({ users: [...shown.users, ...next.users], total: next.total });
+  }
+  const act = async (id: string, status: string, reason: string, days?: number) => {
+    const result = await updateStatus(id, status, reason, days);
+    if (view) void refreshView(search.trim());
+    return result;
+  };
   return <div>
-    <SectionHeader title="Users" description="Search accounts, open one to see everything about it, and apply server-enforced account controls." />
+    <SectionHeader title="Users" description={`${shown.total.toLocaleString()} account${shown.total === 1 ? "" : "s"}${search.trim() ? " match" : ""}. Open one to see everything about it, and apply server-enforced account controls.`} />
     <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, username or email" className="w-full max-w-md mb-4 border border-[#E4E1DA] rounded-sm p-2 text-sm" />
-    <Table columns={["User", "Email", "Status", "Last sign-in", "Actions"]} rows={visible} renderRow={(u) => <tr key={u.id} className="border-b border-[#E4E1DA] last:border-0">
+    <Table columns={["User", "Email", "Status", "Last sign-in", "Actions"]} rows={shown.users} renderRow={(u) => <tr key={u.id} className="border-b border-[#E4E1DA] last:border-0">
       <td className="px-4 py-2">{u.profile?.full_name || u.profile?.username || "Unnamed user"}</td><td className="px-4 py-2 text-[#8a857c]">{u.email}</td><td className="px-4 py-2"><StatusPill status={u.account?.status} />{u.account?.status === "suspended" && <div className="text-xs text-[#8a857c] mt-0.5">{u.account.suspended_until ? `Until ${shortDate(u.account.suspended_until)}` : "Until reviewed"}{u.account.rule_key ? " · automatic" : ""}</div>}</td><td className="px-4 py-2 text-xs text-[#8a857c]">{u.last_sign_in_at || "Never"}</td>
       <td className="px-4 py-2 flex gap-2"><button onClick={() => openAccount(u.id)} className="text-xs text-[#1F6F5C]">View</button>{u.account?.status === "active" ? <>
-        <ConsequentialButton label="Warn" tone="danger" onConfirm={(reason) => updateStatus(u.id, "warning", reason)} />
-        <ConsequentialButton label="Suspend 7 days" tone="danger" onConfirm={(reason) => updateStatus(u.id, "suspended", reason, 7)} />
-        <ConsequentialButton label="Suspend until reviewed" tone="danger" onConfirm={(reason) => updateStatus(u.id, "suspended", reason)} />
-        <ConsequentialButton label="Disable" tone="danger" onConfirm={(reason) => updateStatus(u.id, "disabled", reason)} />
-      </> : <ConsequentialButton label="Restore" onConfirm={(reason) => updateStatus(u.id, "active", reason)} />}</td>
+        <ConsequentialButton label="Warn" tone="danger" onConfirm={(reason) => act(u.id, "warning", reason)} />
+        <ConsequentialButton label="Suspend 7 days" tone="danger" onConfirm={(reason) => act(u.id, "suspended", reason, 7)} />
+        <ConsequentialButton label="Suspend until reviewed" tone="danger" onConfirm={(reason) => act(u.id, "suspended", reason)} />
+        <ConsequentialButton label="Disable" tone="danger" onConfirm={(reason) => act(u.id, "disabled", reason)} />
+      </> : <ConsequentialButton label="Restore" onConfirm={(reason) => act(u.id, "active", reason)} />}</td>
     </tr>} />
+    {shown.users.length < shown.total && <button onClick={() => { void showMore(); }} className="mt-3 px-3 py-1.5 text-sm border border-[#E4E1DA] rounded-sm">Show more</button>}
   </div>;
 }
 

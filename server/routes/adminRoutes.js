@@ -7,6 +7,9 @@ const enforcement = require('../lib/enforcement');
 const { ticketRef } = require('../lib/supportInbox');
 const investigation = require('../lib/adminInvestigation');
 const money = require('../lib/adminMoney');
+const security = require('../lib/adminSecurity');
+const { healthReport } = require('../lib/adminHealth');
+const { signedDocumentUrl } = require('../lib/listingDocumentAccess');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -73,7 +76,7 @@ function requireAdmin(supabaseAdmin) {
     const adminId = decodeSession(cookies[SESSION_COOKIE] || req.headers['x-admin-session']);
     if (!adminId) return res.status(401).json({ error: 'Admin authentication required' });
     const { data: admin, error } = await supabaseAdmin.from('admins')
-      .select('id,name,email,role,last_login_at').eq('id', adminId).maybeSingle();
+      .select('id,name,email,role,last_login_at,totp_enabled_at').eq('id', adminId).maybeSingle();
     if (error || !admin) return res.status(401).json({ error: 'Invalid admin session' });
     req.admin = admin;
     return next();
@@ -135,6 +138,8 @@ function createAdminRoutes(supabaseAdmin) {
   const propertyNewsAdminApiKey = (process.env.PROPERTY_NEWS_ADMIN_API_KEY || '').trim();
 
   // Per-email brute-force protection for the admin login endpoint.
+  // Addresses that are not admins are throttled here; an admin's own row
+  // carries its lockout (lib/adminSecurity.js), shared by every instance.
   const loginFailTracker = new Map(); // email -> { count, lockedUntil }
   const LOGIN_MAX_ATTEMPTS = 5;
   const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
@@ -237,20 +242,37 @@ function createAdminRoutes(supabaseAdmin) {
     }
 
     const { data: admin, error } = await supabaseAdmin.from('admins').select('*').eq('email', email).maybeSingle();
-    if (error || !admin || !(await verifyPassword(password, admin.password_hash))) {
-      const newCount = attempt.count + 1;
-      loginFailTracker.set(email, {
-        count: newCount,
-        lockedUntil: newCount >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_LOCKOUT_MS : attempt.lockedUntil,
-      });
-      return res.status(401).json({ error: 'Invalid email or password' });
+    if (error) return res.status(502).json({ error: 'Unable to sign in right now' });
+    const locked = admin && security.lockout(admin);
+    if (locked) {
+      res.set('Retry-After', String(locked.waitSeconds));
+      return res.status(429).json({ error: `Too many failed attempts. Try again in ${locked.waitSeconds}s.` });
+    }
+    const fail = async (message, extra = {}) => {
+      if (admin) {
+        await supabaseAdmin.from('admins').update(security.failedAttempt(admin)).eq('id', admin.id);
+      } else {
+        const newCount = attempt.count + 1;
+        loginFailTracker.set(email, { count: newCount, lockedUntil: newCount >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_LOCKOUT_MS : attempt.lockedUntil });
+      }
+      return res.status(401).json({ error: message, ...extra });
+    };
+    if (!admin || !(await verifyPassword(password, admin.password_hash))) return fail('Invalid email or password');
+
+    // Two-step sign-in: the password is right; the authenticator code is asked for next.
+    if (admin.totp_enabled_at) {
+      const code = String(req.body && req.body.code || '').trim();
+      if (!code) return res.status(401).json({ error: 'Enter the 6-digit code from your authenticator app', code_required: true });
+      let valid = false;
+      try { valid = security.verifyTotp(security.decryptSecret(admin.totp_secret_encrypted), code); } catch { valid = false; }
+      if (!valid) return fail('That code is not right. Check your authenticator app and try again.', { code_required: true });
     }
 
     // Success — clear the failure record and issue a session.
     loginFailTracker.delete(email);
-    await supabaseAdmin.from('admins').update({ last_login_at: new Date().toISOString() }).eq('id', admin.id);
+    await supabaseAdmin.from('admins').update({ last_login_at: new Date().toISOString(), failed_logins: 0, locked_until: null }).eq('id', admin.id);
     res.set('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(encodeSession(admin.id))}; HttpOnly; SameSite=Lax;${process.env.NODE_ENV === 'production' ? ' Secure;' : ''} Max-Age=${SESSION_TTL_SECONDS}; Path=/`);
-    return res.json({ admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+    return res.json({ admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, totp_enabled: Boolean(admin.totp_enabled_at) } });
   });
 
   router.post('/logout', adminAuth, (req, res) => {
@@ -258,7 +280,43 @@ function createAdminRoutes(supabaseAdmin) {
     res.status(204).end();
   });
 
-  router.get('/session', adminAuth, (req, res) => res.json({ admin: req.admin }));
+  router.get('/session', adminAuth, (req, res) => {
+    const { totp_enabled_at: totpEnabledAt, ...admin } = req.admin;
+    return res.json({ admin: { ...admin, totp_enabled: Boolean(totpEnabledAt) } });
+  });
+
+  // Two-step sign-in for the signed-in admin: set up (a new secret, shown
+  // once), confirm with a first code to turn it on, or turn it off with a code.
+  router.post('/me/totp/setup', adminAuth, async (req, res) => {
+    if (req.admin.totp_enabled_at) return res.status(409).json({ error: 'Two-step sign-in is already on' });
+    const secret = security.newTotpSecret();
+    const { error } = await supabaseAdmin.from('admins').update({ totp_secret_encrypted: security.encryptSecret(secret) }).eq('id', req.admin.id);
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ secret, uri: security.otpauthUri(secret, req.admin.email) });
+  });
+
+  async function codeMatches(adminId, code) {
+    const { data, error } = await supabaseAdmin.from('admins').select('totp_secret_encrypted').eq('id', adminId).maybeSingle();
+    if (error || !data || !data.totp_secret_encrypted) return false;
+    try { return security.verifyTotp(security.decryptSecret(data.totp_secret_encrypted), String(code || '').trim()); } catch { return false; }
+  }
+
+  router.post('/me/totp/enable', adminAuth, async (req, res) => {
+    if (!(await codeMatches(req.admin.id, req.body && req.body.code))) return res.status(400).json({ error: 'That code is not right. Check your authenticator app and try again.' });
+    const { error } = await supabaseAdmin.from('admins').update({ totp_enabled_at: new Date().toISOString() }).eq('id', req.admin.id);
+    if (error) return res.status(502).json({ error: error.message });
+    await logActivity(req.admin, 'admin_two_step_enabled', 'admin', req.admin.id, null);
+    return res.json({ enabled: true });
+  });
+
+  router.post('/me/totp/disable', adminAuth, async (req, res) => {
+    if (!req.admin.totp_enabled_at) return res.status(409).json({ error: 'Two-step sign-in is not on' });
+    if (!(await codeMatches(req.admin.id, req.body && req.body.code))) return res.status(400).json({ error: 'That code is not right. Check your authenticator app and try again.' });
+    const { error } = await supabaseAdmin.from('admins').update({ totp_enabled_at: null, totp_secret_encrypted: null }).eq('id', req.admin.id);
+    if (error) return res.status(502).json({ error: error.message });
+    await logActivity(req.admin, 'admin_two_step_disabled', 'admin', req.admin.id, null);
+    return res.json({ enabled: false });
+  });
 
   router.get('/news/pending', adminAuth, async (_req, res) => {
     try {
@@ -290,25 +348,23 @@ function createAdminRoutes(supabaseAdmin) {
   // revenue: what VaRoom earned in the last 7 days (KES), not bookings, which hosts are paid directly.
   router.get('/overview', adminAuth, caught(async (_req, res) => {
     const since = daysAgo(7);
-    const [users, listings, tickets, revenue] = await Promise.all([
-      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+    const [signins, listings, tickets, revenue] = await Promise.all([
+      supabaseAdmin.rpc('admin_recent_signins', { p_since: since }),
       supabaseAdmin.from('listings').select('id', { count: 'exact', head: true }).gte('created_at', since),
       supabaseAdmin.from('support_tickets').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
       money.weekRevenue(supabaseAdmin),
     ]);
-    const signins = (users.data && users.data.users || []).filter((user) => user.last_sign_in_at && user.last_sign_in_at >= since);
-    return res.json({ signins: signins.length, revenue, openTickets: tickets.count || 0, newListings: listings.count || 0 });
+    if (signins.error) throw signins.error;
+    return res.json({ signins: (signins.data || []).length, revenue, openTickets: tickets.count || 0, newListings: listings.count || 0 });
   }));
 
+  // Each person's latest sign-in in the range (counted in the database, past any number of accounts).
   router.get('/signins', adminAuth, async (req, res) => {
     const range = Math.min(Math.max(Number(req.query.range) || 14, 1), 365);
-    const since = daysAgo(range);
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const { data, error } = await supabaseAdmin.rpc('admin_recent_signins', { p_since: daysAgo(range) });
     if (error) return res.status(502).json({ error: error.message });
-    const rows = (data.users || []).filter((user) => user.last_sign_in_at && user.last_sign_in_at >= since)
-      .sort((a, b) => new Date(b.last_sign_in_at) - new Date(a.last_sign_in_at))
-      .map((user) => ({ user: user.email, method: user.app_metadata && user.app_metadata.provider || 'Email', time: user.last_sign_in_at, device: 'Web' }));
-    return res.json({ data: rows, series: signinSeries(rows, Number(req.query.range) || 14) });
+    const rows = (data || []).map((row) => ({ user: row.email, method: row.provider || 'email', time: row.last_sign_in_at }));
+    return res.json({ data: rows, series: signinSeries(rows, range) });
   });
 
   // VaRoom's revenue (plans, listing payments, V-Coins), plans, and payments that failed or were refunded.
@@ -461,24 +517,80 @@ function createAdminRoutes(supabaseAdmin) {
   // User control is intentionally server-only: auth ban metadata invalidates
   // active Supabase sessions and account_controls is checked by critical DB
   // workflows. The browser never receives a service-role credential.
-  router.get('/users', adminAuth, async (req, res) => {
-    const query = String(req.query.q || '').trim().toLowerCase();
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    if (error) return res.status(502).json({ error: error.message });
-    const ids = (data.users || []).map((user) => user.id);
-    const [profilesResult, controlsResult] = await Promise.all([
-      ids.length ? supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids) : { data: [] },
-      ids.length ? supabaseAdmin.from('account_controls').select('user_id,status,reason,suspended_until,rule_key,changed_at,changed_by').in('user_id', ids) : { data: [] },
-    ]);
-    if (profilesResult.error || controlsResult.error) return res.status(502).json({ error: (profilesResult.error || controlsResult.error).message });
-    const profileById = Object.fromEntries((profilesResult.data || []).map((p) => [p.id, p]));
-    const controlById = Object.fromEntries((controlsResult.data || []).map((c) => [c.user_id, c]));
-    const users = (data.users || []).map((user) => ({
-      id: user.id, email: user.email, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at,
-      profile: profileById[user.id] || null, account: accountOf(controlById[user.id], user.banned_until),
-    })).filter((user) => !query || [user.email, user.profile?.full_name, user.profile?.username].filter(Boolean).join(' ').toLowerCase().includes(query));
-    return res.json({ data: users });
+  // Accounts newest first, a page at a time (?q= matches email, name or username; ?offset=, ?limit=).
+  router.get('/users', adminAuth, caught(async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const { data, error } = await supabaseAdmin.rpc('admin_list_accounts', { p_query: String(req.query.q || ''), p_limit: limit, p_offset: offset });
+    if (error) throw error;
+    const controls = await controlsFor(supabaseAdmin, (data || []).map((user) => user.id));
+    return res.json({
+      data: (data || []).map((user) => ({
+        id: user.id, email: user.email, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at, provider: user.provider,
+        profile: { full_name: user.full_name, username: user.username }, account: accountOf(controls[user.id], user.banned_until),
+      })),
+      total: data && data[0] ? Number(data[0].total) : 0,
+    });
+  }));
+
+  // The "Verified host" badge on a host's listings and profile.
+  router.post('/users/:id/verified', ...superAdmin, async (req, res) => {
+    const verified = req.body && req.body.verified === true;
+    const reason = requiredReason(req, res);
+    if (reason === null) return;
+    const { data, error } = await supabaseAdmin.from('profiles').update({ verified }).eq('id', req.params.id).select('id').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Profile not found' });
+    await logActivity(req.admin, verified ? 'host_verified' : 'host_verification_removed', 'user', req.params.id, reason);
+    if (verified) {
+      await createNotification({
+        supabase: supabaseAdmin, recipientUserId: req.params.id, type: 'host_verified', title: 'You are a verified host',
+        message: 'VaRoom has checked your documents. Your listings and profile now show the Verified host badge.',
+        relatedEntityType: 'profile', relatedEntityId: req.params.id, eventKey: `host-verified:${req.params.id}:${Date.now()}`,
+      }).catch((notifyError) => console.error('Verified host notice failed:', notifyError.message));
+    }
+    return res.json({ verified });
   });
+
+  // A host's listing document, opened for the admin checking it (recorded).
+  router.get('/documents/:id/open', ...adminWrite, caught(async (req, res) => {
+    const { data: document, error } = await supabaseAdmin.from('listing_documents')
+      .select('id,host_id,storage_provider,storage_bucket,storage_key,original_filename,mime_type')
+      .eq('id', req.params.id).eq('status', 'ready').is('deleted_at', null).maybeSingle();
+    if (error) throw error;
+    if (!document) return res.status(404).json({ error: 'Document not found' });
+    await logActivity(req.admin, 'listing_document_opened', 'user', document.host_id, null, { document_id: document.id });
+    res.set('Cache-Control', 'private, no-store');
+    return res.redirect(302, await signedDocumentUrl(document, { inline: true }));
+  }));
+
+  // Guest reviews of listings: hide one that breaks the rules, or restore it.
+  router.get('/listing-reviews', adminAuth, caught(async (req, res) => {
+    let query = supabaseAdmin.from('reviews').select('id,listing_id,host_id,client_id,rating,comment,status,created_at,listing:listings(title)')
+      .order('created_at', { ascending: false }).limit(200);
+    if (req.query.status) query = query.eq('status', req.query.status);
+    const { data, error } = await query;
+    if (error) throw error;
+    const ids = [...new Set((data || []).flatMap((r) => [r.host_id, r.client_id]))];
+    const { data: profiles } = ids.length ? await supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids) : { data: [] };
+    const nameOf = Object.fromEntries((profiles || []).map((p) => [p.id, p.full_name || p.username]));
+    return res.json({ data: (data || []).map((r) => ({ ...r, listing: r.listing && r.listing.title, host: nameOf[r.host_id] || null, guest: nameOf[r.client_id] || null })) });
+  }));
+
+  router.patch('/listing-reviews/:id', ...adminWrite, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['published', 'removed'].includes(status)) return res.status(400).json({ error: 'A review is published or removed' });
+    const reason = status === 'removed' ? requiredReason(req, res) : String(req.body && req.body.reason || '').trim();
+    if (reason === null) return;
+    const { data, error } = await supabaseAdmin.from('reviews').update({ status, updated_at: new Date().toISOString() }).eq('id', req.params.id).select('id,status').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Review not found' });
+    await logActivity(req.admin, status === 'removed' ? 'listing_review_removed' : 'listing_review_restored', 'listing_review', data.id, reason);
+    return res.json({ review: data });
+  });
+
+  // The health panel (lib/adminHealth.js).
+  router.get('/health', adminAuth, caught(async (_req, res) => res.json(await healthReport(supabaseAdmin))));
 
   // The whole picture of one account (lib/adminInvestigation.js).
   router.get('/users/:id', adminAuth, caught(async (req, res) => {
@@ -861,18 +973,50 @@ function createAdminRoutes(supabaseAdmin) {
   router.get('/growth', adminAuth, async (req, res) => {
     const range = Math.min(Math.max(Number(req.query.range) || 14, 1), 365);
     const since = daysAgo(range);
-    const [users, listings] = await Promise.all([
-      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+    const [signups, listings] = await Promise.all([
+      supabaseAdmin.rpc('admin_signup_days', { p_since: since }),
       supabaseAdmin.from('listings').select('created_at').gte('created_at', since)
     ]);
-    const signups = (users.data && users.data.users || []).filter((user) => user.created_at >= since).map((user) => ({ created_at: user.created_at }));
-    return res.json({ series: mergeSeries(signups, listings.data || [], range) });
+    if (signups.error || listings.error) return res.status(502).json({ error: (signups.error || listings.error).message });
+    return res.json({ series: mergeSeries(signups.data || [], listings.data || [], range) });
   });
 
   router.get('/admins', adminAuth, async (_req, res) => {
-    const { data, error } = await supabaseAdmin.from('admins').select('id,name,email,role,created_at,last_login_at').order('created_at');
+    const { data, error } = await supabaseAdmin.from('admins').select('id,name,email,role,created_at,last_login_at,totp_enabled_at').order('created_at');
     if (error) return res.status(502).json({ error: error.message });
-    return res.json({ data: (data || []).map((admin) => ({ ...admin, lastLogin: admin.last_login_at || 'Never' })) });
+    return res.json({ data: (data || []).map(({ totp_enabled_at: totpEnabledAt, ...admin }) => ({ ...admin, totp_enabled: Boolean(totpEnabledAt), lastLogin: admin.last_login_at || 'Never' })) });
+  });
+
+  // Super admins change roles and remove admins (not themselves, so there is
+  // always a super admin). A change takes effect on the admin's next request.
+  router.patch('/admins/:id', ...superAdmin, async (req, res) => {
+    const role = req.body && req.body.role;
+    if (!['super_admin', 'support', 'read_only'].includes(role)) return res.status(400).json({ error: 'Choose a valid role' });
+    if (req.params.id === req.admin.id) return res.status(400).json({ error: 'Another super admin has to change your role' });
+    const { data, error } = await supabaseAdmin.from('admins').update({ role }).eq('id', req.params.id).select('id,name,email,role').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Admin not found' });
+    await logActivity(req.admin, 'admin_role_changed', 'admin', data.id, null, { role, email: data.email });
+    return res.json({ admin: data });
+  });
+
+  router.delete('/admins/:id', ...superAdmin, async (req, res) => {
+    if (req.params.id === req.admin.id) return res.status(400).json({ error: 'Another super admin has to remove you' });
+    const { data, error } = await supabaseAdmin.from('admins').delete().eq('id', req.params.id).select('id,email').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Admin not found' });
+    await logActivity(req.admin, 'admin_removed', 'admin', data.id, null, { email: data.email });
+    return res.status(204).end();
+  });
+
+  // For an admin who lost their phone: they sign in with their password and set it up again.
+  router.post('/admins/:id/totp/reset', ...superAdmin, async (req, res) => {
+    if (req.params.id === req.admin.id) return res.status(400).json({ error: 'Turn off your own two-step sign-in from your settings' });
+    const { data, error } = await supabaseAdmin.from('admins').update({ totp_enabled_at: null, totp_secret_encrypted: null }).eq('id', req.params.id).select('id,email').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Admin not found' });
+    await logActivity(req.admin, 'admin_two_step_reset', 'admin', data.id, null, { email: data.email });
+    return res.json({ reset: true });
   });
 
   router.post('/admins', ...superAdmin, async (req, res) => {
@@ -904,10 +1048,12 @@ function describeRule(rule) {
   return { ...rule, label: definition.label, description: definition.describe(rule) };
 }
 
-function mergeSeries(signups, listings, range) {
+/** signupDays: [{ day, signups }] from admin_signup_days; listings: rows with created_at. */
+function mergeSeries(signupDays, listings, range) {
+  const signupsOn = Object.fromEntries(signupDays.map((row) => [String(row.day).slice(0, 10), Number(row.signups)]));
   return Array.from({ length: range }, (_, index) => {
     const day = new Date(Date.now() - (range - 1 - index) * 86400000).toISOString().slice(0, 10);
-    return { day, signups: signups.filter((row) => row.created_at.slice(0, 10) === day).length, listings: listings.filter((row) => row.created_at.slice(0, 10) === day).length };
+    return { day, signups: signupsOn[day] || 0, listings: listings.filter((row) => row.created_at.slice(0, 10) === day).length };
   });
 }
 

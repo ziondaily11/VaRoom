@@ -15,6 +15,7 @@ import {
   History,
   Star,
   Gavel,
+  HeartPulse,
   type LucideIcon,
 } from "lucide-react";
 import * as api from "../../lib/admin/adminApi";
@@ -27,6 +28,7 @@ import { VaroomReviews } from "./VaroomReviewsSection";
 import { Rules } from "./RulesSection";
 import { Account } from "./AccountSection";
 import { SearchBox } from "./SearchBox";
+import { Health } from "./HealthSection";
 import { LoginScreen } from "./LoginScreen";
 
 // The VaRoom admin dashboard (/admin). Overview loads at sign-in; every other
@@ -49,6 +51,7 @@ const NAV_ITEMS: Array<{ key: SectionKey; label: string; icon: LucideIcon }> = [
   { key: "activity", label: "Admin activity", icon: History },
   { key: "admins", label: "Admins", icon: Shield },
   { key: "property-news", label: "Property News", icon: Newspaper },
+  { key: "health", label: "Health", icon: HeartPulse },
 ];
 
 const LOADERS = {
@@ -68,6 +71,8 @@ const LOADERS = {
   updates: api.loadUpdates,
   activity: api.loadActivity,
   rules: api.loadRules,
+  listingReviews: api.loadListingReviews,
+  health: api.loadHealth,
 };
 
 type Resources = { [K in keyof typeof LOADERS]: Awaited<ReturnType<(typeof LOADERS)[K]>> };
@@ -78,7 +83,7 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   signins: ["signins"],
   revenue: ["revenue"],
   support: ["tickets", "templates"],
-  reports: ["reports", "userReports", "deletions"],
+  reports: ["reports", "userReports", "deletions", "listingReviews"],
   users: ["users"],
   listings: ["listings"],
   updates: ["updates"],
@@ -89,6 +94,7 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   "varoom-reviews": ["varoomReviews"],
   rules: ["rules"],
   account: [],
+  health: ["health"],
 };
 
 const EMPTY_OVERVIEW = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 };
@@ -96,6 +102,8 @@ const EMPTY_OVERVIEW = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 
 export default function AdminDashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [me, setMe] = useState<api.SessionAdmin | null>(null);
   const [active, setActive] = useState<SectionKey>("overview");
   const [data, setData] = useState<Partial<Resources>>({});
   const [failed, setFailed] = useState<ResourceKey[]>([]);
@@ -128,7 +136,7 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    api.loadSession().then(() => setLoggedIn(true)).catch(() => {});
+    api.loadSession().then((session) => { setMe(session.admin); setLoggedIn(true); }).catch(() => {});
   }, []);
 
   // Overview (the Support badge) and the open section's data, each once.
@@ -160,14 +168,19 @@ export default function AdminDashboard() {
     setAccountId(null);
   };
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, code?: string) {
     try {
-      await api.login(email, password);
+      const session = await api.login(email, password, code);
       resetData();
       setLoginError("");
+      setCodeRequired(false);
+      setMe(session.admin);
       setLoggedIn(true);
     } catch (error) {
-      setLoginError(api.errorMessage(error, "Request failed"));
+      // Right password, two-step sign-in on: the code field appears (no error until a code is tried).
+      const needsCode = Boolean((error as api.AdminRequestError).codeRequired);
+      setCodeRequired(needsCode);
+      setLoginError(needsCode && !code ? "" : api.errorMessage(error, "Request failed"));
     }
   }
 
@@ -215,6 +228,50 @@ export default function AdminDashboard() {
   const addAdmin = (admin: api.NewAdmin) => run(async () => {
     const result = await api.addAdmin(admin);
     setResource("admins", (prev) => [...(prev || []), { ...result.admin, lastLogin: "Never" }]);
+  });
+
+  const adminControls = {
+    setRole: (id: string, role: api.AdminRole) => run(async () => {
+      await api.setAdminRole(id, role);
+      setResource("admins", (prev) => prev && prev.map((a) => (a.id === id ? { ...a, role } : a)));
+      refreshActivity();
+    }),
+    remove: (id: string) => run(async () => {
+      await api.removeAdmin(id);
+      setResource("admins", (prev) => prev && prev.filter((a) => a.id !== id));
+      refreshActivity();
+    }),
+    resetTwoStep: (id: string) => run(async () => {
+      await api.resetAdminTwoStep(id);
+      setResource("admins", (prev) => prev && prev.map((a) => (a.id === id ? { ...a, totp_enabled: false } : a)));
+    }),
+    setupTwoStep: async () => {
+      let setup: { secret: string; uri: string } | null = null;
+      await run(async () => { setup = await api.setupTwoStep(); });
+      return setup;
+    },
+    enableTwoStep: (code: string) => run(async () => {
+      await api.enableTwoStep(code);
+      setMe((current) => current && { ...current, totp_enabled: true });
+      setResource("admins", (prev) => prev && prev.map((a) => (a.id === me?.id ? { ...a, totp_enabled: true } : a)));
+    }),
+    disableTwoStep: (code: string) => run(async () => {
+      await api.disableTwoStep(code);
+      setMe((current) => current && { ...current, totp_enabled: false });
+      setResource("admins", (prev) => prev && prev.map((a) => (a.id === me?.id ? { ...a, totp_enabled: false } : a)));
+    }),
+  };
+
+  const setReviewStatus = (id: string, status: "published" | "removed", reason: string) => run(async () => {
+    await api.setListingReviewStatus(id, status, reason);
+    setResource("listingReviews", (prev) => prev && prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    refreshActivity();
+  });
+
+  const setHostVerified = (userId: string, verified: boolean, reason: string) => run(async () => {
+    await api.setHostVerified(userId, verified, reason);
+    void refreshAccount(userId);
+    refreshActivity();
   });
 
   async function actionPropertyNews(id: string, action: "approve" | "reject") {
@@ -288,7 +345,7 @@ export default function AdminDashboard() {
     const result = await api.setUserStatus(id, status, reason, days);
     const { status: accountStatus, reason: accountReason, suspended_until } = result;
     if (accountStatus) {
-      setResource("users", (prev) => prev && prev.map((u) => (u.id === id ? { ...u, account: { ...u.account, status: accountStatus, reason: accountReason, suspended_until, rule_key: null } } : u)));
+      setResource("users", (prev) => prev && { ...prev, users: prev.users.map((u) => (u.id === id ? { ...u, account: { ...u.account, status: accountStatus, reason: accountReason, suspended_until, rule_key: null } } : u)) });
     }
     if (accounts[id]) void refreshAccount(id);
     refreshActivity();
@@ -342,7 +399,7 @@ export default function AdminDashboard() {
   }
 
   if (!loggedIn) {
-    return <LoginScreen onLogin={(email, password) => { void login(email, password); }} error={loginError} />;
+    return <LoginScreen onLogin={(email, password, code) => { void login(email, password, code); }} error={loginError} codeRequired={codeRequired} />;
   }
 
   const overview = data.overview || EMPTY_OVERVIEW;
@@ -378,11 +435,11 @@ export default function AdminDashboard() {
           />
         );
       case "reports":
-        return <ListingReports reports={data.reports || []} userReports={data.userReports || []} accountDeletions={data.deletions || []} resolveReport={resolveReport} resolveUserReport={resolveUserReport} actOnReport={actOnReport} actOnUserReport={actOnUserReport} openAccount={openAccount} />;
+        return <ListingReports reports={data.reports || []} userReports={data.userReports || []} accountDeletions={data.deletions || []} listingReviews={data.listingReviews || []} setReviewStatus={setReviewStatus} resolveReport={resolveReport} resolveUserReport={resolveUserReport} actOnReport={actOnReport} actOnUserReport={actOnUserReport} openAccount={openAccount} />;
       case "varoom-reviews":
         return <VaroomReviews reviews={data.varoomReviews || []} setStatus={setVaroomReviewStatus} />;
       case "users":
-        return <UsersControl users={data.users || []} openAccount={openAccount} updateStatus={updateUserStatus} />;
+        return <UsersControl page={data.users || { users: [], total: 0 }} openAccount={openAccount} updateStatus={updateUserStatus} />;
       case "account":
         return (
           <Account
@@ -394,6 +451,7 @@ export default function AdminDashboard() {
             updateStatus={updateUserStatus}
             addNote={addNote}
             money={accountMoney}
+            setVerified={setHostVerified}
           />
         );
       case "rules":
@@ -407,7 +465,9 @@ export default function AdminDashboard() {
       case "activity":
         return <Activity activity={data.activity || []} />;
       case "admins":
-        return <Admins admins={data.admins || []} addAdmin={addAdmin} />;
+        return <Admins admins={data.admins || []} addAdmin={addAdmin} me={me} controls={adminControls} />;
+      case "health":
+        return <Health report={data.health || null} refresh={() => { void reload("health"); }} openAccount={openAccount} />;
       case "property-news":
         return <PropertyNews items={propertyNews} onAction={(id, action) => { void actionPropertyNews(id, action); }} error={propertyNewsError} />;
       default:
@@ -459,6 +519,11 @@ export default function AdminDashboard() {
           <div className="text-sm text-[#5c584f]">Admin</div>
         </header>
         <main className="flex-1 overflow-auto p-6">
+          {me && !me.totp_enabled ? (
+            <div className="mb-4 border border-[#C77D22]/30 bg-[#C77D22]/5 px-4 py-3 text-sm text-[#24211E]">
+              Two-step sign-in is off for your account. <button onClick={() => setActive("admins")} className="text-[#1F6F5C] hover:underline">Turn it on in Admins</button> so a stolen password alone cannot open this page.
+            </div>
+          ) : null}
           {failed.length ? (
             <div className="mb-4 border border-[#B5482E]/30 bg-[#B5482E]/5 px-4 py-3 text-sm text-[#B5482E]">
               Some dashboard data could not be loaded. Available sections are still shown below.

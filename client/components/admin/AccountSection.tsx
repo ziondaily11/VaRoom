@@ -67,7 +67,11 @@ function List<T>({ rows, render }: { rows: T[]; render: (row: T, index: number) 
   return rows.length ? <ul className="text-sm space-y-1.5">{rows.map((row, index) => <li key={index}>{render(row, index)}</li>)}</ul> : <Empty />;
 }
 
-export function Account({ account, loading, onBack, openAccount, openTicket, updateStatus, addNote, money }: {
+const DOCUMENT_LABELS: Record<string, string> = {
+  ownership_management: "Ownership or management", property_policy: "Property policy", commercial_policy: "Commercial policy", floor_plan: "Floor plan",
+};
+
+export function Account({ account, loading, onBack, openAccount, openTicket, updateStatus, addNote, money, setVerified }: {
   account: AccountOverview | null;
   loading: boolean;
   onBack: () => void;
@@ -76,6 +80,7 @@ export function Account({ account, loading, onBack, openAccount, openTicket, upd
   updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
   addNote: (userId: string, body: string) => Promise<boolean>;
   money: AccountMoney;
+  setVerified: (userId: string, verified: boolean, reason: string) => Promise<boolean>;
 }) {
   const [note, setNote] = useState("");
   if (!account) return <div className="text-sm text-[#8a857c]">{loading ? "Loading the account…" : "This account could not be loaded."}</div>;
@@ -108,6 +113,7 @@ export function Account({ account, loading, onBack, openAccount, openTicket, upd
             <dt className="text-[#8a857c]">Phone</dt><dd>{user.profile?.phone || "—"}</dd>
             <dt className="text-[#8a857c]">City</dt><dd>{user.profile?.city || "—"}</dd>
             <dt className="text-[#8a857c]">Host type</dt><dd>{user.profile?.business_name || user.profile?.host_type || "—"}</dd>
+            <dt className="text-[#8a857c]">Verified host</dt><dd>{user.profile?.verified ? "Yes" : "No"}</dd>
             <dt className="text-[#8a857c]">Joined</dt><dd>{when(user.created_at)}</dd>
             <dt className="text-[#8a857c]">Last sign-in</dt><dd>{when(user.last_sign_in_at)}</dd>
             {user.profile?.deactivated_at && <><dt className="text-[#8a857c]">Deactivated</dt><dd>{when(user.profile.deactivated_at)}</dd></>}
@@ -176,6 +182,16 @@ export function Account({ account, loading, onBack, openAccount, openTicket, upd
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={4000} rows={3} placeholder="Add a note for other admins" className="w-full border border-[#E4E1DA] rounded-sm p-2 text-sm resize-none mb-2" />
           <button disabled={!note.trim()} onClick={async () => { if (await addNote(user.id, note.trim())) setNote(""); }} className="px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm disabled:opacity-50 mb-3">Add note</button>
           <List rows={account.notes} render={(n) => <><div className="whitespace-pre-wrap">{n.body}</div><div className="text-xs text-[#8a857c]">{n.admin?.name || "Admin"} · {when(n.created_at)}</div></>} />
+        </Card>
+        <Card title="Documents and verification" count={account.documents.length}>
+          <List rows={account.documents} render={(d) => <>
+            <a href={`/admin/documents/${d.id}/open`} target="_blank" rel="noopener noreferrer" className="text-[#1F6F5C] hover:underline">{DOCUMENT_LABELS[d.document_type] || d.document_type}</a>
+            {" "}<span className="text-xs text-[#8a857c]">{d.listing || "Listing"} · {d.original_filename} · {d.visibility === "host_only" ? "private" : "on the listing"}</span>
+          </>} />
+          <div className="mt-3 pt-3 border-t border-[#E4E1DA] text-xs text-[#8a857c] mb-2">Opening a document is recorded. The Verified host badge shows on this host's listings and profile.</div>
+          {user.profile?.verified
+            ? <ConsequentialButton label="Remove Verified host" tone="danger" onConfirm={(reason) => setVerified(user.id, false, reason)} />
+            : <ConsequentialButton label="Mark as Verified host" onConfirm={(reason) => setVerified(user.id, true, reason)} />}
         </Card>
         <Card title="Admin activity on this account" count={account.activity.length}>
           <List rows={account.activity} render={(a) => <>{a.action.replaceAll("_", " ")}{a.reason ? ` · ${a.reason}` : ""} <span className="text-xs text-[#8a857c]">{a.admin?.name || "System"} · {when(a.created_at)}</span></>} />
