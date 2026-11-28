@@ -83,8 +83,8 @@ export function buildItems(data: HostCalendarData, shown: CalendarListing[], all
       key: `b${b.id}`, kind: b.status === 'pending' ? 'request' : 'booking', listingId: b.listing_id,
       start: b.start_date, end: b.end_date || b.start_date, halfStart: nightly, halfEnd: nightly,
       time, block: dayHire(listing, b.start_date, b.end_date || b.start_date, time),
-      // The event first, then who booked it: "Wedding · Divine Venues".
-      title: event ? `${event} · ${b.guest || 'Guest'}` : b.guest || 'Guest', color: null, source: { type: 'booking', value: b },
+      // The host's own title, else the event first, then who booked it: "Wedding · Divine Venues".
+      title: b.host_title || (event ? `${event} · ${b.guest || 'Guest'}` : b.guest || 'Guest'), color: b.host_color || null, source: { type: 'booking', value: b },
     });
   });
   data.events.filter((e) => !e.listing_id || ids.has(e.listing_id)).forEach((e) => {
@@ -199,7 +199,7 @@ export function searchItems(items: CalendarItem[], titleOf: (listingId: string |
   if (!words.length || query.trim().length < 2) return [];
   const text = (item: CalendarItem) => {
     const { source } = item;
-    const extra = source.type === 'booking' ? [source.value.event_notes]
+    const extra = source.type === 'booking' ? [source.value.guest, source.value.event_notes, source.value.host_notes]
       : source.type === 'event' ? [source.value.client_name, source.value.notes]
       : source.type === 'table' ? [source.value.client_name, source.value.occasion] : [];
     return [item.title, titleOf(item.listingId), ...extra].filter(Boolean).join(' ').toLowerCase();

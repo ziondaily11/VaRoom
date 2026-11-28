@@ -33,9 +33,9 @@ const PATHS: Record<string, string> = {
   guests: 'M17 21a5 5 0 0 0-10 0M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM21 19a4 4 0 0 0-3-3.9M3 19a4 4 0 0 1 3-3.9', repeat: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
   colour: 'M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2 2 0 0 0-1 3.7A1.5 1.5 0 0 1 12 21Z', bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
 };
-const Icon = ({ name }: { name: string }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={PATHS[name]} /></svg>;
+export const Icon = ({ name }: { name: string }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={PATHS[name]} /></svg>;
 /** One line of the card: an icon, a label, the fields. */
-const Line = ({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) => (
+export const Line = ({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) => (
   <div className="vc-line"><span className="vc-line-icon"><Icon name={icon} /></span><span className="vc-line-label">{label}</span><div className="vc-line-field">{children}</div></div>
 );
 const count = (value: string) => (value.trim() && Number.isFinite(Number(value)) ? Number(value) : null);

@@ -251,6 +251,34 @@ test('venue events: the guest picks a type; the calendar shows the event and the
   assert.match(widget, /<select id="event-type" required value=\{eventType\}/);
   assert.match(read('lib', 'bookings', 'hostBookings.ts'), /guest_count,event_type,event_notes,total_price/);
   assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /\{booking\.event_notes && <p className="host-detail-note">“\{booking\.event_notes\}”<\/p>\}/);
-  assert.match(read('components', 'calendar', 'TimeGrid.tsx'), /title: event && source\.type === 'booking' \? source\.value\.guest \|\| 'Guest' : item\.title,/, 'cards: the event as the tag, the booker as the title');
+  assert.match(read('components', 'calendar', 'TimeGrid.tsx'), /title: source\.type === 'booking' \? source\.value\.host_title \|\| \(event \? source\.value\.guest \|\| 'Guest' : item\.title\) : item\.title,/, 'cards: the event as the tag, the host\'s title or the booker as the title');
   assert.match(read('components', 'calendar', 'calendarStyles.ts'), /\.vc \.vc-block\{container-type:size;justify-content:flex-start\}/);
+});
+
+test('the host\'s own title, notes and colour on a VaRoom booking; cards show the photo, then the name', async () => {
+  const fs = require('node:fs');
+  const hall = { id: 'V', title: 'Lush Secret Garden', category: 'venue', price_unit: 'day' };
+  const d = { ...data, listings: [hall], tables: [], events: [{ id: 'e1', listing_id: 'V', start_date: '2026-12-05', end_date: '2026-12-05', title: 'KU graduation', blocks: true, viewing: false, source: 'host', color: null, client_name: 'Kenyatta University', guest_count: 300 }],
+    bookings: [{ id: 'w1', listing_id: 'V', status: 'approved', start_date: '2026-12-06', end_date: '2026-12-06', guest: 'Divine Venues', event_type: 'wedding', host_title: 'Kamau & Njeri wedding', host_notes: 'Decor by Zawadi', host_color: 'green' }] };
+  const items = view.buildItems(d, [hall], true, view.ALL_SHOWN);
+  const w = items.find((i) => i.key === 'bw1');
+  assert.deepEqual([w.title, w.color], ['Kamau & Njeri wedding', 'green'], 'the host\'s title and colour win');
+  assert.deepEqual(view.searchItems(items, () => 'Lush', 'zawadi', '2026-12-01').map((i) => i.key), ['bw1'], 'the host\'s notes are searchable');
+  assert.deepEqual(view.searchItems(items, () => 'Lush', 'divine', '2026-12-01').map((i) => i.key), ['bw1'], 'and the booker, under the host\'s title');
+
+  const cal = loadTs(path.join(root, 'lib', 'calendar', 'hostCalendar.ts'));
+  const calls = [];
+  const fake = { from: (table) => ({
+    upsert: async (row, options) => { calls.push(['upsert', table, row.title, row.notes, row.color, options.onConflict]); return { error: null }; },
+    delete: () => ({ eq: async (column, value) => { calls.push(['delete', table, column, value]); return { error: null }; } }),
+  }) };
+  await cal.saveBookingNote(fake, 'H', 'w1', { title: '  Kamau wedding ', notes: '', color: null });
+  await cal.saveBookingNote(fake, 'H', 'w1', { title: ' ', notes: ' ', color: null });
+  assert.deepEqual(calls, [['upsert', 'booking_host_notes', 'Kamau wedding', null, null, 'booking_id'], ['delete', 'booking_host_notes', 'booking_id', 'w1']], 'all empty: removed');
+
+  const grid = fs.readFileSync(path.join(root, 'components', 'calendar', 'TimeGrid.tsx'), 'utf8');
+  assert.match(grid, /who: \[name, guests \? plural\(guests, 'guest'\) : null, listing\?\.title\]\.filter\(Boolean\)\.join\(' · '\),/, 'the name first, the place last');
+  assert.match(grid, /const name = source\.type === 'booking' \? source\.value\.guest : source\.type === 'event' \|\| source\.type === 'table' \? source\.value\.client_name : null;/, 'offline and VaRoom bookings alike');
+  assert.equal((grid.match(/\{card\.name && <Face name=\{card\.name\} src=\{card\.avatar\} \/>\}<span>\{card\.who\}<\/span>/g) || []).length, 2, 'hour cards and Day cards');
+  assert.match(fs.readFileSync(path.join(root, 'components', 'calendar', 'DetailsPanel.tsx'), 'utf8'), /onClick=\{\(\) => props\.onEditBooking\(b\)\}/);
 });

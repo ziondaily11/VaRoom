@@ -29,6 +29,8 @@ export interface CalendarBooking {
   hours: number | null; guest_count: number | null; total_price: number | null; created_at: string; guest: string | null;
   /** Venues: the type of event and the guest's note (migration 000097). */
   event_type?: string | null; event_notes?: string | null;
+  /** The host's own title, notes and colour (booking_host_notes, 000098): never shown to the guest. */
+  host_title?: string | null; host_notes?: string | null; host_color?: EventColor | null;
   /** The guest's profile photo (as stored; resolveAvatarUrl makes it a URL). */
   avatar?: string | null;
 }
@@ -128,6 +130,16 @@ export async function saveEvent(client: SupabaseClient, hostId: string, fields: 
   const { error } = id
     ? await client.from('calendar_entries').update(row).eq('id', id).eq('kind', 'event')
     : await client.from('calendar_entries').insert(row);
+  if (error) throw error;
+}
+
+/** The host's own title, notes and colour on a VaRoom booking (all empty: removed). */
+export async function saveBookingNote(client: SupabaseClient, hostId: string, bookingId: string, note: { title: string; notes: string; color: EventColor | null }): Promise<void> {
+  const title = note.title.trim().slice(0, 120) || null;
+  const notes = note.notes.trim().slice(0, 2000) || null;
+  const { error } = !title && !notes && !note.color
+    ? await client.from('booking_host_notes').delete().eq('booking_id', bookingId)
+    : await client.from('booking_host_notes').upsert({ booking_id: bookingId, host_id: hostId, title, notes, color: note.color, updated_at: new Date().toISOString() }, { onConflict: 'booking_id' });
   if (error) throw error;
 }
 
