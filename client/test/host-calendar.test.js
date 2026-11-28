@@ -32,8 +32,6 @@ test('closed ranges, open-ended ones too; listings guests can\'t book at all', (
   assert.equal(cal.listingOff({ ...night, live_until: '2020-01-01T00:00:00Z' }), 'is offline (its plan or term has ended)');
   assert.deepEqual(cal.daysBetweenInclusive('2026-12-30', '2027-01-02'), ['2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02']);
   assert.deepEqual({ ...cal.monthRange(2027, 1) }, { from: '2027-02-01', to: '2027-02-28' });
-  assert.equal(cal.hasCalendar('venue'), true);
-  assert.equal(cal.hasCalendar('property'), false);
 });
 
 test('month summary: booked nights, occupancy of open nights (hotel rooms count), money and requests', () => {
@@ -79,7 +77,7 @@ test('the Calendar page sits in the host shell, the sidebar and the listing menu
   assert.match(read('lib', 'navigation', 'startPage.ts'), /'\/calendar',/);
   assert.match(read('lib', 'navigation', 'appLinks.ts'), /'\/calendar',/);
   assert.match(read('components', 'shell', 'HostSidebar.tsx'), /<PinnableRow page="\/calendar" label="Calendar" href="\/calendar"/);
-  assert.match(read('components', 'listings', 'HostListingMenu.tsx'), /hasCalendar\(listing\.category\) && item\('Open calendar'/);
+  assert.match(read('components', 'listings', 'HostListingMenu.tsx'), /\{item\('Open calendar', \(\) => \{ void router\.push\(`\/calendar\?listing=/);
   assert.match(read('lib', 'auth', 'clearUserData.ts'), /clearCalendarCache\(\);/, 'cleared on sign-out and account switch');
   assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /respondToBooking\(client, \{ booking, userId: hostId, decision \}\);\s+clearCalendarCache\(hostId\);/);
   const page = read('components', 'calendar', 'HostCalendar.tsx');
@@ -217,4 +215,37 @@ test('sync: links are checked before adding; "Sync now" goes to the server; impo
   const page = read('components', 'calendar', 'HostCalendar.tsx');
   assert.match(page, /\{e\.source === 'ical'\s+\? <p className="vc-muted">Change it on that site/, 'no Edit for imported days');
   assert.match(page, /<span className="vc-tag is-clash">Double booked<\/span>/);
+});
+
+test('the planner: property, office and shop hosts see viewings, move-ins, lease ends and outcomes', () => {
+  const data = {
+    listings: [], bookings: [], closed: [], tables: [],
+    events: [{ viewing: true, listing_id: 'P', start_date: '2026-12-03' }, { viewing: false, listing_id: 'P', start_date: '2026-12-04' }, { viewing: true, listing_id: 'X', start_date: '2026-12-05' }],
+    leases: [
+      { listing_id: 'P', status: 'approved', start: '2026-12-10', end: '2027-12-10' },
+      { listing_id: 'P', status: 'approved', start: '2025-12-20', end: '2026-12-20' },
+      { listing_id: 'P', status: 'pending', start: '2026-12-15', end: '2027-06-15' },
+    ],
+    outcomes: [],
+  };
+  assert.deepEqual({ ...cal.plannerSummary(data, new Set(['P']), '2026-12-01', '2026-12-31') }, { viewings: 1, moveIns: 1, leaseEnds: 1, requests: 1 });
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /const stays = useMemo\(\(\) => listings\.filter\(\(l\) => !l\.planner\), \[listings\]\);/);
+  assert.match(page, /const notices = stays\.flatMap/, 'no "closed" or "sold" nags for planner listings');
+  assert.match(page, /\{stay && \(\s+<SyncPanel/, 'sync, hire hours and weekly days are for stays only');
+  assert.match(page, /\{l\.status === 'pending' && <Link href="\/bookings" className="vc-link">Answer in Bookings<\/Link>\}/, 'lease requests are answered in Bookings (with its Mark as rented prompt)');
+  const form = read('components', 'calendar', 'EventForm.tsx');
+  assert.match(form, /const choices = blocks \? stayListings : listings;/, 'offline bookings only on stays');
+  assert.match(form, /\{!plannerOnly && \(/, 'planner hosts get Viewing and Note only');
+  assert.match(form, /client_name: blocks \|\| viewing \? text\(clientName\) : null/);
+});
+
+test('reminders and double bookings open the Calendar; the setting covers them', () => {
+  const notes = loadTs(path.join(root, 'lib', 'notificationsCache.ts'), { mocks: {} });
+  assert.equal(notes.notificationTarget({ type: 'calendar_reminder', related_entity_type: 'listing', related_entity_id: 'L1' }, 'host'), '/calendar?listing=L1');
+  assert.equal(notes.notificationTarget({ type: 'calendar_reminder', related_entity_type: null, related_entity_id: null }, 'host'), '/calendar');
+  assert.equal(notes.notificationTarget({ type: 'booking_clash', related_entity_type: 'listing', related_entity_id: 'L2' }, 'host'), '/calendar?listing=L2');
+  assert.equal(notes.detailsFor('calendar_reminder').tag, 'Calendar');
+  assert.equal(notes.detailsFor('booking_clash').title, 'Possible double booking');
+  assert.match(read('lib', 'settings', 'settings.ts'), /label: 'Reminders', desc: 'The evening before check-ins, move-ins, viewings and events; 60 days before a lease ends; 6 hours before an unanswered request expires\.'/);
 });

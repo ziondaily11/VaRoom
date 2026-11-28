@@ -9,10 +9,6 @@ import { apiFetch } from '../api';
 // sign-out and account switch (lib/auth/clearUserData.ts) and after any change
 // to bookings or closed days.
 
-/** Niches whose listings are booked by the night, day or hour. */
-export const CALENDAR_CATEGORIES: readonly string[] = ['airbnb', 'hotel', 'venue'];
-export const hasCalendar = (category: string | null | undefined) => CALENDAR_CATEGORIES.includes(category || '');
-
 export interface CalendarListing {
   id: string; title: string; category: string; availability_status: string | null; live_until: string | null;
   price_unit: string | null; units: number | null; min_notice_days: number | null; max_advance_days: number | null;
@@ -20,6 +16,8 @@ export interface CalendarListing {
   closed_weekdays?: number[];
   /** Venues by the hour: hire hours ('HH:MM', null: any time) and the gap kept between bookings. */
   hire_start?: string | null; hire_end?: string | null; buffer_minutes?: number;
+  /** Property, office and shop: nothing is booked by the night, so the calendar only plans. */
+  planner?: boolean;
 }
 export interface CalendarBooking {
   id: string; listing_id: string; status: 'pending' | 'approved' | 'completed'; start_date: string; end_date: string | null;
@@ -36,6 +34,8 @@ export type EventColor = typeof EVENT_COLORS[number];
 export interface EventFields {
   listing_id: string | null; title: string; notes: string | null; color: EventColor | null;
   start_date: string; end_date: string; start_time: string | null; end_time: string | null; blocks: boolean;
+  /** A viewing: a time and the client's details; it never blocks anything. */
+  viewing: boolean;
   client_name: string | null; client_phone: string | null; guest_count: number | null; amount: number | null; units: number;
   repeat: 'weekly' | 'monthly' | null; repeat_until: string | null;
 }
@@ -49,7 +49,18 @@ export interface TableBooking {
   guest_count: number; table_count: number; date: string; time: string; occasion: string | null; status: 'requested' | 'contacted' | 'closed';
 }
 
-export interface HostCalendarData { listings: CalendarListing[]; bookings: CalendarBooking[]; closed: ClosedRange[]; events: CalendarEvent[]; tables: TableBooking[] }
+/** A rental or lease request: its move-in day and the day it ends. */
+export interface LeaseEntry {
+  id: string; listing_id: string; status: 'pending' | 'approved' | 'completed'; start: string; months: number | null; end: string;
+  total_price: number | null; guest: string | null;
+}
+/** A place marked sold, rented or leased. */
+export interface OutcomeEntry { id: string; listing_id: string; outcome: 'sold' | 'rented' | 'leased'; units: number; agreed_amount: number | null; date: string }
+
+export interface HostCalendarData {
+  listings: CalendarListing[]; bookings: CalendarBooking[]; closed: ClosedRange[]; events: CalendarEvent[]; tables: TableBooking[];
+  leases: LeaseEntry[]; outcomes: OutcomeEntry[];
+}
 
 export const CALENDAR_STALE_MS = 60 * 1000;
 
@@ -77,7 +88,8 @@ export function loadMonth(client: SupabaseClient, hostId: string, year: number, 
     .then(({ data, error }) => {
       if (error) throw error;
       const raw = (data || {}) as Partial<HostCalendarData>;
-      const result: HostCalendarData = { listings: raw.listings || [], bookings: raw.bookings || [], closed: raw.closed || [], events: raw.events || [], tables: raw.tables || [] };
+      const result: HostCalendarData = { listings: raw.listings || [], bookings: raw.bookings || [], closed: raw.closed || [], events: raw.events || [], tables: raw.tables || [],
+        leases: raw.leases || [], outcomes: raw.outcomes || [] };
       cache.set(key, { data: result, fetchedAt: Date.now() });
       return result;
     })
@@ -226,6 +238,20 @@ export function listingOff(listing: CalendarListing, now = Date.now()): string |
   if (status !== 'available') return 'is unavailable';
   if (listing.live_until && Date.parse(listing.live_until) < now) return 'is offline (its plan or term has ended)';
   return null;
+}
+
+export interface PlannerSummary { viewings: number; moveIns: number; leaseEnds: number; requests: number }
+
+/** Property, office and shop hosts' month: viewings, move-ins, leases ending, and requests waiting. */
+export function plannerSummary(data: HostCalendarData, ids: Set<string>, first: string, last: string): PlannerSummary {
+  const inMonth = (day: string) => day >= first && day <= last;
+  const leases = data.leases.filter((l) => ids.has(l.listing_id));
+  return {
+    viewings: data.events.filter((e) => e.viewing && inMonth(e.start_date) && (!e.listing_id || ids.has(e.listing_id))).length,
+    moveIns: leases.filter((l) => l.status !== 'pending' && inMonth(l.start)).length,
+    leaseEnds: leases.filter((l) => l.status !== 'pending' && inMonth(l.end)).length,
+    requests: leases.filter((l) => l.status === 'pending').length,
+  };
 }
 
 export interface MonthSummary { nightsBooked: number; occupancy: number | null; earned: number; offline: number; requests: number }

@@ -102,7 +102,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'answer-requests', topic: 'hosting', title: 'Approve or decline a request',
     summary: 'Answer booking requests from Bookings.',
     steps: ['Open **Bookings** and find the request.', 'Select **Approve**, or select **Decline** and confirm.'],
-    note: 'Turn on the "Requests about to expire" notification in Settings so none run out.',
+    note: 'Turn on the "Reminders" notification in Settings so none run out.',
     keywords: 'approve decline accept reject request host bookings',
   },
   {

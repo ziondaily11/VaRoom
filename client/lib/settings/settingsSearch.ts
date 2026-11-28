@@ -59,7 +59,7 @@ const SETTINGS: SearchEntry[] = [
 
   { section: 'notifications', label: 'Message notifications', target: 'notify-message_notifications', keywords: 'chats alerts' },
   { section: 'notifications', label: 'Booking notifications', target: 'notify-notify_bookings', keywords: 'requests alerts' },
-  { section: 'notifications', label: 'Requests about to expire', target: 'notify-notify_booking_reminders', keywords: 'reminders bookings', hostOnly: true },
+  { section: 'notifications', label: 'Reminders', target: 'notify-notify_booking_reminders', keywords: 'reminders bookings calendar viewings move-in lease expire', hostOnly: true },
   { section: 'notifications', label: 'Review notifications', target: 'notify-notify_reviews', keywords: 'reviews alerts' },
   { section: 'notifications', label: 'Important account updates', target: 'notify-notify_account_updates', keywords: 'alerts' },
   { section: 'notifications', label: 'Promotional & marketing', target: 'notify-notify_marketing', keywords: 'promotions offers newsletter' },

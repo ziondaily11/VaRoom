@@ -27,7 +27,7 @@ export type NotificationKey = 'message_notifications' | 'notify_bookings' | 'not
 export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string; desc?: string; hostOnly?: boolean }> = [
   { key: 'message_notifications', label: 'Messages' },
   { key: 'notify_bookings', label: 'Bookings' },
-  { key: 'notify_booking_reminders', label: 'Requests about to expire', desc: '6 hours before an unanswered request expires.', hostOnly: true },
+  { key: 'notify_booking_reminders', label: 'Reminders', desc: 'The evening before check-ins, move-ins, viewings and events; 60 days before a lease ends; 6 hours before an unanswered request expires.', hostOnly: true },
   { key: 'notify_reviews', label: 'Reviews' },
   { key: 'notify_account_updates', label: 'Important account updates' },
   { key: 'notify_marketing', label: 'Promotional & marketing' },

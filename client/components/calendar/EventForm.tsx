@@ -7,8 +7,10 @@ import {
 } from '../../lib/calendar/hostCalendar';
 
 // Add or change an event on the host's calendar. "Booked offline" takes the
-// days (guests can't book them; on a hotel, the rooms entered); a note never
-// does. For a nightly listing an offline booking is entered as check-in and
+// days (guests can't book them; on a hotel, the rooms entered); a viewing (a
+// time and the client's details) and a note never do. Property, office and
+// shop listings are planned, not booked by the night: they offer viewings and
+// notes only. For a nightly listing an offline booking is entered as check-in and
 // check-out and stored as the nights it takes. A repeating event is changed
 // or deleted as a whole series.
 
@@ -27,15 +29,23 @@ interface Props {
 
 export default function EventForm({ client, hostId, listings, event, day, listingId, preset = null, onClose, onSaved }: Props) {
   const first = useRef<HTMLInputElement>(null);
-  const [blocks, setBlocks] = useState(event ? event.blocks : Boolean(preset || listingId));
-  const [listing, setListing] = useState(event ? event.listing_id || '' : preset?.listingId || listingId || (listings.length === 1 ? listings[0].id : ''));
+  const stayListings = listings.filter((l) => !l.planner);
+  const plannerOnly = stayListings.length === 0;
+  const startListing = event ? event.listing_id || '' : preset?.listingId || listingId || (listings.length === 1 ? listings[0].id : '');
+  const startsPlanner = Boolean(listings.find((l) => l.id === startListing)?.planner) || plannerOnly;
+  const [kind, setKind] = useState<'offline' | 'viewing' | 'note'>(event ? (event.blocks ? 'offline' : event.viewing ? 'viewing' : 'note')
+    : preset ? 'offline' : startsPlanner ? 'viewing' : listingId ? 'offline' : 'note');
+  const blocks = kind === 'offline';
+  const viewing = kind === 'viewing';
+  const [listing, setListing] = useState(startListing);
   const chosen = listings.find((l) => l.id === listing);
+  const choices = blocks ? stayListings : listings;
   const stay = blocks && nightly(chosen);
   const [title, setTitle] = useState(event?.title || preset?.title || '');
   const [start, setStart] = useState(event ? event.series_start : day);
   // A nightly offline booking shows its check-out (the day after its last night).
   const [end, setEnd] = useState(event ? (event.blocks && nightly(listings.find((l) => l.id === event.listing_id)) ? nextDay(event.series_end) : event.series_end) : day);
-  const [timed, setTimed] = useState(Boolean(event?.start_time));
+  const [timed, setTimed] = useState(Boolean(event?.start_time) || (!event && startsPlanner));
   const [startTime, setStartTime] = useState(event?.start_time || '09:00');
   const [endTime, setEndTime] = useState(event?.end_time || '17:00');
   const [color, setColor] = useState<EventColor | null>(event?.color || (event ? null : preset?.color || 'blue'));
@@ -61,8 +71,9 @@ export default function EventForm({ client, hostId, listings, event, day, listin
     if (lastDay < start) { setError(stay ? 'Check-out must be after check-in.' : 'The last day can’t be before the first day.'); return; }
     const fields: EventFields = {
       listing_id: listing || null, title: title.trim(), notes: text(notes), color, start_date: start, end_date: lastDay,
-      start_time: timed ? startTime : null, end_time: timed ? endTime : null, blocks,
-      client_name: text(clientName), client_phone: text(clientPhone), guest_count: count(guests), amount: count(amount),
+      start_time: timed ? startTime : null, end_time: timed ? endTime : null, blocks, viewing,
+      client_name: blocks || viewing ? text(clientName) : null, client_phone: blocks || viewing ? text(clientPhone) : null,
+      guest_count: blocks ? count(guests) : null, amount: blocks ? count(amount) : null,
       units: blocks && chosen?.category === 'hotel' ? Math.max(1, Math.min(Number(rooms) || 1, chosen.units || 1)) : 1,
       repeat, repeat_until: repeat && until ? until : null,
     };
@@ -70,7 +81,7 @@ export default function EventForm({ client, hostId, listings, event, day, listin
     setError(null);
     try {
       await saveEvent(client, hostId, fields, event?.id);
-      onSaved(event ? 'Saved.' : blocks ? 'Added. Guests can’t book those days.' : 'Note added.');
+      onSaved(event ? 'Saved.' : blocks ? 'Added. Guests can’t book those days.' : viewing ? 'Viewing added.' : 'Note added.');
     } catch (failure) {
       console.error('Calendar: the event could not be saved:', failure);
       setError(calendarErrorText(failure, 'That didn’t save. Please try again.'));
@@ -99,18 +110,24 @@ export default function EventForm({ client, hostId, listings, event, day, listin
           <h2 id="vc-event-title">{event ? 'Edit' : 'Add to calendar'}</h2>
           <button type="button" className="vc-close is-shown" aria-label="Close" onClick={onClose}>×</button>
         </div>
-        <div className="vc-kinds" role="radiogroup" aria-label="Type">
-          <button type="button" role="radio" aria-checked={blocks} onClick={() => setBlocks(true)}><strong>Booked offline</strong><span>Phone, walk-in or another site. Guests can’t book it.</span></button>
-          <button type="button" role="radio" aria-checked={!blocks} onClick={() => setBlocks(false)}><strong>Note</strong><span>A reminder for you. Bookings stay open.</span></button>
+        <div className={`vc-kinds${plannerOnly ? '' : ' is-three'}`} role="radiogroup" aria-label="Type">
+          {!plannerOnly && (
+            <button type="button" role="radio" aria-checked={blocks} onClick={() => { setKind('offline'); if (chosen?.planner) setListing(''); }}>
+              <strong>Booked offline</strong><span>Phone, walk-in or another site. Guests can’t book it.</span>
+            </button>
+          )}
+          <button type="button" role="radio" aria-checked={viewing} onClick={() => { setKind('viewing'); setTimed(true); }}><strong>Viewing</strong><span>Someone coming to see the place.</span></button>
+          <button type="button" role="radio" aria-checked={kind === 'note'} onClick={() => setKind('note')}><strong>Note</strong><span>A reminder for you. Bookings stay open.</span></button>
         </div>
         <label className="vc-field">What’s happening
-          <input ref={first} required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={blocks ? 'e.g. Wanjiku & Otieno wedding' : 'e.g. Deep clean'} />
+          <input ref={first} required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)}
+            placeholder={blocks ? 'e.g. Wanjiku & Otieno wedding' : viewing ? 'e.g. Viewing with Otieno' : 'e.g. Deep clean'} />
         </label>
         <label className="vc-field">Place
           <select value={listing} onChange={(e) => setListing(e.target.value)} required={blocks}>
             {!blocks && <option value="">Not tied to a place</option>}
             {blocks && !listing && <option value="">Choose a place</option>}
-            {listings.map((l) => <option key={l.id} value={l.id}>{l.title}</option>)}
+            {choices.map((l) => <option key={l.id} value={l.id}>{l.title}</option>)}
           </select>
         </label>
         <div className="vc-row">
@@ -129,12 +146,14 @@ export default function EventForm({ client, hostId, listings, event, day, listin
             {EVENT_COLORS.map((c) => <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={c} className={`vc-color is-${c}`} onClick={() => setColor(c)} />)}
           </div>
         </div>
+        {(blocks || viewing) && (
+          <div className="vc-row">
+            <label className="vc-field">Client name<input maxLength={120} value={clientName} onChange={(e) => setClientName(e.target.value)} /></label>
+            <label className="vc-field">Phone<input type="tel" maxLength={30} value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} /></label>
+          </div>
+        )}
         {blocks && (
           <>
-            <div className="vc-row">
-              <label className="vc-field">Client name<input maxLength={120} value={clientName} onChange={(e) => setClientName(e.target.value)} /></label>
-              <label className="vc-field">Phone<input type="tel" maxLength={30} value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} /></label>
-            </div>
             <div className="vc-row">
               <label className="vc-field">Guests<input type="number" min={1} inputMode="numeric" value={guests} onChange={(e) => setGuests(e.target.value)} /></label>
               <label className="vc-field">Amount agreed (KES)<input type="number" min={0} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>

@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarMonth, dayLabel, ksh, nightsBetween, plural, shiftMonth, todayString } from '../../lib/booking/bookingListing';
 import {
   cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth, monthRange,
-  minutesOf, monthSummary, setClosed, setHours, setWeekdays, weekday,
+  minutesOf, monthSummary, plannerSummary, setClosed, setHours, setWeekdays, weekday,
   type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
 } from '../../lib/calendar/hostCalendar';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
@@ -21,10 +21,13 @@ import SyncPanel from './SyncPanel';
 // on wide screens, a sheet on smaller ones) to approve requests and to close or
 // reopen the day. "Select days" closes or reopens a range at once. Closing is
 // shown at once and confirmed by the server; a refusal puts it back. The host's
-// own events (booked offline, notes) show in colour; Timeline shows one row
-// per listing.
+// own events (booked offline, viewings, notes) show in colour; Timeline shows
+// one row per listing. Property, office and shop listings are planned, not
+// booked by the night: they show move-ins, lease ends, outcomes and viewings,
+// without the closing and booking controls.
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const OUTCOME_WORD = { sold: 'Sold', rented: 'Rented', leased: 'Leased' } as const;
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const firstName = (name: string | null) => (name || 'Guest').trim().split(/\s+/)[0];
 const timeText = (event: CalendarEvent) => (event.start_time ? `${event.start_time}–${event.end_time} ` : '');
@@ -88,27 +91,37 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   }, [data, listings]);
   // Hotel restaurants' table reservations (a dining-only listing isn't in the list, so only the filter narrows them).
   const tables = useMemo(() => (data?.tables || []).filter((t) => !listingId || t.listing_id === listingId), [data, listingId]);
-  const summary = useMemo(() => (data ? monthSummary(data, listings, month.days, closedAt) : null), [data, listings, month.days, closedAt]);
   const single = listings.length === 1 ? listings[0] : null;
+  const stays = useMemo(() => listings.filter((l) => !l.planner), [listings]);
+  const stay = single && !single.planner ? single : null;
+  const plannerOnly = listings.length > 0 && stays.length === 0;
+  const shownIds = useMemo(() => new Set(listings.map((l) => l.id)), [listings]);
+  const leases = useMemo(() => (data?.leases || []).filter((l) => shownIds.has(l.listing_id)), [data, shownIds]);
+  const outcomes = useMemo(() => (data?.outcomes || []).filter((o) => shownIds.has(o.listing_id)), [data, shownIds]);
+  const summary = useMemo(() => (data && stays.length ? monthSummary(data, stays, month.days, closedAt) : null), [data, stays, month.days, closedAt]);
+  const planned = useMemo(() => (data && plannerOnly ? plannerSummary(data, shownIds, month.days[0], month.days[month.days.length - 1]) : null),
+    [data, plannerOnly, shownIds, month.days]);
 
   const cells = useMemo(() => month.days.map((day) => {
     const taking = bookings.filter((b) => covers(b, byId.get(b.listing_id), day));
     const dayEvents = events.filter((e) => eventOn(e, day));
     const dayTables = tables.filter((t) => t.date === day);
     const offline = dayEvents.filter((e) => e.blocks);
-    const closedCount = listings.filter((l) => closedAt(l.id, day)).length;
-    const allClosed = listings.length > 0 && closedCount === listings.length;
+    const dayLeases = leases.filter((l) => l.start === day || (l.status !== 'pending' && l.end === day));
+    const dayOutcomes = outcomes.filter((o) => o.date === day);
+    const closedCount = stays.filter((l) => closedAt(l.id, day)).length;
+    const allClosed = stays.length > 0 && closedCount === stays.length;
     const state = day < today ? 'past' : allClosed ? 'closed'
       : taking.some((b) => b.status !== 'pending') || offline.length ? 'booked' : taking.length ? 'requested' : 'open';
-    const roomsLeft = single && single.category === 'hotel' && single.units
-      ? Math.max(0, single.units - taking.length - offline.reduce((sum, e) => sum + (e.units || 1), 0)) : null;
-    const clash = listings.some((l) => {
+    const roomsLeft = stay && stay.category === 'hotel' && stay.units
+      ? Math.max(0, stay.units - taking.length - offline.reduce((sum, e) => sum + (e.units || 1), 0)) : null;
+    const clash = stays.some((l) => {
       const used = taking.filter((b) => b.listing_id === l.id && b.end_date).length
         + offline.filter((e) => e.listing_id === l.id && !(l.price_unit === 'hour' && e.start_time)).reduce((sum, e) => sum + (e.units || 1), 0);
       return used > (l.category === 'hotel' ? Math.max(1, l.units || 1) : 1);
     });
-    return { day, taking, dayEvents, dayTables, closedCount, allClosed, state, roomsLeft, clash };
-  }), [month.days, bookings, events, tables, byId, listings, closedAt, today, single]);
+    return { day, taking, dayEvents, dayTables, dayLeases, dayOutcomes, closedCount, allClosed, state, roomsLeft, clash };
+  }), [month.days, bookings, events, tables, leases, outcomes, byId, stays, closedAt, today, stay]);
 
   // ---------- Actions ----------
 
@@ -199,7 +212,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
 
   // ---------- What needs the host's attention ----------
 
-  const notices = listings.flatMap((l) => {
+  const notices = stays.flatMap((l) => {
     const off = listingOff(l);
     const onwards = (data?.closed || []).find((c) => c.listing_id === l.id && !c.end_date);
     return [
@@ -222,8 +235,18 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       if (b.status !== 'pending' && b.end_date && listing?.price_unit !== 'day' && inAgenda(b.end_date)) rows.push({ key: `${b.id}-out`, day: b.end_date, kind: 'Check-out', tone: 'booked', who: `${b.guest || 'Guest'}${place}` });
       return rows;
     }),
+    ...leases.flatMap((l) => {
+      const place = listings.length > 1 ? ` · ${byId.get(l.listing_id)?.title || ''}` : '';
+      const rows = [] as Array<{ key: string; day: string; kind: string; tone: string; who: string }>;
+      if (inAgenda(l.start)) rows.push({ key: `l${l.id}-in`, day: l.start, kind: l.status === 'pending' ? 'Request' : 'Move-in', tone: l.status === 'pending' ? 'request' : 'booked', who: `${l.guest || 'Tenant'}${l.months ? ` · ${plural(l.months, 'month')}` : ''}${place}` });
+      if (l.status !== 'pending' && inAgenda(l.end)) rows.push({ key: `l${l.id}-out`, day: l.end, kind: 'Lease ends', tone: 'booked', who: `${l.guest || 'Tenant'}${place}` });
+      return rows;
+    }),
+    ...outcomes.filter((o) => inAgenda(o.date)).map((o) => ({
+      key: `o${o.id}`, day: o.date, kind: OUTCOME_WORD[o.outcome], tone: 'table', who: `${byId.get(o.listing_id)?.title || ''}${o.units > 1 ? ` · ${plural(o.units, 'unit')}` : ''}${o.agreed_amount ? ` · ${ksh(Number(o.agreed_amount))}` : ''}`,
+    })),
     ...events.filter((e) => inAgenda(e.start_date)).map((e) => ({
-      key: `${e.id}-${e.start_date}`, day: e.start_date, kind: e.blocks ? 'Booked offline' : 'Note', tone: `ev is-${e.color || 'blue'}`,
+      key: `${e.id}-${e.start_date}`, day: e.start_date, kind: e.source === 'ical' ? 'Other site' : e.blocks ? 'Booked offline' : e.viewing ? 'Viewing' : 'Note', tone: `ev is-${e.color || 'blue'}`,
       who: `${timeText(e)}${e.title}${listings.length > 1 && e.listing_id ? ` · ${byId.get(e.listing_id)?.title || ''}` : ''}`,
     })),
     ...tables.filter((t) => inAgenda(t.date)).map((t) => ({
@@ -251,27 +274,29 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         <header className="vc-top">
           <div>
             <h1>Calendar</h1>
-            <p className="vc-sub">Every day your places can be booked. Close the days you’re not available.</p>
+            <p className="vc-sub">{plannerOnly ? 'Your viewings, move-ins, lease ends and notes in one place.' : 'Every day your places can be booked. Close the days you’re not available.'}</p>
           </div>
           <div className="vc-controls">
             {all.length > 1 && <ListingPicker options={all.map((l) => ({ id: l.id, title: l.title }))} value={listingId} onChange={onListingChange} />}
-            {all.length > 1 && (
+            {stays.length > 1 && (
               <div className="vc-toggle" role="group" aria-label="View">
                 <button type="button" aria-pressed={mode === 'month'} onClick={() => setMode('month')}>Month</button>
                 <button type="button" aria-pressed={mode === 'timeline'} onClick={() => setMode('timeline')}>Timeline</button>
               </div>
             )}
-            <button type="button" className={`vc-pill${range ? ' is-on' : ''}`} aria-pressed={Boolean(range)} onClick={() => setRange(range ? null : { start: null, end: null })} disabled={!listings.length}>
-              {range ? 'Done selecting' : 'Select days'}
-            </button>
+            {stays.length > 0 && (
+              <button type="button" className={`vc-pill${range ? ' is-on' : ''}`} aria-pressed={Boolean(range)} onClick={() => setRange(range ? null : { start: null, end: null })}>
+                {range ? 'Done selecting' : 'Select days'}
+              </button>
+            )}
             <button type="button" className="vc-pill is-primary" disabled={!data} onClick={() => setForm({ event: null })}>+ Add</button>
           </div>
         </header>
 
         {data && !all.length && (
           <div className="vc-empty">
-            <h2>No places to show yet</h2>
-            <p>The calendar shows your Airbnb, hotel and venue listings once they’re published.</p>
+            <h2>No listings to show yet</h2>
+            <p>The calendar shows your listings once they’re published.</p>
             <Link href="/list" className="vc-pill">List a space</Link>
           </div>
         )}
@@ -283,9 +308,18 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
           </ul>
         )}
 
+        {planned && (
+          <section className="vc-stats" aria-label="This month">
+            <div><span>Viewings</span><strong>{planned.viewings}</strong></div>
+            <div><span>Move-ins</span><strong>{planned.moveIns}</strong></div>
+            <div><span>Leases ending</span><strong>{planned.leaseEnds}</strong></div>
+            <div className={planned.requests ? 'is-alert' : ''}><span>Requests waiting</span><strong>{planned.requests}</strong></div>
+          </section>
+        )}
+
         {summary && all.length > 0 && (
           <section className="vc-stats" aria-label="This month">
-            <div><span>{single?.price_unit === 'day' ? 'Days booked' : 'Nights booked'}</span><strong>{summary.nightsBooked}</strong></div>
+            <div><span>{stay?.price_unit === 'day' ? 'Days booked' : 'Nights booked'}</span><strong>{summary.nightsBooked}</strong></div>
             <div><span>Occupancy</span><strong>{summary.occupancy == null ? '—' : `${Math.round(summary.occupancy * 100)}%`}</strong></div>
             <div><span>Earned</span><strong>{ksh(summary.earned)}</strong>{summary.offline > 0 && <em>+ {ksh(summary.offline)} entered by you</em>}</div>
             <div className={summary.requests ? 'is-alert' : ''}><span>Requests waiting</span><strong>{summary.requests}</strong></div>
@@ -304,7 +338,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                 </div>
               </div>
               {mode === 'timeline' ? (
-                <Timeline listings={listings} days={month.days} today={today} selected={selected} bookings={bookings} events={events} closedAt={closedAt} onPick={pick} />
+                <Timeline listings={stays} days={month.days} today={today} selected={selected} bookings={bookings} events={events} closedAt={closedAt} onPick={pick} />
               ) : (
                 <div className="vc-grid" role="group" aria-label={month.title}>
                   {WEEKDAYS.map((d) => <div className="vc-dow" key={d} aria-hidden="true">{d}</div>)}
@@ -318,6 +352,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                     if (cell.clash && cell.state !== 'past') classes.push('is-clash');
                     const chips = [
                       ...cell.taking.map((b) => ({ key: b.id, tone: b.status === 'pending' ? 'request' : 'booked', label: `${b.start_time ? `${b.start_time} ` : ''}${firstName(b.guest)}${listings.length > 1 ? ` · ${byId.get(b.listing_id)?.title || ''}` : ''}` })),
+                      ...cell.dayLeases.map((l) => ({ key: `l${l.id}${l.start === cell.day ? 'in' : 'out'}`, tone: l.status === 'pending' ? 'request' : 'booked', label: `${l.start === cell.day ? 'Move-in' : 'Lease ends'} · ${firstName(l.guest)}` })),
+                      ...cell.dayOutcomes.map((o) => ({ key: `o${o.id}`, tone: 'table', label: `${OUTCOME_WORD[o.outcome]}${listings.length > 1 ? ` · ${byId.get(o.listing_id)?.title || ''}` : ''}` })),
                       ...cell.dayEvents.map((e) => ({ key: `e${e.id}`, tone: `ev is-${e.color || 'blue'}`, label: `${timeText(e)}${e.title}` })),
                       ...cell.dayTables.map((t) => ({ key: `t${t.id}`, tone: 'table', label: `${t.time} Table · ${plural(t.guest_count, 'guest')}` })),
                     ];
@@ -330,7 +366,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                         {cell.clash && cell.state !== 'past' && <span className="vc-tag is-clash">Double booked</span>}
                         {cell.allClosed && cell.state !== 'past' && <span className="vc-tag">Closed</span>}
                         {!cell.allClosed && cell.closedCount > 0 && <span className="vc-tag">{cell.closedCount} closed</span>}
-                        {cell.roomsLeft != null && single && cell.roomsLeft < (single.units || 0) && <span className="vc-tag">{cell.roomsLeft} left</span>}
+                        {cell.roomsLeft != null && stay && cell.roomsLeft < (stay.units || 0) && <span className="vc-tag">{cell.roomsLeft} left</span>}
                         <span className="vc-chips">
                           {chips.slice(0, 2).map((c) => <span key={c.key} className={`vc-chip is-${c.tone}`}>{c.label}</span>)}
                           {chips.length > 2 && <span className="vc-more">+{chips.length - 2}</span>}
@@ -352,7 +388,10 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                 <button type="button" className="vc-close" aria-label="Close" onClick={() => setSheetOpen(false)}>×</button>
               </div>
               <ul className="vc-places">
-                {listings.map((l) => {
+                {listings.filter((l) => l.planner).map((l) => (
+                  <li key={l.id}><div><strong>{l.title}</strong><span className="vc-state">Viewings, move-ins and notes</span></div></li>
+                ))}
+                {stays.map((l) => {
                   const closed = closedAt(l.id, selected);
                   const weekly = closedWeekly(l, selected);
                   const taking = selectedCell?.taking.filter((b) => b.listing_id === l.id) || [];
@@ -404,7 +443,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                     <li key={`e${e.id}`} className={`vc-event is-${e.color || 'blue'}`}>
                       <div className="vc-booking-top">
                         <strong>{e.title}</strong>
-                        <span className="vc-badge is-ev">{e.source === 'ical' ? 'From another site' : e.blocks ? 'Booked offline' : 'Note'}</span>
+                        <span className="vc-badge is-ev">{e.source === 'ical' ? 'From another site' : e.blocks ? 'Booked offline' : e.viewing ? 'Viewing' : 'Note'}</span>
                       </div>
                       <span className="vc-muted">
                         {[e.start_time ? `${e.start_time}–${e.end_time}` : 'All day', e.listing_id ? byId.get(e.listing_id)?.title : null,
@@ -441,19 +480,39 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   ))}
                 </ul>
               )}
+              {Boolean(selectedCell?.dayLeases.length || selectedCell?.dayOutcomes.length) && (
+                <ul className="vc-bookings">
+                  {selectedCell?.dayLeases.map((l) => (
+                    <li key={`l${l.id}`}>
+                      <div className="vc-booking-top">
+                        <strong>{l.guest || 'Tenant'}</strong>
+                        <span className={`vc-badge is-${l.status === 'pending' ? 'request' : 'booked'}`}>{l.status === 'pending' ? 'Request' : l.start === selected ? 'Moves in' : 'Lease ends'}</span>
+                      </div>
+                      <span className="vc-muted">{[byId.get(l.listing_id)?.title, l.months ? plural(l.months, 'month') : null, `Ends ${dayLabel(l.end, true)}`, l.total_price ? ksh(Number(l.total_price)) : null].filter(Boolean).join(' · ')}</span>
+                      {l.status === 'pending' && <Link href="/bookings" className="vc-link">Answer in Bookings</Link>}
+                    </li>
+                  ))}
+                  {selectedCell?.dayOutcomes.map((o) => (
+                    <li key={`o${o.id}`}>
+                      <div className="vc-booking-top"><strong>{byId.get(o.listing_id)?.title}</strong><span className="vc-badge is-table">{OUTCOME_WORD[o.outcome]}</span></div>
+                      <span className="vc-muted">{[o.units > 1 ? plural(o.units, 'unit') : null, o.agreed_amount ? ksh(Number(o.agreed_amount)) : null].filter(Boolean).join(' · ') || 'Marked on this day'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <button type="button" className="vc-btn" onClick={() => setForm({ event: null })}>+ Add to {dayLabel(selected)}</button>
-              {single && (
-                <SyncPanel key={single.id} client={client} hostId={hostId} listing={single} showToast={toast.show}
+              {stay && (
+                <SyncPanel key={stay.id} client={client} hostId={hostId} listing={stay} showToast={toast.show}
                   onChanged={() => { clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }} />
               )}
-              {single?.price_unit === 'hour' && <HireHours key={single.id} listing={single} busy={Boolean(busy)} onSave={(start, end, buffer) => saveHours(single, start, end, buffer)} />}
-              {single && (
+              {stay?.price_unit === 'hour' && <HireHours key={stay.id} listing={stay} busy={Boolean(busy)} onSave={(start, end, buffer) => saveHours(stay, start, end, buffer)} />}
+              {stay && (
                 <div className="vc-weekly">
                   <h3>Closed every week</h3>
-                  <div role="group" aria-label={`Days ${single.title} is closed every week`}>
+                  <div role="group" aria-label={`Days ${stay.title} is closed every week`}>
                     {WEEKDAYS.map((name, dow) => (
-                      <button key={name} type="button" aria-pressed={Boolean(single.closed_weekdays?.includes(dow))} disabled={Boolean(busy)}
-                        onClick={() => { void toggleWeekday(single, dow); }}>{name.slice(0, 2)}</button>
+                      <button key={name} type="button" aria-pressed={Boolean(stay.closed_weekdays?.includes(dow))} disabled={Boolean(busy)}
+                        onClick={() => { void toggleWeekday(stay, dow); }}>{name.slice(0, 2)}</button>
                     ))}
                   </div>
                 </div>
