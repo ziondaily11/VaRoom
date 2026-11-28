@@ -1,11 +1,12 @@
 import React from 'react';
 import { dayLabel, ksh } from '../../lib/booking/bookingListing';
-import { barBox, KIND_LABEL, layoutWeek, type CalendarItem } from '../../lib/calendar/calendarView';
+import { barBox, itemsOn, KIND_LABEL, layoutWeek, type CalendarItem } from '../../lib/calendar/calendarView';
 
 // The month: one row per week. A day cell carries its state (closed, cleaning,
 // double booked, rooms left, a special price) and opens the day; entries are
 // bars laid over the row, a stay running from the middle of its check-in day
 // to the middle of its check-out day. Bars past three lanes show as "+N".
+// Phones show up to three dots per day instead of bars.
 
 export interface DayInfo {
   allClosed: boolean;
@@ -72,6 +73,9 @@ export default function MonthView({ weeks, items, info, today, selectedDay, sele
                     {state?.roomsLeft != null && <span>{state.roomsLeft} left</span>}
                   </span>
                   {hidden[col] > 0 && <span className="vc-more">+{hidden[col]} more</span>}
+                  <span className="vc-cell-dots" aria-hidden="true">
+                    {itemsOn(items, day).slice(0, 3).map((item) => <i key={item.key} style={{ background: colorOf(item) }} />)}
+                  </span>
                 </button>
               );
             })}

@@ -3,8 +3,8 @@ import { MONTH_NAMES } from '../../lib/booking/bookingListing';
 import type { CalendarMode } from '../../lib/calendar/calendarView';
 
 // The Calendar's header: a date tile (red month, day number), the full date,
-// navigation (by day, week or month), the view switch (Day, Week, Month,
-// Timeline) and the main actions. On screens narrower than 1280px it also
+// search, navigation (by day, week or month), the view switch (Day, Week,
+// Month, Timeline) and the main actions. On screens narrower than 1280px it also
 // opens the filters drawer and the overview panel.
 
 const MODE_LABEL: Record<CalendarMode, string> = { day: 'Day', week: 'Week', month: 'Month', timeline: 'Timeline' };
@@ -26,9 +26,10 @@ interface Props {
   onAdd: () => void;
   onFilters: () => void;
   onOverview: () => void;
+  search: React.ReactNode;
 }
 
-export default function CalendarHeader({ day, monthTitle, mode, modes, selecting, canSelect, canAdd, onMode, onPrev, onNext, onToday, onSelect, onAdd, onFilters, onOverview }: Props) {
+export default function CalendarHeader({ day, monthTitle, mode, modes, selecting, canSelect, canAdd, onMode, onPrev, onNext, onToday, onSelect, onAdd, onFilters, onOverview, search }: Props) {
   const date = new Date(`${day}T00:00:00Z`);
   const month = MONTH_NAMES[date.getUTCMonth()];
   return (
@@ -41,6 +42,7 @@ export default function CalendarHeader({ day, monthTitle, mode, modes, selecting
         </div>
       </div>
       <div className="vc-head-tools">
+        {search}
         <button type="button" className="vc-pill vc-only-narrow" onClick={onFilters}>Filters</button>
         <button type="button" className="vc-pill vc-only-narrow" onClick={onOverview}>Overview</button>
         <div className="vc-nav" role="group" aria-label={monthTitle}>

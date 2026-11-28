@@ -140,7 +140,7 @@ export interface Segment {
  */
 export function layoutWeek(week: Array<string | null>, items: CalendarItem[], maxLanes = 3): { segments: Segment[]; hidden: number[] } {
   const cols = week.map((day, col) => ({ day, col })).filter((c): c is { day: string; col: number } => Boolean(c.day));
-  const hidden = Array.from({ length: 7 }, () => 0);
+  const hidden = Array.from({ length: week.length }, () => 0);
   if (!cols.length) return { segments: [], hidden };
   const first = cols[0];
   const last = cols[cols.length - 1];
@@ -171,11 +171,37 @@ export function layoutWeek(week: Array<string | null>, items: CalendarItem[], ma
   return { segments, hidden };
 }
 
-/** A bar's position in its week row, as CSS percentages (half a column for a stay's ends). */
-export function barBox(segment: Pick<Segment, 'from' | 'to' | 'halfStart' | 'halfEnd'>): { left: string; width: string } {
+/** A bar's position in its row of `cols` days (a week, or the timeline's month), as CSS percentages (half a column for a stay's ends). */
+export function barBox(segment: Pick<Segment, 'from' | 'to' | 'halfStart' | 'halfEnd'>, cols = 7): { left: string; width: string } {
   const start = segment.from + (segment.halfStart ? 0.5 : 0);
   const end = segment.to + 1 - (segment.halfEnd ? 0.5 : 0);
-  return { left: `${(start / 7) * 100}%`, width: `${(Math.max(0.35, end - start) / 7) * 100}%` };
+  return { left: `${(start / cols) * 100}%`, width: `${(Math.max(0.35, end - start) / cols) * 100}%` };
+}
+
+/**
+ * Search: entries whose guest, title, place, client or notes contain the
+ * words, coming ones first (soonest first), then past ones (latest first).
+ * A weekly note matches once, on its next date.
+ */
+export function searchItems(items: CalendarItem[], titleOf: (listingId: string | null) => string | undefined, query: string, today: string, limit = 8): CalendarItem[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length || query.trim().length < 2) return [];
+  const text = (item: CalendarItem) => {
+    const { source } = item;
+    const extra = source.type === 'event' ? [source.value.client_name, source.value.notes]
+      : source.type === 'table' ? [source.value.client_name, source.value.occasion] : [];
+    return [item.title, titleOf(item.listingId), ...extra].filter(Boolean).join(' ').toLowerCase();
+  };
+  const seen = new Set<string>();
+  const matches = items.filter((item) => words.every((w) => text(item).includes(w)));
+  const coming = matches.filter((i) => i.end >= today).sort((a, b) => a.start.localeCompare(b.start));
+  const past = matches.filter((i) => i.end < today).sort((a, b) => b.start.localeCompare(a.start));
+  return [...coming, ...past].filter((item) => {
+    const id = item.key.split(':')[0];
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).slice(0, limit);
 }
 
 // ---------- Week and day (the time grid) ----------

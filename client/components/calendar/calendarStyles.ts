@@ -18,7 +18,14 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-error{color:var(--bad-text);font-weight:550;font-size:.84rem}
 .vc .vc-empty{text-align:center;padding:48px 16px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .vc button:disabled{opacity:.5;cursor:default}
-.vc .vc-only-narrow{display:none !important}
+.vc .vc-only-narrow,.vc .vc-only-phone,.vc .vc-cell-dots{display:none !important}
+/* Scrollbars: thin, and only seen while the pointer is over what scrolls. */
+.vc,.vc *{scrollbar-width:thin;scrollbar-color:transparent transparent}
+.vc :hover{scrollbar-color:color-mix(in srgb,var(--fg) 20%,transparent) transparent}
+.vc ::-webkit-scrollbar{width:6px;height:6px}
+.vc ::-webkit-scrollbar-track{background:transparent}
+.vc ::-webkit-scrollbar-thumb{background:transparent;border-radius:999px}
+.vc :hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--fg) 20%,transparent)}
 
 /* ---------- buttons ---------- */
 .vc .vc-pill{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:.84rem;font-weight:600;color:var(--fg);text-decoration:none;white-space:nowrap}
@@ -49,6 +56,15 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-tile span{display:block;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 0}
 .vc .vc-tile strong{display:block;font-size:1.45rem;font-weight:750;padding:4px 0 6px;font-variant-numeric:tabular-nums}
 .vc .vc-head-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.vc .vc-search{position:relative}
+.vc .vc-search input{width:230px;font:inherit;font-size:.84rem;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px}
+.vc .vc-search input:focus{outline:0;border-color:var(--fg)}
+.vc .vc-search-results{position:absolute;top:calc(100% + 6px);left:0;z-index:50;width:min(340px,calc(100vw - 28px));max-height:60vh;overflow-y:auto;list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:4px;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 40px -18px rgba(0,0,0,.4)}
+.vc .vc-search-results button{width:100%;display:flex;flex-direction:column;gap:1px;text-align:left;border:0;border-left:3px solid var(--place);border-radius:10px;background:transparent;padding:7px 10px;color:var(--fg)}
+.vc .vc-search-results button:hover{background:var(--soft)}
+.vc .vc-search-results strong{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc .vc-search-none{padding:10px}
 
 /* ---------- three columns ---------- */
 .vc .vc-shell{display:grid;grid-template-columns:264px minmax(0,1fr) 340px;gap:16px;align-items:start}
@@ -265,6 +281,7 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-drawer-backdrop{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.42);display:flex;justify-content:flex-end}
 .vc .vc-drawer{width:min(440px,100%);height:100%;overflow-y:auto;background:var(--card);color:var(--fg);padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:-24px 0 60px -30px rgba(0,0,0,.5);outline:0;animation:vc-slide-in .22s cubic-bezier(.2,.8,.2,1)}
 .vc .vc-tabs{align-self:flex-start}
+@keyframes vc-sheet-in{from{transform:translateY(32px);opacity:0}to{transform:none;opacity:1}}
 @keyframes vc-slide-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
 
 /* ---------- the event dialog ---------- */
@@ -284,23 +301,24 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-dialog .vc-actions{justify-content:flex-end}
 
 /* ---------- the listings timeline ---------- */
-.vc .vc-timeline{overflow-x:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:4px}
-.vc .vc-tl-row{display:grid;grid-template-columns:160px repeat(var(--days,31),minmax(26px,1fr));gap:3px;min-width:max-content}
-.vc .vc-timeline{--days:31}
-.vc .vc-tl-name{position:sticky;left:0;z-index:1;background:var(--card);font-size:.82rem;font-weight:600;padding:6px 8px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc .vc-timeline{overflow-x:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
+.vc .vc-tl-row{display:grid;grid-template-columns:170px 1fr;min-width:calc(170px + var(--days,31) * 30px);align-items:stretch}
+.vc .vc-tl-name{position:sticky;left:0;z-index:2;background:var(--card);display:flex;align-items:center;font-size:.84rem;font-weight:600;padding:0 10px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vc .vc-tl-head .vc-tl-name{color:var(--dim);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-.vc .vc-tl-day{font-size:.7rem;font-weight:650;color:var(--dim);text-align:center;padding:6px 0}
+.vc .vc-tl-head .vc-tl-track{display:grid;grid-template-columns:repeat(var(--days,31),minmax(0,1fr))}
+.vc .vc-tl-day{display:flex;flex-direction:column;align-items:center;font-size:.74rem;font-weight:650;color:var(--mute);padding:2px 0 4px;font-variant-numeric:tabular-nums}
+.vc .vc-tl-day small{font-size:.62rem;color:var(--dim)}
 .vc .vc-tl-day.is-today{color:var(--accent)}
-.vc .vc-tl-cell{height:32px;border-radius:7px;border:1px solid var(--hair);background:var(--card);padding:0}
-.vc .vc-tl-cell.is-booked{background:var(--good);border-color:var(--good)}
-.vc .vc-tl-cell.is-request{background:var(--accent);border-color:var(--accent)}
-.vc .vc-tl-cell.is-closed{background:repeating-linear-gradient(135deg,var(--soft) 0 4px,transparent 4px 8px)}
-.vc :is(.is-ev).is-red{--ev:var(--ev-red)}.vc :is(.is-ev).is-orange{--ev:var(--ev-orange)}.vc :is(.is-ev).is-yellow{--ev:var(--ev-yellow)}
-.vc :is(.is-ev).is-green{--ev:var(--ev-green)}.vc :is(.is-ev).is-blue{--ev:var(--ev-blue)}.vc :is(.is-ev).is-purple{--ev:var(--ev-purple)}
-.vc .vc-tl-cell.has-event{box-shadow:inset 0 -4px 0 var(--ev)}
-.vc .vc-tl-cell.is-offline{background:var(--ev);border-color:var(--ev)}
-.vc .vc-tl-cell.is-past{opacity:.45}
-.vc .vc-tl-cell.is-selected{outline:2px solid var(--fg);outline-offset:1px}
+.vc .vc-tl-track{position:relative;min-height:36px;border-radius:12px;background:var(--soft);overflow:hidden}
+.vc .vc-tl-cell{position:absolute;top:0;bottom:0;border:0;border-left:1px solid var(--hair);background:transparent;padding:0;display:flex;align-items:flex-end;justify-content:center}
+.vc .vc-tl-cell:first-child{border-left:0}
+.vc .vc-tl-cell:hover{background:color-mix(in srgb,var(--fg) 5%,transparent)}
+.vc .vc-tl-cell.is-past{background:color-mix(in srgb,var(--fg) 3%,transparent)}
+.vc .vc-tl-cell.is-today{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.vc .vc-tl-cell.is-closed{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--fg) 9%,transparent) 0 4px,transparent 4px 8px)}
+.vc .vc-tl-cell.is-selected{box-shadow:inset 0 0 0 2px var(--fg);border-radius:6px}
+.vc .vc-tl-cell .vc-more{font-size:.6rem;padding-bottom:1px}
+.vc .vc-timeline .vc-bar{z-index:1}
 
 /* ---------- select days, toast ---------- */
 .vc .vc-rangebar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;
@@ -334,6 +352,30 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-rangebar{border-radius:20px;bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:760px){
+  .vc .vc-only-phone{display:flex !important}
+  .vc .vc-cell-dots{display:flex !important;gap:3px;justify-content:center;margin-top:auto}
+  .vc .vc-cell-dots i{width:6px;height:6px;border-radius:999px}
+  .vc .vc-month-grid .vc-bar{display:none}
+  .vc .vc-cell-top{justify-content:center}
+  .vc .vc-head{gap:10px}
+  .vc .vc-head-date{gap:10px}
+  .vc .vc-head-date .vc-muted{display:none}
+  .vc .vc-tile{width:46px;border-radius:11px}
+  .vc .vc-tile strong{font-size:1.15rem;padding:2px 0 4px}
+  .vc .vc-head-tools{width:100%;gap:8px}
+  .vc .vc-search{flex:1 1 100%}
+  .vc .vc-search input{width:100%}
+  .vc .vc-strip{justify-content:space-between;gap:2px;margin:0 0 10px}
+  .vc .vc-strip button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 9px;border:0;border-radius:14px;background:transparent;color:var(--fg)}
+  .vc .vc-strip span{font-size:.66rem;font-weight:650;color:var(--mute);text-transform:uppercase}
+  .vc .vc-strip strong{font-size:.95rem;font-variant-numeric:tabular-nums}
+  .vc .vc-strip button.is-today strong{color:var(--accent)}
+  .vc .vc-strip button[aria-pressed="true"]{background:var(--fg);color:var(--canvas)}
+  .vc .vc-strip button[aria-pressed="true"] span{color:inherit;opacity:.75}
+  .vc .vc-strip i{position:absolute;bottom:3px;width:4px;height:4px;border-radius:999px;background:var(--accent)}
+  .vc .vc-drawer-backdrop{align-items:flex-end}
+  .vc .vc-drawer{width:100%;height:auto;max-height:88vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:vc-sheet-in .24s cubic-bezier(.2,.8,.2,1)}
+  .vc .vc-tl-row{grid-template-columns:110px 1fr;min-width:calc(110px + var(--days,31) * 28px)}
   .vc .vc-tg-day{padding:6px 0}
   .vc .vc-tg-day strong{min-width:24px;height:24px;font-size:.9rem}
   .vc .vc-block:not(.is-rich) span{display:none}

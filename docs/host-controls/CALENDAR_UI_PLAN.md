@@ -1,6 +1,6 @@
 # Host calendar: UI redesign plan
 
-Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, 000096) merged (#765). PR 2 (Week and Day views) on `claude/calendar-week-day`.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
+Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, 000096) merged (#765). PR 2 (Week and Day views) merged (#766). PR 3 (timeline, search, phone layout, thin scrollbars) on `claude/calendar-timeline-search-phone`.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
 
 References: Prodless (week grid, date tile, details panel), Chronicle (filters with colours, Day/Week/Month, all-day row, popover), the "Today's schedule" app (day timeline, pinned cards, widgets).
 
@@ -92,10 +92,10 @@ Everything that is a listing's setting moves out of the day panel, in tabs: **Pr
 | Width | Layout |
 |---|---|
 | 1024–1279 | The left column becomes a drawer (a "Filters" button). The right column becomes a panel that slides over. |
-| 861–1023 | The same, with Week showing 5 days and scrolling sideways. |
-| 860 and below (phones) | The header becomes a compact date and a week strip. **Day** is the default view; Month shows dots, not bars. Details and settings open as bottom sheets; the existing + button adds. |
+| 861–1023 | The same. Week keeps all 7 days (no sideways scroll): the columns stay wide enough. |
+| 860 and below (phones) | The header becomes a compact date and a week strip. **Day** is the default view; Month shows dots, not bars. Details and settings open as bottom sheets; the header's + Add adds. |
 
-Layout changes use CSS media queries only, with no resize listeners (CLAUDE.md §7).
+Layout changes use CSS media queries only, with no resize listeners (CLAUDE.md §7). Scrollbars are thin and only show while the pointer is over what scrolls.
 
 ## Default view
 A host's last view is remembered on their device. The first time:

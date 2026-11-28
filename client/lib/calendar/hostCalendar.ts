@@ -82,6 +82,8 @@ const inflight = new Map<string, Promise<HostCalendarData>>();
 const keyOf = (hostId: string, year: number, month: number) => `${hostId}:${year}-${month}`;
 
 export const cachedMonth = (hostId: string, year: number, month: number) => cache.get(keyOf(hostId, year, month)) || null;
+/** Every month already loaded for a host (search looks through these, with no new requests). */
+export const cachedMonths = (hostId: string) => Array.from(cache.entries()).filter(([key]) => key.startsWith(`${hostId}:`)).map(([, hit]) => hit.data);
 
 /** The month's data: the cached copy while fresh, else one request (shared by callers asking at once). */
 export function loadMonth(client: SupabaseClient, hostId: string, year: number, month: number, force = false): Promise<HostCalendarData> {
