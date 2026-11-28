@@ -34,7 +34,7 @@ test('reminders: tomorrow\'s in the evening (Nairobi time), lease ends any time,
 });
 
 test('migration 000094: viewings, planner data, reminders (server only), reminder setting, occupancy from the calendar', () => {
-  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000094_calendar_planner_all_niches.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000094_calendar_planner_all_niches.sql'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(sql, /and \(not viewing or not blocks\)/);
   assert.match(sql, /'planner', l\.category in \('property', 'office', 'shop'\)/);
   assert.match(sql, /'leases', coalesce\(/);
@@ -71,4 +71,19 @@ test('migration 000096: guests\' photos on the host calendar, nothing else chang
   };
   assert.equal(strip(sql), strip(before), 'host_calendar is 000095\'s plus the two photo fields');
   assert.match(sql, /security invoker/);
+});
+
+test('migration 000097: a venue booking says what the event is; host_calendar is 000096\'s plus two fields', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261129_000097_booking_event_types.sql'), 'utf8').replace(/\r\n/g, '\n');
+  const before = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000096_calendar_guest_photos.sql'), 'utf8').replace(/\r\n/g, '\n');
+  const fn = (text) => text.slice(text.indexOf('create or replace function public.host_calendar('), text.indexOf('grant execute on function public.host_calendar'));
+  assert.equal(fn(sql).replace(",\n        'event_type', b.event_type, 'event_notes', b.event_notes)", ')'), fn(before), 'only the two booking fields are new');
+  assert.match(sql, /'wedding', 'traditional', 'graduation', 'birthday', 'corporate', 'conference', 'religious',\n  'baby_shower', 'memorial', 'concert', 'shoot', 'party', 'other'/);
+  assert.match(sql, /char_length\(event_notes\) <= 500/);
+  assert.match(sql, /elsif new\.event_type is null and now\(\) >= timestamptz '2026-12-07 00:00:00\+03' then\n    raise exception 'booking_rule: Choose the type of event\.';/, 'required after the grace week');
+  assert.match(sql, /if not coalesce\(venue, false\) then\n    new\.event_type := null;\n    new\.event_notes := null;/, 'only venues keep them');
+  assert.match(sql, /before insert on public\.bookings\n  for each row execute function public\.varoom_booking_event\(\);/);
+  assert.match(sql, /format\(' \(%s, %s\)', public\.varoom_event_label\(new\.event_type\), to_char\(new\.start_date, 'FMDD Mon'\)\)/, 'the host\'s notification names the event and day');
+  assert.match(sql, /security invoker/);
+  assert.match(sql, /-- Undo \(in this order\):/);
 });

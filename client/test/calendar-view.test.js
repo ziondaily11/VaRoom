@@ -209,3 +209,48 @@ test('the right column can be hidden (remembered); an empty hour opens the add c
   assert.match(css, /\.vc \.vc-shell\.is-wide\{grid-template-columns:264px minmax\(0,1fr\)\}/);
   assert.match(css, /\.vc \.vc-shell\.is-wide \.vc-details\.is-open\{transform:none;transition:transform var\(--motion-standard\) var\(--ease-out\)\}/);
 });
+
+test('venue events: the guest picks a type; the calendar shows the event and the booker, a day hire over its hours', () => {
+  const fs = require('node:fs');
+  const types = loadTs(path.join(root, 'lib', 'booking', 'eventTypes.ts'));
+  const sql = fs.readFileSync(path.join(root, '..', 'server', 'migrations', '20261129_000097_booking_event_types.sql'), 'utf8');
+  types.EVENT_TYPES.forEach((t) => assert.ok(sql.includes(`'${t.value}'`), `${t.value} is allowed by the database`));
+  assert.equal(types.eventLabel('traditional'), 'Traditional ceremony');
+  assert.equal(types.eventLabel('other'), 'Event');
+  assert.equal(types.eventLabel('rave'), null);
+
+  const hall = { id: 'V', title: 'Garden Hall', category: 'venue', price_unit: 'day', hire_start: '09:00', hire_end: '23:00' };
+  const venueData = { ...data, listings: [hall], tables: [], events: [{ id: 'e9', listing_id: 'V', start_date: '2026-12-12', end_date: '2026-12-12', title: 'Phone booking', blocks: true, viewing: false, source: 'host', color: null }],
+    bookings: [{ id: 'w1', listing_id: 'V', status: 'pending', start_date: '2026-12-05', end_date: '2026-12-05', guest: 'Divine Venues', event_type: 'wedding', event_notes: 'DJ till 10pm' },
+      { id: 'w2', listing_id: 'V', status: 'approved', start_date: '2026-12-06', end_date: '2026-12-07', guest: 'Kamau', event_type: null }] };
+  const items = view.buildItems(venueData, [hall], true, view.ALL_SHOWN);
+  const by = Object.fromEntries(items.map((i) => [i.key, i]));
+  assert.equal(by.bw1.title, 'Wedding · Divine Venues');
+  assert.equal(by.bw2.title, 'Kamau');
+  assert.equal(by.bw1.block, '09:00–23:00', 'a one-day hire fills the hire hours');
+  assert.equal(by.bw2.block, null, 'two days stay a bar');
+  assert.equal(by['ee9:2026-12-12'].block, '09:00–23:00', 'an offline day booking too');
+  assert.deepEqual({ ...view.timeSpan(by.bw1) }, { from: 540, to: 1380 });
+  assert.deepEqual(view.splitTimed(items).timed.map((i) => i.key).sort(), ['bw1', 'ee9:2026-12-12']);
+  assert.equal(view.buildItems(venueData, [{ ...hall, hire_start: null, hire_end: null }], true, view.ALL_SHOWN)[0].block, '08:00–22:00');
+  assert.deepEqual(view.searchItems(items, () => 'Garden Hall', 'dj', '2026-12-01').map((i) => i.key), ['bw1'], 'the guest\'s note is searchable');
+
+  const bl = loadTs(path.join(root, 'lib', 'booking', 'bookingListing.ts'));
+  const kind = { isShortStay: true, isHourly: false, details: { price_unit: 'day' } };
+  const choice = { start: '2026-12-05', end: '2026-12-05', hours: 0, leaseStart: '', leaseMonths: 0, eventType: 'graduation', eventNotes: '  Family of 40  ' };
+  const venuePayload = bl.bookingPayload({ id: 'V', host_id: 'H', category: 'venue' }, kind, 'C', 100, choice);
+  assert.deepEqual([venuePayload.event_type, venuePayload.event_notes], ['graduation', 'Family of 40']);
+  const stayPayload = bl.bookingPayload({ id: 'A', host_id: 'H', category: 'airbnb' }, kind, 'C', 100, choice);
+  assert.equal('event_type' in stayPayload, false, 'other listings send none');
+
+  const format = loadTs(path.join(root, 'lib', 'bookings', 'format.ts'));
+  assert.deepEqual(format.detailRows({ event_type: 'wedding', hours: null, start_date: '2026-12-05', end_date: '2026-12-05', price_unit: 'day' })[0], { label: 'Event', value: 'Wedding', icon: 'calendar' });
+  const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
+  const widget = read('components', 'booking', 'BookingWidget.tsx');
+  assert.match(widget, /if \(isVenue && !eventType\) \{ setResult\(\{ text: 'Choose the type of event\.', error: true \}\); return; \}/);
+  assert.match(widget, /<select id="event-type" required value=\{eventType\}/);
+  assert.match(read('lib', 'bookings', 'hostBookings.ts'), /guest_count,event_type,event_notes,total_price/);
+  assert.match(read('components', 'bookings', 'HostBookingsView.tsx'), /\{booking\.event_notes && <p className="host-detail-note">“\{booking\.event_notes\}”<\/p>\}/);
+  assert.match(read('components', 'calendar', 'TimeGrid.tsx'), /title: event && source\.type === 'booking' \? source\.value\.guest \|\| 'Guest' : item\.title,/, 'cards: the event as the tag, the booker as the title');
+  assert.match(read('components', 'calendar', 'calendarStyles.ts'), /\.vc \.vc-block\{container-type:size;justify-content:flex-start\}/);
+});

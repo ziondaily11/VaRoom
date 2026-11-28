@@ -42,8 +42,8 @@ test('guest count: the migration adds the column and checks it against max_guest
   assert.match(sql, /before insert on public\.bookings/);
   assert.match(sql, /-- Rollback:/);
   // The page reads it back for hosts and guests, and shows it.
-  assert.match(read('lib', 'bookings', 'hostBookings.ts'), /lease_months,guest_count,total_price/);
-  assert.match(read('lib', 'bookings', 'clientBookings.ts'), /lease_months,guest_count,total_price/);
+  assert.match(read('lib', 'bookings', 'hostBookings.ts'), /lease_months,guest_count,event_type,event_notes,total_price/);
+  assert.match(read('lib', 'bookings', 'clientBookings.ts'), /lease_months,guest_count,event_type,event_notes,total_price/);
   assert.equal(host.guestCountText({ guest_count: 1 }), '1 guest');
   assert.equal(host.guestCountText({ guest_count: 3 }), '3 guests');
   assert.equal(host.guestCountText({ guest_count: null }), '');

@@ -1,6 +1,8 @@
+import { eventLabel } from '../booking/eventTypes';
+
 // Booking types and display rules shared by the Bookings list, the booking
 // detail (rail and phone page) and the host view. Ported from
-// legacy-pages/bookings.html and booking-approved.html; import-free.
+// legacy-pages/bookings.html and booking-approved.html.
 
 export type BookingStatus = 'pending' | 'approved' | 'declined' | 'cancelled' | 'expired' | string;
 
@@ -38,6 +40,9 @@ export interface Booking {
   lease_months: number | null;
   /** Stays: how many guests (NULL for leases and older bookings). */
   guest_count?: number | null;
+  /** Venues: the type of event (lib/booking/eventTypes.ts) and the guest's note for the host. */
+  event_type?: string | null;
+  event_notes?: string | null;
   total_price: number | string | null;
   price_unit: string | null;
   created_at: string;
@@ -142,8 +147,13 @@ export function formatDetailDate(day: string | null): string {
 
 export interface DetailRow { label: string; value: string; icon: 'calendar' | 'clock' | 'guests' }
 
-/** The "Booking Details" rows of an approved booking. */
+/** The "Booking Details" rows of an approved booking (a venue's event first). */
 export function detailRows(b: Booking): DetailRow[] {
+  const event = eventLabel(b.event_type);
+  return [...(event ? [{ label: 'Event', value: event, icon: 'calendar' as const }] : []), ...stayRows(b)];
+}
+
+function stayRows(b: Booking): DetailRow[] {
   const row = (label: string, value: string): DetailRow => ({
     label, value, icon: label === 'Duration' || label === 'Lease length' ? 'clock' : label === 'Guests' ? 'guests' : 'calendar',
   });

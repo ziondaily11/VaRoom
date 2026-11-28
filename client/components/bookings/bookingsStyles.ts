@@ -266,6 +266,7 @@ export const BOOKINGS_STYLES = `
   .bookings-page .booking-video-badge{ position:absolute; left:.45rem; bottom:.45rem; display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .38rem; border-radius:999px; background:rgba(0,0,0,.72); color:#fff; font-size:.62rem; font-weight:700; }
   .bookings-page .booking-video-badge svg{ width:11px; height:11px; }
   .bookings-page .host-booking-card .bk-title{ font-size:.9rem; }
+  .bookings-page .bk-event{ display:inline-flex; margin:4px 0 2px; padding:2px 9px; border-radius:999px; background:var(--paper); font-size:.74rem; font-weight:700; }
   .bookings-page .host-booking-card .bk-meta{ flex-direction:column; align-items:flex-start; gap:.3rem; line-height:1.35; margin-top:.5rem; font-size:.72rem; }
   .bookings-page .host-booking-card .bk-meta span{ display:flex; align-items:center; gap:.38rem; }
   .bookings-page .host-booking-card .bk-price{ font-size:.9rem; margin-top:auto; white-space:nowrap; }
@@ -309,6 +310,8 @@ export const BOOKINGS_STYLES = `
   .bookings-page .host-detail-stay{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:1rem 0; margin:1.1rem 0; }
   .bookings-page .host-detail-item{ border-top:1px solid var(--line); padding-top:.65rem; }
   .bookings-page .host-detail-stay .host-detail-item{ border-top:0; padding-top:0; }
+  .bookings-page .host-detail-event{ margin:-.2rem 0 1.1rem; }
+  .bookings-page .host-detail .host-detail-note{ margin:.4rem 0 0; padding:.7rem .85rem; border-radius:12px; background:var(--paper); color:inherit; font-size:.88rem; line-height:1.45; white-space:pre-wrap; }
   .bookings-page .host-detail-label-row{ display:flex; align-items:center; gap:.35rem; color:var(--muted); font-size:.68rem; }
   .bookings-page .host-detail-label-row .booking-icon{ width:14px; height:14px; }
   .bookings-page .host-detail-label{ color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }

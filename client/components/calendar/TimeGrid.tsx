@@ -6,12 +6,18 @@ import {
 } from '../../lib/calendar/calendarView';
 import type { CalendarListing } from '../../lib/calendar/hostCalendar';
 import type { DayInfo } from './MonthView';
+import { eventLabel } from '../../lib/booking/eventTypes';
+import { getSupabaseClient } from '../../lib/supabase/client';
+import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 
 // The Week and Day views: hours down the side, days across (one day for Day).
 // Week puts stays, day hires and untimed entries in an all-day row of bars
 // above the grid; Day lists them as cards. Timed entries (hourly bookings,
 // viewings, timed events, tables) sit at their hours, side by side where they
 // overlap. Today's column is tinted and the current time is a line with a pill.
+// A venue hired for a day is a card over its hire hours. Cards show a tag (the
+// event, else the kind), the booker, a description and who; CSS container
+// queries drop parts that don't fit the card's size.
 
 const HOUR_PX = 52;
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -63,6 +69,26 @@ function details(item: CalendarItem, listing: CalendarListing | undefined): stri
   return [listing?.title, extra].filter(Boolean).join(' · ');
 }
 
+/** A card's parts (the reference's cards): a tag (the event, else the kind), the title (the booker when the tag is the event), a description and who. */
+function cardOf(item: CalendarItem, listing: CalendarListing | undefined) {
+  const { source } = item;
+  const event = source.type === 'booking' ? eventLabel(source.value.event_type) : null;
+  return {
+    tag: event || KIND_LABEL[item.kind],
+    title: event && source.type === 'booking' ? source.value.guest || 'Guest' : item.title,
+    text: source.type === 'booking' ? source.value.event_notes : source.type === 'event' ? source.value.notes : source.type === 'table' ? source.value.occasion : null,
+    who: details(item, listing),
+    name: source.type === 'booking' ? source.value.guest : source.type === 'event' ? source.value.client_name : null,
+    avatar: source.type === 'booking' ? source.value.avatar : null,
+  };
+}
+
+/** The booker's photo, or their initial. */
+function Face({ name, src }: { name: string | null | undefined; src: string | null | undefined }) {
+  const url = src ? resolveAvatarUrl(src, getSupabaseClient()) : null;
+  return url ? <img className="vc-face" src={url} alt="" /> : <i className="vc-face" aria-hidden="true">{(name || '?').trim().charAt(0).toUpperCase()}</i>;
+}
+
 function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, onPickItem, onAddAt, rich }: Props & { rich: boolean }) {
   const scroller = useRef<HTMLDivElement>(null);
   const { timed } = splitTimed(items);
@@ -94,17 +120,19 @@ function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, 
                 const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
                 onAddAt(day, clock(Math.min(23 * 60 + 30, hours.start * 60 + Math.floor(y / (HOUR_PX / 2)) * 30)), { x: e.clientX, y: e.clientY });
               }} />
-            {layoutTimes(timed.filter((i) => i.start === day)).map((p) => (
+            {layoutTimes(timed.filter((i) => i.start === day)).map((p) => { const card = cardOf(p.item, listingOf(p.item.listingId)); return (
               <button key={p.item.key} type="button"
                 className={`vc-block is-${p.item.kind}${rich ? ' is-rich' : ''}${p.item.key === selectedKey ? ' is-selected' : ''}`}
                 style={{ top: top(p.from), height: Math.max(24, ((p.to - p.from) / 60) * HOUR_PX - 3), left: `calc(${(p.col / p.cols) * 100}% + 2px)`, width: `calc(${100 / p.cols}% - 4px)`, ['--place' as string]: colorOf(p.item) } as React.CSSProperties}
                 title={`${KIND_LABEL[p.item.kind]}: ${p.item.title} · ${clock(p.from)}–${clock(p.to)}`}
                 onClick={() => onPickItem(p.item)}>
-                <strong>{p.item.title}</strong>
-                <span>{clock(p.from)}–{clock(p.to)}</span>
-                {rich && <span className="vc-block-kind">{KIND_LABEL[p.item.kind]}{details(p.item, listingOf(p.item.listingId)) ? ` · ${details(p.item, listingOf(p.item.listingId))}` : ''}</span>}
+                <span className="vc-block-tag">{card.tag}</span>
+                <strong>{card.title}</strong>
+                <span className="vc-block-time">{clock(p.from)}–{clock(p.to)}</span>
+                {card.text && <span className="vc-block-desc">{card.text}</span>}
+                {(card.who || card.name) && <span className="vc-block-foot">{card.name && <Face name={card.name} src={card.avatar} />}<span>{card.who}</span></span>}
               </button>
-            ))}
+            ); })}
             {day === today && now >= hours.start * 60 && (
               <div className="vc-now" style={{ top: top(now) }} aria-label={`Now, ${clock(now)}`}><span>{clock(now)}</span></div>
             )}
