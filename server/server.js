@@ -32,6 +32,7 @@ const { createVcoinRoutes } = require('./routes/vcoinRoutes');
 const { createElieHostRoutes } = require('./routes/elieHostRoutes');
 const { createCalendarSyncRoutes } = require('./routes/calendarSyncRoutes');
 const { SYNC_INTERVAL_MS, syncAllFeeds } = require('./lib/calendarSync');
+const { REMINDER_INTERVAL_MS, sendCalendarReminders } = require('./lib/calendarReminders');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
@@ -893,6 +894,16 @@ function syncCalendarLinksNow() {
 }
 setTimeout(syncCalendarLinksNow, 2 * 60 * 1000).unref();
 setInterval(syncCalendarLinksNow, SYNC_INTERVAL_MS).unref();
+
+// Calendar reminders: tomorrow's check-ins, move-ins, viewings and events (in
+// the evening) and leases ending in 60 days, once each (lib/calendarReminders.js).
+function sendCalendarRemindersNow() {
+  sendCalendarReminders(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Calendar reminders handled: ${count}.`); })
+    .catch((error) => console.error('Calendar reminders failed:', error));
+}
+setTimeout(sendCalendarRemindersNow, 3 * 60 * 1000).unref();
+setInterval(sendCalendarRemindersNow, REMINDER_INTERVAL_MS).unref();
 
 // Chat messages left unread: emailed about after each person's chosen time
 // (Chat Settings), checked every 5 minutes.

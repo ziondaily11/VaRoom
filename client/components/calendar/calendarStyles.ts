@@ -149,6 +149,8 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-kinds{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .vc .vc-kinds button{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:var(--card)}
 .vc .vc-kinds button span{font-size:.76rem;color:var(--mute)}
+.vc .vc-kinds.is-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:520px){.vc .vc-kinds.is-three{grid-template-columns:1fr}}
 .vc .vc-kinds button[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .vc .vc-field{display:flex;flex-direction:column;gap:5px;font-size:.8rem;font-weight:600;color:var(--mute);flex:1;min-width:0}
 .vc .vc-field :is(input,select,textarea){font:inherit;font-size:.9rem;font-weight:500;color:var(--fg);background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:9px 11px;width:100%}

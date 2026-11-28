@@ -138,6 +138,9 @@ export function detailsFor(type: string): NotificationDetails {
     };
   }
   if (type === 'team_invite') return { category: 'other', title: 'Team invitation', tint: 'tint-black', tag: 'Team', iconKind: 'team' };
+  // From the Calendar: tomorrow's check-ins, move-ins, viewings and events, lease ends, and double bookings.
+  if (type === 'calendar_reminder') return { category: 'booking', title: 'Reminder', tint: 'tint-amber', tag: 'Calendar', iconKind: 'request' };
+  if (type === 'booking_clash') return { category: 'booking', title: 'Possible double booking', tint: 'tint-red', tag: 'Calendar', iconKind: 'declined' };
   return { category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'update' };
 }
 
@@ -160,6 +163,11 @@ export function notificationTarget(notification: NotificationItem, role: 'host' 
     return '/profile';
   }
   if (notification.related_entity_type === 'team') return '/settings?section=team';
+  // Calendar reminders and double bookings open that listing's calendar.
+  if ((notification.type === 'calendar_reminder' || notification.type === 'booking_clash') && role === 'host') {
+    return notification.related_entity_type === 'listing' && notification.related_entity_id
+      ? `/calendar?listing=${encodeURIComponent(notification.related_entity_id)}` : '/calendar';
+  }
   if (
     (notification.related_entity_type === 'booking' || notification.booking_id) &&
     bookingId
