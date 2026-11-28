@@ -119,7 +119,7 @@ test('the planner: events take their days inclusively, weekly closed days, reada
   await cal.setWeekdays(client, 'A', [0, 6]);
   assert.deepEqual(calls[calls.length - 1], ['calendar_set_weekdays', { p_listing: 'A', p_days: [0, 6] }]);
   const page = read('components', 'calendar', 'HostCalendar.tsx');
-  assert.match(page, /\{selected >= today && !weekly && \(/, 'a weekly closed day is changed in "Closed every week", not by Reopen');
+  assert.match(read('components', 'calendar', 'DetailsPanel.tsx'), /\{!row\.weekly && \(/, 'a weekly closed day is changed in "Closed every week", not by Reopen');
   assert.match(read('components', 'calendar', 'EventForm.tsx'), /const lastDay = stay \? previousDay\(end\) : end;/, 'a stay entered by check-out is stored as its nights');
 });
 
@@ -156,7 +156,7 @@ test('venues by the hour: start times within hire hours, free of taken times; ti
   assert.equal(cal.minutesOf('24:00', 0), 1440);
   const page = read('components', 'calendar', 'HostCalendar.tsx');
   assert.match(page, /preset: \{ title: 'Rooms closed', listingId: l\.id, color: 'purple' \}/, 'hotels close rooms as an offline booking of N rooms');
-  assert.match(page, /tone: 'table', label: `\$\{t\.time\} Table/, 'table reservations show on their day');
+  assert.match(read('lib', 'calendar', 'calendarView.ts'), /items\.push\(\{ key: `t\$\{t\.id\}`, kind: 'table'/, 'table reservations show on their day');
   for (const select of [read('lib', 'bookings', 'hostBookings.ts'), read('lib', 'bookings', 'clientBookings.ts')]) assert.match(select, /hours,start_time,end_time,/);
 });
 
@@ -213,8 +213,8 @@ test('sync: links are checked before adding; "Sync now" goes to the server; impo
   await cal.syncNow('feed-1', async (p, o) => { calls.push([p, o]); return { ok: true, count: 2, clashes: [] }; });
   assert.deepEqual(calls, [['/api/calendar/feeds/feed-1/sync', { method: 'POST' }]]);
   const page = read('components', 'calendar', 'HostCalendar.tsx');
-  assert.match(page, /\{e\.source === 'ical'\s+\? <p className="vc-muted">Change it on that site/, 'no Edit for imported days');
-  assert.match(page, /<span className="vc-tag is-clash">Double booked<\/span>/);
+  assert.match(read('components', 'calendar', 'DetailsPanel.tsx'), /\{e\.source === 'ical'\s+\? <p className="vc-muted">Change it on that site/, 'no Edit for imported days');
+  assert.match(read('components', 'calendar', 'MonthView.tsx'), /\{state\?\.clash && day >= today && <span className="is-clash">Double booked<\/span>\}/);
 });
 
 test('the planner: property, office and shop hosts see viewings, move-ins, lease ends and outcomes', () => {
@@ -230,10 +230,10 @@ test('the planner: property, office and shop hosts see viewings, move-ins, lease
   };
   assert.deepEqual({ ...cal.plannerSummary(data, new Set(['P']), '2026-12-01', '2026-12-31') }, { viewings: 1, moveIns: 1, leaseEnds: 1, requests: 1 });
   const page = read('components', 'calendar', 'HostCalendar.tsx');
-  assert.match(page, /const stays = useMemo\(\(\) => listings\.filter\(\(l\) => !l\.planner\), \[listings\]\);/);
-  assert.match(page, /const notices = stays\.flatMap/, 'no "closed" or "sold" nags for planner listings');
-  assert.match(page, /\{stay && \(\s+<SyncPanel/, 'sync, hire hours and weekly days are for stays only');
-  assert.match(page, /\{l\.status === 'pending' && <Link href="\/bookings" className="vc-link">Answer in Bookings<\/Link>\}/, 'lease requests are answered in Bookings (with its Mark as rented prompt)');
+  assert.match(page, /const stays = useMemo\(\(\) => shown\.filter\(\(l\) => !l\.planner\), \[shown\]\);/);
+  assert.match(page, /const notices: Notice\[\] = stays\.flatMap/, 'no "closed" or "sold" nags for planner listings');
+  assert.match(read('components', 'calendar', 'CalendarSidebar.tsx'), /\{!listing\.planner && \(\s+<button type="button" className="vc-gear"/, 'place settings (prices, availability, sync) are for stays only');
+  assert.match(read('components', 'calendar', 'DetailsPanel.tsx'), /<Link href="\/bookings">\{l\.status === 'pending' \? 'Answer in Bookings' : 'Open in Bookings'\}<\/Link>/, 'lease requests are answered in Bookings (with its Mark as rented prompt)');
   const form = read('components', 'calendar', 'EventForm.tsx');
   assert.match(form, /const choices = blocks \? stayListings : listings;/, 'offline bookings only on stays');
   assert.match(form, /\{!plannerOnly && \(/, 'planner hosts get Viewing and Note only');
@@ -293,5 +293,5 @@ test('prices on the host calendar: special dates beat the weekend, which beats t
     ['calendar_set_price', { p_listing: 'A', p_from: '2026-12-24', p_to: '2026-12-26', p_price: 9000, p_label: 'Christmas' }],
     ['calendar_set_turnover', { p_listing: 'A', p_days: 1 }],
   ]);
-  assert.match(read('components', 'calendar', 'HostCalendar.tsx'), /\{cell\.cleaning && cell\.state !== 'past' && <span className="vc-tag">Cleaning<\/span>\}/);
+  assert.match(read('components', 'calendar', 'MonthView.tsx'), /\{state\?\.cleaning && day >= today && <span>Cleaning<\/span>\}/);
 });
