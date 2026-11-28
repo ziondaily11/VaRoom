@@ -115,3 +115,16 @@ test('booking details: one layout for every status; the phone page has a plain t
   assert.doesNotMatch(styles, /has-varoom-mobile-nav/, 'no room kept for a bottom bar');
   assert.match(styles, /\.booking-approved-page \.ba-main\{[^}]*padding:16px 16px calc\(28px \+ env\(safe-area-inset-bottom\)\); \}/);
 });
+
+test('guests can be typed (a venue may take 300), not only stepped', () => {
+  const bl = loadTs(path.join(root, 'lib', 'booking', 'bookingListing.ts'));
+  assert.equal(bl.typedGuests('300', 2, 500), 300);
+  assert.equal(bl.typedGuests('900', 2, 500), 500, 'more than the place takes becomes its maximum');
+  assert.equal(bl.typedGuests('', 42, 500), 42, 'emptied and left: the count stays');
+  assert.equal(bl.typedGuests('0', 42, 500), 42);
+  assert.equal(bl.typedGuests('abc', 42, 500), 42);
+  assert.equal(bl.typedGuests('12.6', 2, 500), 13);
+  const widget = read('components', 'booking', 'BookingWidget.tsx');
+  assert.match(widget, /<input id="guests-input" type="number" inputMode="numeric" min=\{1\} max=\{max\} aria-label="Number of guests"/);
+  assert.match(widget, /onBlur=\{\(event\) => settle\(event\.target\.value\)\}/);
+});

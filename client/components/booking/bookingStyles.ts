@@ -315,7 +315,8 @@ export const BOOKING_STYLES = `
   }
   .booking-page .stepper button:disabled{ opacity:.3; }
   .booking-page .stepper button:not(:disabled):active{ transform:scale(.92); }
-  .booking-page .stepper output{ min-width:20px; text-align:center; font-weight:600; font-variant-numeric:tabular-nums; }
+  .booking-page .stepper input{ width:72px; min-height:38px; padding:6px 4px; text-align:center; font-weight:600; font-variant-numeric:tabular-nums; -moz-appearance:textfield; appearance:textfield; }
+  .booking-page .stepper input::-webkit-inner-spin-button, .booking-page .stepper input::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
 
   /* Hotel check-in facts */
   .booking-page .stay-facts{ margin-top:4px; border-top:1px solid var(--line); }

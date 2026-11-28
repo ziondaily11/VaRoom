@@ -639,6 +639,12 @@ export function guestLimit(details: Pick<BookingDetails, 'max_guests'>): number 
   return Number.isInteger(max) && max > 0 ? Math.min(max, 1000) : 20;
 }
 
+/** A typed guest count: a whole number from 1 to the maximum (more becomes the maximum); empty or not a number keeps the current count. */
+export function typedGuests(text: string, current: number, max: number): number {
+  const typed = Math.round(Number(text));
+  return text.trim() && typed >= 1 ? Math.min(max, typed) : current;
+}
+
 export function bookingPayload(listing: BookingListing, kind: BookingKind, clientId: string, total: number, choice: StayChoice): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     listing_id: listing.id,

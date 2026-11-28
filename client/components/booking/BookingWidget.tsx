@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, startTimes, stayLine, dayPrice, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, startTimes, stayLine, dayPrice, stayProblem, typedGuests, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -75,8 +75,11 @@ function DetailsBox({ line: current, isHotel }: { line: PriceLine | null; isHote
   );
 }
 
-/** How many guests: a − / + stepper, from 1 to the listing's maximum. */
+/** How many guests, from 1 to the listing's maximum: typed (a venue may take 300) or stepped with − / +. */
 function GuestStepper({ value, max, isHotel, onChange }: { value: number; max: number; isHotel: boolean; onChange: (value: number) => void }) {
+  // What is being typed (may be empty or too high for a moment); settled on leaving the field.
+  const [draft, setDraft] = useState<string | null>(null);
+  const settle = (text: string) => { onChange(typedGuests(text, value, max)); setDraft(null); };
   return (
     <div className="guest-field">
       <div>
@@ -85,7 +88,10 @@ function GuestStepper({ value, max, isHotel, onChange }: { value: number; max: n
       </div>
       <div className="stepper" role="group" aria-labelledby="guests-label">
         <button type="button" aria-label="One guest fewer" disabled={value <= 1} onClick={() => onChange(Math.max(1, value - 1))}>−</button>
-        <output id="guests-input" aria-live="polite" aria-label={plural(value, 'guest')}>{value}</output>
+        <input id="guests-input" type="number" inputMode="numeric" min={1} max={max} aria-label="Number of guests" value={draft ?? String(value)}
+          onChange={(event) => { setDraft(event.target.value); const typed = Number(event.target.value); if (Number.isInteger(typed) && typed >= 1 && typed <= max) onChange(typed); }}
+          onBlur={(event) => settle(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); settle(event.currentTarget.value); } }} />
         <button type="button" aria-label="One more guest" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
       </div>
     </div>

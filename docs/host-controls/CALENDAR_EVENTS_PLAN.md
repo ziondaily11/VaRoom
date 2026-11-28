@@ -1,6 +1,6 @@
 # Calendar: wide view, event bookings, and the new add card
 
-Status: **approved 2026-11-29 with both recommendations (venue day hires as cards; a one-week grace before the event type is required). PR 1 (A + E) merged (#772). PR 2 (B + C + D, migration 000097) on `claude/calendar-event-types`.** Follows `CALENDAR_UI_PLAN.md` (PRs #765–#768, merged).
+Status: **complete. Approved 2026-11-29 with both recommendations (venue day hires as cards; a one-week grace before the event type is required, until 7 Dec 2026). PRs #772 and #773 merged; 000097 applied 2026-11-29.** Follows `CALENDAR_UI_PLAN.md` (PRs #765–#768, merged).
 
 References: our Week view (dark screenshot, 29 Nov) and the "Skejulio" calendar (light: Day/Week/Month, cards with a tag, title, short description and people, and a "Create Schedule" card).
 
