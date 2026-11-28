@@ -46,7 +46,7 @@ import { matchQuickReplies, slashQuery, type QuickReply } from '../lib/chat/quic
 import { activeChatTheme, chatShellStyle, DEFAULT_CHAT_THEME, type ChatThemeId } from '../lib/chat/chatThemes';
 import {
   archiveOnServer, archiveStatusNote, bumpInbox, conversationPreview, conversationRouteQuery, deleteChatsQuestion,
-  deleteOnServer, deleteStatusNote, emptyInboxCopy, filterInbox, inboxMenuItems, requestedConversation, restoreChats,
+  deleteOnServer, deleteStatusNote, directionTag, emptyInboxCopy, filterInbox, inboxMenuItems, requestedConversation, restoreChats,
   toggleSelection,
 } from '../lib/chat/inbox';
 import {
@@ -89,6 +89,8 @@ function chatsStylesheetApplied(): boolean {
 }
 
 const ELIE_ID = 'elie';
+/** "Your guest" / "Your host" after a name that is in the inbox twice (lib/chat/inbox.ts directionTag). */
+const DIRECTION_TAG_STYLE: React.CSSProperties = { marginLeft: 6, fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-gray)' };
 
 const noSubscription = () => () => undefined;
 /**
@@ -285,6 +287,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     }
     return conversations.find((c) => c.id === activeId) || null;
   }, [conversations, activeId]);
+  const activeTag = directionTag(conversations, activeConversation);
   // The other person deactivated their account: the chat stays readable, the composer gives way to a note.
   const participantDeactivated = Boolean(!isElie && activeConversation?.participant?.deactivated);
 
@@ -1619,6 +1622,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                 const timeStr = c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const lastPreview = conversationPreview(c.lastMessage);
                 const isSelected = Boolean(selectedChats && selectedChats.has(c.id));
+                const tag = directionTag(conversations, c);
 
                 return (
                   <li
@@ -1648,7 +1652,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
                     </div>
                     <div className="contact-body">
                       <div className="contact-top">
-                        <div className="contact-name">{name}</div>
+                        <div className="contact-name">{name}{tag && <span style={DIRECTION_TAG_STYLE}>{tag}</span>}</div>
                         <div className="contact-time">{timeStr}</div>
                       </div>
                       <div className="contact-bottom">
@@ -1722,6 +1726,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
               <div>
                 <div className="chat-header-name" id="chatName">
                   {isElie ? 'Elie' : activeConversation?.participant?.full_name || activeConversation?.participant?.username || 'Select a conversation'}
+                  {!isElie && activeTag && <span style={DIRECTION_TAG_STYLE}>{activeTag}</span>}
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />

@@ -28,10 +28,19 @@ async function conversationsBetween(admin, firstId, secondId) {
   return (data || []).map((row) => row.id);
 }
 
-/** Clears this person's copy of all their conversations with the other person, and unarchives them. */
+/** Ids of the conversations with this host and this guest (one direction; older per-listing chats included). */
+async function conversationsInDirection(admin, hostId, clientId) {
+  const { data, error } = await admin.from('conversations').select('id').eq('host_id', hostId).eq('client_id', clientId);
+  if (error) throw error;
+  return (data || []).map((row) => row.id);
+}
+
+/**
+ * Clears this person's copy of the chat with the other person in this
+ * direction (the inbox row: as their host, or as their guest), and unarchives it.
+ */
 async function clearChat(admin, userId, conversation) {
-  const otherId = conversation.host_id === userId ? conversation.client_id : conversation.host_id;
-  const ids = await conversationsBetween(admin, userId, otherId);
+  const ids = await conversationsInDirection(admin, conversation.host_id, conversation.client_id);
   if (!ids.includes(conversation.id)) ids.push(conversation.id);
   const clearedAt = new Date().toISOString();
   const { error } = await admin
@@ -44,4 +53,4 @@ async function clearChat(admin, userId, conversation) {
   return ids;
 }
 
-module.exports = { clearedAtByConversation, visibleAfterClear, conversationsBetween, clearChat };
+module.exports = { clearedAtByConversation, visibleAfterClear, conversationsBetween, conversationsInDirection, clearChat };

@@ -220,7 +220,7 @@ router.get('/chat/conversations', async (req, res) => {
     markDelivered(supabaseAdmin, user.id, conversationIds)
       .catch((error) => console.error('Chat delivery receipt update failed:', error));
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
-    const latestByParticipant = new Map();
+    const rowsShown = new Map();
     // A deleted chat stays out of the inbox until a new message arrives.
     const listed = conversations.filter((conversation) => !clears.has(conversation.id) || previewByConversation[conversation.id]);
     listed.sort((left, right) => {
@@ -228,15 +228,20 @@ router.get('/chat/conversations', async (req, res) => {
       const rightTime = previewByConversation[right.id] && previewByConversation[right.id].created_at || right.created_at;
       return new Date(rightTime).getTime() - new Date(leftTime).getTime();
     });
+    // One row per person and direction: someone who is both your guest and your
+    // host (hosts can book too) has two chats; older chats in one direction merge.
+    const roleIn = (conversation) => (conversation.host_id === user.id ? 'host' : 'client');
     const uniqueConversations = listed.filter((conversation) => {
       const participantId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
-      if (latestByParticipant.has(participantId)) return false;
-      latestByParticipant.set(participantId, conversation.id);
+      const key = `${participantId}:${roleIn(conversation)}`;
+      if (rowsShown.has(key)) return false;
+      rowsShown.set(key, conversation.id);
       return true;
     });
     return res.json({
       conversations: uniqueConversations.map((conversation) => ({
         ...conversation,
+        role: roleIn(conversation),
         participant: profiles[conversation.host_id === user.id ? conversation.client_id : conversation.host_id] || null,
         lastMessage: previewByConversation[conversation.id] || null,
         archived: archivedIds.has(conversation.id),
@@ -480,7 +485,7 @@ router.post('/chat/conversations/start', async (req, res) => {
     if (!listing || !listing.host_id || (listingHost && listingHost.deactivated_at)) return res.status(404).json({ error: 'Listing not found' });
     if (listing.host_id === user.id) return res.status(400).json({ error: 'This is your own listing' });
 
-    const existing = await existingConversation(supabaseAdmin, user.id, listing.host_id);
+    const existing = await existingConversation(supabaseAdmin, listing.host_id, user.id);
     if (existing) return res.json({ conversationId: existing, created: false });
 
     // "Who can message you: No one" stops new conversations; existing ones carry on.

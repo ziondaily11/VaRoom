@@ -41,7 +41,7 @@ function makeDb({ status = 'pending', createdAt = hoursAgo(1), guest = {}, roles
   };
 }
 
-// Just the query shapes these routes use; or() understands conversationsBetween's pair filter.
+// Just the query shapes these routes use; or() understands pair filters and plain either-or lists.
 function makeQuery(db, table) {
   const rows = db[table] || (db[table] = []);
   const filters = [];
@@ -52,8 +52,15 @@ function makeQuery(db, table) {
   const query = {
     select() { return query; },
     eq(column, value) { filters.push((row) => row[column] === value); return query; },
+    neq(column, value) { filters.push((row) => row[column] !== value); return query; },
+    is(column, value) { filters.push((row) => (row[column] === undefined ? null : row[column]) === value); return query; },
     in(column, list) { filters.push((row) => list.includes(row[column])); return query; },
     or(expression) {
+      if (!expression.startsWith('and(')) {
+        const either = expression.split(',').map((part) => part.split('.eq.'));
+        filters.push((row) => either.some(([column, value]) => row[column] === value));
+        return query;
+      }
       const pairs = [...expression.matchAll(/host_id\.eq\.([\w-]+),client_id\.eq\.([\w-]+)/g)].map((m) => [m[1], m[2]]);
       filters.push((row) => pairs.some(([hostId, clientId]) => row.host_id === hostId && row.client_id === clientId));
       return query;
@@ -101,6 +108,10 @@ async function withServer(db, run) {
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
     if (actingFor) headers['X-VaRoom-Host'] = actingFor;
     const response = await fetch(`${base}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  };
+  call.get = async (path, token) => {
+    const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
     return { status: response.status, body: await response.json().catch(() => null) };
   };
   try {
@@ -237,5 +248,43 @@ test('only the host or the company\'s Managers answer; suspended people cannot; 
     const refused = await respond(call, 'host', 'approve');
     assert.deepEqual([refused.status, refused.body.error], [409, 'booking_rule: This request expired after 48 hours. The guest can send a new one.']);
     assert.equal(expired.messages.length, 0);
+  });
+});
+
+// --- Hosts can be guests too: one chat per pair and direction ------------------
+
+test('a guest who is also a host: their old chat the other way round is not reused', async () => {
+  const db = makeDb();
+  // The guest is a host too, and this host once asked about one of the guest's listings.
+  db.conversations.push({ id: 'c-reversed', host_id: GUEST, client_id: HOST, listing_id: 'guest-listing', created_at: hoursAgo(10) });
+  db.messages.push({ id: 'm-old', conversation_id: 'c-reversed', sender_id: HOST, created_at: hoursAgo(9) });
+  await withServer(db, async (call) => {
+    assert.equal((await respond(call, 'host', 'approve')).status, 200);
+    const created = db.conversations.find((c) => c.id !== 'c-reversed');
+    assert.deepEqual([created.host_id, created.client_id, created.listing_id], [HOST, GUEST, LISTING], 'stored with this booking\'s roles');
+    assert.deepEqual(db.messages.filter((m) => m.id !== 'm-old').map((m) => m.conversation_id), [created.id]);
+    const started = await startFromBooking(call, 'host');
+    assert.deepEqual(started.body, { conversationId: created.id, created: false }, 'the same direction is reused');
+  });
+});
+
+test('the inbox lists a person once per direction, with your side; older chats in one direction still merge', async () => {
+  const db = makeDb({ status: 'approved' });
+  db.conversations.push(
+    { id: 'c-as-guest', host_id: GUEST, client_id: HOST, listing_id: 'guest-listing', created_at: hoursAgo(10) },
+    { id: 'c-as-host-old', host_id: HOST, client_id: GUEST, listing_id: 'old-listing', created_at: hoursAgo(30) },
+    { id: 'c-as-host', host_id: HOST, client_id: GUEST, listing_id: LISTING, created_at: hoursAgo(5) },
+  );
+  const deleted = new Date().toISOString(); // shown as "This message was deleted": no ciphertext needed
+  db.messages.push(
+    { id: 'm1', conversation_id: 'c-as-guest', sender_id: GUEST, created_at: hoursAgo(2), deleted_at: deleted },
+    { id: 'm2', conversation_id: 'c-as-host', sender_id: GUEST, created_at: hoursAgo(1), deleted_at: deleted },
+  );
+  await withServer(db, async (call) => {
+    const inbox = await call.get('/chat/conversations', 'host');
+    assert.equal(inbox.status, 200);
+    assert.deepEqual(inbox.body.conversations.map((c) => [c.id, c.role]), [['c-as-host', 'host'], ['c-as-guest', 'client']]);
+    const theirs = await call.get('/chat/conversations', 'guest');
+    assert.deepEqual(theirs.body.conversations.map((c) => [c.id, c.role]), [['c-as-host', 'client'], ['c-as-guest', 'host']]);
   });
 });
