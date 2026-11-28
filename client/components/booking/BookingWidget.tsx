@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, startTimes, stayProblem, windowedCalendar,
+  bookingWindow, dayLabel, daysBetween, guestLimit, isInstantBooking, ksh, MESSAGES, nightsBetween, pickStayDay, plural, priceLine, propertyOptions, rentalLine, reviewsOptional, roomsLeftFor, startTimes, stayLine, dayPrice, stayProblem, windowedCalendar,
   type BookingKind, type PropertyOption, type BookingListing, type CalendarDates, type DiningConfig, type DocumentsResult, type PriceLine, type StayChoice,
 } from '../../lib/booking/bookingListing';
 import { commercialDocuments, listingPolicy } from '../../lib/booking/bookingPolicy';
@@ -127,6 +127,8 @@ const LEGEND = (
 export default function BookingWidget({ listing, kind, rating, calendar, documents, dining, isOwner, onBook, onOpenTable, onMessageHost }: Props) {
   const { details, isShortStay, isHourly, isDaily, isHotel, isProperty, usesRentalBooking, supportsBoth, listingUnavailable, availabilityMessage } = kind;
   const bookable = useMemo(() => bookingWindow(details), [details]);
+  // Days kept free after each stay for cleaning (hotels rotate rooms instead).
+  const turnover = isHotel ? 0 : Math.max(0, Number(details.turnover_days) || 0);
   const instant = isInstantBooking(kind);
   // Only days inside the host's booking window can be picked.
   const dates = useMemo(() => (calendar ? windowedCalendar(calendar, bookable) : null), [calendar, bookable]);
@@ -160,17 +162,12 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   let line: PriceLine | null = null;
   if (isShortStay && isHourly) {
     const count = parseInt(hours, 10) || 0;
-    if (start && startTime && count > 0) line = priceLine(details.price_amount, count, plural(count, 'hour'), null);
+    // The day's own price (weekend or special date) per hour.
+    if (start && startTime && count > 0) line = priceLine(dayPrice(details, dates, start), count, plural(count, 'hour'), null);
   } else if (isShortStay && isDaily) {
-    if (start && end) {
-      const days = daysBetween(start, end);
-      line = priceLine(details.price_amount, days, plural(days, 'day'), details.cleaning_fee || null);
-    }
+    if (start && end) line = stayLine(details, dates, start, end, true, 'day', details.cleaning_fee || null);
   } else if (isShortStay) {
-    if (start && end && !stayProblem(details, nightsBetween(start, end))) {
-      const nights = nightsBetween(start, end);
-      line = priceLine(details.price_amount, nights, plural(nights, 'night'), details.cleaning_fee || null);
-    }
+    if (start && end && !stayProblem(details, nightsBetween(start, end))) line = stayLine(details, dates, start, end, false, 'night', details.cleaning_fee || null);
   } else if (!kind.isPropertySaleOnly && (!isProperty || showsRent)) {
     // The move-in date starts filled in (the first day it can be), so a price shows at once.
     const months = parseInt(leaseMonths, 10) || 0;
@@ -245,9 +242,10 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
           end={end}
           lastDay={bookable.last}
           nightly={!isDaily}
+          turnover={turnover}
           onPick={(day) => {
             if (!dates) return;
-            const next = pickStayDay(dates, start, end, day, isDaily);
+            const next = pickStayDay(dates, start, end, day, isDaily, turnover);
             setStart(next.start);
             // A range over closed days restarts at the tapped day, and says why.
             setEnd(next.end);

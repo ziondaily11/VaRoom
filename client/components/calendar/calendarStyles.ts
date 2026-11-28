@@ -143,6 +143,10 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-feed-form{display:flex;flex-direction:column;gap:8px}
 .vc .vc-feed-form .vc-btn{flex:none;align-self:flex-start}
 
+.vc .vc-tag.is-price{color:var(--fg);font-weight:700}
+.vc .vc-range-price{width:110px;font:inherit;font-size:.84rem;padding:8px 12px;border-radius:999px;border:0;background:var(--canvas);color:var(--fg)}
+.vc .vc-prices strong{color:var(--fg)}
+
 /* ---------- the event dialog ---------- */
 .vc .vc-dialog-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.42);display:grid;place-items:center;padding:16px}
 .vc .vc-dialog{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--card);color:var(--fg);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}

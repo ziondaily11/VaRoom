@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { calendarMonth, dayLabel, isOpenDay, rangeIsOpen, shiftMonth, todayString, type CalendarDates } from '../../lib/booking/bookingListing';
+import { calendarMonth, dayLabel, isOpenDay, rangeIsOpen, shiftMonth, todayString, turnoverFree, type CalendarDates } from '../../lib/booking/bookingListing';
 import { ICON_NEXT, ICON_PREV } from '../../lib/booking/bookingIcons';
 import Svg from './Svg';
 
@@ -25,13 +25,15 @@ interface Props {
   lastDay: string | null;
   /** Nightly stays: a check-out day needn't be open itself. */
   nightly?: boolean;
+  /** Days after check-out kept free for cleaning: they mustn't be someone else's. */
+  turnover?: number;
   onPick: (day: string) => void;
 }
 
 const monthOf = (day: string) => ({ year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 });
 const monthIndex = (view: { year: number; month: number }) => view.year * 12 + view.month;
 
-export default function BookingCalendar({ dates, start, end, lastDay, nightly = false, onPick }: Props) {
+export default function BookingCalendar({ dates, start, end, lastDay, nightly = false, turnover = 0, onPick }: Props) {
   const today = todayString();
   const first = monthOf(today);
   const last = lastDay ? monthOf(lastDay) : null;
@@ -53,9 +55,9 @@ export default function BookingCalendar({ dates, start, end, lastDay, nightly = 
     const isStart = day === start;
     const isEnd = day === end;
     const inRange = Boolean(start && end && day > start && day < end);
-    const checkout = Boolean(nightly && dates && start && !end && !open && day > start && rangeIsOpen(dates, start, day));
+    const checkout = Boolean(nightly && dates && start && !end && !open && day > start && rangeIsOpen(dates, start, day) && turnoverFree(dates, day, turnover));
     return { day, open, booked, past, isStart, isEnd, inRange, checkout };
-  }), [month.days, dates, today, start, end, nightly]);
+  }), [month.days, dates, today, start, end, nightly, turnover]);
 
   const why = (state: (typeof states)[number]) => (state.isStart ? (end ? 'check-in' : 'selected')
     : state.isEnd ? 'check-out'
