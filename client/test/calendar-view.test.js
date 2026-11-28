@@ -183,3 +183,29 @@ test('every plan lists the calendar; tablet week, phone + button and motion are 
   assert.match(page, /className="vc-fab vc-only-phone" aria-label="Add to calendar"/);
   assert.match(read('components', 'calendar', 'CalendarHeader.tsx'), /<button key=\{m\} type="button" role="tab" aria-selected=\{mode === m\}/);
 });
+
+test('the right column can be hidden (remembered); an empty hour opens the add card there, beside the click', () => {
+  const fs = require('node:fs');
+  const store = new Map();
+  global.window = { localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) } };
+  try {
+    assert.equal(view.savedWide(), false);
+    view.saveWide(true);
+    assert.equal(view.savedWide(), true);
+    view.saveWide(false);
+    assert.equal(view.savedWide(), false);
+  } finally { delete global.window; }
+  const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /const toggleWide = \(\) => \{ setWide\(!wide\); saveWide\(!wide\); setPanelOpen\(false\); \};/);
+  assert.match(page, /onAddAt: data && !range \? \(day: string, time: string, anchor: \{ x: number; y: number \} \| null\) => setForm\(\{ event: null, day, time, anchor \}\) : undefined,/);
+  const grid = read('components', 'calendar', 'TimeGrid.tsx');
+  assert.match(grid, /hours\.start \* 60 \+ Math\.floor\(y \/ \(HOUR_PX \/ 2\)\) \* 30/, 'the half hour under the pointer');
+  assert.match(grid, /if \(!e\.detail\) \{ onAddAt\(day, '09:00', null\); return; \}/, 'from the keyboard: 09:00, centred');
+  const form = read('components', 'calendar', 'EventForm.tsx');
+  assert.match(form, /const \[startTime, setStartTime\] = useState\(event\?\.start_time \|\| time \|\| '09:00'\);/);
+  assert.match(form, /if \(!anchor \|\| !card\.current \|\| window\.innerWidth <= 760\) return;/, 'phones keep the bottom sheet');
+  const css = read('components', 'calendar', 'calendarStyles.ts');
+  assert.match(css, /\.vc \.vc-shell\.is-wide\{grid-template-columns:264px minmax\(0,1fr\)\}/);
+  assert.match(css, /\.vc \.vc-shell\.is-wide \.vc-details\.is-open\{transform:none;transition:transform var\(--motion-standard\) var\(--ease-out\)\}/);
+});

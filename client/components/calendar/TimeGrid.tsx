@@ -42,6 +42,8 @@ interface Props {
   onPickDay: (day: string) => void;
   onPickItem: (item: CalendarItem) => void;
   onOpenDay?: (day: string) => void;
+  /** An empty hour was clicked: add there (the half hour under the pointer; 09:00 from the keyboard). */
+  onAddAt?: (day: string, time: string, anchor: { x: number; y: number } | null) => void;
 }
 
 /** What an all-day entry is on this day: a stay's check-in, check-out or a night in between. */
@@ -61,7 +63,7 @@ function details(item: CalendarItem, listing: CalendarListing | undefined): stri
   return [listing?.title, extra].filter(Boolean).join(' · ');
 }
 
-function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, onPickItem, rich }: Props & { rich: boolean }) {
+function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, onPickItem, onAddAt, rich }: Props & { rich: boolean }) {
   const scroller = useRef<HTMLDivElement>(null);
   const { timed } = splitTimed(items);
   const hours = gridHours(timed.filter((i) => days.includes(i.start)));
@@ -85,7 +87,13 @@ function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, 
         </div>
         {days.map((day) => (
           <div key={day} className={`vc-tg-col${day === today ? ' is-today' : ''}${day < today ? ' is-past' : ''}`} style={{ ['--hour' as string]: `${HOUR_PX}px` } as React.CSSProperties}>
-            <button type="button" className="vc-tg-slot" aria-label={dayLabel(day, true)} onClick={() => onPickDay(day)} />
+            <button type="button" className="vc-tg-slot" aria-label={onAddAt ? `Add to ${dayLabel(day, true)}` : dayLabel(day, true)}
+              onClick={(e) => {
+                if (!onAddAt) { onPickDay(day); return; }
+                if (!e.detail) { onAddAt(day, '09:00', null); return; }
+                const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                onAddAt(day, clock(Math.min(23 * 60 + 30, hours.start * 60 + Math.floor(y / (HOUR_PX / 2)) * 30)), { x: e.clientX, y: e.clientY });
+              }} />
             {layoutTimes(timed.filter((i) => i.start === day)).map((p) => (
               <button key={p.item.key} type="button"
                 className={`vc-block is-${p.item.kind}${rich ? ' is-rich' : ''}${p.item.key === selectedKey ? ' is-selected' : ''}`}

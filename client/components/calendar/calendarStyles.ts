@@ -343,6 +343,32 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-tl-cell .vc-more{font-size:.6rem;padding-bottom:1px}
 .vc .vc-timeline .vc-bar{z-index:1}
 
+/* ---------- the add card (an icon and a label on each line) ---------- */
+.vc .vc-card-form{width:min(460px,100%);gap:12px;padding:18px 18px 16px}
+.vc .vc-form-head{display:flex;align-items:flex-start;gap:12px}
+.vc .vc-form-head > div{flex:1;min-width:0}
+.vc .vc-form-head h2{font-size:1.02rem}
+.vc .vc-form-head p{margin:2px 0 0;font-size:.8rem}
+.vc .vc-form-icon{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);display:inline-grid;place-items:center;flex:none;color:var(--fg)}
+.vc :is(.vc-form-icon,.vc-line-icon) svg,.vc .vc-rail-icon{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.vc .vc-kind-switch{align-self:flex-start}
+.vc .vc-kind-hint{margin:-4px 0 0;font-size:.78rem}
+.vc .vc-lines{display:flex;flex-direction:column;gap:2px}
+.vc .vc-line{display:grid;grid-template-columns:22px 104px minmax(0,1fr);align-items:center;gap:8px;min-height:40px}
+.vc .vc-line-icon{color:var(--mute);display:inline-grid;place-items:center}
+.vc .vc-line-label{font-size:.84rem;font-weight:600;color:var(--mute)}
+.vc .vc-line-field{min-width:0}
+.vc .vc-line-field :is(input,select,textarea){font:inherit;font-size:.86rem;color:var(--fg);background:var(--soft);border:1px solid transparent;border-radius:10px;padding:7px 10px;width:100%;min-width:0}
+.vc .vc-line-field :is(input,select,textarea):focus{outline:0;border-color:var(--fg)}
+.vc .vc-line-field textarea{resize:vertical}
+.vc .vc-span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vc .vc-span > :is(input,select){flex:1 1 110px;width:auto}
+.vc .vc-span > span{color:var(--mute)}
+.vc .vc-form-foot{padding-top:12px;border-top:1px solid var(--hair)}
+.vc .vc-btn.is-dark{background:var(--fg);border-color:var(--fg);color:var(--canvas)}
+.vc .vc-dialog-backdrop.is-anchored::before{background:rgba(0,0,0,.16)}
+.vc .vc-only-wide{display:none}
+
 /* ---------- select days, toast ---------- */
 .vc .vc-rangebar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;
   padding:10px 12px 10px 18px;border-radius:999px;background:var(--fg);color:var(--canvas);box-shadow:0 18px 40px -16px rgba(0,0,0,.45);font-size:.86rem;font-weight:600;max-width:calc(100vw - 24px)}
@@ -416,11 +442,23 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-dialog{width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:vc-sheet-up 280ms var(--ease-out) both}
   .vc .vc-dialog-backdrop.is-closing .vc-dialog{animation:vc-sheet-down 220ms var(--ease-in) both}
   .vc .vc-add{display:none}
+  .vc .vc-line{grid-template-columns:22px 76px minmax(0,1fr)}
+  .vc .vc-line-label{font-size:.78rem}
   .vc .vc-tl-row{grid-template-columns:110px 1fr;min-width:calc(110px + var(--days,31) * 28px)}
   .vc .vc-tg-day{padding:6px 0}
   .vc .vc-tg-day strong{min-width:24px;height:24px;font-size:.9rem}
   .vc .vc-block:not(.is-rich) span{display:none}
   .vc .vc-block:not(.is-rich){padding:2px 3px;font-size:.66rem}
+}
+/* Desktop with the right column hidden: the calendar takes its room; details slide over. */
+@media (min-width:1280px){
+  .vc .vc-only-wide{display:inline-flex}
+  .vc .vc-pill.is-wide-shown{display:inline-flex !important}
+  .vc .vc-shell.is-wide{grid-template-columns:264px minmax(0,1fr)}
+  .vc .vc-shell.is-wide .vc-details{position:fixed;top:0;bottom:0;right:0;z-index:60;max-height:none;border-radius:0;width:min(380px,92vw);transform:translateX(105%);transition:transform var(--motion-quick) var(--ease-in)}
+  .vc .vc-shell.is-wide .vc-details.is-open{transform:none;transition:transform var(--motion-standard) var(--ease-out)}
+  .vc .vc-shell.is-wide .vc-details-scrim{display:block !important}
+  .vc .vc-shell.is-wide .vc-details-close{display:inline-grid !important}
 }
 /* Tablets (761-1023px): Week shows about five days and scrolls sideways; the hours and the "All day" label stay put. */
 @media (min-width:761px) and (max-width:1023px){

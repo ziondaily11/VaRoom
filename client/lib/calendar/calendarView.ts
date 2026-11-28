@@ -336,3 +336,12 @@ export function savedMode(hostId: string): CalendarMode | null {
 export function saveMode(hostId: string, mode: CalendarMode): void {
   try { window.localStorage.setItem(MODE_KEY + hostId, mode); } catch { /* private mode: not remembered */ }
 }
+
+const WIDE_KEY = 'varoom:calendar:wide:v1';
+/** Whether the host hid the right column on this device (the calendar then takes its room). */
+export function savedWide(): boolean {
+  try { return typeof window !== 'undefined' && window.localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; }
+}
+export function saveWide(wide: boolean): void {
+  try { if (wide) window.localStorage.setItem(WIDE_KEY, '1'); else window.localStorage.removeItem(WIDE_KEY); } catch { /* private mode: not remembered */ }
+}

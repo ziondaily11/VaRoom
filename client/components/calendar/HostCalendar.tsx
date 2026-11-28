@@ -8,7 +8,7 @@ import {
   type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData, type TableBooking,
 } from '../../lib/calendar/hostCalendar';
 import {
-  ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, searchItems, upcoming, visibleRange, weekDays,
+  ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, saveWide, savedWide, searchItems, upcoming, visibleRange, weekDays,
   type CalendarItem, type CalendarMode, type ShowKey,
 } from '../../lib/calendar/calendarView';
 import { usePresentValue } from '../../lib/motion/usePresence';
@@ -74,6 +74,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [diningTables, setDiningTables] = useState<Map<string, number>>(() => new Map());
   const [selection, setSelection] = useState<Selection>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Desktop: the right column hidden, so the calendar spreads (details then slide over).
+  const [wide, setWide] = useState(savedWide);
   const [sideOpen, setSideOpen] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [show, setShow] = useState<Set<ShowKey>>(() => new Set(ALL_SHOWN));
@@ -83,7 +85,11 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [busy, setBusy] = useState<string | null>(null);
   const [rangePrice, setRangePrice] = useState('');
   const [query, setQuery] = useState('');
-  const [form, setForm] = useState<{ event: CalendarEvent | null; day?: string; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
+  const [form, setForm] = useState<{
+    event: CalendarEvent | null; day?: string; preset?: { title: string; listingId: string; color: EventColor };
+    /** From an empty hour: its time and where it was clicked. */
+    time?: string; anchor?: { x: number; y: number } | null;
+  } | null>(null);
   // Kept on screen through their exits (animation.md §8.3).
   const shownForm = usePresentValue(form, 220);
   const shownSettings = usePresentValue(settingsFor, 220);
@@ -347,6 +353,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   };
   const goToday = () => { slideFrom.current = Math.sign(Date.parse(today) - Date.parse(focus)); setFocus(today); setSelection({ day: today }); };
   const setMode = (next: CalendarMode) => { setModeState(next); saveMode(hostId, next); };
+  const toggleWide = () => { setWide(!wide); saveWide(!wide); setPanelOpen(false); };
   const openDay = (day: string) => { setFocus(day); setMode('day'); setSelection({ day }); };
   const togglePlace = (id: string) => {
     if (listingId) onListingChange(null);
@@ -429,6 +436,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const gridProps = {
     days: viewDays, items, info, today, selectedDay: selection && 'day' in selection ? selection.day : null, selectedKey: selectedItem?.key || null,
     loading: !data, colorOf: itemColor, listingOf: (id: string | null) => (id ? byId.get(id) : undefined), onPickDay: pickDay, onPickItem: pickItem, onOpenDay: openDay,
+    onAddAt: data && !range ? (day: string, time: string, anchor: { x: number; y: number } | null) => setForm({ event: null, day, time, anchor }) : undefined,
   };
   const viewTitle = shownMode === 'day' ? dayLabel(focus, true)
     : shownMode === 'week' ? `${dayLabel(viewDays[0])} – ${dayLabel(viewDays[6], true)}` : month.title;
@@ -441,7 +449,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         <CalendarHeader day={selectedDay || focus} monthTitle={viewTitle} mode={shownMode} modes={modes} selecting={Boolean(range)}
           canSelect={stays.length > 0} canAdd={Boolean(data)} onMode={setMode} onPrev={() => go(-1)} onNext={() => go(1)} onToday={goToday}
           onSelect={() => setRange(range ? null : { start: null, end: null })} onAdd={() => setForm({ event: null, day: selectedDay || today })}
-          onFilters={() => setSideOpen(true)} onOverview={() => { setSelection(null); setPanelOpen(true); }}
+          onFilters={() => setSideOpen(true)} onOverview={() => { setSelection(null); setPanelOpen(true); }} wide={wide} onWide={toggleWide}
           search={<CalendarSearch query={query} results={results} colorOf={itemColor} titleOf={(id) => (id ? byId.get(id)?.title : undefined)} onQuery={setQuery} onPick={pickResult} />} />
 
         {failed && !data && <p className="vc-error" role="alert">The calendar couldn’t load. Check your connection and try again.</p>}
@@ -454,7 +462,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         )}
 
         {(!data || all.length > 0) && (
-          <div className="vc-shell">
+          <div className={`vc-shell${wide ? ' is-wide' : ''}`}>
             <CalendarSidebar year={focusYear} month={focusMonth} today={today} selectedDay={selectedDay} busyDays={busyDays}
               places={all.map((listing) => ({ listing, color: colors.get(listing.id) || NO_COLOR, shown: shownIds.has(listing.id) }))}
               show={show} coming={upcoming(items, today, 6)} colorOf={itemColor} open={sideOpen} onClose={() => setSideOpen(false)}
@@ -513,6 +521,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
 
       {shownForm.shown && data && (
         <EventForm client={client} hostId={hostId} listings={all} event={shownForm.shown.event} preset={shownForm.shown.preset || null} closing={shownForm.closing}
+          time={shownForm.shown.time || null} anchor={shownForm.shown.anchor || null}
           day={shownForm.shown.day && shownForm.shown.day >= today ? shownForm.shown.day : today} listingId={single ? single.id : null}
           onClose={() => setForm(null)} onSaved={(message) => { setForm(null); changed(message); }} />
       )}
