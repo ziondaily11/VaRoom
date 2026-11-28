@@ -129,6 +129,20 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-hours-scale{display:flex;justify-content:space-between;font-size:.72rem;color:var(--dim);font-variant-numeric:tabular-nums}
 .vc .vc-hire .vc-btn{flex:none;align-self:flex-start}
 
+.vc .vc-day.is-clash{box-shadow:inset 0 0 0 2px var(--bad)}
+.vc .vc-tag.is-clash{color:var(--bad-text)}
+.vc .vc-sync h3{margin-top:4px}
+.vc .vc-copy{display:flex;gap:6px}
+.vc .vc-copy input{flex:1;min-width:0;font:inherit;font-size:.78rem;color:var(--fg);background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.vc .vc-copy .vc-btn{flex:none}
+.vc .vc-textbtn{border:0;background:none;padding:0;color:var(--accent);font-size:.82rem;font-weight:600;cursor:pointer;align-self:flex-start}
+.vc .vc-feeds{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.vc .vc-feeds li{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 10px;border-radius:12px;background:var(--soft);flex-wrap:wrap}
+.vc .vc-feeds li > div:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vc .vc-feeds .vc-error,.vc .vc-feeds .vc-muted{font-size:.76rem}
+.vc .vc-feed-form{display:flex;flex-direction:column;gap:8px}
+.vc .vc-feed-form .vc-btn{flex:none;align-self:flex-start}
+
 /* ---------- the event dialog ---------- */
 .vc .vc-dialog-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.42);display:grid;place-items:center;padding:16px}
 .vc .vc-dialog{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--card);color:var(--fg);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}

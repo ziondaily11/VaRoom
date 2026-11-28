@@ -1,6 +1,6 @@
 # Host calendar: plan
 
-Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Parts 1–3 merged and applied (000089–000091). Part 4 (hourly venues, hotel rooms and dining, prices set by the database; 000092) on `claude/calendar-hours-rooms`; 000092 applied 2026-11-28.**
+Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Parts 1–4 merged and applied (000089–000092). Part 5 (sync with other sites, 000093) on `claude/calendar-ical-sync`; 000093 applied 2026-11-28.**
 
 ## Goal
 
@@ -192,7 +192,7 @@ One branch and PR per part, each tested and shipped before the next:
 2. **Host Calendar page**: month and agenda views, day panel with approve/decline, close/reopen, the open-by-default conversion, sidebar item, listing menu link. The listing wizard's date step became a note linking to Calendar, so dates have one editor (two would overwrite each other).
 3. **Events and planner**: events in `calendar_entries` (booked offline, which takes its days and hotel rooms like a booking; notes, which never do), colours, times, client details, amount, weekly or monthly repeat; timeline view; weekly closed days. Bulk select shipped in part 2. A closed day's reason is written as a note, so closed ranges keep merging cleanly.
 4. **Venues by the hour and hotels**: start/end times, hire hours, buffers, an hours bar per day, close rooms (an offline booking of N rooms), table reservations on the calendar, and the price worked out by the database (P8). Per-date prices (weekend and season prices) can now follow safely.
-5. **iCal export and import.**
+5. **iCal export and import**: a private link per listing served by Vercel (`/api/calendar/<secret>.ics`, dates only, 5-minute edge cache, reset anytime); up to 5 other-site links per listing read every 30 minutes by the Render server (https and public addresses only, re-checked after redirects, 2 MB and 15 s limits), replacing that link's days; clashes kept, shown as "Double booked" and sent to the host once as a `booking_clash` notification.
 6. **Planner for property, office and shop** (viewings, move-ins, renewals) and occupancy in analytics.
 
 ## Tests

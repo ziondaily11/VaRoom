@@ -161,3 +161,60 @@ test('venues by the hour: start times within hire hours, free of taken times; ti
   assert.match(page, /tone: 'table', label: `\$\{t\.time\} Table/, 'table reservations show on their day');
   for (const select of [read('lib', 'bookings', 'hostBookings.ts'), read('lib', 'bookings', 'clientBookings.ts')]) assert.match(select, /hours,start_time,end_time,/);
 });
+
+test('sync: the calendar link lists closed and full days, and taken hours, as "Not available" only', async () => {
+  const ex = loadTs(path.join(root, 'lib', 'calendar', 'icalExport.ts'));
+  const now = new Date('2026-11-28T22:30:00Z'); // already 29 Nov in Nairobi
+  assert.equal(ex.nairobiToday(now), '2026-11-29');
+  const open = ['2026-11-29', '2026-11-30', '2026-12-03', '2026-12-04', '2026-12-05'];
+  const source = { title: 'Palm View', ahead: 6, calendar: { open, booked: [{ night: '2026-12-04', left: 0 }, { night: '2026-12-05', left: 1 }], slots: [{ day: '2026-11-30', from: 600, to: 780 }, { day: '2026-12-01', from: 0, to: 60 }] } };
+  assert.deepEqual(ex.unavailableDays(source, '2026-11-29'), ['2026-12-01', '2026-12-02', '2026-12-04']);
+  assert.deepEqual(ex.dayRanges(['2026-12-01', '2026-12-02', '2026-12-04']), [['2026-12-01', '2026-12-03'], ['2026-12-04', '2026-12-05']]);
+  const ics = ex.buildIcs(source, now);
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /DTSTART;VALUE=DATE:20261201\r\nDTEND;VALUE=DATE:20261203\r\n/);
+  assert.match(ics, /DTSTART:20261130T070000Z\r\nDTEND:20261130T100000Z\r\n/, '10:00–13:00 in Nairobi, in UTC');
+  assert.doesNotMatch(ics, /DTSTART:20261130T210000Z/, 'no hours on a day that is blocked anyway');
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 3);
+  assert.ok(ics.split('\r\n').every((line) => Buffer.byteLength(line) <= 75), 'lines folded');
+  const long = ex.buildIcs({ ...source, title: 'Ñ'.repeat(60) }, now);
+  assert.ok(long.split('\r\n').every((line) => Buffer.byteLength(line) <= 75));
+  assert.ok(ex.buildIcs({ ...source, title: 'A, B; C' }, now).includes(String.raw`X-WR-CALNAME:VaRoom · A\, B\; C`), 'commas and semicolons escaped');
+});
+
+test('sync: the link route answers only a 64-character secret, with dates only and a 5-minute edge cache', async () => {
+  const handler = loadTs(path.join(root, 'pages', 'api', 'calendar', '[token].ts')).default;
+  const call = async (token, method = 'GET', rpc = { title: 'Palm View', ahead: 2, calendar: { open: [], booked: [] } }) => {
+    const sent = { headers: {} };
+    const res = { setHeader: (k, v) => { sent.headers[k] = v; }, status: (code) => { sent.status = code; return res; }, end: () => res, send: (body) => { sent.body = body; return res; } };
+    const realFetch = global.fetch;
+    global.fetch = async (url, init) => { sent.rpc = [url, JSON.parse(init.body)]; return { ok: true, json: async () => rpc }; };
+    try { await handler({ method, query: { token } }, res); } finally { global.fetch = realFetch; }
+    return sent;
+  };
+  assert.equal((await call('abc.ics')).status, 404);
+  assert.equal((await call('a'.repeat(64) + '.ics', 'POST')).status, 405);
+  const ok = await call('a'.repeat(64) + '.ics');
+  assert.equal(ok.status, 200);
+  assert.match(ok.rpc[0], /\/rest\/v1\/rpc\/listing_ical$/);
+  assert.deepEqual(ok.rpc[1], { p_token: 'a'.repeat(64) });
+  assert.equal(ok.headers['Content-Type'], 'text/calendar; charset=utf-8');
+  assert.match(ok.headers['Cache-Control'], /s-maxage=300/);
+  assert.match(ok.body, /SUMMARY:Not available \(VaRoom\)/);
+  assert.equal((await call('b'.repeat(64), 'GET', null)).status, 404, 'unknown or reset link');
+});
+
+test('sync: links are checked before adding; "Sync now" goes to the server; imported days are read-only', async () => {
+  assert.equal(cal.feedProblem('', 'https://a.com/x.ics', []), 'Name the site, e.g. Airbnb.com.');
+  assert.match(cal.feedProblem('Airbnb.com', 'http://a.com/x.ics', []), /https calendar link/);
+  assert.equal(cal.feedProblem('Airbnb.com', 'https://a.com/x.ics', [{ url: 'https://a.com/x.ics' }]), 'That link is already added.');
+  assert.equal(cal.feedProblem('Airbnb.com', 'https://a.com/y.ics', [1, 2, 3, 4, 5].map((n) => ({ url: `https://a.com/${n}` }))), 'A listing can have up to 5 links.');
+  assert.equal(cal.feedProblem('Airbnb.com', 'https://www.airbnb.com/calendar/ical/123.ics?s=abc', []), null);
+  assert.equal(cal.exportUrl('https://varoom.co.ke', 'f'.repeat(64)), `https://varoom.co.ke/api/calendar/${'f'.repeat(64)}.ics`);
+  const calls = [];
+  await cal.syncNow('feed-1', async (p, o) => { calls.push([p, o]); return { ok: true, count: 2, clashes: [] }; });
+  assert.deepEqual(calls, [['/api/calendar/feeds/feed-1/sync', { method: 'POST' }]]);
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /\{e\.source === 'ical'\s+\? <p className="vc-muted">Change it on that site/, 'no Edit for imported days');
+  assert.match(page, /<span className="vc-tag is-clash">Double booked<\/span>/);
+});

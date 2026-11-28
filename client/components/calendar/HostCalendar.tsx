@@ -14,6 +14,7 @@ import ListingPicker from '../analytics/ListingPicker';
 import { CALENDAR_CSS } from './calendarStyles';
 import EventForm from './EventForm';
 import Timeline from './Timeline';
+import SyncPanel from './SyncPanel';
 
 // The host's Calendar: a month of every stay, venue and hotel listing (or one,
 // ?listing=), with what each day holds. A day opens its panel (the right rail
@@ -101,7 +102,12 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       : taking.some((b) => b.status !== 'pending') || offline.length ? 'booked' : taking.length ? 'requested' : 'open';
     const roomsLeft = single && single.category === 'hotel' && single.units
       ? Math.max(0, single.units - taking.length - offline.reduce((sum, e) => sum + (e.units || 1), 0)) : null;
-    return { day, taking, dayEvents, dayTables, closedCount, allClosed, state, roomsLeft };
+    const clash = listings.some((l) => {
+      const used = taking.filter((b) => b.listing_id === l.id && b.end_date).length
+        + offline.filter((e) => e.listing_id === l.id && !(l.price_unit === 'hour' && e.start_time)).reduce((sum, e) => sum + (e.units || 1), 0);
+      return used > (l.category === 'hotel' ? Math.max(1, l.units || 1) : 1);
+    });
+    return { day, taking, dayEvents, dayTables, closedCount, allClosed, state, roomsLeft, clash };
   }), [month.days, bookings, events, tables, byId, listings, closedAt, today, single]);
 
   // ---------- Actions ----------
@@ -309,6 +315,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                     if (cell.day === today) classes.push('is-today');
                     if (!range && cell.day === selected) classes.push('is-selected');
                     if (inRange) classes.push('is-in-range');
+                    if (cell.clash && cell.state !== 'past') classes.push('is-clash');
                     const chips = [
                       ...cell.taking.map((b) => ({ key: b.id, tone: b.status === 'pending' ? 'request' : 'booked', label: `${b.start_time ? `${b.start_time} ` : ''}${firstName(b.guest)}${listings.length > 1 ? ` · ${byId.get(b.listing_id)?.title || ''}` : ''}` })),
                       ...cell.dayEvents.map((e) => ({ key: `e${e.id}`, tone: `ev is-${e.color || 'blue'}`, label: `${timeText(e)}${e.title}` })),
@@ -320,6 +327,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                         aria-label={`${dayLabel(cell.day, true)}: ${cell.allClosed ? 'closed' : chips.length ? chips.map((c) => c.label).join(', ') : 'open'}`}
                         onClick={() => pick(cell.day)}>
                         <span className="vc-num">{Number(cell.day.slice(8))}</span>
+                        {cell.clash && cell.state !== 'past' && <span className="vc-tag is-clash">Double booked</span>}
                         {cell.allClosed && cell.state !== 'past' && <span className="vc-tag">Closed</span>}
                         {!cell.allClosed && cell.closedCount > 0 && <span className="vc-tag">{cell.closedCount} closed</span>}
                         {cell.roomsLeft != null && single && cell.roomsLeft < (single.units || 0) && <span className="vc-tag">{cell.roomsLeft} left</span>}
@@ -396,7 +404,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                     <li key={`e${e.id}`} className={`vc-event is-${e.color || 'blue'}`}>
                       <div className="vc-booking-top">
                         <strong>{e.title}</strong>
-                        <span className="vc-badge is-ev">{e.blocks ? 'Booked offline' : 'Note'}</span>
+                        <span className="vc-badge is-ev">{e.source === 'ical' ? 'From another site' : e.blocks ? 'Booked offline' : 'Note'}</span>
                       </div>
                       <span className="vc-muted">
                         {[e.start_time ? `${e.start_time}–${e.end_time}` : 'All day', e.listing_id ? byId.get(e.listing_id)?.title : null,
@@ -407,7 +415,9 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                         <span className="vc-muted">{e.client_name}{e.client_phone && <> · <a href={`tel:${e.client_phone.replace(/\s+/g, '')}`}>{e.client_phone}</a></>}</span>
                       )}
                       {e.notes && <p className="vc-notes">{e.notes}</p>}
-                      <div className="vc-actions"><button type="button" className="vc-btn" onClick={() => setForm({ event: e })}>Edit</button></div>
+                      {e.source === 'ical'
+                        ? <p className="vc-muted">Change it on that site; the next sync updates it here.</p>
+                        : <div className="vc-actions"><button type="button" className="vc-btn" onClick={() => setForm({ event: e })}>Edit</button></div>}
                     </li>
                   ))}
                 </ul>
@@ -432,6 +442,10 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                 </ul>
               )}
               <button type="button" className="vc-btn" onClick={() => setForm({ event: null })}>+ Add to {dayLabel(selected)}</button>
+              {single && (
+                <SyncPanel key={single.id} client={client} hostId={hostId} listing={single} showToast={toast.show}
+                  onChanged={() => { clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }} />
+              )}
               {single?.price_unit === 'hour' && <HireHours key={single.id} listing={single} busy={Boolean(busy)} onSave={(start, end, buffer) => saveHours(single, start, end, buffer)} />}
               {single && (
                 <div className="vc-weekly">
