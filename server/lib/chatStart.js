@@ -1,14 +1,16 @@
 'use strict';
 
-const { conversationsBetween } = require('./chatClears');
+const { conversationsInDirection } = require('./chatClears');
 
-// The conversation between two people: one per pair. An existing one is
-// reused (the one with the latest message, else the newest); otherwise one is
-// created for the listing. Callers decide who may start a conversation.
+// The conversation between a host and a guest: one per pair and direction
+// (anyone can book, so two hosts can each be the other's guest, and the
+// stored roles decide who Elie answers for). An existing one in the same
+// direction is reused (the one with the latest message, else the newest);
+// otherwise one is created for the listing. Callers decide who may start one.
 
-/** The pair's conversation id, or null when they have none. */
-async function existingConversation(admin, firstId, secondId) {
-  const ids = await conversationsBetween(admin, firstId, secondId);
+/** The id of the conversation with this host and guest, or null when they have none. */
+async function existingConversation(admin, hostId, clientId) {
+  const ids = await conversationsInDirection(admin, hostId, clientId);
   if (!ids.length) return null;
   const { data: latest, error } = await admin.from('messages').select('conversation_id')
     .in('conversation_id', ids).order('created_at', { ascending: false }).limit(1);
@@ -28,7 +30,7 @@ async function createConversation(admin, { listingId, hostId, clientId }) {
   return data.id;
 }
 
-/** The pair's conversation, created when there is none: { conversationId, created }. */
+/** The host and guest's conversation, created when there is none: { conversationId, created }. */
 async function conversationFor(admin, pair) {
   const existing = await existingConversation(admin, pair.hostId, pair.clientId);
   if (existing) return { conversationId: existing, created: false };

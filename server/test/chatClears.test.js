@@ -51,16 +51,17 @@ test('messages up to the clear are hidden; later ones show', () => {
   assert.equal(visibleAfterClear(clears, { conversation_id: 'c2', created_at: '2020-01-01T00:00:00Z' }), true, 'never cleared');
 });
 
-test('Delete chat clears every conversation with that person for this person only, and unarchives them', async () => {
+test('Delete chat clears the chats with that person in this direction, for this person only, and unarchives them', async () => {
   const tables = {
-    conversations: [{ id: 'c1' }, { id: 'c2' }],
+    // c2: an older chat the same way round; c3: the other way round (u2 hosting u1), a separate inbox row.
+    conversations: [{ id: 'c1', host_id: 'u1', client_id: 'u2' }, { id: 'c2', host_id: 'u1', client_id: 'u2' }, { id: 'c3', host_id: 'u2', client_id: 'u1' }],
     conversation_clears: [{ user_id: 'u2', conversation_id: 'c1', cleared_at: '2026-01-01T00:00:00Z' }],
     conversation_archives: [{ user_id: 'u1', conversation_id: 'c1' }, { user_id: 'u2', conversation_id: 'c1' }],
   };
   const admin = fakeAdmin(tables);
   const ids = await clearChat(admin, 'u1', { id: 'c1', host_id: 'u1', client_id: 'u2' });
   assert.deepEqual(ids, ['c1', 'c2']);
-  assert.ok(admin.calls.some((c) => c[0] === 'or' && c[2] === 'and(host_id.eq.u1,client_id.eq.u2),and(host_id.eq.u2,client_id.eq.u1)'), 'both directions');
+  assert.equal(admin.calls.some((c) => c[0] === 'or'), false, 'one direction only: c3 stays');
   const mine = tables.conversation_clears.filter((row) => row.user_id === 'u1');
   assert.deepEqual(mine.map((row) => row.conversation_id), ['c1', 'c2']);
   assert.ok(tables.conversation_clears.some((row) => row.user_id === 'u2'), "the other person's records are untouched");

@@ -111,3 +111,19 @@ test('the Archived row comes first, always, with its icon level with the label a
   assert.match(source, /\{archivedCount > 0 && <div className="contact-time">\{archivedCount\}<\/div>\}/);
   assert.match(css, /\.contact-item\.archived-entry,\s*\.contact-item\.archived-header\{ align-items:center; \}/);
 });
+
+test('someone who is both your guest and your host has two chats, tagged "Your guest" / "Your host"', () => {
+  const { directionTag } = loadTs(path.join(root, 'lib', 'chat', 'inbox.ts'));
+  const brian = { id: 'u2', full_name: 'Brian' };
+  const asHost = { id: 'c1', role: 'host', participant: brian };
+  const asGuest = { id: 'c2', role: 'client', participant: brian };
+  const other = { id: 'c3', role: 'host', participant: { id: 'u3', full_name: 'Wanjiku' } };
+  assert.equal(directionTag([asHost, asGuest, other], asHost), 'Your guest');
+  assert.equal(directionTag([asHost, asGuest, other], asGuest), 'Your host');
+  assert.equal(directionTag([asHost, other], asHost), null, 'one chat with them: no tag');
+  assert.equal(directionTag([asHost, other], other), null);
+  assert.equal(directionTag([{ ...asHost, role: undefined }, asGuest], asGuest), null, 'a cached inbox from before roles: no tag');
+  assert.equal(directionTag([asHost], null), null);
+  assert.match(source, /<div className="contact-name">\{name\}\{tag && <span style=\{DIRECTION_TAG_STYLE\}>\{tag\}<\/span>\}<\/div>/);
+  assert.match(source, /\{!isElie && activeTag && <span style=\{DIRECTION_TAG_STYLE\}>\{activeTag\}<\/span>\}/);
+});

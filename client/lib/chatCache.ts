@@ -99,6 +99,8 @@ export interface ChatConversation {
   unread_count?: number | null;
   /** Archived by the signed-in person (Chat Settings → Archived conversations). */
   archived?: boolean;
+  /** The signed-in person's side: their guest's chat ('host') or their host's ('client'). */
+  role?: 'host' | 'client';
   isElie?: boolean;
 }
 

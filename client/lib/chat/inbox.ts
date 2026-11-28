@@ -164,6 +164,17 @@ export async function deleteOnServer(api: ChatApi, chats: ChatConversation[]): P
   return { cleared, failed };
 }
 
+/**
+ * "Your guest" / "Your host" when this person is in the inbox twice (anyone can
+ * book, so two hosts can each be the other's guest: one chat each way), else null.
+ */
+export function directionTag(conversations: ChatConversation[], c: ChatConversation | null | undefined): string | null {
+  const personId = c?.participant?.id;
+  if (!c || !c.role || !personId) return null;
+  const twice = conversations.some((other) => other.id !== c.id && other.participant?.id === personId && other.role && other.role !== c.role);
+  return twice ? (c.role === 'host' ? 'Your guest' : 'Your host') : null;
+}
+
 /** The empty inbox's wording (legacy). */
 export function emptyInboxCopy(role: ChatRole): { heading: string; detail: string } {
   return role === 'host'
