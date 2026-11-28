@@ -6,7 +6,17 @@ export type SectionKey =
   | 'overview' | 'signins' | 'revenue' | 'support' | 'reports' | 'users'
   | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules' | 'account' | 'health';
 
-export interface Overview { signins: number; revenue: number; openTickets: number; newListings: number }
+/** What needs an admin today (each count is null when it could not be read). */
+export interface Attention {
+  failedEmails: number | null; appeals: number | null; pendingReports: number | null;
+  stuckPlans: number | null; adminsWithoutTwoStep: number | null; shadowRules: number | null;
+}
+
+export interface Overview {
+  signins: number; revenue: number; openTickets: number; newListings: number;
+  attention?: Attention | null;
+  accounts?: { total: number; suspended: number; disabled: number } | null;
+}
 export interface SigninRow { user: string; method: string; time: string }
 export interface SigninPoint { day: string; signins: number }
 export interface RevenuePoint { day: string; revenue: number }
@@ -58,6 +68,8 @@ export interface Ticket {
   priority?: string | null;
   createdAt: string;
   accountStatus: string;
+  /** The sender's account, when the ticket is linked to one. */
+  user_id?: string | null;
   /** appeal, sign_in, billing, booking, report or other. */
   category?: string;
   /** web (the Support page) or email. */
@@ -72,6 +84,8 @@ export interface TicketReply {
   automatic: boolean;
   delivery_status: string;
   sent_at: string;
+  /** Why the email provider refused it, for a failed reply. */
+  provider_error?: string | null;
   admin: { name?: string | null } | null;
 }
 
@@ -92,7 +106,7 @@ export interface ListingReport {
   createdAt: string;
 }
 
-export interface PersonRef { full_name?: string | null; username?: string | null }
+export interface PersonRef { full_name?: string | null; username?: string | null; role?: string | null }
 
 export interface UserReport {
   id: string;
@@ -254,6 +268,8 @@ export interface ActivityEntry {
   action: string;
   target_type: string;
   target_id: string;
+  /** The target's name (a person, listing, ticket subject…) when it still exists. */
+  target_name?: string | null;
   reason: string | null;
   created_at: string;
 }
@@ -346,6 +362,9 @@ export const loadAdmins = () => rows<Admin>('/admin/admins');
 export const loadUsersPage = (q: string, offset: number) =>
   adminRequest<{ data?: AdminUser[]; total?: number }>(`/admin/users?q=${encodeURIComponent(q)}&offset=${offset}`)
     .then((result): UserPage => ({ users: result.data || [], total: result.total || 0 }));
+/** The suspended and disabled accounts. */
+export const loadRestrictedUsers = () => adminRequest<{ data?: AdminUser[]; total?: number }>('/admin/users?status=restricted')
+  .then((result): UserPage => ({ users: result.data || [], total: result.total || 0 }));
 export const loadUsers = () => loadUsersPage('', 0);
 export const loadHealth = () => adminRequest<HealthReport>('/admin/health');
 export const loadListingReviews = () => rows<ListingReview>('/admin/listing-reviews');
@@ -363,6 +382,9 @@ export const loadRules = () => adminRequest<{ rules?: ModerationRule[]; hits?: R
 
 // ---------- Actions ----------
 
+/** Sends a failed reply again; resolves the reply as delivered. */
+export const resendReply = (ticketId: string, replyId: string) =>
+  adminRequest<{ reply: TicketReply }>(`/admin/support/tickets/${ticketId}/replies/${replyId}/resend`, json('POST', {}));
 export const replyToTicket = (id: string, message: string, idempotencyKey: string) =>
   adminRequest<unknown>(`/admin/support/tickets/${id}/replies`, json('POST', { message }, { 'Idempotency-Key': idempotencyKey }));
 export const saveTemplate = ({ id, title, body }: { id?: string; title: string; body: string }) =>

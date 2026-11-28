@@ -1,38 +1,52 @@
-import React, { useEffect, useState } from "react";
-import { Ban, Bot, Clock, Inbox, Mail } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Bot, Send } from "lucide-react";
 import { createIdempotencyKey, errorMessage, loadTicket, type ReplyTemplate, type Ticket, type TicketReply } from "../../lib/admin/adminApi";
-import { SectionHeader, StatCard, StatusPill } from "./AdminUi";
+import { formatDate, formatWhen, ticketRef, timeAgo } from "../../lib/admin/format";
+import { Avatar, Card, ConsequentialButton, Pill, SectionHeader, StatusPill, Tabs } from "./AdminUi";
 
 // Support: tickets from the Support page and from email to any @varoom.co.ke
-// address (server/lib/supportInbox.js). A ticket's conversation loads when it
-// is opened; saved replies fill in {{name}} and {{ticket}}.
+// address (server/lib/supportInbox.js). An inbox on the left, the opened
+// ticket's conversation on the right; saved replies fill in {{name}} and
+// {{ticket}}. A reply the email provider refused can be sent again.
 
-const CATEGORY_LABELS: Record<string, string> = {
-  appeal: "Appeal", sign_in: "Sign-in", billing: "Billing", booking: "Booking", report: "Report", other: "Other",
+const CATEGORY: Record<string, [string, "accent" | "info" | "violet" | "good" | "warn"]> = {
+  appeal: ["Appeal", "accent"], sign_in: ["Sign-in", "violet"], billing: ["Billing", "info"], booking: ["Booking", "good"], report: ["Report", "warn"],
 };
 
-const ticketRef = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
+type Box = "open" | "waiting" | "done";
+const BOX_OF: Record<string, Box> = { open: "open", in_progress: "waiting", resolved: "done", closed: "done" };
+
 const fillTemplate = (body: string, ticket: Ticket) => body.replaceAll("{{name}}", ticket.name).replaceAll("{{ticket}}", ticketRef(ticket.id));
 
-function Thread({ ticket, replies }: { ticket: Ticket; replies: TicketReply[] | undefined }) {
-  const bubble = "rounded-sm px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed";
+/** Why an email was refused, in words: the provider's own message is long and technical. */
+function deliveryProblem(error: string | null | undefined): string {
+  const text = String(error || "");
+  if (/not authorized to send emails from/i.test(text)) return "the sender address isn't on a domain verified in Resend";
+  if (/RESEND_API_KEY/i.test(text)) return "email sending isn't set up on the server";
+  return text ? text.replace(/^Email provider rejected request:\s*/i, "").slice(0, 140) : "the email provider refused it";
+}
+
+function Thread({ ticket, replies, onResend }: { ticket: Ticket; replies: TicketReply[] | undefined; onResend: (reply: TicketReply) => Promise<void> }) {
   return (
-    <div className="mt-4 space-y-3">
-      <div>
-        <div className="text-xs text-[#8a857c] mb-1">{ticket.name} · {ticket.createdAt}</div>
-        <div className={`${bubble} bg-[#F7F6F3] text-[#24211E]`}>{ticket.message}</div>
+    <div className="adm-thread">
+      <div className="adm-bubble-wrap">
+        <span className="adm-bubble-meta"><strong style={{ color: "var(--adm-ink)" }}>{ticket.name}</strong> · {formatWhen(ticket.createdAt)}</span>
+        <div className="adm-bubble">{ticket.message}</div>
       </div>
-      {replies === undefined && <div className="text-xs text-[#8a857c]">Loading the conversation…</div>}
+      {replies === undefined && <div className="adm-small adm-muted">Loading the conversation…</div>}
       {(replies || []).map((reply) => {
         const inbound = reply.direction === "inbound";
         const who = inbound ? ticket.name : reply.automatic ? "Automatic acknowledgement" : reply.admin?.name || "VaRoom Support";
         return (
-          <div key={reply.id} className={inbound ? "" : "pl-8"}>
-            <div className="text-xs text-[#8a857c] mb-1 flex items-center gap-1">
-              {reply.automatic && <Bot size={11} />}{who} · {reply.sent_at}
-              {reply.delivery_status === "failed" && <span className="text-[#B5482E]"> · not delivered</span>}
-            </div>
-            <div className={`${bubble} ${inbound ? "bg-[#F7F6F3] text-[#24211E]" : "bg-[#1F6F5C]/5 text-[#24211E]"}`}>{reply.message}</div>
+          <div key={reply.id} className={`adm-bubble-wrap${inbound ? "" : " adm-bubble-wrap--out"}`}>
+            <span className="adm-bubble-meta">{reply.automatic && <Bot size={13} aria-hidden="true" />}<strong style={{ color: "var(--adm-ink)" }}>{who}</strong> · {formatWhen(reply.sent_at)}</span>
+            <div className={`adm-bubble${inbound ? "" : reply.automatic ? " adm-bubble--auto" : " adm-bubble--out"}`}>{reply.message}</div>
+            {reply.delivery_status === "failed" && (
+              <span className="adm-bubble-error">
+                <AlertTriangle size={14} aria-hidden="true" />Not delivered: {deliveryProblem(reply.provider_error)}
+                <button type="button" className="adm-link" style={{ color: "inherit", textDecoration: "underline" }} onClick={() => { void onResend(reply); }}>Send again</button>
+              </span>
+            )}
           </div>
         );
       })}
@@ -46,39 +60,36 @@ function SavedReplies({ templates, save, remove }: {
   remove: (id: string) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState<{ id?: string; title: string; body: string }>({ title: "", body: "" });
-  const field = "w-full border border-[#E4E1DA] rounded-sm p-2 text-sm";
   return (
-    <div className="mt-6">
-      <SectionHeader title="Saved replies" description="Insert one into a reply from the ticket. {{name}} becomes the person's name and {{ticket}} the ticket number." />
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="border border-[#E4E1DA] rounded-sm bg-white divide-y divide-[#E4E1DA]">
+    <Card title="Saved replies" count={templates.length}>
+      <p className="adm-muted" style={{ marginBottom: 14 }}>Insert one from a ticket. {"{{name}}"} becomes the person&apos;s name and {"{{ticket}}"} the ticket number.</p>
+      <div className="adm-row">
+        <ul className="adm-plain-list adm-grow">
           {templates.map((t) => (
-            <div key={t.id} className="px-4 py-2 flex items-center justify-between gap-2">
-              <span className="text-sm">{t.title}</span>
-              <span className="flex gap-2 shrink-0">
-                <button onClick={() => setDraft({ id: t.id, title: t.title, body: t.body })} className="text-xs text-[#1F6F5C]">Edit</button>
-                <button onClick={() => { if (window.confirm(`Delete "${t.title}"?`)) void remove(t.id); }} className="text-xs text-[#B5482E]">Delete</button>
-              </span>
-            </div>
+            <li key={t.id} style={{ alignItems: "center" }}>
+              <span className="adm-strong" style={{ flex: 1 }}>{t.title}</span>
+              <button type="button" className="adm-btn adm-btn--sm" onClick={() => setDraft({ id: t.id, title: t.title, body: t.body })}>Edit</button>
+              <button type="button" className="adm-btn adm-btn--sm adm-btn--danger" onClick={() => { if (window.confirm(`Delete "${t.title}"?`)) void remove(t.id); }}>Delete</button>
+            </li>
           ))}
-          {!templates.length && <div className="px-4 py-3 text-sm text-[#8a857c]">No saved replies yet.</div>}
-        </div>
-        <div className="border border-[#E4E1DA] rounded-sm bg-white p-4">
-          <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Title" maxLength={120} className={`${field} mb-2`} />
-          <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder="Reply text" maxLength={5000} rows={6} className={`${field} resize-none`} />
-          <div className="flex gap-2 mt-2">
-            <button disabled={!draft.title.trim() || !draft.body.trim()} onClick={async () => { if (await save(draft)) setDraft({ title: "", body: "" }); }} className="px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm disabled:opacity-50">
+          {!templates.length && <li className="adm-muted">No saved replies yet.</li>}
+        </ul>
+        <div className="adm-stack adm-grow">
+          <label className="adm-field"><span className="adm-label">Title</span><input className="adm-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={120} /></label>
+          <label className="adm-field"><span className="adm-label">Reply text</span><textarea className="adm-textarea" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} maxLength={5000} rows={6} /></label>
+          <div className="adm-inline">
+            <button type="button" className="adm-btn adm-btn--primary" disabled={!draft.title.trim() || !draft.body.trim()} onClick={async () => { if (await save(draft)) setDraft({ title: "", body: "" }); }}>
               {draft.id ? "Save changes" : "Add saved reply"}
             </button>
-            {draft.id && <button onClick={() => setDraft({ title: "", body: "" })} className="px-3 py-1.5 text-sm border border-[#E4E1DA] rounded-sm">Cancel</button>}
+            {draft.id && <button type="button" className="adm-btn" onClick={() => setDraft({ title: "", body: "" })}>Cancel</button>}
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
-export function Support({ tickets, selected, setSelected, onReply, onStatusChange, templates, saveTemplate, deleteTemplate }: {
+export function Support({ tickets, selected, setSelected, onReply, onStatusChange, templates, saveTemplate, deleteTemplate, resend, openAccount, restoreAccount }: {
   tickets: Ticket[];
   selected: Ticket | null;
   setSelected: (ticket: Ticket) => void;
@@ -87,22 +98,27 @@ export function Support({ tickets, selected, setSelected, onReply, onStatusChang
   templates: ReplyTemplate[];
   saveTemplate: (template: { id?: string; title: string; body: string }) => Promise<boolean>;
   deleteTemplate: (id: string) => Promise<boolean>;
+  resend: (ticketId: string, replyId: string) => Promise<TicketReply | null>;
+  openAccount: (id: string) => void;
+  restoreAccount: (userId: string, reason: string) => Promise<boolean>;
 }) {
+  const [box, setBox] = useState<Box>("open");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [feedbackError, setFeedbackError] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   // Each opened ticket's conversation, kept while the section is open.
   const [threads, setThreads] = useState<Record<string, TicketReply[]>>({});
-  const openCount = tickets.filter((t) => t.status === "open").length;
+  const counts = useMemo(() => tickets.reduce((acc, t) => { acc[BOX_OF[t.status] || "open"] += 1; return acc; }, { open: 0, waiting: 0, done: 0 } as Record<Box, number>), [tickets]);
+  const shown = tickets.filter((t) => (BOX_OF[t.status] || "open") === box);
   const restricted = (t: Ticket) => t.accountStatus === "suspended" || t.accountStatus === "disabled";
 
   const refreshThread = (id: string) => loadTicket(id)
     .then((result) => setThreads((current) => ({ ...current, [id]: result.replies || [] })))
     .catch(() => setThreads((current) => ({ ...current, [id]: [] })));
 
-  // Reset the draft reply whenever the selected ticket changes, so switching
-  // tickets doesn't leave a half-typed reply attached to the wrong one.
+  // A new ticket starts with an empty reply, so a half-typed one never goes to the wrong person.
   useEffect(() => {
     setReply("");
     setFeedback("");
@@ -111,156 +127,129 @@ export function Support({ tickets, selected, setSelected, onReply, onStatusChang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
 
+  async function send() {
+    if (!selected || sending || !reply.trim()) return;
+    setSending(true);
+    setFeedback("");
+    setFeedbackError(false);
+    try {
+      await onReply(selected.id, reply, createIdempotencyKey());
+      setReply("");
+      setFeedback("Reply sent.");
+    } catch (error) {
+      setFeedback(errorMessage(error, "Unable to send the reply."));
+      setFeedbackError(true);
+    } finally {
+      setSending(false);
+      void refreshThread(selected.id);
+    }
+  }
+
+  async function resendReply(ticketId: string, r: TicketReply) {
+    const sent = await resend(ticketId, r.id);
+    if (sent) setThreads((current) => ({ ...current, [ticketId]: (current[ticketId] || []).map((x) => (x.id === sent.id ? { ...x, ...sent } : x)) }));
+  }
+
   return (
-    <div>
+    <>
       <SectionHeader
         title="Support"
-        description="Messages from the Support page and emails to any @varoom.co.ke address. Each new ticket gets an automatic acknowledgement; replies by email join their ticket."
+        description="Messages from the Support page and email to any @varoom.co.ke address. Each new ticket is acknowledged automatically, and replies by email join their ticket."
+        actions={<button type="button" className="adm-btn" onClick={() => setShowTemplates((v) => !v)}>{showTemplates ? "Hide saved replies" : "Saved replies"}</button>}
       />
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="Open" value={openCount} alert={openCount > 0} />
-        <StatCard label="In progress" value={tickets.filter((t) => t.status === "in_progress").length} />
-        <StatCard label="Resolved" value={tickets.filter((t) => t.status === "resolved").length} />
-      </div>
+      {showTemplates && <SavedReplies templates={templates} save={saveTemplate} remove={deleteTemplate} />}
 
-      <div className="grid md:grid-cols-5 gap-4">
-        <div className="md:col-span-2 border border-[#E4E1DA] rounded-sm bg-white divide-y divide-[#E4E1DA]">
-          {tickets.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setSelected(t)}
-              className={`w-full text-left px-4 py-3 hover:bg-[#F7F6F3] transition-colors ${
-                selected?.id === t.id ? "bg-[#F7F6F3]" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#24211E]">{t.subject}</span>
-                {t.priority === "high" && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#B5482E] shrink-0 ml-2" />
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <StatusPill status={t.status} />
-                {t.category && t.category !== "other" && <StatusPill status={CATEGORY_LABELS[t.category] || t.category} />}
-                {restricted(t) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs bg-[#24211E]/5 text-[#24211E]">
-                    <Ban size={11} /> {t.accountStatus === "disabled" ? "Disabled" : "Suspended"}
-                  </span>
-                )}
-                {t.source === "email" && <Inbox size={12} className="text-[#8a857c]" aria-label="By email" />}
-                <span className="text-xs text-[#8a857c] flex items-center gap-1">
-                  <Clock size={11} /> {t.createdAt}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
+      <div className="adm-row">
+        <section className="adm-table-card" aria-label="Tickets" style={{ flex: "1 1 320px", maxWidth: 440 }}>
+          <div className="adm-toolbar">
+            <Tabs label="Ticket status" value={box} onChange={setBox}
+              tabs={[{ key: "open", label: "Open", count: counts.open }, { key: "waiting", label: "Waiting", count: counts.waiting }, { key: "done", label: "Done", count: counts.done }]} />
+          </div>
+          <ul style={{ padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+            {shown.map((t) => {
+              const [catLabel, catTone] = CATEGORY[t.category || ""] || [null, "info" as const];
+              return (
+                <li key={t.id}>
+                  <button type="button" className="adm-inbox-item" aria-current={selected?.id === t.id} onClick={() => setSelected(t)}>
+                    <Avatar name={t.name} id={t.email} />
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <span className="adm-inline" style={{ flexWrap: "nowrap" }}><strong className="adm-ellipsis" style={{ flex: 1 }}>{t.name}</strong><span className="adm-small adm-muted" style={{ whiteSpace: "nowrap" }}>{timeAgo(t.createdAt)}</span></span>
+                      <span className="adm-ellipsis" style={{ fontWeight: 600 }}>{t.subject}</span>
+                      <span className="adm-small adm-muted adm-ellipsis">{t.message}</span>
+                      <span className="adm-inline" style={{ gap: 6 }}>
+                        {catLabel && <Pill tone={catTone}>{catLabel}</Pill>}
+                        {restricted(t) && <StatusPill status={t.accountStatus} />}
+                        <Pill>{t.source === "email" ? "Email" : "Support page"}</Pill>
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {!shown.length && <li className="adm-empty">{box === "open" ? "No open tickets. Support is clear." : box === "waiting" ? "No tickets waiting on a reply from the person." : "No finished tickets yet."}</li>}
+          </ul>
+        </section>
 
-        <div className="md:col-span-3 border border-[#E4E1DA] rounded-sm bg-white p-5">
+        <section className="adm-table-card" aria-label={selected ? `Ticket ${ticketRef(selected.id)}` : "Ticket"} style={{ flex: "2 1 480px", display: "flex", flexDirection: "column" }}>
           {selected ? (
-            // key forces a clean remount of the fields below whenever the
-            // selected ticket changes, so the subject/status inputs never
-            // keep showing a previous ticket's values.
-            <div key={selected.id}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-xs font-mono text-[#8a857c]">{ticketRef(selected.id)} · {selected.source === "email" ? "Email" : "Support page"}</div>
-                  <h2 className="text-base text-[#24211E] mt-1">{selected.subject}</h2>
-                  <div className="text-xs text-[#8a857c] mt-1">
-                    {selected.name} · {selected.email}
+            <div key={selected.id} style={{ display: "flex", flexDirection: "column" }}>
+              <div className="adm-modal__head" style={{ flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <div className="adm-small adm-muted adm-strong">{ticketRef(selected.id)} · {selected.source === "email" ? "Email" : "Support page"} · {formatDate(selected.createdAt)}</div>
+                  <h2 className="adm-title" style={{ fontSize: "1.25rem", margin: "4px 0 8px" }}>{selected.subject}</h2>
+                  <div className="adm-inline">
+                    {selected.user_id ? <button type="button" className="adm-link" onClick={() => openAccount(selected.user_id as string)}>{selected.name}</button> : <strong>{selected.name}</strong>}
+                    <span className="adm-muted">{selected.email}</span>
+                    {restricted(selected) && <StatusPill status={selected.accountStatus} />}
+                    {selected.category === "appeal" && <Pill tone="accent">Appeal{selected.priority === "high" ? " · high priority" : ""}</Pill>}
+                    <StatusPill status={selected.status} />
                   </div>
                 </div>
-                <StatusPill status={selected.status} />
+                <div className="adm-inline">
+                  {restricted(selected) && selected.user_id && <ConsequentialButton label="Restore account" onConfirm={(reason) => restoreAccount(selected.user_id as string, reason)} small={false} />}
+                  <label className="adm-inline"><span className="sr-only">Ticket status</span>
+                    <select className="adm-select" style={{ width: "auto" }} value={selected.status} onChange={(event) => onStatusChange(selected.id, event.target.value)}>
+                      <option value="open">Open</option>
+                      <option value="in_progress">Waiting on them</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </label>
+                </div>
               </div>
 
-              {restricted(selected) && (
-                <div className="mt-4 flex items-start gap-2 border border-[#24211E]/15 bg-[#24211E]/[0.03] rounded-sm px-3 py-2">
-                  <Ban size={14} className="text-[#24211E] mt-0.5 shrink-0" />
-                  <div className="text-xs text-[#24211E]">
-                    This account is currently {selected.accountStatus}. Your reply below still sends to their
-                    email. Restore the account from Users if the appeal is accepted.
-                  </div>
-                </div>
-              )}
+              <Thread ticket={selected} replies={threads[selected.id]} onResend={(r) => resendReply(selected.id, r)} />
 
-              <Thread ticket={selected} replies={threads[selected.id]} />
-
-              <div className="mt-5 pt-4 border-t border-[#E4E1DA]">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8a857c]">
-                    <Mail size={13} />
-                    Email reply to <span className="text-[#24211E]">{selected.email}</span>
-                  </div>
+              <div className="adm-stack" style={{ padding: "16px 20px 20px", borderTop: "1px solid var(--adm-line)" }}>
+                <div className="adm-inline">
+                  <span className="adm-muted">Email reply to <strong style={{ color: "var(--adm-ink)" }}>{selected.email}</strong></span>
                   {templates.length > 0 && (
-                    <select
-                      value=""
-                      onChange={(event) => {
+                    <label className="adm-inline" style={{ marginLeft: "auto" }}>
+                      <span className="adm-small adm-muted">Saved reply</span>
+                      <select className="adm-select" style={{ width: "auto" }} value="" onChange={(event) => {
                         const template = templates.find((t) => t.id === event.target.value);
                         if (template) setReply(fillTemplate(template.body, selected));
-                      }}
-                      className="text-xs border border-[#E4E1DA] rounded-sm px-2 py-1"
-                    >
-                      <option value="">Insert saved reply…</option>
-                      {templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
-                    </select>
+                      }}>
+                        <option value="">Insert…</option>
+                        {templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                      </select>
+                    </label>
                   )}
                 </div>
-                <textarea
-                  className="w-full border border-[#E4E1DA] rounded-sm p-2 text-sm resize-none focus:outline-none focus:border-[#1F6F5C]"
-                  rows={5}
-                  value={reply}
-                  onChange={(event) => setReply(event.target.value)}
-                  placeholder="Type a reply — this sends an email to the address above"
-                />
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={async () => {
-                      if (sending || !reply.trim()) return;
-                      setSending(true);
-                      setFeedback("");
-                      setFeedbackError(false);
-                      try {
-                        await onReply(selected.id, reply, createIdempotencyKey());
-                        setReply("");
-                        setFeedback("Reply sent successfully.");
-                        void refreshThread(selected.id);
-                      } catch (error) {
-                        setFeedback(errorMessage(error, "Unable to send reply."));
-                        setFeedbackError(true);
-                      } finally {
-                        setSending(false);
-                      }
-                    }}
-                    disabled={sending || !reply.trim()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b] disabled:opacity-50"
-                  >
-                    <Mail size={13} /> {sending ? "Sending..." : "Send email reply"}
+                <label className="sr-only" htmlFor="adm-reply">Reply</label>
+                <textarea id="adm-reply" className="adm-textarea" rows={5} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Write a reply. It is sent as an email to the address above." />
+                <div className="adm-inline">
+                  <span className="adm-small adm-muted">Replies by email join this ticket.</span>
+                  {feedback && <span className={`adm-small adm-strong`} style={{ color: feedbackError ? "var(--adm-bad)" : "var(--adm-good)" }} role="status">{feedback}</span>}
+                  <button type="button" className="adm-btn adm-btn--primary" style={{ marginLeft: "auto" }} disabled={sending || !reply.trim()} onClick={() => { void send(); }}>
+                    <Send size={16} aria-hidden="true" />{sending ? "Sending…" : "Send reply"}
                   </button>
-                  <select
-                    className="text-sm border border-[#E4E1DA] rounded-sm px-2 py-1.5 focus:outline-none"
-                    defaultValue={selected.status}
-                    onChange={(event) => onStatusChange(selected.id, event.target.value)}
-                  >
-                    <option value="open">Mark open</option>
-                    <option value="in_progress">Mark in progress</option>
-                    <option value="resolved">Mark resolved</option>
-                    <option value="closed">Mark closed</option>
-                  </select>
                 </div>
-                {feedback && (
-                  <div className={`text-xs mt-2 ${feedbackError ? "text-[#B5482E]" : "text-[#1F6F5C]"}`} role="status">
-                  {feedback}
-                  </div>
-                )}
               </div>
             </div>
-          ) : (
-            <div className="text-sm text-[#8a857c]">Select a ticket to view its details.</div>
-          )}
-        </div>
+          ) : <div className="adm-empty">Choose a ticket to read it.</div>}
+        </section>
       </div>
-
-      <SavedReplies templates={templates} save={saveTemplate} remove={deleteTemplate} />
-    </div>
+    </>
   );
 }

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   LogIn,
-  DollarSign,
+  Wallet,
   LifeBuoy,
   Flag,
   TrendingUp,
@@ -16,10 +16,15 @@ import {
   Star,
   Gavel,
   HeartPulse,
+  Lock,
+  Menu,
+  Moon,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
 import * as api from "../../lib/admin/adminApi";
 import type { NewsEntry, SectionKey, Ticket } from "../../lib/admin/adminApi";
+import { applyTheme } from "../../lib/theme";
 import { Growth, Overview, Revenue, Signins } from "./ChartSections";
 import { Support } from "./SupportSection";
 import { Activity, ListingReports, ListingsControl, PropertyNews, UpdatesControl, UsersControl } from "./ModerationSections";
@@ -30,29 +35,30 @@ import { Account } from "./AccountSection";
 import { SearchBox } from "./SearchBox";
 import { Health } from "./HealthSection";
 import { LoginScreen } from "./LoginScreen";
+import { Avatar } from "./AdminUi";
 
 // The VaRoom admin dashboard (/admin). Overview loads at sign-in; every other
 // section loads the first time it is opened and is kept until sign-out
 // (a failed load is retried when the section is opened again). Actions update
-// what they change and refresh the audit trail in the background.
+// what they change and refresh the audit trail in the background. Its look is
+// styles/admin.css; it follows the site's light/dark setting, and the moon
+// button changes that setting.
 
-const NAV_ITEMS: Array<{ key: SectionKey; label: string; icon: LucideIcon }> = [
-  { key: "overview", label: "Overview", icon: LayoutDashboard },
-  { key: "signins", label: "Sign-ins", icon: LogIn },
-  { key: "revenue", label: "Revenue", icon: DollarSign },
-  { key: "support", label: "Support", icon: LifeBuoy },
-  { key: "reports", label: "Listing reports", icon: Flag },
-  { key: "varoom-reviews", label: "VaRoom reviews", icon: Star },
-  { key: "users", label: "Users", icon: Users },
-  { key: "rules", label: "Rules", icon: Gavel },
-  { key: "listings", label: "Listings", icon: Building2 },
-  { key: "updates", label: "Varoom Updates", icon: Megaphone },
-  { key: "growth", label: "Growth", icon: TrendingUp },
-  { key: "activity", label: "Admin activity", icon: History },
-  { key: "admins", label: "Admins", icon: Shield },
-  { key: "property-news", label: "Property News", icon: Newspaper },
-  { key: "health", label: "Health", icon: HeartPulse },
+const NAV: Array<{ title: string; items: Array<{ key: SectionKey; label: string; icon: LucideIcon }> }> = [
+  { title: "Today", items: [{ key: "overview", label: "Overview", icon: LayoutDashboard }, { key: "health", label: "Health", icon: HeartPulse }] },
+  { title: "People", items: [
+    { key: "users", label: "Users", icon: Users }, { key: "support", label: "Support", icon: LifeBuoy },
+    { key: "reports", label: "Reports", icon: Flag }, { key: "signins", label: "Sign-ins", icon: LogIn },
+  ] },
+  { title: "Content", items: [
+    { key: "listings", label: "Listings", icon: Building2 }, { key: "updates", label: "VaRoom Updates", icon: Megaphone },
+    { key: "property-news", label: "Property News", icon: Newspaper }, { key: "varoom-reviews", label: "VaRoom reviews", icon: Star },
+  ] },
+  { title: "Money", items: [{ key: "revenue", label: "Revenue", icon: Wallet }, { key: "growth", label: "Growth", icon: TrendingUp }] },
+  { title: "Safety", items: [{ key: "rules", label: "Rules", icon: Gavel }, { key: "activity", label: "Admin activity", icon: History }, { key: "admins", label: "Admins", icon: Shield }] },
 ];
+
+const ROLE_LABELS: Record<string, string> = { super_admin: "Super admin", support: "Support", read_only: "Read only" };
 
 const LOADERS = {
   overview: api.loadOverview,
@@ -79,7 +85,7 @@ type Resources = { [K in keyof typeof LOADERS]: Awaited<ReturnType<(typeof LOADE
 type ResourceKey = keyof Resources;
 
 const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
-  overview: ["overview", "signins", "revenue"],
+  overview: ["overview", "revenue", "activity"],
   signins: ["signins"],
   revenue: ["revenue"],
   support: ["tickets", "templates"],
@@ -97,7 +103,10 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   health: ["health"],
 };
 
-const EMPTY_OVERVIEW = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 };
+const EMPTY_OVERVIEW: api.Overview = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 };
+
+/** The site's theme now (set on <html> by lib/theme). */
+const currentTheme = (): "light" | "dark" => (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
 export default function AdminDashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -105,6 +114,8 @@ export default function AdminDashboard() {
   const [codeRequired, setCodeRequired] = useState(false);
   const [me, setMe] = useState<api.SessionAdmin | null>(null);
   const [active, setActive] = useState<SectionKey>("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [data, setData] = useState<Partial<Resources>>({});
   const [failed, setFailed] = useState<ResourceKey[]>([]);
   const requested = useRef(new Set<ResourceKey>());
@@ -127,7 +138,7 @@ export default function AdminDashboard() {
     return (LOADERS[key]() as Promise<Resources[K]>).then((value) => {
       setData((current) => ({ ...current, [key]: value }));
       setFailed((current) => current.filter((entry) => entry !== key));
-      if (key === "tickets") setSelectedTicket((current) => current || (value as Ticket[])[0] || null);
+      if (key === "tickets") setSelectedTicket((current) => current || (value as Ticket[]).find((t) => t.status === "open") || (value as Ticket[])[0] || null);
     }, (error: unknown) => {
       console.error(`Admin dashboard: ${key} failed to load:`, error);
       requested.current.delete(key);
@@ -136,10 +147,11 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    setTheme(currentTheme());
     api.loadSession().then((session) => { setMe(session.admin); setLoggedIn(true); }).catch(() => {});
   }, []);
 
-  // Overview (the Support badge) and the open section's data, each once.
+  // Overview (the menu's badges) and the open section's data, each once.
   useEffect(() => {
     if (!loggedIn) return;
     for (const key of ["overview", ...SECTION_RESOURCES[active]] as ResourceKey[]) {
@@ -147,7 +159,7 @@ export default function AdminDashboard() {
     }
   }, [loggedIn, active, reload]);
 
-  useEffect(() => { setActionError(""); }, [active]);
+  useEffect(() => { setActionError(""); setMenuOpen(false); }, [active]);
 
   useEffect(() => {
     if (!loggedIn || active !== "property-news") return;
@@ -156,6 +168,15 @@ export default function AdminDashboard() {
       .then(setPropertyNews)
       .catch((error: unknown) => setPropertyNewsError(api.errorMessage(error, "Unable to load property news.")));
   }, [active, loggedIn]);
+
+  /** Switches the site's light/dark setting on this device (the same one Settings changes). */
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    try { window.localStorage.setItem("varoom_theme", next); } catch { /* storage unavailable: this page only */ }
+    applyTheme(window.location.pathname);
+    if (currentTheme() !== next) document.documentElement.setAttribute("data-theme", next);
+    setTheme(next);
+  }
 
   const resetData = () => {
     requested.current.clear();
@@ -198,12 +219,18 @@ export default function AdminDashboard() {
 
   const refreshActivity = () => { void reload("activity"); };
 
-  // The server moves an answered open ticket to in progress; the list follows.
+  // The server moves an answered open ticket to waiting; the list follows.
   const replyToTicket = async (id: string, message: string, idempotencyKey: string) => {
     await api.replyToTicket(id, message, idempotencyKey);
     const answered = (t: Ticket) => (t.id === id && t.status === "open" ? { ...t, status: "in_progress" } : t);
     setResource("tickets", (prev) => prev && prev.map(answered));
     setSelectedTicket((prev) => prev && answered(prev));
+  };
+
+  const resendReply = async (ticketId: string, replyId: string) => {
+    let sent: api.TicketReply | null = null;
+    await run(async () => { sent = (await api.resendReply(ticketId, replyId)).reply; refreshActivity(); });
+    return sent;
   };
 
   const saveTemplate = (template: { id?: string; title: string; body: string }) => run(async () => {
@@ -346,6 +373,10 @@ export default function AdminDashboard() {
     const { status: accountStatus, reason: accountReason, suspended_until } = result;
     if (accountStatus) {
       setResource("users", (prev) => prev && { ...prev, users: prev.users.map((u) => (u.id === id ? { ...u, account: { ...u.account, status: accountStatus, reason: accountReason, suspended_until, rule_key: null } } : u)) });
+      // A restored or newly restricted account changes its tickets' labels and the counts.
+      setResource("tickets", (prev) => prev && prev.map((t) => (t.user_id === id ? { ...t, accountStatus } : t)));
+      setSelectedTicket((prev) => (prev && prev.user_id === id ? { ...prev, accountStatus } : prev));
+      void reload("overview");
     }
     if (accounts[id]) void refreshAccount(id);
     refreshActivity();
@@ -405,18 +436,18 @@ export default function AdminDashboard() {
   const overview = data.overview || EMPTY_OVERVIEW;
   const signins = data.signins || { rows: [], series: [] };
   const revenue = data.revenue || api.EMPTY_REVENUE;
+  const attention = overview.attention;
+  const healthCount = attention ? (attention.failedEmails || 0) + (attention.stuckPlans || 0) : 0;
+  const badges: Partial<Record<SectionKey, number>> = {
+    support: overview.openTickets,
+    health: healthCount,
+    reports: attention?.pendingReports || 0,
+  };
 
   const renderSection = () => {
     switch (active) {
       case "overview":
-        return (
-          <Overview
-            overview={overview}
-            signinsSeries={signins.series}
-            revenueSeries={revenue.series}
-            goTo={setActive}
-          />
-        );
+        return <Overview overview={overview} me={me?.name || null} revenue={revenue} activity={data.activity || []} goTo={setActive} />;
       case "signins":
         return <Signins signins={signins.rows} series={signins.series} />;
       case "revenue":
@@ -432,6 +463,9 @@ export default function AdminDashboard() {
             templates={data.templates || []}
             saveTemplate={saveTemplate}
             deleteTemplate={deleteTemplate}
+            resend={resendReply}
+            openAccount={openAccount}
+            restoreAccount={(userId, reason) => updateUserStatus(userId, "active", reason)}
           />
         );
       case "reports":
@@ -439,7 +473,7 @@ export default function AdminDashboard() {
       case "varoom-reviews":
         return <VaroomReviews reviews={data.varoomReviews || []} setStatus={setVaroomReviewStatus} />;
       case "users":
-        return <UsersControl page={data.users || { users: [], total: 0 }} openAccount={openAccount} updateStatus={updateUserStatus} />;
+        return <UsersControl page={data.users || { users: [], total: 0 }} restrictedCount={overview.accounts ? overview.accounts.suspended + overview.accounts.disabled : undefined} openAccount={openAccount} updateStatus={updateUserStatus} />;
       case "account":
         return (
           <Account
@@ -457,13 +491,13 @@ export default function AdminDashboard() {
       case "rules":
         return <Rules rules={data.rules?.rules || []} hits={data.rules?.hits || []} save={saveRule} />;
       case "listings":
-        return <ListingsControl listings={data.listings || []} moderate={moderateListing} />;
+        return <ListingsControl listings={data.listings || []} moderate={moderateListing} openAccount={openAccount} />;
       case "updates":
         return <UpdatesControl updates={data.updates || []} createUpdate={createUpdate} setUpdateStatus={setUpdateStatus} />;
       case "growth":
         return <Growth series={data.growth || []} />;
       case "activity":
-        return <Activity activity={data.activity || []} />;
+        return <Activity activity={data.activity || []} openAccount={openAccount} />;
       case "admins":
         return <Admins admins={data.admins || []} addAdmin={addAdmin} me={me} controls={adminControls} />;
       case "health":
@@ -475,67 +509,68 @@ export default function AdminDashboard() {
     }
   };
 
-  return (
-    <div className="admin-dashboard min-h-screen bg-[#F7F6F3] text-[#24211E] flex" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-white border-r border-[#E4E1DA] flex flex-col">
-        <div className="px-5 py-5 border-b border-[#E4E1DA]">
-          <div className="text-sm tracking-wide text-[#24211E]">Varoom</div>
-          <div className="text-xs text-[#8a857c]">Admin</div>
-        </div>
-        <nav className="flex-1 py-2">
-          {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActive(key)}
-              className={`w-full border-0 flex items-center gap-2.5 px-5 py-2.5 text-sm text-left transition-colors ${
-                active === key
-                  ? "text-[#1F6F5C] bg-[#1F6F5C]/5 border-r-2 border-[#1F6F5C]"
-                  : "text-[#5c584f] hover:bg-[#F7F6F3]"
-              }`}
-            >
-              <Icon size={16} />
-              {label}
-              {key === "support" && overview.openTickets > 0 && (
-                <span className="ml-auto text-xs font-mono bg-[#B5482E] text-white rounded-full w-4 h-4 flex items-center justify-center">
-                  {overview.openTickets}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <button
-          onClick={() => { void logout(); }}
-          className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#8a857c] border-t border-[#E4E1DA] hover:text-[#24211E]"
-        >
-          <LogOut size={15} /> Log out
-        </button>
-      </aside>
+  const current = active === "account" ? returnTo : active;
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-[#E4E1DA] bg-white flex items-center justify-between px-6 shrink-0">
-          <SearchBox openAccount={openAccount} openTicket={openTicket} />
-          <div className="text-sm text-[#5c584f]">Admin</div>
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          {me && !me.totp_enabled ? (
-            <div className="mb-4 border border-[#C77D22]/30 bg-[#C77D22]/5 px-4 py-3 text-sm text-[#24211E]">
-              Two-step sign-in is off for your account. <button onClick={() => setActive("admins")} className="text-[#1F6F5C] hover:underline">Turn it on in Admins</button> so a stolen password alone cannot open this page.
+  return (
+    <div className="admin-dashboard">
+      <div className="adm-shell" data-menu={menuOpen ? "open" : "closed"}>
+        <div className="adm-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+        <aside className="adm-sidebar" aria-label="Admin menu">
+          <div className="adm-brand">
+            <span className="adm-brand__va">Va</span><span className="adm-brand__room">Room</span>
+            <span className="adm-brand__tag">Admin</span>
+          </div>
+          <nav className="adm-nav" aria-label="Admin sections">
+            {NAV.map((group) => (
+              <div key={group.title} className="adm-nav__group">
+                <div className="adm-nav__title">{group.title}</div>
+                {group.items.map(({ key, label, icon: Icon }) => (
+                  <button key={key} type="button" className="adm-nav__item" aria-current={current === key ? "page" : undefined} onClick={() => setActive(key)}>
+                    <Icon size={18} aria-hidden="true" />
+                    <span>{label}</span>
+                    {Boolean(badges[key]) && <span className="adm-nav__badge" aria-label={`${badges[key]} waiting`}>{badges[key]}</span>}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+          <div className="adm-me">
+            <Avatar name={me?.name || "Admin"} id={me?.id} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="adm-me__name">{me?.name || "Admin"}</div>
+              <div className="adm-me__role">{me ? ROLE_LABELS[me.role] || me.role : ""}</div>
             </div>
-          ) : null}
-          {failed.length ? (
-            <div className="mb-4 border border-[#B5482E]/30 bg-[#B5482E]/5 px-4 py-3 text-sm text-[#B5482E]">
-              Some dashboard data could not be loaded. Available sections are still shown below.
-            </div>
-          ) : null}
-          {actionError ? (
-            <div className="mb-4 border border-[#B5482E]/30 bg-[#B5482E]/5 px-4 py-3 text-sm text-[#B5482E]" role="alert">
-              {actionError}
-            </div>
-          ) : null}
-          {renderSection()}
-        </main>
+            <button type="button" className="adm-btn adm-btn--icon adm-btn--ghost" aria-label="Log out" title="Log out" onClick={() => { void logout(); }}>
+              <LogOut size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </aside>
+
+        <div className="adm-content">
+          <header className="adm-topbar">
+            <button type="button" className="adm-btn adm-btn--icon adm-menu-button" aria-label="Open the menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+              <Menu size={18} aria-hidden="true" />
+            </button>
+            <SearchBox openAccount={openAccount} openTicket={openTicket} />
+            <button type="button" className="adm-btn adm-btn--icon" style={{ marginLeft: "auto" }} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} title={theme === "dark" ? "Light mode" : "Dark mode"} onClick={toggleTheme}>
+              {theme === "dark" ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+            </button>
+          </header>
+          <main className="adm-main">
+            {me && !me.totp_enabled ? (
+              <div className="adm-banner adm-banner--warn">
+                <Lock size={18} aria-hidden="true" />
+                <span className="adm-banner__text">Two-step sign-in is off for your account. A stolen password alone could open this page.</span>
+                <button type="button" className="adm-banner__link" onClick={() => setActive("admins")}>Turn it on</button>
+              </div>
+            ) : null}
+            {failed.length ? (
+              <div className="adm-banner adm-banner--bad">Some of this page could not be loaded. Open the section again to retry; the rest is shown below.</div>
+            ) : null}
+            {actionError ? <div className="adm-banner adm-banner--bad" role="alert">{actionError}</div> : null}
+            {renderSection()}
+          </main>
+        </div>
       </div>
     </div>
   );

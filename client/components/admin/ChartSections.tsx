@@ -1,137 +1,178 @@
 import React from "react";
-import { ChevronRight } from "lucide-react";
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import type { GrowthPoint, Overview as OverviewData, RevenuePoint, RevenueReport, SectionKey, SigninPoint, SigninRow, Transaction } from "../../lib/admin/adminApi";
+import { AlertTriangle, ArrowRight, Building2, Clock, Flag, Gavel, LifeBuoy, LogIn, Mail, RefreshCw, Shield, Wallet, type LucideIcon } from "lucide-react";
+import type { ActivityEntry, GrowthPoint, Overview as OverviewData, RevenueReport, SectionKey, SigninPoint, SigninRow, Transaction } from "../../lib/admin/adminApi";
+import { actionLabel, formatWhen, kes, timeAgo } from "../../lib/admin/format";
+import { Avatar, Bars, Card, Person, Pill, SectionHeader, StatCard, StatusPill, Table } from "./AdminUi";
 
-const kes = (amount: number) => `KES ${Math.round(amount).toLocaleString()}`;
-import { SectionHeader, StatCard, Table } from "./AdminUi";
+// Overview, Sign-ins, Revenue and Growth. Charts are the theme's own bars
+// (AdminUi Bars), so they follow light and dark with no chart library.
 
-export function Overview({ overview, signinsSeries, revenueSeries, goTo }: {
-  overview: OverviewData; signinsSeries: SigninPoint[]; revenueSeries: RevenuePoint[]; goTo: (section: SectionKey) => void;
-}) {
-  const totalRevenue = Number(overview.revenue || 0);
+const today = () => new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+interface AttentionItem { title: string; detail: string; section: SectionKey; where: string; icon: LucideIcon; tone: "bad" | "warn" | "info" | "accent" }
+
+function attentionItems(overview: OverviewData): AttentionItem[] {
+  const a = overview.attention;
+  if (!a) return [];
+  const items: Array<AttentionItem | false> = [
+    Boolean(a.failedEmails) && { title: `${plural(a.failedEmails as number, "support email")} not delivered`, detail: "In the last 7 days. Health shows why.", section: "health", where: "Health", icon: Mail, tone: "bad" },
+    Boolean(a.appeals) && { title: `${plural(a.appeals as number, "suspension appeal")} waiting`, detail: "From restricted accounts, high priority", section: "support", where: "Support", icon: LifeBuoy, tone: "accent" },
+    Boolean(a.pendingReports) && { title: `${plural(a.pendingReports as number, "report")} waiting for review`, detail: "Listings and chats reported by people", section: "reports", where: "Reports", icon: Flag, tone: "warn" },
+    Boolean(a.stuckPlans) && { title: `${plural(a.stuckPlans as number, "Paystack plan")} missed renewal`, detail: "Live, but their paid period ended over a day ago", section: "health", where: "Health", icon: RefreshCw, tone: "warn" },
+    Boolean(a.adminsWithoutTwoStep) && { title: `${plural(a.adminsWithoutTwoStep as number, "admin")} without two-step sign-in`, detail: "A stolen password alone could open this page", section: "admins", where: "Admins", icon: Shield, tone: "warn" },
+    Boolean(a.shadowRules) && { title: `${plural(a.shadowRules as number, "rule")} recording in shadow mode`, detail: "Check what they flagged, then enforce", section: "rules", where: "Rules", icon: Gavel, tone: "info" },
+  ];
+  return items.filter((item): item is AttentionItem => Boolean(item));
+}
+
+export function ActivityFeed({ activity, limit }: { activity: ActivityEntry[]; limit?: number }) {
+  const rows = limit ? activity.slice(0, limit) : activity;
+  if (!rows.length) return <div className="adm-muted">No admin activity yet.</div>;
   return (
-    <div>
+    <ol className="adm-plain-list">
+      {rows.map((a) => {
+        const who = a.admin?.name || "System";
+        return (
+          <li key={a.id}>
+            <Avatar name={who} size="sm" />
+            <span style={{ minWidth: 0 }}>
+              <strong>{who}</strong> {actionLabel(a.action)}{a.target_name ? <>: <span className="adm-strong">{a.target_name}</span></> : null}
+              {a.reason && <span className="adm-muted"> · {a.reason}</span>}
+              <span className="adm-small adm-muted" style={{ display: "block" }}>{formatWhen(a.created_at)}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export function Overview({ overview, me, revenue, activity, goTo }: {
+  overview: OverviewData; me: string | null; revenue: RevenueReport; activity: ActivityEntry[]; goTo: (section: SectionKey) => void;
+}) {
+  const items = attentionItems(overview);
+  const accounts = overview.accounts;
+  const active = accounts ? accounts.total - accounts.suspended - accounts.disabled : 0;
+  const share = (n: number) => (accounts && accounts.total ? `${(n / accounts.total) * 100}%` : "0%");
+  return (
+    <>
       <SectionHeader
-        title="Overview"
-        description="A snapshot of sign-ins, revenue, support, and growth across the platform."
+        eyebrow={today()}
+        title={`${greeting()}${me ? `, ${me.split(" ")[0]}` : ""}`}
+        description={items.length ? `${plural(items.length, "thing needs", "things need")} you today. Everything else is running.` : "Nothing needs you right now."}
+        actions={<button type="button" className="adm-btn adm-btn--primary" onClick={() => goTo("health")}>Open Health <ArrowRight size={16} aria-hidden="true" /></button>}
       />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Sign-ins (7d)" value={overview.signins} />
-        <StatCard label="Revenue (7d)" value={kes(totalRevenue)} sub="Plans, listings and V-Coins" />
-        <StatCard
-          label="Open support tickets"
-          value={overview.openTickets}
-          sub="Needs attention"
-          alert={overview.openTickets > 0}
-        />
-        <StatCard label="New listings (7d)" value={overview.newListings} />
+
+      <div className="adm-grid">
+        <StatCard label="Sign-ins" value={overview.signins} sub="People who signed in, last 7 days" icon={LogIn} />
+        <StatCard label="Revenue" value={kes(overview.revenue)} sub="Plans, listings and V-Coins, last 7 days" icon={Wallet} />
+        <StatCard label="Open tickets" value={overview.openTickets} sub={overview.openTickets ? "Waiting in Support" : "Support is clear"} icon={LifeBuoy} tone={overview.openTickets ? "warn" : undefined} />
+        <StatCard label="New listings" value={overview.newListings} sub="Created in the last 7 days" icon={Building2} />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="border border-[#E4E1DA] rounded-sm bg-white p-4">
-          <div className="text-sm text-[#24211E] mb-3">Sign-ins, last 14 days</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={signinsSeries}>
-              <defs>
-                <linearGradient id="signinsFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1F6F5C" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#1F6F5C" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#E4E1DA" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} interval={3} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={28} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 2, borderColor: "#E4E1DA" }} />
-              <Area type="monotone" dataKey="signins" stroke="#1F6F5C" fill="url(#signinsFill)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="adm-row">
+        <Card title="Needs attention" count={items.length} className="adm-grow">
+          {items.length ? (
+            <div className="adm-list">
+              {items.map((item) => (
+                <button key={item.title} type="button" className="adm-list__item" onClick={() => goTo(item.section)}>
+                  <span className="adm-list__icon" data-tone={item.tone}><item.icon size={18} aria-hidden="true" /></span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="adm-strong" style={{ display: "block" }}>{item.title}</span>
+                    <span className="adm-small adm-muted">{item.detail}</span>
+                  </span>
+                  <span className="adm-list__go">{item.where} →</span>
+                </button>
+              ))}
+            </div>
+          ) : <div className="adm-muted">Nothing needs you right now.</div>}
+        </Card>
 
-        <div className="border border-[#E4E1DA] rounded-sm bg-white p-4">
-          <div className="text-sm text-[#24211E] mb-3">Revenue, last 30 days</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={revenueSeries}>
-              <CartesianGrid stroke="#E4E1DA" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} interval={3} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={36} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 2, borderColor: "#E4E1DA" }} />
-              <Line type="monotone" dataKey="revenue" stroke="#24211E" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="mt-4 border border-[#E4E1DA] rounded-sm bg-white p-4 flex items-center justify-between">
-        <div>
-          <div className="text-sm text-[#24211E]">Support needs a look</div>
-          <div className="text-xs text-[#8a857c] mt-1">
-            {overview.openTickets} open ticket{overview.openTickets === 1 ? "" : "s"}.
+        <Card title="Revenue" className="adm-grow" actions={<span className="adm-h2">{kes(revenue.total)}</span>}>
+          <div className="adm-stack">
+            <div className="adm-inline">
+              <span className="adm-muted">Last {revenue.range} days</span>
+              <Pill tone="accent">Plans {kes(revenue.byKind.subscription)}</Pill>
+              <Pill tone="info">Listings {kes(revenue.byKind.listing)}</Pill>
+              <Pill tone="good">V-Coins {kes(revenue.byKind.vcoins)}</Pill>
+            </div>
+            <Bars days={revenue.series.map((p) => p.day)} values={revenue.series.map((p) => [p.revenue])} format={kes}
+              label={`Daily revenue for the last ${revenue.range} days, ${kes(revenue.total)} in all`} />
+            <div className="adm-inline adm-muted">Monthly plan revenue <strong style={{ color: "var(--adm-ink)" }}>{kes(revenue.mrr)}</strong> · Paid plans <strong style={{ color: "var(--adm-ink)" }}>{revenue.subscribers.paid}</strong></div>
           </div>
-        </div>
-        <button
-          onClick={() => goTo("support")}
-          className="flex items-center gap-1 text-sm text-[#1F6F5C] hover:underline"
-        >
-          Go to support <ChevronRight size={14} />
-        </button>
+        </Card>
       </div>
-    </div>
+
+      <div className="adm-row">
+        <Card title="Recent activity" className="adm-grow" actions={<button type="button" className="adm-link" onClick={() => goTo("activity")}>All activity →</button>}>
+          <ActivityFeed activity={activity} limit={6} />
+        </Card>
+        <Card title="Accounts" className="adm-side" actions={<button type="button" className="adm-link" onClick={() => goTo("users")}>Open Users →</button>}>
+          {accounts ? (
+            <div className="adm-stack">
+              <div className="adm-stat__value">{accounts.total.toLocaleString()}</div>
+              <div className="adm-meter" role="img" aria-label={`${active} active, ${accounts.suspended} suspended, ${accounts.disabled} disabled`}>
+                <span style={{ width: share(active), background: "var(--adm-good)" }} />
+                <span style={{ width: share(accounts.suspended), background: "var(--adm-warn)" }} />
+                <span style={{ width: share(accounts.disabled), background: "var(--adm-bad)" }} />
+              </div>
+              <div className="adm-stack adm-stack--tight">
+                <div className="adm-inline"><Pill tone="good" dot>Active</Pill><strong style={{ marginLeft: "auto" }}>{active}</strong></div>
+                <div className="adm-inline"><Pill tone="warn" dot>Suspended</Pill><strong style={{ marginLeft: "auto" }}>{accounts.suspended}</strong></div>
+                <div className="adm-inline"><Pill tone="bad" dot>Disabled</Pill><strong style={{ marginLeft: "auto" }}>{accounts.disabled}</strong></div>
+              </div>
+            </div>
+          ) : <div className="adm-muted">Account counts are not available right now.</div>}
+        </Card>
+      </div>
+    </>
   );
 }
 
 export function Signins({ signins, series }: { signins: SigninRow[]; series: SigninPoint[] }) {
+  const total = series.reduce((sum, d) => sum + d.signins, 0);
   return (
-    <div>
-      <SectionHeader title="Sign-ins" description="Recent authentication activity across the platform." />
-      <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={series}>
-            <defs>
-              <linearGradient id="signinsFill2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1F6F5C" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#1F6F5C" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="#E4E1DA" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={28} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 2, borderColor: "#E4E1DA" }} />
-            <Area type="monotone" dataKey="signins" stroke="#1F6F5C" fill="url(#signinsFill2)" strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+    <>
+      <SectionHeader title="Sign-ins" description="Each person's latest sign-in over the last 14 days." />
+      <Card title="Sign-ins per day" actions={<span className="adm-muted">{plural(total, "sign-in")} in 14 days</span>}>
+        <Bars days={series.map((d) => d.day)} values={series.map((d) => [d.signins])} label={`Sign-ins per day, ${total} in the last 14 days`} />
+      </Card>
       <Table
-        columns={["User", "Method", "Time"]}
+        columns={["Person", "Signs in with", "Last sign-in"]}
         rows={signins}
+        empty="Nobody signed in during the last 14 days."
+        minWidth={560}
         renderRow={(r, i) => (
-          <tr key={i} className="border-b border-[#E4E1DA] last:border-0">
-            <td className="px-4 py-2">{r.user}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.method}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.time}</td>
+          <tr key={`${r.user}-${i}`}>
+            <td><Person name={r.user} /></td>
+            <td><Pill>{r.method === "google" ? "Google" : r.method === "email" ? "Email" : r.method}</Pill></td>
+            <td>{timeAgo(r.time)}<div className="adm-small adm-muted">{formatWhen(r.time)}</div></td>
           </tr>
         )}
       />
-    </div>
+    </>
   );
 }
 
 const KIND_LABELS: Record<Transaction["kind"], string> = { subscription: "Plan", listing: "Listing", vcoins: "V-Coins" };
-const what = (t: Transaction) => (t.kind === "vcoins" ? `${t.vcoins} V-Coins` : t.kind === "listing" ? `${t.listing_tier || "Paid"} listing` : t.plan_id || "Plan");
+const what = (t: Transaction) => (t.kind === "vcoins" ? `${t.vcoins} V-Coins` : t.kind === "listing" ? `${t.listing_tier ? `${t.listing_tier[0].toUpperCase()}${t.listing_tier.slice(1)}` : "Paid"} listing` : t.plan_id || "Plan");
 
-function PaymentsTable({ rows, openAccount }: { rows: Transaction[]; openAccount: (id: string) => void }) {
+function PaymentsTable({ rows, openAccount, empty }: { rows: Transaction[]; openAccount: (id: string) => void; empty: string }) {
   return (
     <Table
       columns={["Payer", "For", "Amount", "Status", "Reference", "Date"]}
       rows={rows}
+      empty={empty}
       renderRow={(r) => (
-        <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
-          <td className="px-4 py-2"><button onClick={() => openAccount(r.host_id)} className="text-left text-[#1F6F5C] hover:underline">{r.payer || r.host_id.slice(0, 8)}</button></td>
-          <td className="px-4 py-2 text-[#8a857c]">{KIND_LABELS[r.kind]} · {what(r)}</td>
-          <td className="px-4 py-2 text-right font-mono">{kes(r.amount)}</td>
-          <td className="px-4 py-2 text-[#8a857c]">{r.status}</td>
-          <td className="px-4 py-2 font-mono text-xs text-[#8a857c]">{r.reference}</td>
-          <td className="px-4 py-2 text-xs text-[#8a857c]">{new Date(r.date).toLocaleString()}</td>
+        <tr key={r.id}>
+          <td><Person name={r.payer || "Unnamed host"} id={r.host_id} onOpen={() => openAccount(r.host_id)} /></td>
+          <td><span className="adm-strong">{KIND_LABELS[r.kind]}</span><div className="adm-small adm-muted">{what(r)}</div></td>
+          <td className="adm-strong" style={{ whiteSpace: "nowrap" }}>{kes(r.amount)}</td>
+          <td><StatusPill status={r.status} /></td>
+          <td className="adm-mono adm-muted">{r.reference}</td>
+          <td style={{ whiteSpace: "nowrap" }}>{formatWhen(r.date)}</td>
         </tr>
       )}
     />
@@ -142,89 +183,60 @@ function PaymentsTable({ rows, openAccount }: { rows: Transaction[]; openAccount
 export function Revenue({ report, openAccount }: { report: RevenueReport; openAccount: (id: string) => void }) {
   const { total, transactions, series, byKind, subscribers } = report;
   return (
-    <div>
+    <>
       <SectionHeader title="Revenue" description={`What VaRoom earned in the last ${report.range} days: plans, Silver and Gold listings, and V-Coins. Bookings are paid to hosts directly and are not included. Refunds are issued in Paystack.`} />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <StatCard label={`Revenue (${report.range}d)`} value={kes(total)} sub={`${transactions.length} payments`} />
-        <StatCard label="Monthly plan revenue" value={kes(report.mrr)} sub={`${subscribers.paid} paid plans`} />
-        <StatCard label="Past due" value={subscribers.pastDue} sub={`${subscribers.cancelling} cancelling`} alert={subscribers.pastDue > 0} />
-        <StatCard label={`Failed payments (${report.range}d)`} value={report.failed.length} alert={report.failed.length > 0} />
+      <div className="adm-grid">
+        <StatCard label={`Revenue, ${report.range} days`} value={kes(total)} sub={plural(transactions.length, "payment")} icon={Wallet} />
+        <StatCard label="Monthly plan revenue" value={kes(report.mrr)} sub={plural(subscribers.paid, "paid plan")} icon={RefreshCw} />
+        <StatCard label="Past due" value={subscribers.pastDue} sub={`${subscribers.cancelling} cancelling`} icon={Clock} tone={subscribers.pastDue ? "warn" : undefined} />
+        <StatCard label={`Failed payments, ${report.range} days`} value={report.failed.length} sub="Checkouts that did not go through" icon={AlertTriangle} tone={report.failed.length ? "bad" : undefined} />
       </div>
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="Plans" value={kes(byKind.subscription)} />
-        <StatCard label="Listings" value={kes(byKind.listing)} />
-        <StatCard label="V-Coins" value={kes(byKind.vcoins)} />
+      <Card title="Revenue per day" actions={<div className="adm-inline"><Pill tone="accent">Plans {kes(byKind.subscription)}</Pill><Pill tone="info">Listings {kes(byKind.listing)}</Pill><Pill tone="good">V-Coins {kes(byKind.vcoins)}</Pill></div>}>
+        <Bars days={series.map((p) => p.day)} values={series.map((p) => [p.revenue])} format={kes} label={`Daily revenue for the last ${report.range} days, ${kes(total)} in all`} />
+      </Card>
+      <h2 className="adm-h2">Payments</h2>
+      <PaymentsTable rows={transactions} openAccount={openAccount} empty={`No payments in the last ${report.range} days.`} />
+      <div className="adm-row">
+        <Card title="Paid plans" count={subscribers.paid} className="adm-grow">
+          {subscribers.byPlan.length ? (
+            <ul className="adm-plain-list">
+              {subscribers.byPlan.map((p) => (
+                <li key={p.plan_id}><span style={{ flex: 1 }} className="adm-strong">{p.name}</span><span className="adm-muted">{plural(p.count, "host")}</span><span className="adm-strong">{kes(p.monthly)}/mo</span></li>
+              ))}
+            </ul>
+          ) : <div className="adm-muted">No paid plans right now.</div>}
+        </Card>
+        <Card title="Free plans from VaRoom" count={report.freePlans.length} className="adm-grow">
+          {report.freePlans.length ? (
+            <ul className="adm-plain-list">
+              {report.freePlans.map((f) => (
+                <li key={f.host_id}><span style={{ flex: 1, minWidth: 0 }}><Person name={f.host || "Unnamed host"} id={f.host_id} sub={f.name} onOpen={() => openAccount(f.host_id)} /></span><span className="adm-muted">until {formatWhen(f.until)}</span></li>
+              ))}
+            </ul>
+          ) : <div className="adm-muted">No free plans right now. Give one from a host's account.</div>}
+        </Card>
       </div>
-      <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={series}>
-            <CartesianGrid stroke="#E4E1DA" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={36} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 2, borderColor: "#E4E1DA" }} />
-            <Line type="monotone" dataKey="revenue" stroke="#24211E" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <SectionHeader title="Payments" />
-      <PaymentsTable rows={transactions} openAccount={openAccount} />
-      <div className="grid md:grid-cols-2 gap-4 mt-6">
-        <div>
-          <SectionHeader title="Paid plans" />
-          <Table columns={["Plan", "Hosts", "Monthly"]} rows={subscribers.byPlan} renderRow={(p) => (
-            <tr key={p.plan_id} className="border-b border-[#E4E1DA] last:border-0">
-              <td className="px-4 py-2">{p.name}</td><td className="px-4 py-2">{p.count}</td><td className="px-4 py-2 font-mono">{kes(p.monthly)}</td>
-            </tr>
-          )} />
-        </div>
-        <div>
-          <SectionHeader title="Free plans from VaRoom" />
-          <Table columns={["Host", "Plan", "Until"]} rows={report.freePlans} renderRow={(f) => (
-            <tr key={f.host_id} className="border-b border-[#E4E1DA] last:border-0">
-              <td className="px-4 py-2"><button onClick={() => openAccount(f.host_id)} className="text-left text-[#1F6F5C] hover:underline">{f.host || f.host_id.slice(0, 8)}</button></td>
-              <td className="px-4 py-2">{f.name}</td><td className="px-4 py-2 text-xs text-[#8a857c]">{new Date(f.until).toLocaleDateString()}</td>
-            </tr>
-          )} />
-        </div>
-      </div>
-      <div className="mt-6" />
-      <SectionHeader title="Failed and abandoned payments" description="Checkouts that did not go through. The payer can be contacted from their account." />
-      <PaymentsTable rows={report.failed} openAccount={openAccount} />
-      <div className="mt-6" />
-      <SectionHeader title="Refunded payments" />
-      <PaymentsTable rows={report.refunded} openAccount={openAccount} />
-    </div>
+      <h2 className="adm-h2">Failed and abandoned payments</h2>
+      <PaymentsTable rows={report.failed} openAccount={openAccount} empty="No checkouts failed. The payer of one that does can be contacted from their account." />
+      <h2 className="adm-h2">Refunded payments</h2>
+      <PaymentsTable rows={report.refunded} openAccount={openAccount} empty="No refunds." />
+    </>
   );
 }
 
 export function Growth({ series }: { series: GrowthPoint[] }) {
+  const signups = series.reduce((s, d) => s + d.signups, 0);
+  const listings = series.reduce((s, d) => s + d.listings, 0);
   return (
-    <div>
-      <SectionHeader title="Growth" description="Signups and new listings over time." />
-      <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
-        <div className="flex items-center gap-4 mb-3 text-xs">
-          <span className="flex items-center gap-1.5 text-[#8a857c]">
-            <span className="w-2 h-2 rounded-full bg-[#1F6F5C]" /> Signups
-          </span>
-          <span className="flex items-center gap-1.5 text-[#8a857c]">
-            <span className="w-2 h-2 rounded-full bg-[#24211E]" /> Listings
-          </span>
-        </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={series}>
-            <CartesianGrid stroke="#E4E1DA" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={28} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 2, borderColor: "#E4E1DA" }} />
-            <Line type="monotone" dataKey="signups" stroke="#1F6F5C" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="listings" stroke="#24211E" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+    <>
+      <SectionHeader title="Growth" description="New accounts and new listings, day by day, over the last 14 days." />
+      <div className="adm-grid">
+        <StatCard label="New accounts" value={signups} sub="Last 14 days" icon={LogIn} />
+        <StatCard label="New listings" value={listings} sub="Last 14 days" icon={Building2} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="New signups (14d)" value={series.reduce((s, d) => s + d.signups, 0)} />
-        <StatCard label="New listings (14d)" value={series.reduce((s, d) => s + d.listings, 0)} />
-      </div>
-    </div>
+      <Card title="Per day" actions={<div className="adm-legend"><span><span className="adm-legend__swatch" />Accounts</span><span><span className="adm-legend__swatch" data-series="1" />Listings</span></div>}>
+        <Bars days={series.map((d) => d.day)} values={series.map((d) => [d.signups, d.listings])} label={`${signups} new accounts and ${listings} new listings in 14 days`} />
+      </Card>
+    </>
   );
 }

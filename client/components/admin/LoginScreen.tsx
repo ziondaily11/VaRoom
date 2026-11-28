@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Lock } from "lucide-react";
 
 /** Email and password; then, for an admin with two-step sign-in, the authenticator code. */
 export function LoginScreen({ onLogin, error, codeRequired }: {
@@ -10,50 +9,30 @@ export function LoginScreen({ onLogin, error, codeRequired }: {
   const [code, setCode] = useState("");
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
-      <form className="w-full max-w-sm border border-[#E4E1DA] rounded-sm bg-white p-6" onSubmit={(event) => { event.preventDefault(); onLogin(email, password, codeRequired ? code : undefined); }}>
-        <div className="flex items-center gap-2 mb-1">
-          <Lock size={16} className="text-[#1F6F5C]" />
-          <span className="text-sm text-[#24211E]">Varoom Admin</span>
+    <div className="admin-login">
+      <form className="adm-login-card" onSubmit={(event) => { event.preventDefault(); onLogin(email, password, codeRequired ? code : undefined); }}>
+        <div className="adm-brand" style={{ padding: 0 }}>
+          <span className="adm-brand__va">Va</span><span className="adm-brand__room">Room</span>
+          <span className="adm-brand__tag">Admin</span>
         </div>
-        <p className="text-xs text-[#8a857c] mb-5">
-          Admin access only. There's no signup here — accounts are created internally.
-        </p>
-        <label className="text-xs text-[#8a857c]">Email</label>
-        <input
-          className="w-full mb-3 mt-1 border border-[#E4E1DA] rounded-sm p-2 text-sm focus:outline-none focus:border-[#1F6F5C]"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@varoom.app"
-        />
-        <label className="text-xs text-[#8a857c]">Password</label>
-        <input
-          type="password"
-          className="w-full mb-4 mt-1 border border-[#E4E1DA] rounded-sm p-2 text-sm focus:outline-none focus:border-[#1F6F5C]"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-        />
-        {codeRequired && <>
-          <label className="text-xs text-[#8a857c]">Code from your authenticator app</label>
-          <input
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            maxLength={6}
-            className="w-full mb-4 mt-1 border border-[#E4E1DA] rounded-sm p-2 text-sm tracking-widest focus:outline-none focus:border-[#1F6F5C]"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="123456"
-          />
-        </>}
-        <button
-          type="submit"
-          className="w-full py-2 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b]"
-        >
-          Log in
-        </button>
-        {error && <div className="mt-3 text-xs text-[#B5482E]">{error}</div>}
+        <div>
+          <h1 className="adm-title" style={{ fontSize: "1.5rem" }}>Sign in</h1>
+          <p className="adm-subtitle">For VaRoom staff only. Admins are invited; there&apos;s no sign-up here.</p>
+        </div>
+        <label className="adm-field"><span className="adm-label">Email</span>
+          <input className="adm-input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+        <label className="adm-field"><span className="adm-label">Password</span>
+          <input className="adm-input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        {codeRequired && (
+          <label className="adm-field"><span className="adm-label">Code from your authenticator app</span>
+            <input className="adm-input" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6} value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" style={{ letterSpacing: "0.2em" }} />
+          </label>
+        )}
+        <button type="submit" className="adm-btn adm-btn--primary">Sign in</button>
+        {error && <div className="adm-error" role="alert">{error}</div>}
       </form>
     </div>
   );

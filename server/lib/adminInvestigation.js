@@ -171,4 +171,28 @@ async function reportedConversation(admin, reportId) {
   };
 }
 
-module.exports = { accountOverview, search, reportedConversation };
+/** Readable names for audit rows' targets: people, listings, tickets, admins, updates and rules. */
+async function activityNames(admin, rows, ruleLabels = {}) {
+  const idsOf = (type) => [...new Set(rows.filter((row) => row.target_type === type).map((row) => row.target_id).filter((id) => UUID.test(id)))];
+  const lookups = [
+    ['user', 'profiles', 'id,full_name,username', (r) => r.full_name || r.username],
+    ['listing', 'listings', 'id,title', (r) => r.title],
+    ['support_ticket', 'support_tickets', 'id,subject', (r) => r.subject],
+    ['admin', 'admins', 'id,name', (r) => r.name],
+    ['varoom_update', 'varoom_updates', 'id,title', (r) => r.title],
+  ];
+  const names = {};
+  await Promise.all(lookups.map(async ([type, table, columns, pick]) => {
+    const ids = idsOf(type);
+    if (!ids.length) return;
+    const { data, error } = await admin.from(table).select(columns).in('id', ids);
+    if (error) { console.error(`Activity names (${table}) failed:`, error.message); return; }
+    (data || []).forEach((row) => { names[`${type}:${row.id}`] = pick(row) || null; });
+  }));
+  return rows.map((row) => ({
+    ...row,
+    target_name: row.target_type === 'rule' ? ruleLabels[row.target_id] || null : names[`${row.target_type}:${row.target_id}`] || null,
+  }));
+}
+
+module.exports = { accountOverview, search, reportedConversation, activityNames };
