@@ -11,7 +11,7 @@ import SegmentedTabs from '../ui/SegmentedTabs';
 import ConfirmSheet from './ConfirmSheet';
 import {
   fetchHostBookings, fetchListingVideo, fetchTableReservations, HOST_TAB_STATUS, guestCountText, hostDateText, hostDurationText,
-  hostTabFor, isBookingInMonth, markAfterApproval, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
+  canMessageGuest, hostTabFor, isBookingInMonth, markAfterApproval, requestedTime, RESPOND_FAILED, respondToBooking, telHref,
   type HostBooking, type HostTab, type ListingVideo, type TableReservation,
 } from '../../lib/bookings/hostBookings';
 import {
@@ -19,6 +19,9 @@ import {
 } from '../../lib/bookings/bookingsCache';
 import { markListing, publishListingUpdate, unitsPatch } from '../../lib/listings/hostListingActions';
 import { clearCalendarCache } from '../../lib/calendar/hostCalendar';
+import { startBookingChat } from '../../lib/chat/startChat';
+import { useWorkspace } from '../../lib/team/team';
+import { MessageIcon } from './BookingIcons';
 
 // The host's Bookings (migrated from legacy-pages/bookings.html): requests by
 // status for a month, approve / decline, the request detail in the right rail
@@ -119,6 +122,8 @@ interface CardProps {
   now: number;
   onSelect: (booking: HostBooking) => void;
   onRespond: (booking: HostBooking, decision: 'approve' | 'decline') => void;
+  /** "Message guest"; absent when this account can't chat for the host. */
+  onMessage?: (booking: HostBooking) => void;
 }
 
 /** Approve / Decline, or the answer in progress and its result. */
@@ -141,7 +146,7 @@ function AnswerButtons({ booking, busy, answer, approveLabel, onRespond }: { boo
   );
 }
 
-function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onSelect, onRespond }: CardProps) {
+function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onSelect, onRespond, onMessage }: CardProps) {
   const listing = booking.listing || {};
   const guest = booking.client || {};
   const guestName = guest.full_name || 'Guest';
@@ -175,7 +180,11 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
         <div className="bk-top-row">
           <div>
             <div className="bk-title">{listing.title || 'Listing'}</div>
-            <div className="bk-guest"><span className="bk-guest-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : (guest.full_name || 'G').charAt(0).toUpperCase()}</span><span>{guestName}</span></div>
+            <div className="bk-guest"><span className="bk-guest-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : (guest.full_name || 'G').charAt(0).toUpperCase()}</span><span>{guestName}</span>
+              {onMessage && canMessageGuest(booking) && (
+                <button type="button" className="bk-msg-link" aria-label={`Message ${guestName}`} title="Message guest" onClick={(event) => { event.stopPropagation(); onMessage(booking); }}><MessageIcon /></button>
+              )}
+            </div>
           </div>
         </div>
         <div className="bk-meta">
@@ -198,13 +207,14 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
   );
 }
 
-function HostDetail({ booking, video, busy, answer, onClose, onRespond }: {
+function HostDetail({ booking, video, busy, answer, onClose, onRespond, onMessage }: {
   booking: HostBooking;
   video: ListingVideo | null | undefined;
   busy: boolean;
   answer: Answer;
   onClose: () => void;
   onRespond: (booking: HostBooking, decision: 'approve' | 'decline') => void;
+  onMessage?: (booking: HostBooking) => void;
 }) {
   const listing = booking.listing || {};
   const photoUrl = photoOf(booking);
@@ -230,6 +240,9 @@ function HostDetail({ booking, video, busy, answer, onClose, onRespond }: {
         <div className="host-detail-item"><div className="host-detail-label-row"><MetaIcon name="calendar" />Check-in</div><div className="host-detail-value">{checkIn || 'Date to be confirmed'}</div></div>
         <div className="host-detail-item"><div className="host-detail-label-row"><MetaIcon name="calendar" />Check-out</div><div className="host-detail-value">{checkOut || 'Date to be confirmed'}</div></div>
       </div>
+      {onMessage && canMessageGuest(booking) && (
+        <button type="button" className="bk-btn bk-btn-outline host-detail-message" onClick={() => onMessage(booking)}><MessageIcon />Message guest</button>
+      )}
       {booking.status === 'pending' && (
         <div className="host-detail-actions">
           <AnswerButtons booking={booking} busy={busy} answer={answer} approveLabel="Approve booking" onRespond={onRespond} />
@@ -300,6 +313,9 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
   const feedRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef(token);
   tokenRef.current = token;
+  // Chats for a company are its Messaging staff's (the server checks the role).
+  const workspace = useWorkspace(ownId);
+  const canMessage = hostId === ownId || Boolean(workspace && workspace.hostId === hostId && workspace.roles.includes('messaging'));
 
   const save = useCallback((next: { bookings?: HostBooking[]; reservations?: TableReservation[] | null }) => {
     if (!userId) return;
@@ -412,12 +428,11 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
   const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
 
   const respond = async (booking: HostBooking, decision: 'approve' | 'decline') => {
-    const client = getSupabaseClient();
-    if (busy || !client || !userId) return;
+    if (busy || !userId) return;
     setBusy(true);
     setAnswer({ id: booking.id, decision, done: false });
     try {
-      const { status } = await respondToBooking(client, { booking, userId: hostId, decision });
+      const { status } = await respondToBooking(booking.id, decision);
       clearCalendarCache(hostId);
       setDeclineAsk(null);
       // The result shows on the button, then the request leaves the list.
@@ -469,6 +484,15 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
     }
   };
 
+  const messageGuest = async (booking: HostBooking) => {
+    try {
+      await router.push(await startBookingChat(booking.id));
+    } catch (error) {
+      showToast(`Couldn't open that chat: ${(error as Error).message || 'Please try again.'}`);
+    }
+  };
+  const onMessage = canMessage ? (booking: HostBooking) => { void messageGuest(booking); } : undefined;
+
   // Approving is one tap; declining asks first.
   const onRespond = (booking: HostBooking, decision: 'approve' | 'decline') => {
     if (decision === 'decline') setDeclineAsk(booking);
@@ -500,6 +524,7 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
         now={now}
         onSelect={(item) => setSelectedId(item.id)}
         onRespond={onRespond}
+        onMessage={onMessage}
       />
     ));
   }
@@ -544,6 +569,7 @@ export default function HostBookingsView({ hostId, showToast, switcher, onMissin
               answer={answer}
               onClose={() => setSelectedId(null)}
               onRespond={onRespond}
+              onMessage={onMessage}
             />
           )}
         </div>

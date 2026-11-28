@@ -8,7 +8,10 @@ import {
 } from '../../lib/bookings/format';
 import { fetchBookingReview, REVIEW_FALLBACK_ERROR, submitBookingReview, type BookingReview } from '../../lib/bookings/clientBookings';
 import { getCachedReview, setCachedReview } from '../../lib/bookings/bookingsCache';
-import { CalendarIcon, CashIcon, CheckIcon, ClockIcon, CloseIcon, GuestsIcon, ShieldIcon } from './BookingIcons';
+import { CalendarIcon, CashIcon, CheckIcon, ClockIcon, CloseIcon, GuestsIcon, MessageIcon, ShieldIcon } from './BookingIcons';
+import { bookingMailtoHref, bookingWhatsappHref, cachedListingContact, listingUrl, NO_CONTACT, telHref, type ListingContact } from '../../lib/reachOut/reachOut';
+import Svg from '../booking/Svg';
+import { ICON_PHONE } from '../../lib/booking/bookingIcons';
 import PayDialog from './PayDialog';
 import ConfirmSheet from './ConfirmSheet';
 import { usePresence } from '../../lib/motion/usePresence';
@@ -30,6 +33,33 @@ export interface BookingDetailActions {
 }
 
 const STARS = [1, 2, 3, 4, 5];
+
+/** The host's Reach Out channels for an approved booking (the listing page's rules), else none. */
+function useHostContact(listingId: string | null | undefined, approved: boolean): ListingContact {
+  const [contact, setContact] = useState<{ listingId: string; value: ListingContact } | null>(null);
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!approved || !listingId || !client) return undefined;
+    let cancelled = false;
+    void cachedListingContact(client, listingId).then((value) => { if (!cancelled) setContact({ listingId, value }); });
+    return () => { cancelled = true; };
+  }, [listingId, approved]);
+  return approved && contact && contact.listingId === listingId ? contact.value : NO_CONTACT;
+}
+
+/** Message host, then the host's WhatsApp, email and phone where they offer them. */
+function HostContact({ booking, contact, onMessage }: { booking: Booking; contact: ListingContact; onMessage: () => void }) {
+  const listing = booking.listing || {};
+  const enquiry = { title: listing.title || 'Listing', url: listing.id && typeof window !== 'undefined' ? listingUrl(window.location.origin, listing.id) : '' };
+  return (
+    <div className="booking-detail-contact" role="group" aria-label="Contact the host">
+      <button type="button" className="bk-btn booking-detail-contact-msg" onClick={onMessage}><MessageIcon />Message host</button>
+      {contact.whatsapp && <a href={bookingWhatsappHref(contact.whatsapp, enquiry)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp the host" title="WhatsApp"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true" /></a>}
+      {contact.email && <a href={bookingMailtoHref(contact.email, enquiry)} aria-label="Email the host" title="Email"><img src="/assets/gmail.svg" alt="" aria-hidden="true" /></a>}
+      {contact.phone && <a href={telHref(contact.phone)} aria-label="Call the host" title="Call"><Svg markup={ICON_PHONE} /></a>}
+    </div>
+  );
+}
 
 function ReviewSection({ booking, reviewed, onReviewed }: { booking: Booking; reviewed: boolean; onReviewed: BookingDetailActions['onReviewed'] }) {
   const { session } = useAuth();
@@ -127,6 +157,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   // The payment window stays through its exit (animation.md §8.3).
   const { mounted: payMounted, closing: payClosing } = usePresence(paying, exitMs(DURATION.standard));
+  const contact = useHostContact(booking?.listing?.id, booking?.status === 'approved');
 
   if (!booking) {
     return (
@@ -192,6 +223,7 @@ export default function BookingDetail({ booking, viewerName, reviewed, actions }
             </div>
           </div>
         </div>
+        {approved && <HostContact booking={booking} contact={contact} onMessage={() => actions.onMessageHost(booking)} />}
         <h3 className="booking-detail-section-title"><CalendarIcon />Booking Details</h3>
         <div className="booking-detail-rows">
           {detailRows(booking).map((row) => (

@@ -665,6 +665,19 @@ export const BOOKINGS_STYLES = `
   /* The message-host icon had a size only on phones (0px wide elsewhere). */
   .bookings-page .bk-msg-link{ width:34px; height:34px; min-height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
   .bookings-page .bk-msg-link svg{ width:18px; height:18px; display:block; }
+  /* Host: Message guest beside the guest's name, and in the request detail. */
+  .bookings-page .host-booking-card .bk-msg-link{ width:28px; height:28px; min-height:28px; }
+  .bookings-page .host-booking-card .bk-msg-link svg{ width:16px; height:16px; }
+  .bookings-page .host-detail-message{ display:flex; align-items:center; justify-content:center; gap:.45rem; width:100%; margin-top:1.1rem; padding:.62rem .75rem; }
+  .bookings-page .host-detail-message svg{ width:17px; height:17px; }
+  /* Guest, approved booking: Message host and the host's Reach Out channels. */
+  .bookings-page .booking-detail-contact{ display:flex; align-items:center; gap:.5rem; margin:.85rem 0 .2rem; }
+  .bookings-page .booking-detail-contact-msg{ display:inline-flex; align-items:center; gap:.4rem; margin-right:auto; border:1.5px solid var(--line); color:var(--ink); }
+  .bookings-page .booking-detail-contact-msg svg{ width:16px; height:16px; }
+  .bookings-page .booking-detail-contact a{ width:36px; height:36px; flex:0 0 36px; border-radius:50%; border:1px solid var(--line); background:var(--white); display:inline-flex; align-items:center; justify-content:center; color:var(--ink); }
+  .bookings-page .booking-detail-contact img{ width:20px; height:20px; object-fit:contain; display:block; }
+  .bookings-page .booking-detail-contact a svg{ width:16px; height:16px; }
+  @media (hover:hover){ .bookings-page .booking-detail-contact a:hover, .bookings-page .booking-detail-contact-msg:hover{ background:var(--ink); color:var(--white); } }
   .bookings-page .booking-detail-content{ container:booking-detail / inline-size; }
 
   /* A narrow list column keeps the legacy row card (thumbnail beside the

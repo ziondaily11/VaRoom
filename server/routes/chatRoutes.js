@@ -13,7 +13,9 @@ const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { notifyNewMessage } = require('../lib/chatNotifications');
 const { previewsFor } = require('../lib/chatPreviews');
-const { clearedAtByConversation, visibleAfterClear, clearChat, conversationsBetween } = require('../lib/chatClears');
+const { clearedAtByConversation, visibleAfterClear, clearChat } = require('../lib/chatClears');
+const { existingConversation, createConversation, conversationFor } = require('../lib/chatStart');
+const { BOOKING_COLUMNS, hostCanMessage } = require('../lib/bookingChat');
 const { MESSAGES_OFF, MESSAGES_OFF_ERROR, acceptsNewConversations } = require('../lib/privacySettings');
 const { deactivationState, isDeactivated } = require('../lib/accountDeactivation');
 const { actAsHost } = require('../lib/team');
@@ -442,17 +444,33 @@ router.post('/chat/conversations/:conversationId/messages/:messageId/actions', a
   }
 });
 
-// "Chat" on a listing: the signed-in person's conversation with its host.
-// One conversation per pair of people: an existing one is reused (the one
-// with the latest message), otherwise one is created for this listing. The
-// listing travels with the first message (listingId), so each question shows
-// which listing it is about.
+// "Message guest" on a booking: the host's conversation with its guest
+// (lib/bookingChat.js says which bookings). A booking between them lets it
+// start even when the guest takes no new messages.
+async function startFromBooking(res, user, bookingId) {
+  const { data: booking, error } = await supabaseAdmin
+    .from('bookings').select(BOOKING_COLUMNS).eq('id', bookingId).eq('host_id', user.id).maybeSingle();
+  if (error) throw error;
+  if (!booking || !hostCanMessage(booking)) return res.status(404).json({ error: 'Booking not found' });
+  if (isDeactivated(await deactivationState(supabaseAdmin, booking.client_id))) {
+    return res.status(403).json({ error: ACCOUNT_DEACTIVATED_ERROR, code: ACCOUNT_DEACTIVATED });
+  }
+  const started = await conversationFor(supabaseAdmin, { hostId: booking.host_id, clientId: booking.client_id, listingId: booking.listing_id });
+  return res.status(started.created ? 201 : 200).json(started);
+}
+
+// "Chat" on a listing: the signed-in person's conversation with its host
+// (lib/chatStart.js: one per pair of people). The listing travels with the
+// first message (listingId), so each question shows which listing it is
+// about. With a bookingId instead, the host starts it (startFromBooking).
 router.post('/chat/conversations/start', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
     if (await rejectSuspendedActivity(res, user.id)) return;
-    assertAllowedKeys(req.body, ['listingId']);
+    assertAllowedKeys(req.body, ['listingId', 'bookingId']);
+    if ((req.body.bookingId === undefined) === (req.body.listingId === undefined)) throw new ValidationError('Give a listingId or a bookingId');
+    if (req.body.bookingId !== undefined) return await startFromBooking(res, user, uuid(req.body.bookingId, 'bookingId'));
     const listingId = uuid(req.body.listingId, 'listingId');
     const { data: listing, error: listingError } = await supabaseAdmin
       .from('listings').select('id,host_id,host:profiles!listings_host_id_fkey(deactivated_at)').eq('id', listingId).maybeSingle();
@@ -462,37 +480,16 @@ router.post('/chat/conversations/start', async (req, res) => {
     if (!listing || !listing.host_id || (listingHost && listingHost.deactivated_at)) return res.status(404).json({ error: 'Listing not found' });
     if (listing.host_id === user.id) return res.status(400).json({ error: 'This is your own listing' });
 
-    const existing = await conversationsBetween(supabaseAdmin, user.id, listing.host_id);
-    if (existing.length) {
-      const { data: latest, error: latestError } = await supabaseAdmin
-        .from('messages').select('conversation_id')
-        .in('conversation_id', existing)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (latestError) throw latestError;
-      let conversationId = latest && latest[0] ? latest[0].conversation_id : null;
-      if (!conversationId) {
-        const { data: newest, error: newestError } = await supabaseAdmin
-          .from('conversations').select('id').in('id', existing)
-          .order('created_at', { ascending: false }).limit(1);
-        if (newestError) throw newestError;
-        conversationId = newest && newest[0] ? newest[0].id : existing[0];
-      }
-      return res.json({ conversationId, created: false });
-    }
+    const existing = await existingConversation(supabaseAdmin, user.id, listing.host_id);
+    if (existing) return res.json({ conversationId: existing, created: false });
 
     // "Who can message you: No one" stops new conversations; existing ones carry on.
     if (!(await acceptsNewConversations(supabaseAdmin, listing.host_id))) {
       return res.status(403).json({ error: MESSAGES_OFF_ERROR, code: MESSAGES_OFF });
     }
 
-    const { data: created, error: createError } = await supabaseAdmin
-      .from('conversations')
-      .upsert({ listing_id: listingId, host_id: listing.host_id, client_id: user.id }, { onConflict: 'listing_id,client_id' })
-      .select('id')
-      .single();
-    if (createError) throw createError;
-    return res.status(201).json({ conversationId: created.id, created: true });
+    const conversationId = await createConversation(supabaseAdmin, { listingId, hostId: listing.host_id, clientId: user.id });
+    return res.status(201).json({ conversationId, created: true });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat start failed:', error);

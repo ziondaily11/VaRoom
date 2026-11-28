@@ -57,9 +57,9 @@ test('chat start refuses a new conversation with a host who turned messages off,
   // Line endings normalised: Windows checkouts (core.autocrlf) have CRLF.
   const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'chatRoutes.js'), 'utf8').replace(/\r\n/g, '\n');
   const start = routes.slice(routes.indexOf("router.post('/chat/conversations/start'"), routes.indexOf('// Archive or unarchive'));
-  const reuse = start.indexOf('return res.json({ conversationId, created: false });');
+  const reuse = start.indexOf('if (existing) return res.json({ conversationId: existing, created: false });');
   const check = start.indexOf('acceptsNewConversations(supabaseAdmin, listing.host_id)');
-  const create = start.indexOf(".from('conversations')\n      .upsert(");
+  const create = start.indexOf('await createConversation(supabaseAdmin, { listingId, hostId: listing.host_id, clientId: user.id })');
   assert.ok(reuse > 0 && check > reuse && create > check, 'existing chats carry on; the check comes before creating');
   assert.match(start, /status\(403\)\.json\(\{ error: MESSAGES_OFF_ERROR, code: MESSAGES_OFF \}\)/);
 });

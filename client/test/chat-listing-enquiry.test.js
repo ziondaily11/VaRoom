@@ -28,6 +28,9 @@ test('every "Chat" / "Message host" button opens the chat through the server, wi
   });
   assert.equal(await start.startListingChat('l 1'), '/chats?c=c%209&listing=l%201');
   assert.deepEqual(calls, [['/api/chat/conversations/start', { method: 'POST', body: { listingId: 'l 1' } }]]);
+  // "Message guest" on a booking: the host's side, without a listing to ask about.
+  assert.equal(await start.startBookingChat('b 1'), '/chats?c=c%209');
+  assert.deepEqual(calls[1], ['/api/chat/conversations/start', { method: 'POST', body: { bookingId: 'b 1' } }]);
   for (const file of [['lib', 'hostHome', 'hostHome.ts'], ['lib', 'booking', 'bookingListing.ts'], ['lib', 'bookings', 'clientBookings.ts'], ['lib', 'profile', 'hostChat.ts'], ['pages', 'client-home.tsx']]) {
     const text = read(...file);
     assert.match(text, /startListingChat/, file.join('/'));
