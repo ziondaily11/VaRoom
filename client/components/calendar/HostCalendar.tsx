@@ -3,12 +3,12 @@ import Link from 'next/link';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarMonth, dayLabel, ksh, plural, todayString } from '../../lib/booking/bookingListing';
 import {
-  cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth,
+  cachedMonth, cachedMonths, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth,
   minutesOf, monthSummary, parsePrice, plannerSummary, priceOn, setClosed, setDatePrice, setHours, setWeekdays, weekday,
   type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
 } from '../../lib/calendar/hostCalendar';
 import {
-  ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, upcoming, visibleRange, weekDays,
+  ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, searchItems, upcoming, visibleRange, weekDays,
   type CalendarItem, type CalendarMode, type ShowKey,
 } from '../../lib/calendar/calendarView';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
@@ -24,6 +24,7 @@ import { DayPrice } from './PricePanel';
 import EventForm from './EventForm';
 import Timeline from './Timeline';
 import { DayView, WeekView } from './TimeGrid';
+import CalendarSearch from './CalendarSearch';
 
 // The host's Calendar (docs/host-controls/CALENDAR_UI_PLAN.md): a header with
 // the date and the views; on the left a mini month, the places (each in its
@@ -31,11 +32,14 @@ import { DayView, WeekView } from './TimeGrid';
 // stays are bars from check-in to check-out (or Week and Day: an hour grid,
 // with stays in an all-day row); on the right an overview, the
 // chosen day or the chosen entry. A place's settings (prices, availability,
-// sync) open in a drawer. Below 1280px the side columns slide over the page.
+// sync) open in a drawer. Below 1280px the side columns slide over the page;
+// on phones the details and settings are bottom sheets, Day has a week strip
+// and Month shows dots. Search looks through the months already opened.
 // Property, office and shop listings are planned, not booked by the night:
 // they show move-ins, lease ends, outcomes and viewings, without closing and
 // booking controls.
 
+const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const addDaysTo = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const NO_COLOR = '#8b8b95';
@@ -53,7 +57,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [phone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches);
   const [listingsSeen, setListingsSeen] = useState<CalendarListing[]>([]);
   const chosenMode: CalendarMode = mode ?? defaultMode(listingsSeen, phone);
-  const loadRange = visibleRange(chosenMode === 'timeline' ? 'month' : chosenMode, focus);
+  const loadRange = visibleRange(chosenMode === 'timeline' ? 'month' : chosenMode === 'day' ? 'week' : chosenMode, focus);
   const months = useMemo(() => monthsOf(loadRange.from, loadRange.to), [loadRange.from, loadRange.to]);
   const monthsKey = months.map((m) => `${m.year}-${m.month}`).join(',');
   const cachedAll = () => {
@@ -72,6 +76,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [overrides, setOverrides] = useState<Map<string, boolean>>(() => new Map());
   const [busy, setBusy] = useState<string | null>(null);
   const [rangePrice, setRangePrice] = useState('');
+  const [query, setQuery] = useState('');
   const [form, setForm] = useState<{ event: CalendarEvent | null; day?: string; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
 
   const loadAll = useCallback((force: boolean) => Promise.all(months.map((m) => loadMonth(client, hostId, m.year, m.month, force))).then(mergeData),
@@ -167,6 +172,13 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     });
     return map;
   }, [viewDays, bookings, events, byId, stays, closedAt, stay, data, today, show]);
+  // Search: every month opened so far, with the same places and kinds shown.
+  const results = useMemo(() => {
+    const opened = query.trim().length >= 2 ? cachedMonths(hostId) : [];
+    return opened.length ? searchItems(buildItems(mergeData(opened), shown, allShown, show), (id) => (id ? byId.get(id)?.title : undefined), query, today) : [];
+    // data: a reload refreshes the cache searched here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, hostId, shown, allShown, show, byId, today, data]);
   const busyDays = useMemo(() => new Set(month.days.filter((day) => itemsOn(items, day).length > 0)), [month.days, items]);
 
   // ---------- Actions ----------
@@ -266,6 +278,13 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   };
   const pickItem = (item: CalendarItem) => {
     if (range) return;
+    setSelection({ key: item.key });
+    setPanelOpen(true);
+    setSideOpen(false);
+  };
+  const pickResult = (item: CalendarItem) => {
+    setRange(null);
+    setFocus(item.start);
     setSelection({ key: item.key });
     setPanelOpen(true);
     setSideOpen(false);
@@ -377,7 +396,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         <CalendarHeader day={selectedDay || focus} monthTitle={viewTitle} mode={shownMode} modes={modes} selecting={Boolean(range)}
           canSelect={stays.length > 0} canAdd={Boolean(data)} onMode={setMode} onPrev={() => go(-1)} onNext={() => go(1)} onToday={goToday}
           onSelect={() => setRange(range ? null : { start: null, end: null })} onAdd={() => setForm({ event: null, day: selectedDay || today })}
-          onFilters={() => setSideOpen(true)} onOverview={() => { setSelection(null); setPanelOpen(true); }} />
+          onFilters={() => setSideOpen(true)} onOverview={() => { setSelection(null); setPanelOpen(true); }}
+          search={<CalendarSearch query={query} results={results} colorOf={itemColor} titleOf={(id) => (id ? byId.get(id)?.title : undefined)} onQuery={setQuery} onPick={pickResult} />} />
 
         {failed && !data && <p className="vc-error" role="alert">The calendar couldn’t load. Check your connection and try again.</p>}
         {data && !all.length && (
@@ -405,10 +425,20 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   <span><i className="is-closed" />Closed</span>
                 </div>
               </div>
+              {shownMode === 'day' && (
+                <div className="vc-strip vc-only-phone" role="group" aria-label="This week">
+                  {weekDays(focus).map((day) => (
+                    <button key={day} type="button" aria-pressed={day === focus} className={day === today ? 'is-today' : undefined} aria-label={dayLabel(day, true)} onClick={() => setFocus(day)}>
+                      <span>{SHORT_DAYS[weekday(day)]}</span><strong>{Number(day.slice(8))}</strong>{itemsOn(items, day).length > 0 && <i aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+              )}
               {shownMode === 'week' ? <WeekView {...gridProps} />
                 : shownMode === 'day' ? <DayView {...gridProps} />
                   : shownMode === 'timeline' ? (
-                <Timeline listings={stays} days={month.days} today={today} selected={selectedDay || today} bookings={bookings} events={events} closedAt={closedAt} onPick={pickDay} />
+                <Timeline listings={stays} days={month.days} today={today} selectedDay={gridProps.selectedDay} selectedKey={gridProps.selectedKey} items={items}
+                  closedAt={closedAt} placeColor={(id) => colors.get(id) || NO_COLOR} colorOf={itemColor} onPickDay={pickDay} onPickItem={pickItem} />
               ) : (
                 <MonthView weeks={monthWeeks(month.days, month.leadingBlanks)} items={items} info={info} today={today}
                   selectedDay={selection && 'day' in selection ? selection.day : null} selectedKey={selectedItem?.key || null}

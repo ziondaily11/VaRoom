@@ -130,3 +130,36 @@ test('the page offers Day, Week and Month; ‹ › step by the view; the grid ma
   assert.match(grid, /window\.setInterval\(\(\) => setNow\(read\(\)\), 60000\)/, 'the line moves each minute, and the timer is cleared');
   assert.match(grid, /return \(\) => window\.clearInterval\(timer\);/);
 });
+
+test('search: guests, titles, places, clients and notes; coming first; a weekly note once', () => {
+  const items = view.buildItems(data, [palm, hall], true, view.ALL_SHOWN);
+  const titleOf = (id) => ({ A: 'Palm View', V: 'Hall' })[id];
+  const keys = (q, today = '2026-12-03') => view.searchItems(items, titleOf, q, today).map((i) => i.key);
+  assert.deepEqual(keys('wanj'), ['bb1']);
+  assert.deepEqual(keys('hall'), ['bb3'], 'by place');
+  assert.deepEqual(keys('kamau'), ['tt1'], 'a table by its client');
+  assert.deepEqual(keys('palm'), ['bb1', 'bb2', 'ee1:2026-12-10', 'ee2:2026-12-12'], 'coming ones, soonest first');
+  assert.deepEqual(keys('palm', '2026-12-11'), ['ee2:2026-12-12', 'ee1:2026-12-10', 'bb2', 'bb1'], 'then past ones, latest first');
+  assert.deepEqual(keys('palm view deep'), ['ee1:2026-12-10'], 'every word must match');
+  assert.deepEqual(keys('w'), [], 'two letters at least');
+  const weekly = [{ ...items[0], key: 'ex:2026-12-08', kind: 'note', title: 'Gym', start: '2026-12-08', end: '2026-12-08', source: { type: 'event', value: { notes: null, client_name: null } } },
+    { ...items[0], key: 'ex:2026-12-15', kind: 'note', title: 'Gym', start: '2026-12-15', end: '2026-12-15', source: { type: 'event', value: { notes: null, client_name: null } } }];
+  assert.deepEqual(view.searchItems(weekly, titleOf, 'gym', '2026-12-03').map((i) => i.key), ['ex:2026-12-08']);
+});
+
+test('timeline bars use the month\'s width; part 3 wiring (search, strip, dots, thin scrollbars)', () => {
+  const fs = require('node:fs');
+  assert.deepEqual({ ...view.barBox({ from: 0, to: 1, halfStart: true, halfEnd: true }, 31) }, { left: `${(0.5 / 31) * 100}%`, width: `${(1 / 31) * 100}%` });
+  const days = Array.from({ length: 31 }, (_, i) => `2026-12-${String(i + 1).padStart(2, '0')}`);
+  const { hidden } = view.layoutWeek(days, [], 2);
+  assert.equal(hidden.length, 31);
+  const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /const opened = query\.trim\(\)\.length >= 2 \? cachedMonths\(hostId\) : \[\];/, 'search makes no new requests');
+  assert.match(page, /chosenMode === 'day' \? 'week' : chosenMode/, 'Day loads its week, for the strip');
+  assert.match(read('components', 'calendar', 'MonthView.tsx'), /<span className="vc-cell-dots" aria-hidden="true">/);
+  const css = read('components', 'calendar', 'calendarStyles.ts');
+  assert.match(css, /\.vc,\.vc \*\{scrollbar-width:thin;scrollbar-color:transparent transparent\}/);
+  assert.match(css, /\.vc \.vc-month-grid \.vc-bar\{display:none\}/, 'phones: dots, not bars');
+  assert.match(css, /\.vc \.vc-drawer\{width:100%;height:auto;max-height:88vh;border-radius:22px 22px 0 0/, 'phones: settings as a sheet');
+});
