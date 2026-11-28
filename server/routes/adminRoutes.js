@@ -4,6 +4,7 @@ const { sendEmail, SECURITY_EMAIL_FROM } = require('../lib/email');
 const { createNotification } = require('../lib/notifications');
 const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
 const enforcement = require('../lib/enforcement');
+const { ticketRef } = require('../lib/supportInbox');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -332,7 +333,7 @@ function createAdminRoutes(supabaseAdmin) {
   router.get('/support/tickets/:id', adminAuth, caught(async (req, res) => {
     const [ticketResult, repliesResult] = await Promise.all([
       supabaseAdmin.from('support_tickets').select('*').eq('id', req.params.id).single(),
-      supabaseAdmin.from('support_ticket_replies').select('*').eq('ticket_id', req.params.id).order('sent_at')
+      supabaseAdmin.from('support_ticket_replies').select('*, admin:admins(name)').eq('ticket_id', req.params.id).order('sent_at')
     ]);
     if (ticketResult.error) return res.status(404).json({ error: 'Ticket not found' });
     const controls = await controlsFor(supabaseAdmin, [ticketResult.data.user_id]);
@@ -349,7 +350,9 @@ function createAdminRoutes(supabaseAdmin) {
       .select('*').eq('idempotency_key', idempotencyKey).maybeSingle();
     if (existingReply) return res.status(200).json({ reply: existingReply });
 
-    const subject = `Re: ${ticket.subject}`;
+    // The [#REF] lets a reply find its ticket even when a mail app drops the headers.
+    const ref = `[${ticketRef(ticket.id)}]`;
+    const subject = `${/^re:/i.test(ticket.subject) ? '' : 'Re: '}${ticket.subject}${ticket.subject.includes(ref) ? '' : ` ${ref}`}`;
     const inReplyTo = ticket.message_id || null;
     const references = [ticket.message_id].filter(Boolean).join(' ') || null;
     const messageId = `<support-reply-${crypto.randomUUID()}@varoom.co.ke>`;
@@ -386,7 +389,8 @@ function createAdminRoutes(supabaseAdmin) {
         .update({ resend_email_id: email.id, delivery_status: 'sent', sent_at: new Date().toISOString(), provider_error: null })
         .eq('id', reply.id).select().single();
       if (updateError) return res.status(502).json({ error: updateError.message });
-      await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticket.id);
+      // Answered: an open ticket is now in progress (waiting on the person).
+      await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString(), ...(ticket.status === 'open' ? { status: 'in_progress' } : {}) }).eq('id', ticket.id);
       if (ticket.user_id) {
         try {
           await createNotification({
@@ -455,6 +459,50 @@ function createAdminRoutes(supabaseAdmin) {
     if (userError || !userData.user) return res.status(404).json({ error: 'User not found' });
     const { data: control } = await supabaseAdmin.from('account_controls').select('*').eq('user_id', req.params.id).maybeSingle();
     return res.json({ user: { id: userData.user.id, email: userData.user.email, created_at: userData.user.created_at, last_sign_in_at: userData.user.last_sign_in_at, profile: profileResult.data || null, account: accountOf(control, userData.user.banned_until) }, listings: listingsResult.data || [], activity: activityResult.data || [], actions: actionsResult.data || [] });
+  });
+
+  // Saved replies for the Support section ({{name}} and {{ticket}} are filled in there).
+  router.get('/support/templates', adminAuth, async (_req, res) => {
+    const { data, error } = await supabaseAdmin.from('support_reply_templates').select('id,title,body,updated_at').order('title');
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ data: data || [] });
+  });
+
+  function templateFields(req, res) {
+    const title = String(req.body && req.body.title || '').trim();
+    const body = String(req.body && req.body.body || '').trim();
+    if (!title || title.length > 120 || !body || body.length > 5000) {
+      res.status(400).json({ error: 'A title (up to 120 characters) and text (up to 5,000) are required' });
+      return null;
+    }
+    return { title, body, updated_at: new Date().toISOString(), updated_by: req.admin.id };
+  }
+
+  router.post('/support/templates', ...adminWrite, async (req, res) => {
+    const fields = templateFields(req, res);
+    if (!fields) return;
+    const { data, error } = await supabaseAdmin.from('support_reply_templates').insert(fields).select('id,title,body,updated_at').single();
+    if (error) return res.status(400).json({ error: error.message });
+    await logActivity(req.admin, 'support_template_created', 'support_template', data.id, null);
+    return res.status(201).json({ template: data });
+  });
+
+  router.patch('/support/templates/:id', ...adminWrite, async (req, res) => {
+    const fields = templateFields(req, res);
+    if (!fields) return;
+    const { data, error } = await supabaseAdmin.from('support_reply_templates').update(fields).eq('id', req.params.id).select('id,title,body,updated_at').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Template not found' });
+    await logActivity(req.admin, 'support_template_edited', 'support_template', data.id, null);
+    return res.json({ template: data });
+  });
+
+  router.delete('/support/templates/:id', ...adminWrite, async (req, res) => {
+    const { data, error } = await supabaseAdmin.from('support_reply_templates').delete().eq('id', req.params.id).select('id').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Template not found' });
+    await logActivity(req.admin, 'support_template_deleted', 'support_template', data.id, null);
+    return res.status(204).end();
   });
 
   // Warn, suspend (for `days`, or until reviewed), disable (sign-in blocked)

@@ -35,10 +35,24 @@ waiting for an admin, and gives admins what they need to investigate.
      | `expired_requests` | 3 expired booking requests / 30 days | next step on the ladder |
      | `linked_accounts` | — | a restriction reaches linked accounts |
    - Support tickets show the sender's real account status (appeals stand out).
-2. **Support email automation** — Resend inbound webhook → tickets (replies
-   join their ticket by Message-ID), instant acknowledgement with the ticket
-   number, suspension appeals detected and linked to the account, reply
-   templates, auto-close after inactivity.
+2. **Support email automation** — done in `claude/admin-support-email`
+   (migration `20261129_000098_support_inbound_email.sql`). varoom.co.ke
+   has no mailbox: its MX already points at Resend's receiving servers, so
+   mail to any @varoom.co.ke address reaches Resend, whose `email.received`
+   webhook (`/api/support/inbound-email`, secret `RESEND_WEBHOOK_SECRET`)
+   lands it in Support (`server/lib/supportInbox.js`).
+   - A reply joins its ticket by its reply headers, or by `[#REF]` in the
+     subject from the ticket's own address, and reopens it.
+   - Every new ticket (email or Support page) is acknowledged at once (at
+     most one per address per hour). A restricted account's message is
+     filed as a high-priority appeal and the acknowledgement says where the
+     account stands, but only when the email passes DMARC (or SPF and
+     DKIM), so a forged sender learns nothing.
+   - Auto-replies, bounces and VaRoom's own mail never open tickets; at most
+     10 new tickets per address a day.
+   - The Support section shows each ticket's conversation and saved replies
+     (`support_reply_templates`); tickets answered with no word back for 7
+     days close, and an email reopens them.
 3. **Investigation tools** — one page per account (linked accounts, teams,
    listings, bookings, reports filed and received, tickets, payments,
    V-Coins, admin history, private notes), report detail with one-step
