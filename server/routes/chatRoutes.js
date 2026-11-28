@@ -19,6 +19,7 @@ const { BOOKING_COLUMNS, hostCanMessage } = require('../lib/bookingChat');
 const { MESSAGES_OFF, MESSAGES_OFF_ERROR, acceptsNewConversations } = require('../lib/privacySettings');
 const { deactivationState, isDeactivated } = require('../lib/accountDeactivation');
 const { actAsHost } = require('../lib/team');
+const enforcement = require('../lib/enforcement');
 
 const ACCOUNT_DEACTIVATED = 'account_deactivated';
 const ACCOUNT_DEACTIVATED_ERROR = 'This account is deactivated, so it can’t receive messages.';
@@ -123,6 +124,7 @@ router.post('/chat/reports', async (req, res) => {
       details,
     }).select('id,reason,details,status,created_at').single();
     if (error) throw error;
+    void enforcement.checkAccountReports(supabaseAdmin, reportedUserId);
     return res.status(201).json({ report: data });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
@@ -489,6 +491,7 @@ router.post('/chat/conversations/start', async (req, res) => {
     }
 
     const conversationId = await createConversation(supabaseAdmin, { listingId, hostId: listing.host_id, clientId: user.id });
+    void enforcement.noteConversationStarted(supabaseAdmin, user.id, conversationId);
     return res.status(201).json({ conversationId, created: true });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
@@ -782,6 +785,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id,reply_to_message_id,album_id')
         .single();
       if (error) throw error;
+      if (messageType === 'text') void enforcement.checkMessage(supabaseAdmin, user.id, data.id, content);
       console.info('Chat message persisted:', {
         conversationId,
         messageId: data.id,

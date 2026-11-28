@@ -25,6 +25,7 @@ const { sendUnreadChatAlerts } = require('./lib/chatEmailAlerts');
 const { recordStepUp, verifiedTokenClaims } = require('./lib/stepUp');
 const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
+const enforcement = require('./lib/enforcement');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
@@ -262,9 +263,10 @@ app.get('/api/account-status', async (req, res) => {
   }
 
   const { data, error } = await supabaseAdmin.from('account_controls')
-    .select('status,changed_at').eq('user_id', user.id).maybeSingle();
+    .select('status,suspended_until').eq('user_id', user.id).maybeSingle();
   if (error) return sendError(res, 502, 'Unable to load account status');
-  return res.json({ status: data?.status || 'active', suspended: Boolean(data && data.status !== 'active') });
+  const status = enforcement.effectiveStatus(data);
+  return res.json({ status, suspended: status !== 'active', suspendedUntil: status === 'active' ? null : data.suspended_until || null });
 });
 
 app.post('/api/listing-reports', async (req, res) => {
@@ -288,6 +290,7 @@ app.post('/api/listing-reports', async (req, res) => {
       details: normalizedDetails || null
     }).select('id,listing_id,reason,status,created_at').single();
     if (error) return sendError(res, 502, 'Unable to submit listing report');
+    void enforcement.checkListingReports(supabaseAdmin, data.listing_id);
     return res.status(201).json({ report: data });
   } catch (error) {
     if (error instanceof ValidationError) return sendError(res, 400, error.message, ERROR_CODES.BAD_REQUEST);
@@ -881,11 +884,25 @@ function expireStaleBookingRequestsNow() {
   remindExpiringRequests(supabaseAdmin)
     .catch((error) => console.error('Booking request reminders failed:', error))
     .then(() => expireStaleRequests(supabaseAdmin))
-    .then((ids) => { if (ids.length) console.log(`Expired ${ids.length} unanswered booking request(s).`); })
+    .then((expired) => {
+      if (!expired.length) return;
+      console.log(`Expired ${expired.length} unanswered booking request(s).`);
+      return enforcement.checkExpiredRequests(supabaseAdmin, expired.map((row) => row.host_id));
+    })
     .catch((error) => console.error('Booking request expiry failed:', error));
 }
 setTimeout(expireStaleBookingRequestsNow, 90 * 1000).unref();
 setInterval(expireStaleBookingRequestsNow, BOOKING_EXPIRY_INTERVAL_MS).unref();
+
+// Timed suspensions that have ended are lifted and the person told, every 10
+// minutes (enforcement already treats them as ended when they end).
+function liftEndedSuspensionsNow() {
+  enforcement.liftEndedSuspensions(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Lifted ${count} ended suspension(s).`); })
+    .catch((error) => console.error('Lifting ended suspensions failed:', error));
+}
+setTimeout(liftEndedSuspensionsNow, 75 * 1000).unref();
+setInterval(liftEndedSuspensionsNow, 10 * 60 * 1000).unref();
 
 // Calendar links from other sites (Airbnb.com, Booking.com…): read every 30
 // minutes, so their bookings block those days on VaRoom (lib/calendarSync.js).

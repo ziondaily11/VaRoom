@@ -1,14 +1,15 @@
 'use strict';
 
 const supabaseAdmin = require('./supabaseClient');
+const { effectiveStatus } = require('./enforcement');
 
 // Suspension is deliberately a capability restriction, not an authentication
 // restriction. Suspended people keep their normal session and read access.
 async function accountCanCreateActivity(userId) {
   const { data, error } = await supabaseAdmin.from('account_controls')
-    .select('status').eq('user_id', userId).maybeSingle();
+    .select('status,suspended_until').eq('user_id', userId).maybeSingle();
   if (error) throw error;
-  return !data || data.status === 'active';
+  return effectiveStatus(data) === 'active';
 }
 
 async function rejectSuspendedActivity(res, userId) {
@@ -20,4 +21,4 @@ async function rejectSuspendedActivity(res, userId) {
   return true;
 }
 
-module.exports = { accountCanCreateActivity, rejectSuspendedActivity };
+module.exports = { effectiveStatus, accountCanCreateActivity, rejectSuspendedActivity };

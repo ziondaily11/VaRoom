@@ -4,7 +4,7 @@
 
 export type SectionKey =
   | 'overview' | 'signins' | 'revenue' | 'support' | 'reports' | 'users'
-  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews';
+  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules';
 
 export interface Overview { signins: number; revenue: number; openTickets: number; newListings: number }
 export interface SigninRow { user: string; method: string; time: string; device: string }
@@ -55,7 +55,41 @@ export interface VaroomReviewRow {
 
 export interface AccountDeletion { id: string; account_id: string; account_email: string | null; reason: string; reason_details: string | null; deleted_at: string }
 
-export interface AccountControl { status: string; reason?: string | null }
+/** status: active, suspended or disabled. suspended_until: when a timed suspension ends; rule_key: the rule that applied it. */
+export interface AccountControl { status: string; reason?: string | null; suspended_until?: string | null; rule_key?: string | null }
+
+/** A warning, suspension, disabling or restore (server/lib/enforcement.js). */
+export interface EnforcementAction {
+  id: string;
+  action: 'warning' | 'suspended' | 'disabled' | 'restored';
+  reason: string;
+  rule_key: string | null;
+  suspended_until: string | null;
+  created_at: string;
+  admin: { name?: string | null } | null;
+}
+
+/** An automatic rule: off, shadow (records what it would do) or enforce. */
+export interface ModerationRule {
+  key: string;
+  label: string;
+  description: string;
+  mode: 'off' | 'shadow' | 'enforce';
+  threshold: number;
+  window_hours: number;
+}
+
+export interface RuleHit {
+  id: string;
+  rule_key: string;
+  target_type: 'user' | 'listing';
+  target_id: string;
+  target_name: string | null;
+  action: string;
+  created_at: string;
+}
+
+export type RuleChanges = Partial<Pick<ModerationRule, 'mode' | 'threshold' | 'window_hours'>>;
 
 export interface AdminUser {
   id: string;
@@ -66,7 +100,7 @@ export interface AdminUser {
   account: AccountControl;
 }
 
-export interface UserDetail { user: AdminUser; listings: Array<{ id: string }>; activity: Array<{ id: string }> }
+export interface UserDetail { user: AdminUser; listings: Array<{ id: string }>; activity: Array<{ id: string }>; actions: EnforcementAction[] }
 
 export interface AdminListing {
   id: string;
@@ -152,6 +186,8 @@ export const loadUpdates = () => rows<VaroomUpdate>('/admin/updates');
 export const loadActivity = () => rows<ActivityEntry>('/admin/activity');
 export const loadPendingNews = () => adminRequest<NewsEntry[] | null>('/admin/news/pending').then((result) => result || []);
 export const loadUser = (id: string) => adminRequest<UserDetail>(`/admin/users/${id}`);
+export const loadRules = () => adminRequest<{ rules?: ModerationRule[]; hits?: RuleHit[] }>('/admin/rules')
+  .then((result) => ({ rules: result.rules || [], hits: result.hits || [] }));
 
 // ---------- Actions ----------
 
@@ -160,7 +196,10 @@ export const replyToTicket = (id: string, message: string, idempotencyKey: strin
 export const setTicketStatus = (id: string, status: string) => adminRequest<unknown>(`/admin/support/tickets/${id}`, json('PATCH', { status }));
 export const addAdmin = (admin: NewAdmin) => adminRequest<{ admin: Omit<Admin, 'lastLogin'> }>('/admin/admins', json('POST', admin));
 export const actOnNews = (id: string, action: 'approve' | 'reject') => adminRequest<unknown>(`/admin/news/${id}/${action}`, json('POST', {}));
-export const setUserStatus = (id: string, status: string, reason: string) => adminRequest<unknown>(`/admin/users/${id}/status`, json('POST', { status, reason }));
+/** status: active (restore), warning, suspended (for days, or until reviewed) or disabled. */
+export const setUserStatus = (id: string, status: string, reason: string, days?: number) =>
+  adminRequest<{ status: string | null; reason: string; suspended_until: string | null }>(`/admin/users/${id}/status`, json('POST', days ? { status, reason, days } : { status, reason }));
+export const updateRule = (key: string, changes: RuleChanges) => adminRequest<{ rule: ModerationRule }>(`/admin/rules/${key}`, json('PATCH', changes));
 export const moderateListing = (id: string, status: string, reason: string) =>
   adminRequest<{ listing: Partial<AdminListing> }>(`/admin/listings/${id}/moderation`, json('POST', { status, reason }));
 export const createUpdate = (payload: { title: string; body: string; status: string }) => adminRequest<{ update: VaroomUpdate }>('/admin/updates', json('POST', payload));
