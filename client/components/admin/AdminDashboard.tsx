@@ -518,7 +518,6 @@ export default function AdminDashboard() {
         <aside className="adm-sidebar" aria-label="Admin menu">
           <div className="adm-brand">
             <span className="adm-brand__va">Va</span><span className="adm-brand__room">Room</span>
-            <span className="adm-brand__tag">Admin</span>
           </div>
           <nav className="adm-nav" aria-label="Admin sections">
             {NAV.map((group) => (

@@ -62,7 +62,7 @@ test('dashboard: native TSX; Overview at sign-in, other sections when first open
   assert.match(read('components', 'admin', 'LoginScreen.tsx'), /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); onLogin\(email, password, codeRequired \? code : undefined\); \}\}/);
   // Every colour is a token in styles/admin.css (light, and dark under the site's theme); components name none.
   const css = read('styles', 'admin.css');
-  assert.match(css, /\.admin-dashboard,\s*\.admin-login \{[^}]*--adm-accent: #C41E3A;/);
+  assert.match(css, /\.admin-dashboard,\s*\.admin-login \{[^}]*--adm-link: #C41E3A;/);
   assert.match(css, /\[data-theme="dark"\] \.admin-dashboard,\s*\[data-theme="dark"\] \.admin-login \{[^}]*--adm-bg: #000000;/);
   for (const file of fs.readdirSync(path.join(root, 'components', 'admin'))) {
     const source = read('components', 'admin', file);
@@ -175,7 +175,7 @@ test('redesign: Send again, the Restricted list, the font on the admin page only
   assert.equal((await api.resendReply('t1', 'r1')).reply.delivery_status, 'sent');
   assert.deepEqual(await api.loadRestrictedUsers(), { users: [{ id: 'u1' }], total: 1 });
   assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), ['POST /admin/support/tickets/t1/replies/r1/resend', 'GET /admin/users?status=restricted']);
-  assert.match(read('pages', 'admin.tsx'), /family=Plus\+Jakarta\+Sans/);
+  assert.match(read('pages', 'admin.tsx'), /<link rel="stylesheet" href=\{BRAND_FONT_HREF\} key="brand-font" \/>/, 'the app logo font, nothing else');
   assert.doesNotMatch(read('styles', 'admin.css'), /@import/, 'no font fetched on every page');
   const shell = read('components', 'admin', 'AdminDashboard.tsx');
   for (const group of ['Today', 'People', 'Content', 'Money', 'Safety']) assert.match(shell, new RegExp(`title: "${group}"`));
@@ -191,4 +191,21 @@ test('scrollbars: 4px and shown only while the pointer is over what scrolls', ()
   // Chrome ignores the ::-webkit-scrollbar rules wherever scrollbar-color/width is set, so those stay Firefox-only.
   assert.match(css, /@supports \(-moz-appearance: none\) \{[^}]*scrollbar-width: thin;/);
   assert.doesNotMatch(css.replace(/@supports \(-moz-appearance: none\) \{[\s\S]*?\n\}/, ''), /scrollbar-(?:width|color):/);
+});
+
+test('calm palette: red only for links and the logo, black/white buttons, #FAFAFA light, the app shell look', () => {
+  const css = read('styles', 'admin.css');
+  assert.doesNotMatch(css, /--adm-accent/, 'no red accent token');
+  const reds = css.split('\n').filter((line) => /#C41E3A|#FF5C75|var\(--adm-link/.test(line));
+  assert.ok(reds.length >= 5);
+  for (const line of reds) {
+    assert.match(line, /^\s*--adm-link(?:-hover)?:|^\.adm-brand__va \{|^\.admin-dashboard :where\(a\) \{|^\.admin-dashboard \.adm-link(?::hover)? \{/, `red only on links and the logo: ${line.trim()}`);
+  }
+  assert.match(css, /\.admin-dashboard,\s*\.admin-login \{[^}]*--adm-surface: var\(--va-light, #FAFAFA\);[^}]*--adm-primary: #0F1419;[^}]*--adm-on-primary: #FAFAFA;/);
+  assert.match(css, /\[data-theme="dark"\] \.admin-dashboard,\s*\[data-theme="dark"\] \.admin-login \{[^}]*--adm-primary: #E7E9EA;[^}]*--adm-on-primary: #0F1419;/);
+  assert.match(css, /\.adm-btn--primary, \.admin-login \.adm-btn--primary \{ background: var\(--adm-primary\)/);
+  assert.match(css, /\.adm-nav__item\[aria-current="page"\] \{ background: var\(--adm-active\); color: var\(--adm-ink\);/, 'the active item is grey');
+  assert.match(css, /\.adm-stat__icon \{[^}]*color: var\(--adm-ink\); \}/, 'KPI icons in the ink colour, no tile behind');
+  assert.match(css, /\.adm-brand \{[^}]*font-family: 'Fraunces', Georgia, serif; font-weight: 900;/, 'the app sidebar logo');
+  for (const file of ['AdminDashboard.tsx', 'LoginScreen.tsx']) assert.doesNotMatch(read('components', 'admin', file), /adm-brand__tag/, `${file}: no Admin pill`);
 });

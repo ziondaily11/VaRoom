@@ -159,7 +159,7 @@ export function ListingReports({ reports, userReports, accountDeletions, listing
             <tr key={r.id}>
               <td><a href={`/booking?listing=${r.listing_id}`} target="_blank" rel="noopener noreferrer" className="adm-strong">{r.listing || "Listing"}</a></td>
               <td><Person name={r.guest || "Guest"} id={r.client_id} onOpen={() => openAccount(r.client_id)} /></td>
-              <td style={{ color: "var(--adm-accent)", whiteSpace: "nowrap" }} aria-label={`${r.rating} of 5 stars`}>{stars(r.rating)}</td>
+              <td style={{ color: "var(--adm-warn)", whiteSpace: "nowrap" }} aria-label={`${r.rating} of 5 stars`}>{stars(r.rating)}</td>
               <td className="adm-cell-wrap">{r.comment}</td>
               <td><StatusPill status={r.status} /></td>
               <td style={{ whiteSpace: "nowrap" }}>{formatDate(r.created_at)}</td>

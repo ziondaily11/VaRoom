@@ -22,7 +22,7 @@ export function VaroomReviews({ reviews, setStatus }: {
         renderRow={(r) => (
           <tr key={r.id}>
             <td><Person name={r.author_name} sub={r.author_role === "host" ? "Host" : "Guest"} id={r.user_id} /></td>
-            <td style={{ color: "var(--adm-accent)", whiteSpace: "nowrap" }} aria-label={`${r.rating} of 5 stars`}>{stars(r.rating)}</td>
+            <td style={{ color: "var(--adm-warn)", whiteSpace: "nowrap" }} aria-label={`${r.rating} of 5 stars`}>{stars(r.rating)}</td>
             <td className="adm-cell-wrap">{r.comment || <span className="adm-muted">Stars only</span>}</td>
             <td><StatusPill status={r.status} />{r.status === "pending" && <div style={{ marginTop: 4 }}><Pill tone="info">Waiting for you</Pill></div>}</td>
             <td style={{ whiteSpace: "nowrap" }}>{formatDate(r.updated_at)}</td>

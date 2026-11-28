@@ -11,9 +11,8 @@ export function LoginScreen({ onLogin, error, codeRequired }: {
   return (
     <div className="admin-login">
       <form className="adm-login-card" onSubmit={(event) => { event.preventDefault(); onLogin(email, password, codeRequired ? code : undefined); }}>
-        <div className="adm-brand" style={{ padding: 0 }}>
+        <div className="adm-brand" style={{ padding: 0 }} aria-label="VaRoom Admin">
           <span className="adm-brand__va">Va</span><span className="adm-brand__room">Room</span>
-          <span className="adm-brand__tag">Admin</span>
         </div>
         <div>
           <h1 className="adm-title" style={{ fontSize: "1.5rem" }}>Sign in</h1>
