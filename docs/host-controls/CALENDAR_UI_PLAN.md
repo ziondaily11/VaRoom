@@ -1,6 +1,6 @@
 # Host calendar: UI redesign plan
 
-Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, 000096) merged (#765). PR 2 (Week and Day views) merged (#766). PR 3 (timeline, search, phone layout, thin scrollbars) on `claude/calendar-timeline-search-phone`.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
+Status: **approved 2026-11-28 (recommendations accepted: default view by niche, stats in the right column, details in the right column). PR 1 (shell and month view, 000096) merged (#765). PR 2 (Week and Day views) merged (#766). PR 3 (timeline, search, phone layout, thin scrollbars) merged (#767). Follow-up on `claude/calendar-polish-plans`: tablet Week, the phone + button, motion (animation.md), the calendar listed on every plan, Place settings → Rules, and table reservations' status and tables per time.** The calendar's logic is complete (`CALENDAR_PLAN.md`, parts 1–7). This plan changes how it looks and is used, not what it does. Every feature stays.
 
 References: Prodless (week grid, date tile, details panel), Chronicle (filters with colours, Day/Week/Month, all-day row, popover), the "Today's schedule" app (day timeline, pinned cards, widgets).
 
@@ -81,19 +81,20 @@ References: Prodless (week grid, date tile, details panel), Chronicle (filters w
 - **An entry selected:** its **details card** (Prodless). Title, place, dates and time, length, guests, price, status, guest photo and name, then the actions:
   - Approve and Decline;
   - Chat and Call;
-  - Edit and Delete for the host's own entries.
+  - Edit and Delete for the host's own entries;
+  - a table reservation: New / Contacted / Closed, and "6 of 12 tables reserved" at its time.
 - **A day selected (no entry):** that day's places with Open / Closed / rooms left, Close day / Reopen, Close rooms…, the day's price, and "+ Add to this day".
 
 ### Place settings (a drawer, opened from ⚙ or a place's row)
-Everything that is a listing's setting moves out of the day panel, in tabs: **Prices** (normal, weekend, special dates) · **Availability** (closed every week, cleaning days, hire hours) · **Sync** (VaRoom's link, other sites' links). The broken controls are rebuilt here.
+Everything that is a listing's setting moves out of the day panel, in tabs: **Prices** (normal, weekend, special dates) · **Availability** (closed every week, cleaning days, hire hours) · **Rules** (instant book, minimum notice, how far ahead, minimum and maximum stay, check-in and check-out; only the ones the place takes) · **Sync** (VaRoom's link, other sites' links). The broken controls are rebuilt here.
 
 ## Smaller screens
 
 | Width | Layout |
 |---|---|
 | 1024–1279 | The left column becomes a drawer (a "Filters" button). The right column becomes a panel that slides over. |
-| 861–1023 | The same. Week keeps all 7 days (no sideways scroll): the columns stay wide enough. |
-| 860 and below (phones) | The header becomes a compact date and a week strip. **Day** is the default view; Month shows dots, not bars. Details and settings open as bottom sheets; the header's + Add adds. |
+| 761–1023 | The same, with Week showing about 5 days and scrolling sideways (the hours stay put). |
+| 760 and below (phones) | The header becomes a compact date and a week strip. **Day** is the default view; Month shows dots, not bars. Details, settings and the add form open as bottom sheets; a round + button above the bottom navigation adds (the header's + Add is hidden). |
 
 Layout changes use CSS media queries only, with no resize listeners (CLAUDE.md §7). Scrollbars are thin and only show while the pointer is over what scrolls.
 
@@ -106,6 +107,9 @@ A host's last view is remembered on their device. The first time:
 ## Data
 - One small database change: `host_calendar` adds the guest's photo (`avatar_url`) to bookings and leases. Everything else is already loaded.
 - Week and day views can cross into the next month; the two months load from the existing cache.
+
+## Motion
+Follows `animation.md`: the view switch and settings tabs slide one pill; ‹ › and Today slide the new range in from its side; drawers, dialogs, sheets, search results, the Select days bar and the toast have entrances and shorter exits; buttons, bars and cards press to .97; reduced motion removes movement. Not animated: the now-line, prices, scrollbars and theme changes.
 
 ## Light and dark
 Both, using the page's existing tokens. The screenshots are dark; the references are light.

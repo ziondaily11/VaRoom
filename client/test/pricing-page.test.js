@@ -80,7 +80,7 @@ test('Airbnb, Hotel and Venue plans use their own cards, priced and listed by th
     { id: card.id, display_name: card.name, monthly_amount_minor: card.monthly * 100, niche: 'venue' }
   )));
   assert.deepEqual(venue.map((c) => [c.name, c.monthly]), [['Venue', 2500], ['Venue Pro', 5000], ['Venue Premium', 10000]]);
-  assert.equal(pricing.NICHE_PLAN_CARDS.airbnb[0].features.length, 4, 'niche defaults are not mutated');
+  assert.equal(pricing.NICHE_PLAN_CARDS.airbnb[0].features.length, 5, 'niche defaults are not mutated (4 + the calendar)');
   assert.match(planCards(), /plans--four/);
 });
 

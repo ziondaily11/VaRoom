@@ -24,10 +24,12 @@ interface Props {
   event: CalendarEvent | null; day: string; listingId: string | null;
   /** A new entry's starting values, e.g. "Close rooms…" on a hotel. */
   preset?: { title: string; listingId: string; color: EventColor } | null;
+  /** Playing its exit (the dialog stays on screen until it ends). */
+  closing?: boolean;
   onClose: () => void; onSaved: (message: string) => void;
 }
 
-export default function EventForm({ client, hostId, listings, event, day, listingId, preset = null, onClose, onSaved }: Props) {
+export default function EventForm({ client, hostId, listings, event, day, listingId, preset = null, closing = false, onClose, onSaved }: Props) {
   const first = useRef<HTMLInputElement>(null);
   const stayListings = listings.filter((l) => !l.planner);
   const plannerOnly = stayListings.length === 0;
@@ -103,7 +105,7 @@ export default function EventForm({ client, hostId, listings, event, day, listin
   };
 
   return (
-    <div className="vc-dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={`vc-dialog-backdrop${closing ? ' is-closing' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form className="vc-dialog" role="dialog" aria-modal="true" aria-labelledby="vc-event-title" onSubmit={submit}
         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
         <div className="vc-panel-head">

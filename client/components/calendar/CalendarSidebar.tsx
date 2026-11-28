@@ -36,7 +36,7 @@ export default function CalendarSidebar(props: Props) {
   const grid = calendarMonth(year, month);
   return (
     <>
-      {open && <button type="button" className="vc-scrim vc-only-narrow" aria-label="Close filters" onClick={props.onClose} />}
+      <button type="button" className={`vc-scrim vc-only-narrow${open ? ' is-open' : ''}`} aria-label="Close filters" aria-hidden={!open} tabIndex={open ? 0 : -1} onClick={props.onClose} />
       <aside className={`vc-side${open ? ' is-open' : ''}`} aria-label="Calendar filters">
         <section className="vc-mini" aria-label={grid.title}>
           <div className="vc-mini-head">

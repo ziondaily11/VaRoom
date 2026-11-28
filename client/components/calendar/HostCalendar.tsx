@@ -1,16 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarMonth, dayLabel, ksh, plural, todayString } from '../../lib/booking/bookingListing';
 import {
-  cachedMonth, cachedMonths, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth,
+  cachedMonth, cachedMonths, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadDiningTables, loadMonth, setTableStatus, tablesAt,
   minutesOf, monthSummary, parsePrice, plannerSummary, priceOn, setClosed, setDatePrice, setHours, setWeekdays, weekday,
-  type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
+  type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData, type TableBooking,
 } from '../../lib/calendar/hostCalendar';
 import {
   ALL_SHOWN, EVENT_HEX, buildItems, defaultMode, itemsOn, mergeData, monthWeeks, monthsOf, placeColor, saveMode, savedMode, searchItems, upcoming, visibleRange, weekDays,
   type CalendarItem, type CalendarMode, type ShowKey,
 } from '../../lib/calendar/calendarView';
+import { usePresentValue } from '../../lib/motion/usePresence';
+import { prefersReducedMotion } from '../../lib/motion/reducedMotion';
+import { DURATION, EASE } from '../../lib/motion/tokens';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
 import { clearHostBookings } from '../../lib/bookings/bookingsCache';
 import { useToast } from '../bookings/useBookingActions';
@@ -35,6 +38,8 @@ import CalendarSearch from './CalendarSearch';
 // sync) open in a drawer. Below 1280px the side columns slide over the page;
 // on phones the details and settings are bottom sheets, Day has a week strip
 // and Month shows dots. Search looks through the months already opened.
+// Motion (animation.md): ‹ › slide the view in from the side it came from;
+// drawers, dialogs, the search results and the Select days bar have exits.
 // Property, office and shop listings are planned, not booked by the night:
 // they show move-ins, lease ends, outcomes and viewings, without closing and
 // booking controls.
@@ -66,6 +71,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   };
   const [data, setData] = useState<HostCalendarData | null>(cachedAll);
   const [failed, setFailed] = useState(false);
+  const [diningTables, setDiningTables] = useState<Map<string, number>>(() => new Map());
   const [selection, setSelection] = useState<Selection>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
@@ -78,6 +84,19 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [rangePrice, setRangePrice] = useState('');
   const [query, setQuery] = useState('');
   const [form, setForm] = useState<{ event: CalendarEvent | null; day?: string; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
+  // Kept on screen through their exits (animation.md §8.3).
+  const shownForm = usePresentValue(form, 220);
+  const shownSettings = usePresentValue(settingsFor, 220);
+  const shownRange = usePresentValue(range, 160);
+  // ‹ › and Today slide the new range in from the side it came from (C4).
+  const viewRef = useRef<HTMLDivElement>(null);
+  const slideFrom = useRef(0);
+  useEffect(() => {
+    const by = slideFrom.current;
+    slideFrom.current = 0;
+    if (!by || !viewRef.current?.animate || prefersReducedMotion()) return;
+    viewRef.current.animate([{ opacity: 0, transform: `translateX(${by * 16}px)` }, { opacity: 1, transform: 'none' }], { duration: DURATION.quick, easing: EASE.out });
+  }, [focus]);
 
   const loadAll = useCallback((force: boolean) => Promise.all(months.map((m) => loadMonth(client, hostId, m.year, m.month, force))).then(mergeData),
     // The months are keyed by monthsKey.
@@ -105,6 +124,15 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     // The months are keyed by monthsKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadAll]);
+
+  // Each restaurant's tables, for "6 of 12 tables reserved" (once per restaurant this session).
+  const diningIds = Array.from(new Set((data?.tables || []).map((t) => t.listing_id))).sort().join(',');
+  useEffect(() => {
+    if (!diningIds) return undefined;
+    let active = true;
+    loadDiningTables(client, diningIds.split(',')).then((found) => { if (active) setDiningTables(found); }, () => undefined);
+    return () => { active = false; };
+  }, [client, diningIds]);
 
   // ---------- What is shown ----------
 
@@ -203,6 +231,20 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     }
   };
 
+  const tableStatus = async (t: TableBooking, status: TableBooking['status']) => {
+    setBusy(t.id);
+    try {
+      await setTableStatus(hostId, t.id, status);
+      clearHostBookings();
+      changed(`Marked ${status === 'requested' ? 'new' : status}.`);
+    } catch (error) {
+      console.error('Calendar: the reservation could not be updated:', error);
+      toast.show('That didn’t save. Please try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const respond = async (booking: CalendarBooking, decision: 'approve' | 'decline') => {
     setBusy(booking.id);
     try {
@@ -290,6 +332,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
     setSideOpen(false);
   };
   const shiftMonthOf = (by: 1 | -1) => {
+    slideFrom.current = by;
     const next = new Date(Date.UTC(focusYear, focusMonth + by, 1)).toISOString().slice(0, 10);
     setFocus(next);
     setRange((r) => (r ? { start: null, end: null } : r));
@@ -297,11 +340,12 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   // ‹ › step by the view: a day, a week or a month.
   const go = (by: 1 | -1) => {
     if (chosenMode === 'day' || chosenMode === 'week') {
+      slideFrom.current = by;
       setFocus(new Date(Date.parse(`${focus}T00:00:00Z`) + by * (chosenMode === 'day' ? 1 : 7) * 86400000).toISOString().slice(0, 10));
       setRange((r) => (r ? { start: null, end: null } : r));
     } else shiftMonthOf(by);
   };
-  const goToday = () => { setFocus(today); setSelection({ day: today }); };
+  const goToday = () => { slideFrom.current = Math.sign(Date.parse(today) - Date.parse(focus)); setFocus(today); setSelection({ day: today }); };
   const setMode = (next: CalendarMode) => { setModeState(next); saveMode(hostId, next); };
   const openDay = (day: string) => { setFocus(day); setMode('day'); setSelection({ day }); };
   const togglePlace = (id: string) => {
@@ -378,7 +422,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         requests: items.filter((i) => i.kind === 'request'), monthTitle: month.title,
       };
 
-  const settingsListing = settingsFor ? byId.get(settingsFor) : undefined;
+  const bar = shownRange.shown;
+  const settingsListing = shownSettings.shown ? byId.get(shownSettings.shown) : undefined;
   const modes: CalendarMode[] = stays.length > 1 ? ['day', 'week', 'month', 'timeline'] : ['day', 'week', 'month'];
   const shownMode = modes.includes(chosenMode) ? chosenMode : 'month';
   const gridProps = {
@@ -425,6 +470,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   <span><i className="is-closed" />Closed</span>
                 </div>
               </div>
+              <div ref={viewRef} className="vc-view">
               {shownMode === 'day' && (
                 <div className="vc-strip vc-only-phone" role="group" aria-label="This week">
                   {weekDays(focus).map((day) => (
@@ -444,6 +490,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                   selectedDay={selection && 'day' in selection ? selection.day : null} selectedKey={selectedItem?.key || null}
                   inRange={(day) => rangeDays.has(day)} selecting={Boolean(range)} loading={!data} colorOf={itemColor} onPickDay={pickDay} onPickItem={pickItem} />
               )}
+              </div>
             </main>
 
             <DetailsPanel view={panelView} open={panelOpen} today={today} busy={busy} listingOf={(id) => (id ? byId.get(id) : undefined)}
@@ -451,37 +498,44 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
               onRespond={(b, decision) => { void respond(b, decision); }}
               onEditEvent={(item) => { if (item.source.type === 'event') setForm({ event: item.source.value }); }}
               onAdd={(day) => setForm({ event: null, day })} onCloseDay={(l, close) => { if (selectedDay) void apply([l], selectedDay, selectedDay, close); }}
+              tableSlot={(t) => ({ reserved: tablesAt(data?.tables || [], t), total: diningTables.get(t.listing_id) ?? null })}
+              onTableStatus={(t, status) => { void tableStatus(t, status); }}
               onCloseRooms={(l) => setForm({ event: null, day: selectedDay || today, preset: { title: 'Rooms closed', listingId: l.id, color: 'purple' } })} />
           </div>
         )}
       </div>
 
       {settingsListing && (
-        <PlaceSettings client={client} hostId={hostId} listing={settingsListing} color={colors.get(settingsListing.id) || NO_COLOR} busy={Boolean(busy)}
+        <PlaceSettings key={settingsListing.id} client={client} hostId={hostId} listing={settingsListing} color={colors.get(settingsListing.id) || NO_COLOR} busy={Boolean(busy)} closing={shownSettings.closing}
           onClose={() => setSettingsFor(null)} onChanged={changed} onError={toast.show} onRefresh={() => { clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }}
           onToggleWeekday={(l, dow) => { void toggleWeekday(l, dow); }} onSaveHours={(l, s, e, b) => { void saveHours(l, s, e, b); }} />
       )}
 
-      {form && data && (
-        <EventForm client={client} hostId={hostId} listings={all} event={form.event} preset={form.preset || null}
-          day={form.day && form.day >= today ? form.day : today} listingId={single ? single.id : null}
+      {shownForm.shown && data && (
+        <EventForm client={client} hostId={hostId} listings={all} event={shownForm.shown.event} preset={shownForm.shown.preset || null} closing={shownForm.closing}
+          day={shownForm.shown.day && shownForm.shown.day >= today ? shownForm.shown.day : today} listingId={single ? single.id : null}
           onClose={() => setForm(null)} onSaved={(message) => { setForm(null); changed(message); }} />
       )}
 
-      {range && (
-        <div className="vc-rangebar" role="region" aria-label="Selected days">
-          <span>{range.start ? `${plural(rangeDays.size, 'day')} selected${stays.length > 1 ? ` · ${plural(stays.length, 'place')}` : ''}` : 'Tap the first and last day'}</span>
+      {bar && (
+        <div className={`vc-rangebar${shownRange.closing ? ' is-closing' : ''}`} role="region" aria-label="Selected days" aria-hidden={shownRange.closing}>
+          <span>{bar.start ? `${plural(daysBetweenInclusive(bar.start, bar.end || bar.start).length, 'day')} selected${stays.length > 1 ? ` · ${plural(stays.length, 'place')}` : ''}` : 'Tap the first and last day'}</span>
           <div>
-            <button type="button" className="vc-btn is-primary" disabled={!range.start || Boolean(busy)}
-              onClick={() => { if (range.start) void apply(stays, range.start, range.end || range.start, true).then(() => setRange(null)); }}>Close</button>
-            <button type="button" className="vc-btn" disabled={!range.start || Boolean(busy)}
-              onClick={() => { if (range.start) void apply(stays, range.start, range.end || range.start, false).then(() => setRange(null)); }}>Reopen</button>
+            <button type="button" className="vc-btn is-primary" disabled={!bar.start || Boolean(busy)}
+              onClick={() => { if (bar.start) void apply(stays, bar.start, bar.end || bar.start, true).then(() => setRange(null)); }}>Close</button>
+            <button type="button" className="vc-btn" disabled={!bar.start || Boolean(busy)}
+              onClick={() => { if (bar.start) void apply(stays, bar.start, bar.end || bar.start, false).then(() => setRange(null)); }}>Reopen</button>
             <input className="vc-range-price" inputMode="numeric" aria-label="Price for these days (KSh)" placeholder="Price KSh" value={rangePrice} onChange={(e) => setRangePrice(e.target.value)} />
-            <button type="button" className="vc-btn" disabled={!range.start || !parsePrice(rangePrice) || Boolean(busy)} onClick={() => { void priceRange(parsePrice(rangePrice)); }}>Set price</button>
-            <button type="button" className="vc-btn" disabled={!range.start || Boolean(busy)} onClick={() => { void priceRange(null); }}>Usual price</button>
+            <button type="button" className="vc-btn" disabled={!bar.start || !parsePrice(rangePrice) || Boolean(busy)} onClick={() => { void priceRange(parsePrice(rangePrice)); }}>Set price</button>
+            <button type="button" className="vc-btn" disabled={!bar.start || Boolean(busy)} onClick={() => { void priceRange(null); }}>Usual price</button>
             <button type="button" className="vc-btn" onClick={() => setRange(null)}>Cancel</button>
           </div>
         </div>
+      )}
+
+      {/* Phones: the add button sits above the bottom navigation (the header's + Add is hidden there). */}
+      {!range && (
+        <button type="button" className="vc-fab vc-only-phone" aria-label="Add to calendar" disabled={!data} onClick={() => setForm({ event: null, day: selectedDay || today })}>+</button>
       )}
     </div>
   );
