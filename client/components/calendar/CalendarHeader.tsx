@@ -3,9 +3,11 @@ import { MONTH_NAMES } from '../../lib/booking/bookingListing';
 import type { CalendarMode } from '../../lib/calendar/calendarView';
 
 // The Calendar's header: a date tile (red month, day number), the full date,
-// month navigation, the view switch, and the main actions. On screens narrower
-// than 1280px it also opens the filters drawer and the overview panel.
+// navigation (by day, week or month), the view switch (Day, Week, Month,
+// Timeline) and the main actions. On screens narrower than 1280px it also
+// opens the filters drawer and the overview panel.
 
+const MODE_LABEL: Record<CalendarMode, string> = { day: 'Day', week: 'Week', month: 'Month', timeline: 'Timeline' };
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 interface Props {
@@ -42,14 +44,14 @@ export default function CalendarHeader({ day, monthTitle, mode, modes, selecting
         <button type="button" className="vc-pill vc-only-narrow" onClick={onFilters}>Filters</button>
         <button type="button" className="vc-pill vc-only-narrow" onClick={onOverview}>Overview</button>
         <div className="vc-nav" role="group" aria-label={monthTitle}>
-          <button type="button" aria-label="Previous month" onClick={onPrev}>‹</button>
+          <button type="button" aria-label={`Previous ${mode === 'timeline' ? 'month' : mode}`} onClick={onPrev}>‹</button>
           <button type="button" onClick={onToday}>Today</button>
-          <button type="button" aria-label="Next month" onClick={onNext}>›</button>
+          <button type="button" aria-label={`Next ${mode === 'timeline' ? 'month' : mode}`} onClick={onNext}>›</button>
         </div>
         {modes.length > 1 && (
           <div className="vc-toggle" role="group" aria-label="View">
             {modes.map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => onMode(m)}>{m === 'month' ? 'Month' : 'Timeline'}</button>
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => onMode(m)}>{MODE_LABEL[m]}</button>
             ))}
           </div>
         )}

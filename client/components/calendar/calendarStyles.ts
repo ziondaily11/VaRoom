@@ -139,6 +139,58 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-bar-title{overflow:hidden;text-overflow:ellipsis}
 .vc .vc-month-grid.is-selecting .vc-bar{pointer-events:none;opacity:.6}
 
+/* ---------- week and day ---------- */
+.vc .vc-tg{display:flex;flex-direction:column;gap:0;border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+.vc .vc-tg-head,.vc .vc-tg-allday{display:grid;border-bottom:1px solid var(--hair);background:var(--card)}
+.vc .vc-tg-day{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 2px;border:0;border-left:1px solid var(--hair);background:transparent;color:var(--fg)}
+.vc .vc-tg-day:hover{background:var(--soft)}
+.vc .vc-tg-day span{font-size:.7rem;font-weight:650;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.vc .vc-tg-day strong{font-size:1.05rem;font-variant-numeric:tabular-nums;display:inline-grid;place-items:center;min-width:30px;height:30px;border-radius:999px}
+.vc .vc-tg-day.is-today strong{background:var(--accent);color:#fff}
+.vc .vc-tg-day.is-selected strong{box-shadow:0 0 0 2px var(--fg)}
+.vc .vc-tg-label{font-size:.66rem;font-weight:650;color:var(--dim);text-transform:uppercase;padding:8px 4px 0 6px;letter-spacing:.03em}
+.vc .vc-tg-lanes{position:relative;min-height:30px}
+.vc .vc-tg-allcell{position:absolute;top:0;bottom:0;border:0;border-left:1px solid var(--hair);background:transparent;padding:0;display:flex;align-items:flex-end;justify-content:flex-end}
+.vc .vc-tg-allcell.is-closed{background:repeating-linear-gradient(135deg,var(--soft) 0 6px,transparent 6px 12px)}
+.vc .vc-tg-allcell.is-cleaning{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--soft) 70%,transparent) 0 3px,transparent 3px 9px)}
+.vc .vc-tg-allcell.is-clash{box-shadow:inset 0 0 0 2px var(--bad)}
+.vc .vc-tg-allcell .vc-more{padding:0 4px 2px}
+.vc .vc-tg-scroll{max-height:min(68vh,760px);overflow-y:auto;position:relative}
+.vc .vc-tg-body{display:grid;position:relative}
+.vc .vc-tg-gutter{position:relative;border-right:1px solid var(--hair)}
+.vc .vc-tg-gutter span{position:absolute;right:6px;transform:translateY(-50%);font-size:.68rem;font-weight:600;color:var(--dim);font-variant-numeric:tabular-nums}
+.vc .vc-tg-gutter span:first-child{transform:none;top:2px!important}
+.vc .vc-tg-col{position:relative;border-left:1px solid var(--hair);background:repeating-linear-gradient(to bottom,var(--hair) 0 1px,transparent 1px var(--hour))}
+.vc .vc-tg-col.is-today{background-color:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.vc .vc-tg-col.is-past{background-color:var(--soft)}
+.vc .vc-tg-slot{position:absolute;inset:0;border:0;background:transparent;padding:0;cursor:pointer}
+.vc .vc-block{position:absolute;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:1px;overflow:hidden;padding:4px 7px;border:0;border-radius:9px;text-align:left;color:var(--fg);
+  font-size:.74rem;background:color-mix(in srgb,var(--place) 20%,var(--card));box-shadow:inset 3px 0 0 var(--place)}
+.vc .vc-block:hover{background:color-mix(in srgb,var(--place) 30%,var(--card))}
+.vc .vc-block strong{font-size:.78rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc .vc-block span{color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
+.vc .vc-block.is-request{background:color-mix(in srgb,var(--place) 8%,var(--card));box-shadow:none;border:1.5px dashed var(--place)}
+.vc .vc-block.is-offline{background:color-mix(in srgb,var(--place) 34%,var(--card))}
+.vc .vc-block.is-other{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--place) 26%,var(--card)) 0 5px,color-mix(in srgb,var(--place) 12%,var(--card)) 5px 10px)}
+.vc .vc-block.is-selected{outline:2px solid var(--fg);outline-offset:1px}
+.vc .vc-block.is-rich{padding:8px 12px;gap:3px;font-size:.82rem}
+.vc .vc-block.is-rich strong{font-size:.9rem;white-space:normal}
+.vc .vc-block-kind{font-size:.72rem;font-weight:650;color:var(--mute)}
+.vc .vc-now{position:absolute;left:0;right:0;height:2px;background:var(--fg);z-index:2;pointer-events:none}
+.vc .vc-now span{position:absolute;left:4px;top:-10px;padding:2px 7px;border-radius:999px;background:var(--fg);color:var(--canvas);font-size:.66rem;font-weight:700;font-variant-numeric:tabular-nums}
+.vc .vc-tg.is-day{border:0;border-radius:0;overflow:visible;gap:12px}
+.vc .vc-tg.is-day .vc-tg-scroll{border:1px solid var(--hair);border-radius:14px}
+.vc .vc-day-flags{display:flex;gap:8px;flex-wrap:wrap;margin:0;font-size:.78rem;font-weight:650;color:var(--mute)}
+.vc .vc-day-flags span{padding:3px 10px;border-radius:999px;background:var(--soft)}
+.vc .vc-day-flags .is-clash{color:var(--bad-text);background:var(--bad-soft)}
+.vc .vc-day-cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.vc .vc-day-card{width:100%;display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--place);border-radius:14px;background:color-mix(in srgb,var(--place) 8%,var(--card));color:var(--fg)}
+.vc .vc-day-card:hover{background:color-mix(in srgb,var(--place) 16%,var(--card))}
+.vc .vc-day-card.is-request{border-left-style:dashed}
+.vc .vc-day-card.is-selected{outline:2px solid var(--fg);outline-offset:1px}
+.vc .vc-day-card strong{font-size:.92rem}
+.vc .vc-day-empty{text-align:center;padding:4px 0}
+
 /* ---------- right column ---------- */
 .vc .vc-panel-head{display:flex;align-items:center;gap:8px}
 .vc .vc-panel-head h2{flex:1;display:flex;align-items:center;min-width:0}
@@ -280,6 +332,12 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-details{top:auto;left:0;width:100%;max-height:82vh;border-radius:22px 22px 0 0;transform:translateY(105%)}
   .vc .vc-kinds.is-three{grid-template-columns:1fr}
   .vc .vc-rangebar{border-radius:20px;bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:760px){
+  .vc .vc-tg-day{padding:6px 0}
+  .vc .vc-tg-day strong{min-width:24px;height:24px;font-size:.9rem}
+  .vc .vc-block:not(.is-rich) span{display:none}
+  .vc .vc-block:not(.is-rich){padding:2px 3px;font-size:.66rem}
 }
 @media (prefers-reduced-motion:reduce){.vc .vc-side,.vc .vc-details,.vc .vc-drawer,.vc .vc-cell.is-loading,.vc .toast{transition:none;animation:none}}
 `;

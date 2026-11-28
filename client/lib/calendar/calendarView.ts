@@ -178,18 +178,133 @@ export function barBox(segment: Pick<Segment, 'from' | 'to' | 'halfStart' | 'hal
   return { left: `${(start / 7) * 100}%`, width: `${(Math.max(0.35, end - start) / 7) * 100}%` };
 }
 
+// ---------- Week and day (the time grid) ----------
+
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+/** The Sunday-to-Saturday week around a day (it may cross two months). */
+export function weekDays(day: string): string[] {
+  const first = addDays(day, -new Date(`${day}T00:00:00Z`).getUTCDay());
+  return Array.from({ length: 7 }, (_, i) => addDays(first, i));
+}
+
+const minutes = (clock: string) => {
+  const match = /^(\d{2}):(\d{2})/.exec(clock.trim());
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+/** A timed entry's minutes from midnight; a table reservation (start only) takes an hour. */
+export function timeSpan(item: Pick<CalendarItem, 'time'>): { from: number; to: number } | null {
+  if (!item.time) return null;
+  const [start, end] = item.time.split('–');
+  const from = minutes(start);
+  if (from == null) return null;
+  const to = end ? minutes(end) : null;
+  return { from, to: to != null && to > from ? to : Math.min(from + 60, 1440) };
+}
+
+/** Timed entries (on the grid) and the rest (the all-day row, or the day's top). */
+export const splitTimed = (items: CalendarItem[]) => ({
+  timed: items.filter((i) => timeSpan(i) && i.start === i.end),
+  allDay: items.filter((i) => !timeSpan(i) || i.start !== i.end),
+});
+
+export interface Placed { item: CalendarItem; from: number; to: number; col: number; cols: number }
+
+/** A day's timed entries side by side where they overlap (each overlapping group shares the width). */
+export function layoutTimes(items: CalendarItem[]): Placed[] {
+  const spans = items
+    .map((item) => ({ item, span: timeSpan(item) }))
+    .filter((x): x is { item: CalendarItem; span: { from: number; to: number } } => Boolean(x.span))
+    .sort((a, b) => a.span.from - b.span.from || b.span.to - a.span.to);
+  const placed: Placed[] = [];
+  let group: Placed[] = [];
+  let groupEnd = -1;
+  const close = () => { const cols = Math.max(1, ...group.map((p) => p.col + 1)); group.forEach((p) => { p.cols = cols; }); };
+  spans.forEach(({ item, span }) => {
+    if (span.from >= groupEnd) { close(); group = []; groupEnd = -1; }
+    const taken = new Set(group.filter((p) => p.to > span.from).map((p) => p.col));
+    let col = 0;
+    while (taken.has(col)) col += 1;
+    const entry = { item, from: span.from, to: span.to, col, cols: 1 };
+    group.push(entry);
+    placed.push(entry);
+    groupEnd = Math.max(groupEnd, span.to);
+  });
+  close();
+  return placed;
+}
+
+/** The hours the grid shows: from 06:00 (earlier when an entry starts earlier) to midnight. */
+export function gridHours(items: CalendarItem[]): { start: number; end: number } {
+  const earliest = Math.min(...items.map((i) => timeSpan(i)?.from ?? 1440));
+  return { start: Math.max(0, Math.min(6, Math.floor(earliest / 60))), end: 24 };
+}
+
+/** The first and last day a view shows. */
+export function visibleRange(mode: CalendarMode, focus: string): { from: string; to: string } {
+  if (mode === 'day') return { from: focus, to: focus };
+  if (mode === 'week') { const days = weekDays(focus); return { from: days[0], to: days[6] }; }
+  const from = `${focus.slice(0, 7)}-01`;
+  const [y, m] = focus.split('-').map(Number);
+  return { from, to: `${focus.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` };
+}
+
+/** The months a range touches, as { year, month (0-11) }. */
+export function monthsOf(from: string, to: string): Array<{ year: number; month: number }> {
+  const months: Array<{ year: number; month: number }> = [];
+  for (let y = Number(from.slice(0, 4)), m = Number(from.slice(5, 7)) - 1; `${y}-${String(m + 1).padStart(2, '0')}` <= to.slice(0, 7);) {
+    months.push({ year: y, month: m });
+    m += 1;
+    if (m > 11) { m = 0; y += 1; }
+  }
+  return months;
+}
+
+/** Two or more months' calendars as one (a week across two months); each entry once. */
+export function mergeData(parts: HostCalendarData[]): HostCalendarData {
+  if (parts.length === 1) return parts[0];
+  const once = <T>(lists: T[][], key: (value: T) => string) => {
+    const seen = new Map<string, T>();
+    lists.flat().forEach((value) => { if (!seen.has(key(value))) seen.set(key(value), value); });
+    return Array.from(seen.values());
+  };
+  return {
+    listings: parts[0].listings,
+    bookings: once(parts.map((p) => p.bookings), (b) => b.id),
+    closed: once(parts.map((p) => p.closed), (c) => `${c.listing_id}:${c.start_date}:${c.end_date}`),
+    events: once(parts.map((p) => p.events), (e) => `${e.id}:${e.start_date}`),
+    tables: once(parts.map((p) => p.tables), (t) => t.id),
+    leases: once(parts.map((p) => p.leases), (l) => l.id),
+    outcomes: once(parts.map((p) => p.outcomes), (o) => o.id),
+    prices: once(parts.map((p) => p.prices), (p) => `${p.listing_id}:${p.start_date}`),
+  };
+}
+
+/**
+ * The first view, before the host picks one: Day on phones and for property,
+ * office and shop hosts (viewings and move-ins), Week for venues (hours),
+ * Month for stays and hotels.
+ */
+export function defaultMode(listings: CalendarListing[], phone: boolean): CalendarMode {
+  if (phone || (listings.length > 0 && listings.every((l) => l.planner))) return 'day';
+  if (listings.length > 0 && listings.every((l) => l.category === 'venue')) return 'week';
+  return 'month';
+}
+
 // ---------- Remembered choices ----------
 
-export type CalendarMode = 'month' | 'timeline';
+export type CalendarMode = 'day' | 'week' | 'month' | 'timeline';
+export const MODES: readonly CalendarMode[] = ['day', 'week', 'month', 'timeline'];
 const MODE_KEY = 'varoom:calendar:view:v1:';
 
-/** The host's last view on this device, else Month. */
-export function savedMode(hostId: string): CalendarMode {
+/** The host's last view on this device, or null (then defaultMode decides). */
+export function savedMode(hostId: string): CalendarMode | null {
   try {
     const value = typeof window === 'undefined' ? null : window.localStorage.getItem(MODE_KEY + hostId);
-    return value === 'timeline' ? 'timeline' : 'month';
+    return MODES.includes(value as CalendarMode) ? value as CalendarMode : null;
   } catch {
-    return 'month';
+    return null;
   }
 }
 export function saveMode(hostId: string, mode: CalendarMode): void {
