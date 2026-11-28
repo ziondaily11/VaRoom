@@ -367,3 +367,24 @@
 .adm-login-card { width: min(420px, 100%); padding: 32px; border-radius: 24px; background: var(--adm-surface); border: 1px solid var(--adm-line); box-shadow: var(--adm-shadow); display: flex; flex-direction: column; gap: 16px; }
 .admin-login .adm-btn { width: 100%; min-height: 46px; }
 .adm-error { font-size: 0.8125rem; font-weight: 600; color: var(--adm-bad); }
+
+/* ---------- Scrollbars ---------- */
+/* Thin (4px) and hidden until the pointer is over the area that scrolls:
+   the sidebar, wide tables, search results, conversations and the page. */
+html:has(.admin-dashboard)::-webkit-scrollbar,
+.admin-dashboard ::-webkit-scrollbar { width: 4px; height: 4px; }
+html:has(.admin-dashboard)::-webkit-scrollbar-track,
+.admin-dashboard ::-webkit-scrollbar-track,
+.admin-dashboard ::-webkit-scrollbar-corner { background: transparent; }
+html:has(.admin-dashboard)::-webkit-scrollbar-thumb,
+.admin-dashboard ::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+html:has(.admin-dashboard):hover::-webkit-scrollbar-thumb,
+.admin-dashboard :hover::-webkit-scrollbar-thumb { background: var(--adm-line-strong); }
+.admin-dashboard ::-webkit-scrollbar-thumb:hover { background: var(--adm-muted); }
+.admin-dashboard ::-webkit-scrollbar-button { display: none; }
+
+/* Firefox has no width control finer than "thin"; the colour still waits for hover. */
+@supports (-moz-appearance: none) {
+  html:has(.admin-dashboard), .admin-dashboard * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  html:has(.admin-dashboard):hover, .admin-dashboard *:hover { scrollbar-color: var(--adm-line-strong) transparent; }
+}
