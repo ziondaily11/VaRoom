@@ -26,9 +26,8 @@ test('in-app links switch page without reloading the app', () => {
   assert.match(page, /<MapLink target=\{\{ kind: 'listing', id: listing\.id \}\} className=\{styles\.mapLink\}>View on Map<\/MapLink>/);
 });
 
-test('phones use the shared bottom bar; no dead buttons', () => {
-  const nav = loadTs(path.join(root, 'lib', 'navigation', 'mobileNav.ts'));
-  assert.equal(nav.hidesMobileNav('/client-home'), false);
+test('phones open the sidebar from the menu button; no dead buttons', () => {
+  assert.match(page, /<MenuButton className=\{styles\.mobileMenu\}>/);
   assert.doesNotMatch(page, /styles\.bottomBar|Inbox<\/|coming soon/);
   assert.doesNotMatch(css, /\.bottomBar/);
   assert.match(page, /<Link href="\/marketplace">View all<\/Link>/);

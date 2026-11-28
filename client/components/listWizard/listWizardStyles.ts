@@ -370,13 +370,13 @@ export const LIST_WIZARD_STYLES = `
     #listing-page .policy-preview-overlay{ position:fixed; z-index:300; }
     #listing-page .amenities-library-overlay.mobile-amenities-overlay{ position:absolute; inset:var(--amenities-overlay-top, 0px) 0 var(--amenities-overlay-bottom, 0px); align-items:stretch; justify-content:stretch; padding:.5rem; border-radius:0 0 20px 20px; }
     #listing-page .amenities-library-overlay.mobile-amenities-overlay .amenities-library-dialog{ width:100%; height:100%; max-height:none; }
-    /* The actions stay pinned just above the app's bottom bar. */
-    #listing-page .panel-actions{ position:fixed; z-index:20; left:0; right:0; bottom:calc(4.6rem + env(safe-area-inset-bottom)); margin:0; padding:.7rem 1rem .6rem;
+    /* The actions stay pinned to the bottom of the screen. */
+    #listing-page .panel-actions{ position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:.7rem 1rem calc(.6rem + env(safe-area-inset-bottom));
       background:var(--page); box-shadow:0 -10px 18px -14px rgba(0,0,0,.35); }
     #listing-page .step-frame[data-step="5"] .panel-actions{ position:static; margin:1rem 0 0; padding:0; background:none; }
-    #listing-page .step-panel{ padding:1.4rem 1.25rem 7.5rem; }
+    #listing-page .step-panel{ padding:1.4rem 1.25rem calc(5rem + env(safe-area-inset-bottom)); }
     #listing-page .step-frame[data-step="5"] .step-panel{ padding-bottom:1.4rem; }
-    #listing-page .success-msg.show{ bottom:calc(5.6rem + env(safe-area-inset-bottom)); }
+    #listing-page .success-msg.show{ bottom:calc(1rem + env(safe-area-inset-bottom)); }
   }
   @media (max-width:600px){
     #listing-page .wz-progress-name{ display:none; }

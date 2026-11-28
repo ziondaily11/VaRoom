@@ -271,4 +271,3 @@ export default function BookingPage() {
   );
 }
 
-(BookingPage as unknown as { appNavigation: boolean }).appNavigation = true;

@@ -111,7 +111,7 @@ test('component: legacy sections and wording; away mode only for hosts; legacy p
   assert.match(html, /<h1 class="cs-header__title">Chat Settings<\/h1>/);
   assert.doesNotMatch(html, /cs-section__title"[^>]*>Away Mode/, 'the ?role hint before the account is known');
   assert.match(render(loadChats('pages/chat-settings.tsx', { router: fakeRouter({ query: {} }) }).default, {}), /cs-section__title"[^>]*>Away Mode/, 'hosts by default, as before');
-  assert.equal(page.appNavigation, true);
+  assert.equal(page.appNavigation, undefined, 'no bottom bar: the back arrow leads out');
   assert.match(read('pages', 'chat-settings.tsx'), /router\.push\(backDestination\(router\.query\.returnTo, origin\)\)/);
 
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'chat-settings.html')), false);

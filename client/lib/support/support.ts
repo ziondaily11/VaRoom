@@ -38,7 +38,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: 'find-a-place', topic: 'start', title: 'Find a place',
     summary: 'Browse every listing in Marketplace, or search by name and area.',
-    steps: ['Open **Marketplace** from the sidebar (on a phone, the bottom bar).', 'Search by name or area, or choose a type: Airbnbs, Hotels, Event venues, Offices, Shops or Property.', 'Open a listing to see its photos, price, rules and the host.'],
+    steps: ['Open **Marketplace** from the sidebar (on a phone, tap the menu button at the top left).', 'Search by name or area, or choose a type: Airbnbs, Hotels, Event venues, Offices, Shops or Property.', 'Open a listing to see its photos, price, rules and the host.'],
     note: 'The types you chose when you joined are shown first.',
     keywords: 'search browse explore marketplace listings category filter',
   },
@@ -94,7 +94,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: 'list-a-space', topic: 'hosting', title: 'List a space',
     summary: 'Six short steps: basics, location, the space, photos, price and terms, review.',
-    steps: ['Select **List a space** in the sidebar (on a phone, **Create** in the bottom bar).', 'Fill in each step. Your progress saves automatically.', 'On the review step, publish. Some listing types need a listing fee or a plan first; the review step shows the options.'],
+    steps: ['Select **List a space** in the sidebar (on a phone, tap the menu button at the top left first).', 'Fill in each step. Your progress saves automatically.', 'On the review step, publish. Some listing types need a listing fee or a plan first; the review step shows the options.'],
     note: 'If you leave before publishing, you can save the listing as a draft and continue later.',
     keywords: 'add listing create new list space publish draft wizard',
   },

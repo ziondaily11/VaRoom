@@ -2,6 +2,9 @@
 
 Status: **approved 2026-11-28 with the recommendations D1–D3**
 
+- Part 1 (drawer control and hamburgers): PR #769.
+- Part 2 (bottom nav removed): stacked on part 1.
+
 ## Goal
 
 On phones (860px wide or less), remove the bottom navigation bar from every page. Each page gets a

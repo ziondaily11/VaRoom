@@ -142,8 +142,6 @@ export const MARKETPLACE_STYLES = `
     .marketplace-page .category-strip{ margin:0 -16px; padding:0 16px; }
     .marketplace-page .category-strip .vr-seg > button{ font-size:.8rem; padding:7px 13px; }
     .marketplace-page .results-col{ padding:14px 12px 24px; }
-    /* The app keeps 5.1rem under pages for its bottom bar (white body padding); this page keeps that room on its own background. */
-    body.has-varoom-mobile-nav .marketplace-page{ margin-bottom:-5.1rem; padding-bottom:calc(5.1rem + env(safe-area-inset-bottom)); }
     /* A sticky header needs no clipping ancestor: the shell and page clip sideways without becoming scroll containers. */
     html:has(.marketplace-page), body:has(.marketplace-page), .host-app-layout:has(.marketplace-page), .client-app-layout:has(.marketplace-page){ overflow-x:clip; }
   }

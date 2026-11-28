@@ -543,24 +543,6 @@
 }
 
 /* ================================================================
-   BOTTOM BAR (mobile)
-   ================================================================ */
-[data-theme="dark"] .bottom-bar {
-  background: #000000 !important;
-  border-color: var(--line) !important;
-  box-shadow: 0 -4px 20px rgba(0,0,0,.6) !important;
-}
-
-[data-theme="dark"] .bottom-bar-item {
-  color: var(--muted);
-}
-
-[data-theme="dark"] .bottom-bar-item.active {
-  background: var(--red, #C41E3A) !important;
-  color: #ffffff;
-}
-
-/* ================================================================
    LIGHTBOX
    ================================================================ */
 [data-theme="dark"] .lightbox-overlay {

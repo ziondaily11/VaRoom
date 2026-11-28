@@ -142,30 +142,6 @@ export function headerStatus({ isElie, activeId, typingIn, presenceKnownId, onli
 }
 
 /**
- * The app's bottom navigation (phones and small tablets) shows with the inbox
- * only: up to 760px whenever a conversation screen is up, from 761px (side
- * by side) whenever one is open.
- */
-export function conversationShowing(isPhone: boolean, mobileView: 'inbox' | 'conversation' | 'info', activeId: string | null): boolean {
-  return isPhone ? mobileView !== 'inbox' : Boolean(activeId);
-}
-
-/**
- * Keeps the body's `chat-page-context` (bottom navigation hidden) in step
- * with the conversation screen, rechecked when the screen rotates. Returns
- * the cleanup.
- */
-export function followConversationScreen(win: Pick<Window, 'matchMedia'>, body: HTMLElement, mobileView: 'inbox' | 'conversation' | 'info', activeId: string | null): () => void {
-  const phone = win.matchMedia('(max-width: 760px)');
-  const update = () => {
-    body.classList.toggle('chat-page-context', conversationShowing(phone.matches, mobileView, activeId));
-  };
-  update();
-  phone.addEventListener?.('change', update);
-  return () => phone.removeEventListener?.('change', update);
-}
-
-/**
  * The four columns' classes (chats.css): up to 760px one screen shows at a
  * time (inbox, conversation or information); `has-conversation` while one
  * is open; the information column collapses or holds Chat Settings.

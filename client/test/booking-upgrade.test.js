@@ -112,5 +112,6 @@ test('booking details: one layout for every status; the phone page has a plain t
   assert.doesNotMatch(page, /fonts\.googleapis|ba-logo/);
   assert.match(page, /const showBackButton = state\.kind === 'status';/);
   const styles = read('components', 'bookings', 'bookingsStyles.ts');
-  assert.match(styles, /body\.has-varoom-mobile-nav \.bookings-page\.booking-approved-page\{ margin-bottom:-5\.1rem; \}/, 'no white strip under the page');
+  assert.doesNotMatch(styles, /has-varoom-mobile-nav/, 'no room kept for a bottom bar');
+  assert.match(styles, /\.booking-approved-page \.ba-main\{[^}]*padding:16px 16px calc\(28px \+ env\(safe-area-inset-bottom\)\); \}/);
 });
