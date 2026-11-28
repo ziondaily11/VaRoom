@@ -46,3 +46,16 @@ test('migration 000094: viewings, planner data, reminders (server only), reminde
   assert.match(sql, /select coalesce\(sum\(least\(t\.units, s\.cap\)\), 0\)::integer as days/, 'booked days never exceed what the place can take');
   assert.match(sql, /join public\.calendar_entries e on e\.id = o\.entry_id and e\.blocks\n/, 'offline and other sites\' bookings count');
 });
+
+test('migration 000095: cleaning days and prices by date, worked out by the database', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000095_calendar_prices_turnover.sql'), 'utf8');
+  assert.match(sql, /case when l\.category = 'hotel' then 0 else coalesce\(d\.turnover_days, 0\) end as turnover/, 'hotels rotate rooms instead');
+  assert.match(sql, /least\(b\.end_date - case when listing\.daily then 0 else 1 end \+ listing\.turnover, p_to\)/, 'cleaning days after each stay');
+  assert.match(sql, /last_night \+ case when new\.end_date is null then 0 else turnover end/, 'a new stay\'s own cleaning days must be free');
+  assert.match(sql, /array\[5, 6\] else array\[0, 6\] end/, 'weekend: Friday and Saturday nights, or Saturday and Sunday');
+  assert.match(sql, /sum\(public\.varoom_day_price\(new\.listing_id, g\.day::date\)\)/, 'a stay is priced night by night');
+  assert.match(sql, /new\.total_price := public\.varoom_day_price\(new\.listing_id, new\.start_date\) \* new\.hours;/);
+  assert.match(sql, /revoke all on function public\.varoom_day_price\(uuid, date\) from public, anon, authenticated;/);
+  assert.match(sql, /'prices', coalesce\(/);
+  assert.match(sql, /create unique index if not exists listing_prices_one_weekend/);
+});

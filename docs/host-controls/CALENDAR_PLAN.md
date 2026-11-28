@@ -1,6 +1,6 @@
 # Host calendar: plan
 
-Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Parts 1–5 merged and applied (000089–000093). Part 6 (planner for every host, reminders, occupancy from the calendar; 000094) on `claude/calendar-planner-all-niches`; 000094 applied 2026-11-28.**
+Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Parts 1–6 merged and applied (000089–000094). Part 7 (cleaning days between stays, prices by date; 000095) on `claude/calendar-prices-turnover`; 000095 applied 2026-11-28. With it the calendar's logic is complete; the UI redesign comes next.**
 
 ## Goal
 
@@ -194,6 +194,7 @@ One branch and PR per part, each tested and shipped before the next:
 4. **Venues by the hour and hotels**: start/end times, hire hours, buffers, an hours bar per day, close rooms (an offline booking of N rooms), table reservations on the calendar, and the price worked out by the database (P8). Per-date prices (weekend and season prices) can now follow safely.
 5. **iCal export and import**: a private link per listing served by Vercel (`/api/calendar/<secret>.ics`, dates only, 5-minute edge cache, reset anytime); up to 5 other-site links per listing read every 30 minutes by the Render server (https and public addresses only, re-checked after redirects, 2 MB and 15 s limits), replacing that link's days; clashes kept, shown as "Double booked" and sent to the host once as a `booking_clash` notification.
 6. **Planner for property, office and shop** (viewings, move-ins, lease ends, outcomes, requests waiting; no closing or booking controls), evening reminders for every host (check-ins, move-ins, viewings, events) and 60 days before a lease ends, and Analytics occupancy from the calendar (closed days left out, every hotel room counted, offline and other sites' bookings included). Guest-requested viewing times are a separate, later plan.
+7. **Cleaning days and prices by date**: days kept free after each stay (0–7, not hotels; decision C4), a weekend price (Friday and Saturday nights; Saturday and Sunday for venues by the day or hour) and labelled date prices (a date price beats the weekend, which beats the normal price). The database prices stays night by night; the booking page shows the same total and says when prices vary.
 
 ## Tests
 

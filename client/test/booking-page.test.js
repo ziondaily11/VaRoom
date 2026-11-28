@@ -227,8 +227,8 @@ test('a venue hired by the day: first and last day both count, one day is the sa
   assert.equal(kind.isHourly, false);
   // The widget prices days, labels them as days, and lets the same day be picked twice.
   const widget = require('node:fs').readFileSync(path.join(root, 'components', 'booking', 'BookingWidget.tsx'), 'utf8');
-  assert.match(widget, /\} else if \(isShortStay && isDaily\) \{\s*if \(start && end\) \{\s*const days = daysBetween\(start, end\);\s*line = priceLine\(details\.price_amount, days, plural\(days, 'day'\)/);
-  assert.match(widget, /pickStayDay\(dates, start, end, day, isDaily\)/);
+  assert.match(widget, /\} else if \(isShortStay && isDaily\) \{\s*if \(start && end\) line = stayLine\(details, dates, start, end, true, 'day', details\.cleaning_fee \|\| null\);/, 'days priced one by one, both ends included');
+  assert.match(widget, /pickStayDay\(dates, start, end, day, isDaily, turnover\)/);
   assert.match(widget, /nightly=\{!isDaily\}/, 'a venue by the day has no check-out-only days');
   assert.match(widget, /Tap your first day, then your last day\. Tap a day twice to book just that day\./);
 });
@@ -245,6 +245,6 @@ test('calendar: one listing_calendar call; full nights, rooms left, and a failur
   assert.match(read('pages', 'booking.tsx'), /if \(active\) setCalendar\(EMPTY_CALENDAR\);/);
   assert.doesNotMatch(read('lib', 'booking', 'bookingListing.ts'), /from\('bookings'\)|from\('availability'\)/, 'guests never read the tables directly');
   const calendar = read('components', 'booking', 'BookingCalendar.tsx');
-  assert.match(calendar, /const checkout = Boolean\(nightly && dates && start && !end && !open && day > start && rangeIsOpen\(dates, start, day\)\);/);
+  assert.match(calendar, /const checkout = Boolean\(nightly && dates && start && !end && !open && day > start && rangeIsOpen\(dates, start, day\) && turnoverFree\(dates, day, turnover\)\);/);
   assert.match(calendar, /disabled=\{!state\.open && !state\.checkout\}/);
 });

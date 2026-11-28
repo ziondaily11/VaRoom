@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarMonth, dayLabel, ksh, nightsBetween, plural, shiftMonth, todayString } from '../../lib/booking/bookingListing';
 import {
   cachedMonth, calendarErrorText, clearCalendarCache, closedWeekly, covers, daysBetweenInclusive, eventOn, isClosed, listingOff, loadMonth, monthRange,
-  minutesOf, monthSummary, plannerSummary, setClosed, setHours, setWeekdays, weekday,
+  minutesOf, monthSummary, parsePrice, plannerSummary, priceOn, setClosed, setDatePrice, setHours, setWeekdays, weekday,
   type CalendarBooking, type CalendarEvent, type CalendarListing, type EventColor, type HostCalendarData,
 } from '../../lib/calendar/hostCalendar';
 import { respondToBooking } from '../../lib/bookings/hostBookings';
@@ -15,6 +15,7 @@ import { CALENDAR_CSS } from './calendarStyles';
 import EventForm from './EventForm';
 import Timeline from './Timeline';
 import SyncPanel from './SyncPanel';
+import PricePanel from './PricePanel';
 
 // The host's Calendar: a month of every stay, venue and hotel listing (or one,
 // ?listing=), with what each day holds. A day opens its panel (the right rail
@@ -30,6 +31,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const OUTCOME_WORD = { sold: 'Sold', rented: 'Rented', leased: 'Leased' } as const;
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const firstName = (name: string | null) => (name || 'Guest').trim().split(/\s+/)[0];
+const addDaysTo = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const prevDay = (day: string) => addDaysTo(day, -1);
 const timeText = (event: CalendarEvent) => (event.start_time ? `${event.start_time}–${event.end_time} ` : '');
 
 interface Props { client: SupabaseClient; hostId: string; listingId: string | null; onListingChange: (id: string | null) => void }
@@ -46,6 +49,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   const [overrides, setOverrides] = useState<Map<string, boolean>>(() => new Map());
   const [busy, setBusy] = useState<string | null>(null);
   const [mode, setMode] = useState<'month' | 'timeline'>('month');
+  const [rangePrice, setRangePrice] = useState('');
   const [form, setForm] = useState<{ event: CalendarEvent | null; preset?: { title: string; listingId: string; color: EventColor } } | null>(null);
 
   const refresh = useCallback((force: boolean) => {
@@ -120,8 +124,19 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         + offline.filter((e) => e.listing_id === l.id && !(l.price_unit === 'hour' && e.start_time)).reduce((sum, e) => sum + (e.units || 1), 0);
       return used > (l.category === 'hotel' ? Math.max(1, l.units || 1) : 1);
     });
-    return { day, taking, dayEvents, dayTables, dayLeases, dayOutcomes, closedCount, allClosed, state, roomsLeft, clash };
-  }), [month.days, bookings, events, tables, leases, outcomes, byId, stays, closedAt, today, stay]);
+    const price = stay && data ? priceOn(stay, data.prices, day) : null;
+    // Days kept free after a stay or offline booking ends (cleaning).
+    const cleaning = stays.some((l) => {
+      const n = l.category === 'hotel' ? 0 : l.turnover_days || 0;
+      if (!n) return false;
+      const ends = [
+        ...bookings.filter((b) => b.listing_id === l.id && b.end_date).map((b) => (l.price_unit === 'day' ? b.end_date as string : prevDay(b.end_date as string))),
+        ...events.filter((e) => e.listing_id === l.id && e.blocks).map((e) => e.end_date),
+      ];
+      return ends.some((last) => last < day && day <= addDaysTo(last, n));
+    });
+    return { day, taking, dayEvents, dayTables, dayLeases, dayOutcomes, closedCount, allClosed, state, roomsLeft, clash, price, cleaning };
+  }), [month.days, bookings, events, tables, leases, outcomes, byId, stays, closedAt, today, stay, data]);
 
   // ---------- Actions ----------
 
@@ -192,6 +207,23 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
       toast.show('Hire hours saved.');
     } catch (error) {
       console.error('Calendar: hire hours failed:', error);
+      toast.show(calendarErrorText(error, 'That didn’t save. Please try again.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const priceRange = async (price: number | null) => {
+    if (!range?.start) return;
+    setBusy('price');
+    try {
+      await Promise.all(stays.map((l) => setDatePrice(client, l.id, range.start as string, range.end || (range.start as string), price)));
+      clearCalendarCache(hostId);
+      await refresh(true);
+      toast.show(price ? `Price set to ${ksh(price)} for those days.` : 'Those days are back to their usual price.');
+      setRange(null);
+      setRangePrice('');
+    } catch (error) {
       toast.show(calendarErrorText(error, 'That didn’t save. Please try again.'));
     } finally {
       setBusy(null);
@@ -367,6 +399,8 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                         {cell.allClosed && cell.state !== 'past' && <span className="vc-tag">Closed</span>}
                         {!cell.allClosed && cell.closedCount > 0 && <span className="vc-tag">{cell.closedCount} closed</span>}
                         {cell.roomsLeft != null && stay && cell.roomsLeft < (stay.units || 0) && <span className="vc-tag">{cell.roomsLeft} left</span>}
+                        {cell.cleaning && cell.state !== 'past' && <span className="vc-tag">Cleaning</span>}
+                        {cell.price?.special && cell.state !== 'past' && <span className="vc-tag is-price">{ksh(cell.price.price)}</span>}
                         <span className="vc-chips">
                           {chips.slice(0, 2).map((c) => <span key={c.key} className={`vc-chip is-${c.tone}`}>{c.label}</span>)}
                           {chips.length > 2 && <span className="vc-more">+{chips.length - 2}</span>}
@@ -501,6 +535,10 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
                 </ul>
               )}
               <button type="button" className="vc-btn" onClick={() => setForm({ event: null })}>+ Add to {dayLabel(selected)}</button>
+              {stay && data && (
+                <PricePanel key={`${stay.id}-${selected}`} client={client} listing={stay} prices={data.prices} day={selected} today={today}
+                  onChanged={(message) => { toast.show(message); clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }} onError={toast.show} />
+              )}
               {stay && (
                 <SyncPanel key={stay.id} client={client} hostId={hostId} listing={stay} showToast={toast.show}
                   onChanged={() => { clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }} />
@@ -555,6 +593,13 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
               onClick={() => { if (range.start) void apply(listings, range.start, range.end || range.start, true).then(() => setRange(null)); }}>Close</button>
             <button type="button" className="vc-btn" disabled={!range.start || Boolean(busy)}
               onClick={() => { if (range.start) void apply(listings, range.start, range.end || range.start, false).then(() => setRange(null)); }}>Reopen</button>
+            {stays.length > 0 && (
+              <>
+                <input className="vc-range-price" inputMode="numeric" aria-label="Price for these days (KSh)" placeholder="Price KSh" value={rangePrice} onChange={(e) => setRangePrice(e.target.value)} />
+                <button type="button" className="vc-btn" disabled={!range.start || !parsePrice(rangePrice) || Boolean(busy)} onClick={() => { void priceRange(parsePrice(rangePrice)); }}>Set price</button>
+                <button type="button" className="vc-btn" disabled={!range.start || Boolean(busy)} onClick={() => { void priceRange(null); }}>Usual price</button>
+              </>
+            )}
             <button type="button" className="vc-btn" onClick={() => setRange(null)}>Cancel</button>
           </div>
         </div>

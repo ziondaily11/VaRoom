@@ -249,3 +249,49 @@ test('reminders and double bookings open the Calendar; the setting covers them',
   assert.equal(notes.detailsFor('booking_clash').title, 'Possible double booking');
   assert.match(read('lib', 'settings', 'settings.ts'), /label: 'Reminders', desc: 'The evening before check-ins, move-ins, viewings and events; 60 days before a lease ends; 6 hours before an unanswered request expires\.'/);
 });
+
+test('prices by date and cleaning days on the booking page: as the database works them out', async () => {
+  const bl = loadTs(path.join(root, 'lib', 'booking', 'bookingListing.ts'));
+  const dates = { open: new Set(['2026-12-04', '2026-12-05', '2026-12-06', '2026-12-07', '2026-12-08']), unavailable: new Set(['2026-12-09']), roomsLeft: new Map(), slots: new Map(), prices: new Map([['2026-12-04', 6500], ['2026-12-05', 6500]]) };
+  const details = { price_amount: 5000 };
+  // Thu 3 Dec → Mon 7 Dec: 5000 + 6500 + 6500 + 5000 + cleaning 1000.
+  const stay = bl.stayLine(details, { ...dates, open: new Set([...dates.open, '2026-12-03']) }, '2026-12-03', '2026-12-07', false, 'night', 1000);
+  assert.deepEqual({ ...stay }, { quantity: 4, label: '4 nights · prices vary by date', base: 23000, fee: 1000, total: 24000 });
+  assert.equal(bl.stayLine(details, dates, '2026-12-06', '2026-12-08', false, 'night', null).label, '2 nights', 'no special price: no note');
+  assert.equal(bl.stayLine(details, dates, '2026-12-05', '2026-12-06', true, 'day', null).base, 11500, 'by the day: both ends');
+  assert.equal(bl.dayPrice(details, dates, '2026-12-05'), 6500);
+  assert.equal(bl.dayPrice(details, null, '2026-12-05'), 5000);
+  // A stay whose cleaning day would fall on someone else's night is refused.
+  assert.equal(bl.turnoverFree(dates, '2026-12-08', 1), true);
+  assert.equal(bl.turnoverFree(dates, '2026-12-08', 2), false);
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-06', null, '2026-12-09', false, 1) }, { start: '2026-12-09', end: null, blocked: true }, 'check-out 9th needs the 9th free for cleaning');
+  assert.deepEqual({ ...bl.pickStayDay(dates, '2026-12-06', null, '2026-12-08', false, 1) }, { start: '2026-12-06', end: '2026-12-08', blocked: false });
+  const parsed = await bl.fetchCalendar({ rpc: async () => ({ data: { open: [], booked: [], prices: [{ day: '2026-12-25', price: '9000' }] }, error: null }) }, 'L1');
+  assert.deepEqual([...parsed.prices], [['2026-12-25', 9000]]);
+  const widget = read('components', 'booking', 'BookingWidget.tsx');
+  assert.match(widget, /const turnover = isHotel \? 0 : Math\.max\(0, Number\(details\.turnover_days\) \|\| 0\);/);
+  assert.match(widget, /pickStayDay\(dates, start, end, day, isDaily, turnover\)/);
+});
+
+test('prices on the host calendar: special dates beat the weekend, which beats the normal price', async () => {
+  const listing = { id: 'A', price: 5000, weekend_price: 6500, price_unit: 'night' };
+  const prices = [{ listing_id: 'A', start_date: '2026-12-24', end_date: '2026-12-26', price: '9000', label: 'Christmas' }];
+  assert.deepEqual({ ...cal.priceOn(listing, prices, '2026-12-25') }, { price: 9000, label: 'Christmas', special: true });
+  assert.deepEqual({ ...cal.priceOn(listing, prices, '2026-12-04') }, { price: 6500, label: 'Weekend', special: true }, 'a Friday night');
+  assert.deepEqual({ ...cal.priceOn(listing, prices, '2026-12-06') }, { price: 5000, label: null, special: false }, 'a Sunday night');
+  assert.equal(cal.priceOn({ ...listing, price_unit: 'day' }, [], '2026-12-06').label, 'Weekend', 'venues by the day: Sunday is weekend');
+  assert.equal(cal.parsePrice('6,500'), 6500);
+  assert.equal(cal.parsePrice('abc'), null);
+  assert.equal(cal.parsePrice('0'), null);
+  const calls = [];
+  const client = { rpc: async (name, args) => { calls.push([name, args]); return { error: null }; } };
+  await cal.setWeekendPrice(client, 'A', 6500);
+  await cal.setDatePrice(client, 'A', '2026-12-24', '2026-12-26', 9000, 'Christmas');
+  await cal.setTurnover(client, 'A', 1);
+  assert.deepEqual(calls, [
+    ['calendar_set_weekend_price', { p_listing: 'A', p_price: 6500 }],
+    ['calendar_set_price', { p_listing: 'A', p_from: '2026-12-24', p_to: '2026-12-26', p_price: 9000, p_label: 'Christmas' }],
+    ['calendar_set_turnover', { p_listing: 'A', p_days: 1 }],
+  ]);
+  assert.match(read('components', 'calendar', 'HostCalendar.tsx'), /\{cell\.cleaning && cell\.state !== 'past' && <span className="vc-tag">Cleaning<\/span>\}/);
+});

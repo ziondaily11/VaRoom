@@ -18,6 +18,8 @@ export interface CalendarListing {
   hire_start?: string | null; hire_end?: string | null; buffer_minutes?: number;
   /** Property, office and shop: nothing is booked by the night, so the calendar only plans. */
   planner?: boolean;
+  /** The normal and weekend price, and days kept free after each stay. */
+  price?: number | string | null; weekend_price?: number | string | null; turnover_days?: number;
 }
 export interface CalendarBooking {
   id: string; listing_id: string; status: 'pending' | 'approved' | 'completed'; start_date: string; end_date: string | null;
@@ -57,9 +59,12 @@ export interface LeaseEntry {
 /** A place marked sold, rented or leased. */
 export interface OutcomeEntry { id: string; listing_id: string; outcome: 'sold' | 'rented' | 'leased'; units: number; agreed_amount: number | null; date: string }
 
+/** A price for a range of dates ("Christmas"). */
+export interface DatePrice { listing_id: string; start_date: string; end_date: string; price: number | string; label: string | null }
+
 export interface HostCalendarData {
   listings: CalendarListing[]; bookings: CalendarBooking[]; closed: ClosedRange[]; events: CalendarEvent[]; tables: TableBooking[];
-  leases: LeaseEntry[]; outcomes: OutcomeEntry[];
+  leases: LeaseEntry[]; outcomes: OutcomeEntry[]; prices: DatePrice[];
 }
 
 export const CALENDAR_STALE_MS = 60 * 1000;
@@ -89,7 +94,7 @@ export function loadMonth(client: SupabaseClient, hostId: string, year: number, 
       if (error) throw error;
       const raw = (data || {}) as Partial<HostCalendarData>;
       const result: HostCalendarData = { listings: raw.listings || [], bookings: raw.bookings || [], closed: raw.closed || [], events: raw.events || [], tables: raw.tables || [],
-        leases: raw.leases || [], outcomes: raw.outcomes || [] };
+        leases: raw.leases || [], outcomes: raw.outcomes || [], prices: raw.prices || [] };
       cache.set(key, { data: result, fetchedAt: Date.now() });
       return result;
     })
@@ -195,6 +200,41 @@ export function feedProblem(name: string, url: string, existing: CalendarFeed[])
   if (existing.length >= 5) return 'A listing can have up to 5 links.';
   return null;
 }
+
+// ---------- Prices and cleaning days ----------
+
+/** Fridays and Saturdays for nights; Saturdays and Sundays for venues by the day or hour (as varoom_day_price). */
+const weekendDays = (listing: CalendarListing) => ((listing.price_unit || 'night') === 'night' ? [5, 6] : [0, 6]);
+
+/** A day's price and why: a special date (its label), the weekend, or the normal price. */
+export function priceOn(listing: CalendarListing, prices: DatePrice[], day: string): { price: number; label: string | null; special: boolean } {
+  const dated = prices.find((p) => p.listing_id === listing.id && p.start_date <= day && day <= p.end_date);
+  if (dated) return { price: Number(dated.price), label: dated.label || 'Special price', special: true };
+  if (listing.weekend_price != null && weekendDays(listing).includes(new Date(`${day}T00:00:00Z`).getUTCDay())) return { price: Number(listing.weekend_price), label: 'Weekend', special: true };
+  return { price: Number(listing.price) || 0, label: null, special: false };
+}
+
+export async function setWeekendPrice(client: SupabaseClient, listingId: string, price: number | null): Promise<void> {
+  const { error } = await client.rpc('calendar_set_weekend_price', { p_listing: listingId, p_price: price });
+  if (error) throw error;
+}
+
+/** A price for the days from `from` to `to`; null puts them back to the weekend or normal price. */
+export async function setDatePrice(client: SupabaseClient, listingId: string, from: string, to: string, price: number | null, label: string | null = null): Promise<void> {
+  const { error } = await client.rpc('calendar_set_price', { p_listing: listingId, p_from: from, p_to: to, p_price: price, p_label: label });
+  if (error) throw error;
+}
+
+export async function setTurnover(client: SupabaseClient, listingId: string, days: number): Promise<void> {
+  const { error } = await client.rpc('calendar_set_turnover', { p_listing: listingId, p_days: days });
+  if (error) throw error;
+}
+
+/** A price typed by the host: a positive whole number of shillings, or null. */
+export const parsePrice = (value: string) => {
+  const amount = Number(String(value).replace(/[,\s]/g, ''));
+  return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : null;
+};
 
 /** A database refusal people can read ("calendar: …", "booking_rule: …"), else the fallback. */
 export function calendarErrorText(error: unknown, fallback: string): string {

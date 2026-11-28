@@ -46,6 +46,8 @@ export interface BookingDetails {
   hire_start?: string | null;
   hire_end?: string | null;
   buffer_minutes?: number | null;
+  /** Days kept free after each stay for cleaning (not hotels). */
+  turnover_days?: number | null;
   listing_purpose?: string | null;
   office_shop_details?: unknown;
   [key: string]: unknown;
@@ -345,9 +347,11 @@ export interface CalendarDates {
   open: Set<string>; unavailable: Set<string>; roomsLeft: Map<string, number>;
   /** An hourly venue's taken times per day, in minutes from midnight (the buffer included). */
   slots: Map<string, Array<[number, number]>>;
+  /** Days whose price isn't the listing's normal one (weekend, special dates). */
+  prices: Map<string, number>;
 }
 
-export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map(), slots: new Map() };
+export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new Set(), roomsLeft: new Map(), slots: new Map(), prices: new Map() };
 
 /**
  * One call to listing_calendar, which counts every guest's bookings (a guest
@@ -356,13 +360,17 @@ export const EMPTY_CALENDAR: CalendarDates = { open: new Set(), unavailable: new
 export async function fetchCalendar(client: SupabaseClient, listingId: string): Promise<CalendarDates> {
   const { data, error } = await client.rpc('listing_calendar', { p_listing: listingId });
   if (error) throw error;
-  const result = (data || {}) as { open?: string[]; booked?: Array<{ night: string; left: number }>; slots?: Array<{ day: string; from: number; to: number }> };
+  const result = (data || {}) as {
+    open?: string[]; booked?: Array<{ night: string; left: number }>; slots?: Array<{ day: string; from: number; to: number }>;
+    prices?: Array<{ day: string; price: number | string }>;
+  };
   const unavailable = new Set<string>();
   const roomsLeft = new Map<string, number>();
   const slots = new Map<string, Array<[number, number]>>();
   (result.booked || []).forEach(({ night, left }) => { if (left > 0) roomsLeft.set(night, left); else unavailable.add(night); });
   (result.slots || []).forEach(({ day, from, to }) => slots.set(day, [...(slots.get(day) || []), [from, to]]));
-  return { open: new Set(result.open || []), unavailable, roomsLeft, slots };
+  const prices = new Map((result.prices || []).map((p) => [p.day, Number(p.price)] as [string, number]));
+  return { open: new Set(result.open || []), unavailable, roomsLeft, slots, prices };
 }
 
 /**
@@ -425,6 +433,33 @@ export function startTimes(details: Pick<BookingDetails, 'hire_start' | 'hire_en
   return times;
 }
 
+/** The days after a stay kept free for cleaning (from `first`) aren't booked by someone else. */
+export function turnoverFree(dates: CalendarDates, first: string, days: number): boolean {
+  for (let i = 0, day = first; i < days; i += 1, day = nextDay(day)) if (dates.unavailable.has(day)) return false;
+  return true;
+}
+
+/** One night's (day's) price: the weekend or special-date price when there is one. */
+export const dayPrice = (details: Pick<BookingDetails, 'price_amount'>, dates: CalendarDates | null, day: string) =>
+  dates?.prices.get(day) ?? (Number(details.price_amount) || 0);
+
+/**
+ * A stay priced night by night from `first` to the night before `end` (to
+ * `end` itself when `endIncluded`: venues by the day), as the database adds
+ * it up. The label says when prices vary by date.
+ */
+export function stayLine(details: Pick<BookingDetails, 'price_amount'>, dates: CalendarDates | null, first: string, end: string, endIncluded: boolean, word: string, fee: number | null): PriceLine {
+  let base = 0;
+  let count = 0;
+  let varies = false;
+  for (let day = first; (day < end || (endIncluded && day === end)) && count < 4000; day = nextDay(day)) {
+    base += dayPrice(details, dates, day);
+    varies = varies || Boolean(dates?.prices.has(day));
+    count += 1;
+  }
+  return { quantity: count, label: `${plural(count, word)}${varies ? ' · prices vary by date' : ''}`, base, fee: fee || null, total: base + (fee || 0) };
+}
+
 /** The fewest hotel rooms left over a stay's nights, or null when none of them is partly booked. */
 export function roomsLeftFor(dates: CalendarDates, start: string, end: string): number | null {
   let fewest: number | null = null;
@@ -474,10 +509,11 @@ export function shiftMonth(year: number, month: number, by: 1 | -1): { year: num
 }
 
 /** A tap on an open day: the new check-in/check-out, and a note when the range crossed closed days. */
-export function pickStayDay(dates: CalendarDates, start: string | null, end: string | null, day: string, sameDay = false): { start: string; end: string | null; blocked: boolean } {
+export function pickStayDay(dates: CalendarDates, start: string | null, end: string | null, day: string, sameDay = false, turnover = 0): { start: string; end: string | null; blocked: boolean } {
   if (!start || (start && end)) return { start: day, end: null, blocked: false };
   if (day > start || (sameDay && day === start)) {
-    if (rangeIsOpen(dates, start, day, sameDay)) return { start, end: day, blocked: false };
+    // The stay's own cleaning days (after check-out, or after the last day) must be free too.
+    if (rangeIsOpen(dates, start, day, sameDay) && turnoverFree(dates, sameDay ? nextDay(day) : day, turnover)) return { start, end: day, blocked: false };
     return { start: day, end: null, blocked: true };
   }
   return { start: day, end: null, blocked: false };
