@@ -3,15 +3,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calendarErrorText, setTurnover, type CalendarListing } from '../../lib/calendar/hostCalendar';
 import { WeekendPrice } from './PricePanel';
 import SyncPanel from './SyncPanel';
+import ToggleRow from './ToggleRow';
+import BookingRules from './BookingRules';
 
 // A place's settings, in a drawer from the right (a sheet on phones), opened
 // from ⚙ beside the place: Prices (weekend price), Availability (closed every
-// week, cleaning days, hire hours) and Sync (calendar links). They used to sit
+// week, cleaning days, hire hours), Rules (instant book, notice, how far ahead,
+// stay lengths, house times) and Sync (calendar links). They used to sit
 // under the day in one long panel.
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BUFFERS = [0, 15, 30, 45, 60, 90, 120];
-type Tab = 'prices' | 'availability' | 'sync';
+type Tab = 'prices' | 'availability' | 'rules' | 'sync';
+const TAB_LABEL: Record<Tab, string> = { prices: 'Prices', availability: 'Availability', rules: 'Rules', sync: 'Sync' };
 
 interface Props {
   client: SupabaseClient;
@@ -19,6 +23,8 @@ interface Props {
   listing: CalendarListing;
   color: string;
   busy: boolean;
+  /** Playing its exit (the drawer stays on screen until it ends). */
+  closing: boolean;
   onClose: () => void;
   onChanged: (message: string) => void;
   onError: (message: string) => void;
@@ -28,7 +34,7 @@ interface Props {
   onSaveHours: (listing: CalendarListing, start: string | null, end: string | null, buffer: number) => void;
 }
 
-export default function PlaceSettings({ client, hostId, listing, color, busy, onClose, onChanged, onError, onRefresh, onToggleWeekday, onSaveHours }: Props) {
+export default function PlaceSettings({ client, hostId, listing, color, busy, closing, onClose, onChanged, onError, onRefresh, onToggleWeekday, onSaveHours }: Props) {
   const [tab, setTab] = useState<Tab>('prices');
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => { panel.current?.focus(); }, []);
@@ -45,20 +51,18 @@ export default function PlaceSettings({ client, hostId, listing, color, busy, on
   };
 
   return (
-    <div className="vc-drawer-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={`vc-drawer-backdrop${closing ? ' is-closing' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={panel} tabIndex={-1} className="vc-drawer" role="dialog" aria-modal="true" aria-labelledby="vc-settings-title"
         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
         <div className="vc-panel-head">
           <h2 id="vc-settings-title"><i className="vc-swatch" style={{ background: color }} aria-hidden="true" />{listing.title}</h2>
           <button type="button" className="vc-close" aria-label="Close" onClick={onClose}>×</button>
         </div>
-        <div className="vc-toggle vc-tabs" role="tablist" aria-label="Settings">
-          {(['prices', 'availability', 'sync'] as Tab[]).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === t} aria-pressed={tab === t} onClick={() => setTab(t)}>
-              {t === 'prices' ? 'Prices' : t === 'availability' ? 'Availability' : 'Sync'}
-            </button>
+        <ToggleRow label="Settings" activeKey={tab} className="vc-tabs">
+          {(['prices', 'availability', 'rules', 'sync'] as Tab[]).map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
           ))}
-        </div>
+        </ToggleRow>
 
         {tab === 'prices' && <WeekendPrice client={client} listing={listing} onChanged={onChanged} onError={onError} />}
 
@@ -83,6 +87,8 @@ export default function PlaceSettings({ client, hostId, listing, color, busy, on
             {hourly && <HireHours listing={listing} busy={busy} onSave={(start, end, buffer) => onSaveHours(listing, start, end, buffer)} />}
           </div>
         )}
+
+        {tab === 'rules' && <BookingRules client={client} listing={listing} onChanged={onChanged} onError={onError} />}
 
         {tab === 'sync' && <SyncPanel client={client} hostId={hostId} listing={listing} showToast={onError} onChanged={onRefresh} />}
       </div>

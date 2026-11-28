@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nextDay } from '../booking/bookingListing';
 import { apiFetch } from '../api';
+import { bookingDefaultsProblem, normaliseBookingDefaults, type BookingDefaults } from '../settings/bookingDefaults';
 
 // The host's Calendar (docs/host-controls/CALENDAR_PLAN.md, part 2): one
 // host_calendar call per month (listings, bookings, closed ranges, read with
@@ -325,3 +326,62 @@ export function monthSummary(data: HostCalendarData, listings: CalendarListing[]
     requests: bookings.filter((b) => b.status === 'pending').length,
   };
 }
+
+// ---------- A place's booking rules (Place settings → Rules) ----------
+
+/** The listing's own booking rules (Settings → Bookings only pre-fills new listings). */
+export type PlaceRules = Omit<BookingDefaults, 'cancellation_policy'>;
+const RULE_COLUMNS = 'instant_book,min_notice_days,max_advance_days,min_stay_nights,max_stay_nights,checkin_time,checkout_time';
+
+/** Which rules a place takes: nights for stays (not venues or hourly hires), house times (not venues), instant book (not by the hour). */
+export const ruleFields = (listing: Pick<CalendarListing, 'category' | 'price_unit'>) => ({
+  instant: listing.price_unit !== 'hour',
+  nights: listing.category !== 'venue' && listing.price_unit !== 'hour',
+  times: listing.category !== 'venue',
+});
+
+export async function loadPlaceRules(client: SupabaseClient, listingId: string): Promise<PlaceRules> {
+  const { data, error } = await client.from('listing_booking_details').select(RULE_COLUMNS).eq('listing_id', listingId).maybeSingle();
+  if (error) throw error;
+  const row = (data || {}) as Record<string, unknown>;
+  const clock = (value: unknown) => (typeof value === 'string' ? value.slice(0, 5) : value);
+  const { cancellation_policy: _policy, ...rules } = normaliseBookingDefaults({ ...row, checkin_time: clock(row.checkin_time), checkout_time: clock(row.checkout_time) });
+  return rules;
+}
+
+/** Saves the rules the place takes (others cleared, as the listing wizard does); the database applies them to new bookings. */
+export async function savePlaceRules(client: SupabaseClient, listing: CalendarListing, rules: PlaceRules): Promise<void> {
+  const fields = ruleFields(listing);
+  const { cancellation_policy: _policy, ...clean } = normaliseBookingDefaults(rules);
+  if (!fields.instant) clean.instant_book = false;
+  if (!fields.nights) { clean.min_stay_nights = null; clean.max_stay_nights = null; }
+  if (!fields.times) { clean.checkin_time = null; clean.checkout_time = null; }
+  const problem = bookingDefaultsProblem({ ...clean, cancellation_policy: 'moderate' });
+  if (problem) throw new Error(`calendar: ${problem}`);
+  const { data, error } = await client.from('listing_booking_details').update(clean).eq('listing_id', listing.id).select('listing_id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('calendar: This listing has no booking details yet. Edit the listing to add them.');
+}
+
+// ---------- Hotel dining: table reservations ----------
+
+/** Marks a reservation New ('requested'), Contacted or Closed (the server checks it is the host's own). */
+export const setTableStatus = (hostId: string, id: string, status: TableBooking['status'], fetchApi: typeof apiFetch = apiFetch) =>
+  fetchApi<{ reservation: { id: string; status: string } }>(`/api/host/table-reservations/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status }, headers: { 'X-VaRoom-Host': hostId } });
+
+const diningTables = new Map<string, number>();
+/** Each restaurant's number of tables (public, rarely changes: kept for the session). */
+export async function loadDiningTables(client: SupabaseClient, listingIds: string[]): Promise<Map<string, number>> {
+  const missing = listingIds.filter((id) => !diningTables.has(id));
+  if (missing.length) {
+    const { data, error } = await client.from('hotel_dining_configs').select('listing_id,tables_available').in('listing_id', missing);
+    if (error) throw error;
+    ((data || []) as Array<{ listing_id: string; tables_available: number }>).forEach((row) => diningTables.set(row.listing_id, row.tables_available));
+  }
+  return new Map(listingIds.filter((id) => diningTables.has(id)).map((id) => [id, diningTables.get(id) as number]));
+}
+
+/** Tables reserved at a reservation's restaurant, date and time ("6 of 12 tables"). */
+export const tablesAt = (tables: TableBooking[], t: Pick<TableBooking, 'listing_id' | 'date' | 'time'>) => tables
+  .filter((r) => r.listing_id === t.listing_id && r.date === t.date && r.time === t.time)
+  .reduce((sum, r) => sum + r.table_count, 0);

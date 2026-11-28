@@ -8,6 +8,8 @@
 // The plans with Elie: away answers, @reply, reply drafts and "Write with
 // Elie", 300 a month (server/lib/elieHost.js ELIE_HOST_ACTION_LIMIT).
 export const ELIE_FEATURE = 'Elie (300 actions a month)';
+/** Every plan includes the calendar: availability, bookings and the host's own plans. */
+export const CALENDAR_FEATURE = 'Calendar included';
 
 export interface BillingPlan {
   id: string;
@@ -34,9 +36,9 @@ export interface PlanCard {
 
 /** The original plans, for hosts without a niche plan set (filled in order from the server's legacy plans). */
 export const DEFAULT_PLAN_CARDS: PlanCard[] = [
-  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access', 'Photos only'], cta: 'Get Started', monthly: 800, featured: false },
-  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video on 1 listing', 'Increased storage', 'Get showcased to new clients searching within your niche'], cta: 'Upgrade to Growth', monthly: 1300, featured: true },
-  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Video on up to 3 listings', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche'], cta: 'Upgrade to Pro', monthly: 1800, featured: false },
+  { id: 'basic', name: 'Basic', description: 'Essential tools for getting started on VaRoom', features: ['All core host tools', 'Limited storage', 'Standard listing access', 'Photos only', CALENDAR_FEATURE], cta: 'Get Started', monthly: 800, featured: false },
+  { id: 'growth', name: 'Growth', description: 'More visibility and better listing capabilities', features: ['Everything in Basic', 'Video on 1 listing', 'Increased storage', 'Get showcased to new clients searching within your niche', CALENDAR_FEATURE], cta: 'Upgrade to Growth', monthly: 1300, featured: true },
+  { id: 'pro', name: 'Pro', description: 'Maximum visibility and intelligent client engagement', features: ['Everything in Growth', ELIE_FEATURE, 'Video on up to 3 listings', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche', CALENDAR_FEATURE], cta: 'Upgrade to Pro', monthly: 1800, featured: false },
 ];
 
 // Property and Shops & Offices pay per listing: Silver or Gold keeps one
@@ -45,9 +47,9 @@ export const DEFAULT_PLAN_CARDS: PlanCard[] = [
 // Discover treats both the same.
 export const LISTING_TIER_CARDS: PlanCard[] = [
   { id: 'silver', name: 'Silver', description: 'One listing, live for 30 days from when you publish it.', perListing: true, monthly: 1000, featured: false, cta: 'Choose Silver',
-    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included'] },
+    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown in Marketplace', 'Shown in VaRoom Discover', 'Analytics included', CALENDAR_FEATURE] },
   { id: 'gold', name: 'Gold', description: 'More visibility for one listing, live for 30 days from when you publish it.', perListing: true, monthly: 2000, featured: true, cta: 'Choose Gold',
-    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included'] },
+    features: ['One listing live for 30 days', 'Up to 8 photos (photos only)', 'Shown above Silver listings in Marketplace', 'Eligible for the landing page; featuring is not guaranteed', 'Shown in VaRoom Discover', 'Analytics included', CALENDAR_FEATURE] },
 ];
 
 // Airbnb, Hotel and Event Venue monthly plans. Airbnb and Venue plans cap the
@@ -61,7 +63,7 @@ export function upgradeCards(cards: PlanCard[], currentId: string): PlanCard[] {
 }
 
 const nicheCard = (id: string, name: string, monthly: number, description: string, features: string[], cta: string, featured = false): PlanCard => (
-  { id, name, description, features, cta, monthly, featured }
+  { id, name, description, features: [...features, CALENDAR_FEATURE], cta, monthly, featured }
 );
 
 export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {

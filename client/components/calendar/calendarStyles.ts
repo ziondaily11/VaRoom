@@ -40,9 +40,12 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-textbtn{border:0;background:none;padding:0;color:var(--accent);font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .vc .vc-link{font-size:.84rem;font-weight:600;color:var(--accent);text-decoration:none}
 .vc .vc-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.vc .vc-toggle{display:inline-flex;padding:3px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
-.vc .vc-toggle button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;color:var(--mute)}
-.vc .vc-toggle button[aria-pressed="true"]{background:var(--fg);color:var(--canvas)}
+.vc .vc-toggle{position:relative;display:inline-flex;padding:3px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+.vc .vc-toggle button{position:relative;z-index:1;border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;color:var(--mute)}
+.vc .vc-toggle button[aria-selected="true"]{color:var(--canvas)}
+.vc .vc-toggle:not(.is-ready) button[aria-selected="true"]{background:var(--fg)}
+.vc .vc-toggle-pill{position:absolute;top:0;left:0;border-radius:999px;background:var(--fg);pointer-events:none}
+.vc .vc-toggle.is-ready .vc-toggle-pill{transition:transform var(--motion-quick) var(--ease-in-out),width var(--motion-quick) var(--ease-in-out)}
 .vc .vc-nav{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--card);overflow:hidden}
 .vc .vc-nav button{border:0;background:transparent;height:36px;min-width:36px;padding:0 12px;font-weight:650;color:var(--fg)}
 .vc .vc-nav button + button{border-left:1px solid var(--line)}
@@ -72,7 +75,8 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-side,.vc .vc-details{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px}
 .vc .vc-main{padding:14px;min-width:0}
 .vc .vc-main-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 4px 12px}
-.vc .vc-scrim{position:fixed;inset:0;z-index:55;border:0;background:rgba(0,0,0,.38)}
+.vc .vc-scrim{position:fixed;inset:0;z-index:55;border:0;background:rgba(0,0,0,.38);opacity:0;pointer-events:none;transition:opacity var(--motion-micro) var(--ease-in)}
+.vc .vc-scrim.is-open{opacity:1;pointer-events:auto;transition:opacity var(--motion-quick) var(--ease-out)}
 
 /* ---------- left column ---------- */
 .vc .vc-mini-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -278,15 +282,34 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-place-actions{display:flex;gap:6px;flex-wrap:wrap}
 
 /* ---------- place settings drawer ---------- */
-.vc .vc-drawer-backdrop{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.42);display:flex;justify-content:flex-end}
-.vc .vc-drawer{width:min(440px,100%);height:100%;overflow-y:auto;background:var(--card);color:var(--fg);padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:-24px 0 60px -30px rgba(0,0,0,.5);outline:0;animation:vc-slide-in .22s cubic-bezier(.2,.8,.2,1)}
+.vc .vc-drawer-backdrop{position:fixed;inset:0;z-index:65;display:flex;justify-content:flex-end}
+.vc .vc-drawer{position:relative;width:min(440px,100%);height:100%;overflow-y:auto;background:var(--card);color:var(--fg);padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:-24px 0 60px -30px rgba(0,0,0,.5);outline:0;
+  animation:vc-drawer-in var(--motion-standard) var(--ease-out) both}
+.vc .vc-drawer-backdrop.is-closing .vc-drawer{animation:vc-drawer-out var(--motion-quick) var(--ease-in) both}
 .vc .vc-tabs{align-self:flex-start}
-@keyframes vc-sheet-in{from{transform:translateY(32px);opacity:0}to{transform:none;opacity:1}}
-@keyframes vc-slide-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+/* Scrims fade on their own layer (so the panel isn't faded with them);
+   drawers slide from the right, dialogs grow from .95, sheets rise on phones.
+   Exits are shorter and ignore input. */
+.vc :is(.vc-drawer-backdrop,.vc-dialog-backdrop)::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.42);animation:vc-fade-in var(--motion-quick) var(--ease-out) both}
+.vc :is(.vc-drawer-backdrop,.vc-dialog-backdrop).is-closing::before{animation:vc-fade-out var(--motion-micro) var(--ease-in) both}
+.vc .is-closing{pointer-events:none}
+@keyframes vc-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes vc-fade-out{from{opacity:1}to{opacity:0}}
+@keyframes vc-drawer-in{from{transform:translateX(100%)}to{transform:none}}
+@keyframes vc-drawer-out{from{transform:none}to{transform:translateX(100%)}}
+@keyframes vc-pop-in{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+@keyframes vc-pop-out{from{opacity:1;transform:none}to{opacity:0;transform:scale(.95)}}
+@keyframes vc-sheet-up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes vc-sheet-down{from{transform:none}to{transform:translateY(100%)}}
+@keyframes vc-menu-in{from{opacity:0;transform:translateY(-5px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes vc-menu-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-5px) scale(.95)}}
+@keyframes vc-rise-in{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%)}}
+@keyframes vc-rise-out{from{opacity:1;transform:translateX(-50%)}to{opacity:0;transform:translateX(-50%) translateY(12px)}}
 
 /* ---------- the event dialog ---------- */
-.vc .vc-dialog-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.42);display:grid;place-items:center;padding:16px}
-.vc .vc-dialog{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--card);color:var(--fg);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}
+.vc .vc-dialog-backdrop{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px}
+.vc .vc-dialog-backdrop.is-closing .vc-dialog{animation:vc-pop-out var(--motion-quick) var(--ease-in) both}
+.vc .vc-dialog{position:relative;animation:vc-pop-in var(--motion-standard) var(--ease-out) both;width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--card);color:var(--fg);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}
 .vc .vc-kinds{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .vc .vc-kinds button{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);color:var(--fg)}
 .vc .vc-kinds button span{font-size:.76rem;color:var(--mute)}
@@ -325,8 +348,20 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   padding:10px 12px 10px 18px;border-radius:999px;background:var(--fg);color:var(--canvas);box-shadow:0 18px 40px -16px rgba(0,0,0,.45);font-size:.86rem;font-weight:600;max-width:calc(100vw - 24px)}
 .vc .vc-rangebar div{display:flex;gap:6px;flex-wrap:wrap}
 .vc .vc-range-price{width:110px;font:inherit;font-size:.84rem;padding:8px 12px;border-radius:999px;border:0;background:var(--canvas);color:var(--fg)}
-.vc .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--fg);color:var(--canvas);padding:.8rem 1.4rem;border-radius:100px;font-size:.88rem;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s}
-.vc .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.vc .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--fg);color:var(--canvas);padding:.8rem 1.4rem;border-radius:100px;font-size:.88rem;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:opacity 160ms var(--ease-in),transform 160ms var(--ease-in)}
+.vc .toast.show{opacity:1;transform:translateX(-50%) translateY(0);transition-duration:var(--motion-quick);transition-timing-function:var(--ease-out)}
+.vc .vc-rangebar{animation:vc-rise-in var(--motion-quick) var(--ease-out) both}
+.vc .vc-rangebar.is-closing{animation:vc-rise-out 160ms var(--ease-in) both}
+.vc .vc-search-results{transform-origin:top left;animation:vc-menu-in var(--motion-quick) var(--ease-out) both}
+.vc .vc-search-results.is-closing{animation:vc-menu-out var(--motion-micro) var(--ease-in) both}
+/* Press feedback on what can be tapped (C1); big grid cells only tint. */
+.vc :is(.vc-pill,.vc-btn,.vc-nav button,.vc-toggle button,.vc-mini-day,.vc-mini-head button,.vc-gear,.vc-close,.vc-back,.vc-weekdays button,.vc-kinds button,.vc-color,
+  .vc-coming button,.vc-item-row,.vc-search-results button,.vc-tg-day,.vc-strip button,.vc-day-card,.vc-bar,.vc-block,.vc-fab,.vc-notices button){transition:transform var(--motion-press) var(--ease-out)}
+.vc :is(.vc-pill,.vc-btn,.vc-nav button,.vc-toggle button,.vc-mini-day,.vc-mini-head button,.vc-gear,.vc-close,.vc-back,.vc-weekdays button,.vc-kinds button,.vc-color,
+  .vc-coming button,.vc-item-row,.vc-search-results button,.vc-tg-day,.vc-strip button,.vc-day-card,.vc-bar,.vc-block,.vc-fab,.vc-notices button):active:not(:disabled){transform:scale(var(--press-scale))}
+/* Phones: the add button, above the bottom navigation. */
+.vc .vc-fab{position:fixed;right:18px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:40;width:56px;height:56px;border:0;border-radius:999px;background:var(--accent);color:#fff;
+  font-size:1.8rem;font-weight:400;line-height:1;align-items:center;justify-content:center;box-shadow:0 14px 30px -12px rgba(0,0,0,.45)}
 @keyframes vc-pulse{from{opacity:.55}to{opacity:1}}
 
 /* ---------- narrower screens: the side columns slide over ---------- */
@@ -334,7 +369,8 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-only-narrow{display:inline-flex !important}
   .vc .vc-scrim.vc-only-narrow{display:block !important}
   .vc .vc-shell{grid-template-columns:minmax(0,1fr)}
-  .vc .vc-side,.vc .vc-details{position:fixed;top:0;bottom:0;z-index:60;max-height:none;border-radius:0;width:min(360px,92vw);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+  .vc .vc-side,.vc .vc-details{position:fixed;top:0;bottom:0;z-index:60;max-height:none;border-radius:0;width:min(360px,92vw);transition:transform var(--motion-quick) var(--ease-in)}
+  .vc .vc-side.is-open,.vc .vc-details.is-open{transition:transform var(--motion-standard) var(--ease-out)}
   .vc .vc-side{left:0;transform:translateX(-105%)}
   .vc .vc-details{right:0;transform:translateX(105%)}
   .vc .vc-side.is-open,.vc .vc-details.is-open{transform:none}
@@ -374,12 +410,29 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-strip button[aria-pressed="true"] span{color:inherit;opacity:.75}
   .vc .vc-strip i{position:absolute;bottom:3px;width:4px;height:4px;border-radius:999px;background:var(--accent)}
   .vc .vc-drawer-backdrop{align-items:flex-end}
-  .vc .vc-drawer{width:100%;height:auto;max-height:88vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:vc-sheet-in .24s cubic-bezier(.2,.8,.2,1)}
+  .vc .vc-drawer{width:100%;height:auto;max-height:88vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:vc-sheet-up 280ms var(--ease-out) both}
+  .vc .vc-drawer-backdrop.is-closing .vc-drawer{animation:vc-sheet-down 220ms var(--ease-in) both}
+  .vc .vc-dialog-backdrop{place-items:end center;padding:0}
+  .vc .vc-dialog{width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:vc-sheet-up 280ms var(--ease-out) both}
+  .vc .vc-dialog-backdrop.is-closing .vc-dialog{animation:vc-sheet-down 220ms var(--ease-in) both}
+  .vc .vc-add{display:none}
   .vc .vc-tl-row{grid-template-columns:110px 1fr;min-width:calc(110px + var(--days,31) * 28px)}
   .vc .vc-tg-day{padding:6px 0}
   .vc .vc-tg-day strong{min-width:24px;height:24px;font-size:.9rem}
   .vc .vc-block:not(.is-rich) span{display:none}
   .vc .vc-block:not(.is-rich){padding:2px 3px;font-size:.66rem}
 }
-@media (prefers-reduced-motion:reduce){.vc .vc-side,.vc .vc-details,.vc .vc-drawer,.vc .vc-cell.is-loading,.vc .toast{transition:none;animation:none}}
+/* Tablets (761-1023px): Week shows about five days and scrolls sideways; the hours and the "All day" label stay put. */
+@media (min-width:761px) and (max-width:1023px){
+  .vc .vc-tg:not(.is-day){overflow-x:auto}
+  .vc .vc-tg:not(.is-day) > *{min-width:calc(52px + (100% - 52px) * 1.4)}
+  .vc .vc-tg:not(.is-day) .vc-tg-scroll{max-height:none;overflow:visible}
+  .vc .vc-tg:not(.is-day) :is(.vc-tg-gutter,.vc-tg-label,.vc-tg-head > span:first-child){position:sticky;left:0;z-index:3;background:var(--card)}
+}
+/* Reduced motion (animation.md §13): no slides or scaling; overlays appear at once; exits still end (1ms) so they unmount. */
+@media (prefers-reduced-motion:reduce){
+  .vc .vc-side,.vc .vc-details,.vc .vc-scrim,.vc .toast,.vc .vc-toggle-pill{transition:none !important}
+  .vc .vc-drawer,.vc .vc-dialog,.vc .vc-rangebar,.vc .vc-search-results,.vc :is(.vc-drawer-backdrop,.vc-dialog-backdrop)::before,.vc .vc-cell.is-loading{animation-duration:1ms !important;animation-iteration-count:1 !important}
+  .vc :active:not(:disabled){transform:none !important}
+}
 `;

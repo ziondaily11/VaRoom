@@ -163,3 +163,23 @@ test('timeline bars use the month\'s width; part 3 wiring (search, strip, dots, 
   assert.match(css, /\.vc \.vc-month-grid \.vc-bar\{display:none\}/, 'phones: dots, not bars');
   assert.match(css, /\.vc \.vc-drawer\{width:100%;height:auto;max-height:88vh;border-radius:22px 22px 0 0/, 'phones: settings as a sheet');
 });
+
+test('every plan lists the calendar; tablet week, phone + button and motion are wired', () => {
+  const fs = require('node:fs');
+  const pricing = loadTs(path.join(root, 'lib', 'billing', 'pricing.ts'));
+  const cards = [...pricing.DEFAULT_PLAN_CARDS, ...pricing.LISTING_TIER_CARDS, ...Object.values(pricing.NICHE_PLAN_CARDS).flat()];
+  assert.ok(cards.length >= 15);
+  assert.ok(cards.every((card) => card.features.includes(pricing.CALENDAR_FEATURE)), 'every plan includes the calendar');
+  const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
+  const css = read('components', 'calendar', 'calendarStyles.ts');
+  assert.match(css, /@media \(min-width:761px\) and \(max-width:1023px\)\{\n  \.vc \.vc-tg:not\(\.is-day\)\{overflow-x:auto\}/, 'tablets: Week scrolls sideways');
+  assert.match(css, /\.vc \.vc-add\{display:none\}/, 'phones: the header add is replaced by the + button');
+  assert.match(css, /\.vc \.vc-drawer-backdrop\.is-closing \.vc-drawer\{animation:vc-drawer-out var\(--motion-quick\) var\(--ease-in\) both\}/, 'drawers have an exit');
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{\n  \.vc \.vc-side/, 'reduced motion handled');
+  assert.doesNotMatch(css, /transition:all/);
+  const page = read('components', 'calendar', 'HostCalendar.tsx');
+  assert.match(page, /const shownForm = usePresentValue\(form, 220\);/);
+  assert.match(page, /if \(!by \|\| !viewRef\.current\?\.animate \|\| prefersReducedMotion\(\)\) return;/, 'the slide skips reduced motion');
+  assert.match(page, /className="vc-fab vc-only-phone" aria-label="Add to calendar"/);
+  assert.match(read('components', 'calendar', 'CalendarHeader.tsx'), /<button key=\{m\} type="button" role="tab" aria-selected=\{mode === m\}/);
+});

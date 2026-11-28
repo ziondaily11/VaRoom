@@ -295,3 +295,35 @@ test('prices on the host calendar: special dates beat the weekend, which beats t
   ]);
   assert.match(read('components', 'calendar', 'MonthView.tsx'), /\{state\?\.cleaning && day >= today && <span>Cleaning<\/span>\}/);
 });
+
+test('Place settings → Rules: a place takes only its own rules; saving clears the others and checks the stay lengths', async () => {
+  assert.deepEqual({ ...cal.ruleFields({ category: 'airbnb', price_unit: 'night' }) }, { instant: true, nights: true, times: true });
+  assert.deepEqual({ ...cal.ruleFields({ category: 'venue', price_unit: 'day' }) }, { instant: true, nights: false, times: false });
+  assert.deepEqual({ ...cal.ruleFields({ category: 'venue', price_unit: 'hour' }) }, { instant: false, nights: false, times: false });
+  const writes = [];
+  const fake = (row, updated = [{ listing_id: 'L' }]) => ({ from: (table) => {
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: row, error: null }),
+      update: (value) => { writes.push([table, value]); return { eq: () => ({ select: async () => ({ data: updated, error: null }) }) }; } };
+    return chain;
+  } });
+  const loaded = await cal.loadPlaceRules(fake({ instant_book: true, min_notice_days: 2, max_advance_days: 365, min_stay_nights: 2, max_stay_nights: null, checkin_time: '14:00:00', checkout_time: '10:00' }), 'L');
+  assert.deepEqual({ ...loaded }, { instant_book: true, min_notice_days: 2, max_advance_days: 365, min_stay_nights: 2, max_stay_nights: null, checkin_time: '14:00', checkout_time: '10:00' }, 'a time column reads as HH:MM');
+  const hall = { id: 'L', category: 'venue', price_unit: 'hour' };
+  await cal.savePlaceRules(fake(null), hall, { ...loaded });
+  assert.deepEqual(writes.at(-1), ['listing_booking_details', { instant_book: false, min_notice_days: 2, max_advance_days: 365, min_stay_nights: null, max_stay_nights: null, checkin_time: null, checkout_time: null }]);
+  await assert.rejects(cal.savePlaceRules(fake(null), { id: 'L', category: 'airbnb', price_unit: 'night' }, { ...loaded, min_stay_nights: 5, max_stay_nights: 3 }), /calendar: The maximum stay must be at least the minimum stay\./);
+  await assert.rejects(cal.savePlaceRules(fake(null, []), hall, loaded), /no booking details yet/);
+});
+
+test('hotel dining: the tables reserved at a time, and the status changed through the server', async () => {
+  const t = (id, time, tables, listing = 'D') => ({ id, listing_id: listing, date: '2026-12-03', time, table_count: tables });
+  const all = [t('a', '19:30', 2), t('b', '19:30', 4), t('c', '20:00', 3), t('d', '19:30', 5, 'E')];
+  assert.equal(cal.tablesAt(all, all[0]), 6, '6 of the restaurant\'s tables at 19:30');
+  const calls = [];
+  await cal.setTableStatus('h1', 'r1', 'contacted', async (pathName, options) => { calls.push([pathName, options]); return { reservation: { id: 'r1', status: 'contacted' } }; });
+  assert.deepEqual(calls, [['/api/host/table-reservations/r1', { method: 'PATCH', body: { status: 'contacted' }, headers: { 'X-VaRoom-Host': 'h1' } }]]);
+  const panel = read('components', 'calendar', 'DetailsPanel.tsx');
+  assert.match(panel, /\$\{slot\.reserved\} of \$\{slot\.total\} tables reserved/);
+  assert.match(panel, /const TABLE_STATUSES: Array<\[TableBooking\['status'\], string\]> = \[\['requested', 'New'\], \['contacted', 'Contacted'\], \['closed', 'Closed'\]\];/);
+  assert.match(read('components', 'calendar', 'PlaceSettings.tsx'), /\{tab === 'rules' && <BookingRules client=\{client\} listing=\{listing\}/);
+});

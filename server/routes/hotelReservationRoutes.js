@@ -166,4 +166,30 @@ router.get('/host/table-reservations', async (req, res) => {
   return res.json({ reservations: data || [] });
 });
 
+// The host (or a team Manager) marks a reservation New, Contacted or Closed,
+// from the calendar. Only their own reservations; nothing else changes.
+const RESERVATION_STATUSES = ['requested', 'contacted', 'closed'];
+router.patch('/host/table-reservations/:id', async (req, res) => {
+  try {
+    const auth = await authenticatedUser(req, res);
+    if (!auth) return undefined;
+    const hostId = await actingHostId(req, auth.user.id, 'manager');
+    if (!hostId || (hostId === auth.user.id && auth.profile.role !== 'host')) return res.status(403).json({ error: 'Host access required' });
+    const body = req.body || {};
+    assertAllowedKeys(body, ['status']);
+    const id = uuid(req.params.id, 'Reservation');
+    if (!RESERVATION_STATUSES.includes(body.status)) throw new ValidationError('Choose New, Contacted or Closed.');
+    const { data, error } = await supabaseAdmin.from('table_reservations')
+      .update({ status: body.status, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('host_id', hostId).select('id,status').maybeSingle();
+    if (error) return res.status(500).json({ error: 'Unable to update the reservation' });
+    if (!data) return res.status(404).json({ error: 'Reservation not found' });
+    return res.json({ reservation: data });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Table reservation update failed:', error);
+    return res.status(500).json({ error: 'Unable to update the reservation' });
+  }
+});
+
 module.exports = router;

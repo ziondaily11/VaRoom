@@ -1,6 +1,7 @@
 import React from 'react';
 import { MONTH_NAMES } from '../../lib/booking/bookingListing';
 import type { CalendarMode } from '../../lib/calendar/calendarView';
+import ToggleRow from './ToggleRow';
 
 // The Calendar's header: a date tile (red month, day number), the full date,
 // search, navigation (by day, week or month), the view switch (Day, Week,
@@ -51,18 +52,18 @@ export default function CalendarHeader({ day, monthTitle, mode, modes, selecting
           <button type="button" aria-label={`Next ${mode === 'timeline' ? 'month' : mode}`} onClick={onNext}>›</button>
         </div>
         {modes.length > 1 && (
-          <div className="vc-toggle" role="group" aria-label="View">
+          <ToggleRow label="View" activeKey={mode}>
             {modes.map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => onMode(m)}>{MODE_LABEL[m]}</button>
+              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => onMode(m)}>{MODE_LABEL[m]}</button>
             ))}
-          </div>
+          </ToggleRow>
         )}
         {canSelect && (
           <button type="button" className={`vc-pill${selecting ? ' is-on' : ''}`} aria-pressed={selecting} onClick={onSelect}>
             {selecting ? 'Done selecting' : 'Select days'}
           </button>
         )}
-        <button type="button" className="vc-pill is-primary" disabled={!canAdd} onClick={onAdd}>+ Add</button>
+        <button type="button" className="vc-pill is-primary vc-add" disabled={!canAdd} onClick={onAdd}>+ Add</button>
       </div>
     </header>
   );

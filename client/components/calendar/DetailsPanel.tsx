@@ -5,12 +5,13 @@ import { initial } from '../../lib/bookings/format';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 import { KIND_LABEL, type CalendarItem } from '../../lib/calendar/calendarView';
-import type { CalendarBooking, CalendarListing, MonthSummary, PlannerSummary } from '../../lib/calendar/hostCalendar';
+import type { CalendarBooking, CalendarListing, MonthSummary, PlannerSummary, TableBooking } from '../../lib/calendar/hostCalendar';
 
 // The Calendar's right column. With nothing chosen: what needs attention, today,
 // this month and requests waiting. A day: each place's state there (close,
 // reopen, close rooms), the day's price and hours, and its entries. An entry:
-// its details card (guest, dates, guests, price) and what can be done with it.
+// its details card (guest, dates, guests, price) and what can be done with it
+// (a table reservation: its status, and the tables reserved at that time).
 // Below 1280px it slides over the page (a sheet on phones).
 
 export interface PlaceRow { listing: CalendarListing; color: string; state: string; closed: boolean; weekly: boolean }
@@ -37,7 +38,12 @@ interface Props {
   onAdd: (day: string) => void;
   onCloseDay: (listing: CalendarListing, close: boolean) => void;
   onCloseRooms: (listing: CalendarListing) => void;
+  /** Tables reserved at a reservation's time, and the restaurant's tables (null: not known). */
+  tableSlot: (t: TableBooking) => { reserved: number; total: number | null };
+  onTableStatus: (t: TableBooking, status: TableBooking['status']) => void;
 }
+
+const TABLE_STATUSES: Array<[TableBooking['status'], string]> = [['requested', 'New'], ['contacted', 'Contacted'], ['closed', 'Closed']];
 
 function Avatar({ name, src }: { name: string | null; src: string | null | undefined }) {
   const url = src ? resolveAvatarUrl(src, getSupabaseClient()) : null;
@@ -140,6 +146,7 @@ function ItemCard({ item, props }: { item: CalendarItem; props: Props }) {
     );
   }
   const t = source.value;
+  const slot = props.tableSlot(t);
   return (
     <div className="vc-card-body">
       <div className="vc-person"><Avatar name={t.client_name} src={null} /><div><strong>{t.client_name || 'Guest'}</strong>{badge}</div></div>
@@ -147,10 +154,19 @@ function ItemCard({ item, props }: { item: CalendarItem; props: Props }) {
         <dt>When</dt><dd>{dayLabel(t.date, true)} · {t.time}</dd>
         <dt>Restaurant</dt><dd>{t.restaurant_name}</dd>
         <dt>Party</dt><dd>{plural(t.guest_count, 'guest')} · {plural(t.table_count, 'table')}</dd>
+        <dt>At {t.time}</dt><dd>{slot.total ? `${slot.reserved} of ${slot.total} tables reserved` : `${plural(slot.reserved, 'table')} reserved`}</dd>
         {t.occasion ? <><dt>Occasion</dt><dd>{t.occasion}</dd></> : null}
-        <dt>Status</dt><dd>{t.status === 'requested' ? 'New' : t.status === 'contacted' ? 'Contacted' : 'Closed'}</dd>
         {t.client_phone ? <><dt>Phone</dt><dd><a href={`tel:${t.client_phone.replace(/[^+\d]/g, '')}`}>{t.client_phone}</a></dd></> : null}
       </dl>
+      <section className="vc-section" aria-label="Status">
+        <h3>Status</h3>
+        <div className="vc-actions">
+          {TABLE_STATUSES.map(([value, label]) => (
+            <button key={value} type="button" className={`vc-btn${t.status === value ? ' is-primary' : ''}`} aria-pressed={t.status === value}
+              disabled={Boolean(props.busy)} onClick={() => { if (t.status !== value) props.onTableStatus(t, value); }}>{label}</button>
+          ))}
+        </div>
+      </section>
       <div className="vc-links"><Link href="/bookings">Open in Bookings</Link></div>
     </div>
   );
@@ -161,7 +177,7 @@ export default function DetailsPanel(props: Props) {
   const title = view.kind === 'overview' ? 'Overview' : view.kind === 'day' ? dayLabel(view.day, true) : KIND_LABEL[view.item.kind];
   return (
     <>
-      {open && <button type="button" className="vc-scrim vc-only-narrow" aria-label="Close" onClick={onClose} />}
+      <button type="button" className={`vc-scrim vc-only-narrow${open ? ' is-open' : ''}`} aria-label="Close" aria-hidden={!open} tabIndex={open ? 0 : -1} onClick={onClose} />
       <aside className={`vc-details${open ? ' is-open' : ''}`} aria-label={title} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
         <div className="vc-panel-head">
           {onBack && <button type="button" className="vc-back" onClick={onBack} aria-label="Back to overview">‹</button>}
