@@ -107,6 +107,6 @@ test('wiring: checkout explains a free plan; the expiry job runs; one niche mapp
   const billing = read('routes/billingRoutes.js');
   assert.match(billing, /if \(existing && isComp\(existing\)\) \{\s+return res\.status\(409\)\.json\(\{ error: `You have a free plan from VaRoom until/);
   assert.doesNotMatch(billing, /function billingNicheFor/);
-  assert.match(read('server.js'), /setInterval\(expireFreePlansNow, 60 \* 60 \* 1000\)/);
+  assert.match(read('server.js'), /scheduleJob\('Free plans', \{ first: 5 \* 60 \* 1000, every: 60 \* 60 \* 1000 \},/);
   assert.doesNotMatch(read('routes/adminRoutes.js'), /from\('bookings'\)\s*\.select\('total_price'/, 'revenue no longer counts bookings');
 });

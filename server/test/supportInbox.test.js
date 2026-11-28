@@ -149,5 +149,5 @@ test('categories and wiring', () => {
   const server = fs.readFileSync(require.resolve('../server.js'), 'utf8');
   assert.match(server, /app\.use\('\/api\/support\/inbound-email', express\.raw\(\{ type: \(\) => true, limit: '1mb' \}\), createSupportInboundRoutes\(supabaseAdmin\)\);\r?\n\r?\napp\.use\(express\.json/);
   assert.match(server, /supportInbox\.acknowledge\(supabaseAdmin, data, \{ restriction: triaged\.restriction \}\)/);
-  assert.match(server, /setInterval\(closeStaleTicketsNow, 60 \* 60 \* 1000\)/);
+  assert.match(server, /scheduleJob\('Quiet support tickets', \{ first: 4 \* 60 \* 1000, every: 60 \* 60 \* 1000 \},/);
 });

@@ -18,9 +18,9 @@ function withFetch(responses) {
 }
 
 test('admin requests: same-origin with the session cookie; failures throw the server message', async () => {
-  const { calls, api } = withFetch([{ status: 200, body: { data: [{ id: 'u1' }] } }, { status: 403, body: { error: 'Your admin role is not allowed to perform this action' } }, { status: 500 }]);
-  assert.deepEqual(await api.loadUsers(), [{ id: 'u1' }]);
-  assert.equal(calls[0].url, '/admin/users');
+  const { calls, api } = withFetch([{ status: 200, body: { data: [{ id: 'u1' }], total: 1234 } }, { status: 403, body: { error: 'Your admin role is not allowed to perform this action' } }, { status: 500 }]);
+  assert.deepEqual(await api.loadUsers(), { users: [{ id: 'u1' }], total: 1234 });
+  assert.equal(calls[0].url, '/admin/users?q=&offset=0');
   assert.equal(calls[0].credentials, 'same-origin');
   await assert.rejects(api.setUserStatus('u1', 'suspended', 'spam'), /not allowed/);
   assert.deepEqual({ method: calls[1].method, body: JSON.parse(calls[1].body) }, { method: 'POST', body: { status: 'suspended', reason: 'spam' } });
@@ -59,7 +59,7 @@ test('dashboard: native TSX; Overview at sign-in, other sections when first open
   assert.match(shell, /for \(const key of \["overview", \.\.\.SECTION_RESOURCES\[active\]\]/);
   assert.match(shell, /if \(!requested\.current\.has\(key\)\) void reload\(key\);/);
   assert.match(shell, /role="alert"/);
-  assert.match(read('components', 'admin', 'LoginScreen.tsx'), /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); onLogin\(email, password\); \}\}/);
+  assert.match(read('components', 'admin', 'LoginScreen.tsx'), /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); onLogin\(email, password, codeRequired \? code : undefined\); \}\}/);
   // styles/admin.css paints dark mode by these class strings.
   const ui = read('components', 'admin', 'AdminUi.tsx');
   for (const cls of ['border rounded-sm p-4 bg-white', 'border-[#E4E1DA]']) assert.ok(ui.includes(cls), cls);
@@ -116,4 +116,29 @@ test('money: revenue report defaults, free plans and V-Coin grants', async () =>
   assert.deepEqual(JSON.parse(calls[2].body), { plan_id: 'airbnb_pro', days: 30, reason: 'Launch partner' });
   assert.deepEqual(JSON.parse(calls[4].body), { amount: 250, reason: 'Outage' });
   assert.doesNotMatch(read('components', 'admin', 'ChartSections.tsx'), /\$\$\{/, 'amounts are in KES, not dollars');
+});
+
+test('hardening: two-step sign-in, admin management, paged users, reviews, verification and health', async () => {
+  const { calls, api } = withFetch([{ status: 401, body: { error: 'Enter the 6-digit code from your authenticator app', code_required: true } }]);
+  await assert.rejects(api.login('ada@varoom.co.ke', 'pw'), (error) => error.codeRequired === true && error.status === 401);
+  await api.login('ada@varoom.co.ke', 'pw', '123456');
+  await api.loadUsersPage('jane doe', 50);
+  await api.setupTwoStep();
+  await api.enableTwoStep('123456');
+  await api.disableTwoStep('654321');
+  await api.setAdminRole('a2', 'read_only');
+  await api.resetAdminTwoStep('a2');
+  await api.removeAdmin('a2');
+  await api.setListingReviewStatus('r1', 'removed', 'Spam');
+  await api.setHostVerified('h1', true, 'Deed checked');
+  await api.loadHealth();
+  assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), [
+    'POST /admin/login', 'POST /admin/login', 'GET /admin/users?q=jane%20doe&offset=50', 'POST /admin/me/totp/setup', 'POST /admin/me/totp/enable',
+    'POST /admin/me/totp/disable', 'PATCH /admin/admins/a2', 'POST /admin/admins/a2/totp/reset', 'DELETE /admin/admins/a2',
+    'PATCH /admin/listing-reviews/r1', 'POST /admin/users/h1/verified', 'GET /admin/health',
+  ]);
+  assert.deepEqual(JSON.parse(calls[0].body), { email: 'ada@varoom.co.ke', password: 'pw' });
+  assert.deepEqual(JSON.parse(calls[1].body), { email: 'ada@varoom.co.ke', password: 'pw', code: '123456' });
+  assert.deepEqual(JSON.parse(calls[10].body), { verified: true, reason: 'Deed checked' });
+  assert.doesNotMatch(read('components', 'admin', 'ChartSections.tsx'), /"Device"/, 'no made-up device column');
 });

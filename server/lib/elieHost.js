@@ -101,6 +101,7 @@ async function hostElieUsage(hostId, supabaseAdmin = supabaseDefault) {
 
 module.exports = {
   ELIE_HOST_ACTION_LIMIT,
+  chatbotApiUrl,
   PLANS_PATH,
   ElieHostDenied,
   ElieHostUnavailable,

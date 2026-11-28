@@ -1,13 +1,17 @@
 import React, { useState } from "react";
 import { Lock } from "lucide-react";
 
-export function LoginScreen({ onLogin, error }: { onLogin: (email: string, password: string) => void; error: string }) {
+/** Email and password; then, for an admin with two-step sign-in, the authenticator code. */
+export function LoginScreen({ onLogin, error, codeRequired }: {
+  onLogin: (email: string, password: string, code?: string) => void; error: string; codeRequired: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
-      <form className="w-full max-w-sm border border-[#E4E1DA] rounded-sm bg-white p-6" onSubmit={(event) => { event.preventDefault(); onLogin(email, password); }}>
+      <form className="w-full max-w-sm border border-[#E4E1DA] rounded-sm bg-white p-6" onSubmit={(event) => { event.preventDefault(); onLogin(email, password, codeRequired ? code : undefined); }}>
         <div className="flex items-center gap-2 mb-1">
           <Lock size={16} className="text-[#1F6F5C]" />
           <span className="text-sm text-[#24211E]">Varoom Admin</span>
@@ -30,6 +34,19 @@ export function LoginScreen({ onLogin, error }: { onLogin: (email: string, passw
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
         />
+        {codeRequired && <>
+          <label className="text-xs text-[#8a857c]">Code from your authenticator app</label>
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+            maxLength={6}
+            className="w-full mb-4 mt-1 border border-[#E4E1DA] rounded-sm p-2 text-sm tracking-widest focus:outline-none focus:border-[#1F6F5C]"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            placeholder="123456"
+          />
+        </>}
         <button
           type="submit"
           className="w-full py-2 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b]"

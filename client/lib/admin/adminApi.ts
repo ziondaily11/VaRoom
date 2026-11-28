@@ -4,10 +4,10 @@
 
 export type SectionKey =
   | 'overview' | 'signins' | 'revenue' | 'support' | 'reports' | 'users'
-  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules' | 'account';
+  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules' | 'account' | 'health';
 
 export interface Overview { signins: number; revenue: number; openTickets: number; newListings: number }
-export interface SigninRow { user: string; method: string; time: string; device: string }
+export interface SigninRow { user: string; method: string; time: string }
 export interface SigninPoint { day: string; signins: number }
 export interface RevenuePoint { day: string; revenue: number }
 export interface GrowthPoint { day: string; signups: number; listings: number }
@@ -162,9 +162,13 @@ export interface AdminUser {
   email: string;
   created_at?: string;
   last_sign_in_at: string | null;
+  provider?: string;
   profile: PersonRef | null;
   account: AccountControl;
 }
+
+/** A page of accounts and how many match in all. */
+export interface UserPage { users: AdminUser[]; total: number }
 
 /** A person another record points at (by id), with their name when they have a profile. */
 export interface Related { other: string | null; other_id: string }
@@ -212,6 +216,8 @@ export interface AccountOverview {
   actions: EnforcementAction[];
   notes: AdminNote[];
   activity: Array<{ id: string; action: string; reason: string | null; created_at: string; admin: { name?: string | null } | null }>;
+  /** The host's listing documents (ownership, policies, floor plans) an admin can open. */
+  documents: Array<{ id: string; listing_id: string; listing: string | null; document_type: string; original_filename: string; visibility: string; created_at: string }>;
 }
 
 export interface SearchResults {
@@ -253,7 +259,32 @@ export interface ActivityEntry {
 }
 
 export type AdminRole = 'support' | 'read_only' | 'super_admin';
-export interface Admin { id: string; name: string; email: string; role: string; lastLogin: string }
+export interface Admin { id: string; name: string; email: string; role: string; lastLogin: string; totp_enabled?: boolean }
+
+/** The signed-in admin. */
+export interface SessionAdmin { id: string; name: string; email: string; role: AdminRole; totp_enabled: boolean }
+
+/** A guest's review of a listing. */
+export interface ListingReview {
+  id: string; listing_id: string; listing: string | null; host_id: string; host: string | null; client_id: string; guest: string | null;
+  rating: number; comment: string; status: 'published' | 'removed' | 'pending'; created_at: string;
+}
+
+/** A list of problems one health check found (count in all, the latest few). */
+export interface HealthRows<T> { count?: number; recent?: T[]; error?: string }
+
+/** GET /admin/health (server/lib/adminHealth.js). */
+export interface HealthReport {
+  checked_at: string;
+  jobs: Array<{ name: string; every_ms: number; last_run_at: string | null; last_ok_at: string | null; last_error: string | null; last_error_at: string | null; state: 'ok' | 'failing' | 'late' | 'waiting' }>;
+  email: HealthRows<{ id: string; recipient: string; subject: string; provider_error: string | null; sent_at: string }>;
+  webhooks: HealthRows<{ id: string; event_type: string; processing_error: string | null; received_at: string }>;
+  stuckPlans: HealthRows<{ id: string; host_id: string; plan_id: string; status: string; current_period_end: string }>;
+  calendar: HealthRows<{ id: string; host_id: string; name: string | null; last_error: string; last_synced_at: string | null }>;
+  media: HealthRows<{ listing_id: string; status: string; attempts: number; last_error: string; updated_at: string }>;
+  services: Array<{ name: string; configured: boolean; ok: boolean; status?: number; ms?: number; error?: string }>;
+  config: { inboundEmail: boolean; outboundEmail: boolean; paystackWebhook: boolean; adminsWithoutTwoStep: Array<{ name: string; email: string; role: string }> };
+}
 export interface NewAdmin { name: string; email: string; role: AdminRole }
 
 export interface NewsEntry {
@@ -265,8 +296,8 @@ export interface NewsEntry {
 export async function adminRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...options });
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error((body && body.error) || 'Request failed');
+    const body = (await response.json().catch(() => null)) as { error?: string; code_required?: boolean } | null;
+    throw Object.assign(new Error((body && body.error) || 'Request failed'), { status: response.status, codeRequired: Boolean(body && body.code_required) });
   }
   return (response.status === 204 ? null : await response.json()) as T;
 }
@@ -288,8 +319,12 @@ export function createIdempotencyKey(): string {
 
 // ---------- Session ----------
 
-export const loadSession = () => adminRequest<{ admin: unknown }>('/admin/session');
-export const login = (email: string, password: string) => adminRequest<{ admin: unknown }>('/admin/login', json('POST', { email, password }));
+/** A failed request: the server's status, and whether sign-in needs an authenticator code next. */
+export type AdminRequestError = Error & { status?: number; codeRequired?: boolean };
+
+export const loadSession = () => adminRequest<{ admin: SessionAdmin }>('/admin/session');
+export const login = (email: string, password: string, code?: string) =>
+  adminRequest<{ admin: SessionAdmin }>('/admin/login', json('POST', code ? { email, password, code } : { email, password }));
 export const logout = () => adminRequest<null>('/admin/logout', { method: 'POST' });
 
 // ---------- Reads ----------
@@ -308,7 +343,12 @@ export const loadVaroomReviews = () => rows<VaroomReviewRow>('/admin/varoom-revi
 export const loadAccountDeletions = () => rows<AccountDeletion>('/admin/account-deletions');
 export const loadGrowth = () => adminRequest<{ series?: GrowthPoint[] }>('/admin/growth?range=14').then((result) => result.series || []);
 export const loadAdmins = () => rows<Admin>('/admin/admins');
-export const loadUsers = () => rows<AdminUser>('/admin/users');
+export const loadUsersPage = (q: string, offset: number) =>
+  adminRequest<{ data?: AdminUser[]; total?: number }>(`/admin/users?q=${encodeURIComponent(q)}&offset=${offset}`)
+    .then((result): UserPage => ({ users: result.data || [], total: result.total || 0 }));
+export const loadUsers = () => loadUsersPage('', 0);
+export const loadHealth = () => adminRequest<HealthReport>('/admin/health');
+export const loadListingReviews = () => rows<ListingReview>('/admin/listing-reviews');
 export const loadListings = () => rows<AdminListing>('/admin/listings');
 export const loadUpdates = () => rows<VaroomUpdate>('/admin/updates');
 export const loadActivity = () => rows<ActivityEntry>('/admin/activity');
@@ -348,6 +388,16 @@ export const giveFreePlan = (userId: string, planId: string, days: number, reaso
 export const endFreePlan = (userId: string, reason: string) => adminRequest<{ ended: boolean }>(`/admin/users/${userId}/free-plan/end`, json('POST', { reason }));
 export const grantVcoins = (userId: string, amount: number, reason: string) =>
   adminRequest<{ granted: number }>(`/admin/users/${userId}/vcoins`, json('POST', { amount, reason }));
+export const setListingReviewStatus = (id: string, status: 'published' | 'removed', reason: string) =>
+  adminRequest<{ review: Pick<ListingReview, 'id' | 'status'> }>(`/admin/listing-reviews/${id}`, json('PATCH', { status, reason }));
+export const setHostVerified = (userId: string, verified: boolean, reason: string) =>
+  adminRequest<{ verified: boolean }>(`/admin/users/${userId}/verified`, json('POST', { verified, reason }));
+export const setAdminRole = (id: string, role: AdminRole) => adminRequest<{ admin: Omit<Admin, 'lastLogin'> }>(`/admin/admins/${id}`, json('PATCH', { role }));
+export const removeAdmin = (id: string) => adminRequest<null>(`/admin/admins/${id}`, { method: 'DELETE' });
+export const resetAdminTwoStep = (id: string) => adminRequest<{ reset: boolean }>(`/admin/admins/${id}/totp/reset`, json('POST', {}));
+export const setupTwoStep = () => adminRequest<{ secret: string; uri: string }>('/admin/me/totp/setup', json('POST', {}));
+export const enableTwoStep = (code: string) => adminRequest<{ enabled: boolean }>('/admin/me/totp/enable', json('POST', { code }));
+export const disableTwoStep = (code: string) => adminRequest<{ enabled: boolean }>('/admin/me/totp/disable', json('POST', { code }));
 export const addNote = (userId: string, body: string) => adminRequest<{ note: AdminNote }>(`/admin/users/${userId}/notes`, json('POST', { body }));
 /** Resolves a report and acts on it in one step (the server marks it actioned). */
 export const actOnListingReport = (id: string, action: ListingReportAction, reason: string) =>

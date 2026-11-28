@@ -30,7 +30,7 @@ test('unanswered requests expire after 48 hours, on the server', async () => {
   await assert.rejects(expireStaleRequests({ from: () => failing }), /down/);
 
   const server = read('server.js');
-  assert.match(server, /setInterval\(expireStaleBookingRequestsNow, BOOKING_EXPIRY_INTERVAL_MS\)\.unref\(\);/);
+  assert.match(server, /scheduleJob\('Booking request expiry', \{ first: 90 \* 1000, every: 60 \* 60 \* 1000 \}/);
 });
 
 test('listing booking rules: instant book, notice, booking window and maximum stay are validated', () => {

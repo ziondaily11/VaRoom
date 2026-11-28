@@ -30,7 +30,7 @@ test('reminders: tomorrow\'s in the evening (Nairobi time), lease ends any time,
   assert.equal(partial, 1);
   await assert.rejects(sendCalendarReminders({ rpc: async () => ({ data: null, error: new Error('rpc down') }) }), /rpc down/);
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(server, /setInterval\(sendCalendarRemindersNow, REMINDER_INTERVAL_MS\)\.unref\(\);/);
+  assert.match(server, /scheduleJob\('Calendar reminders', \{ first: 3 \* 60 \* 1000, every: REMINDER_INTERVAL_MS \},/);
 });
 
 test('migration 000094: viewings, planner data, reminders (server only), reminder setting, occupancy from the calendar', () => {

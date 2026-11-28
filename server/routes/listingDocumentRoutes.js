@@ -7,6 +7,7 @@ const { actAsHost } = require('../lib/team');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { assertAllowedKeys, enumValue, number, text, uuid, ValidationError } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
+const { signedDocumentUrl } = require('../lib/listingDocumentAccess');
 
 const router = express.Router();
 const MAX_DOCUMENT_SIZE = 15 * 1024 * 1024;
@@ -69,17 +70,7 @@ function documentTypeMatchesCategory(documentType, category) {
   return false;
 }
 
-function filenameForHeader(filename) {
-  const original = String(filename || 'listing-document').replace(/[\r\n]/g, '_').slice(0, 180);
-  const safe = original.replace(/[^\x20-\x7E]|["\\]/g, '_');
-  return `attachment; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(original)}`;
-}
 
-function inlineFilenameForHeader(filename) {
-  const original = String(filename || 'listing-document').replace(/[\r\n]/g, '_').slice(0, 180);
-  const safe = original.replace(/[^\x20-\x7E]|["\\]/g, '_');
-  return `inline; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(original)}`;
-}
 
 async function getOwnedDocument(id, hostId) {
   const { data, error } = await supabaseAdmin.from('listing_documents')
@@ -280,24 +271,11 @@ router.get('/listings/:listingId/documents', async (req, res) => {
     const { data, error } = await query.order('created_at', { ascending: true });
     if (error) throw error;
     res.set('Cache-Control', 'private, no-store');
-    const documents = await Promise.all((data || []).filter((item) => documentTypeMatchesCategory(item.document_type, listing.category)).map(async (item) => {
-      let downloadUrl;
-      if (item.storage_provider === 'supabase') {
-        const { data: signed, error: signError } = await supabaseAdmin.storage.from(item.storage_bucket)
-          .createSignedUrl(item.storage_key, 300, { download: item.original_filename });
-        if (signError || !signed?.signedUrl) throw signError || new Error('Unable to sign the legacy document');
-        downloadUrl = signed.signedUrl;
-      } else {
-        downloadUrl = (await mediaStorageService.generateR2DownloadAuthorization(
-          item.storage_key, item.mime_type, 300, filenameForHeader(item.original_filename),
-        )).url;
-      }
-      return {
-        id: item.id, documentType: item.document_type, filename: item.original_filename,
-        mimeType: item.mime_type, fileSize: item.file_size_bytes === null ? null : Number(item.file_size_bytes),
-        downloadUrl,
-      };
-    }));
+    const documents = await Promise.all((data || []).filter((item) => documentTypeMatchesCategory(item.document_type, listing.category)).map(async (item) => ({
+      id: item.id, documentType: item.document_type, filename: item.original_filename,
+      mimeType: item.mime_type, fileSize: item.file_size_bytes === null ? null : Number(item.file_size_bytes),
+      downloadUrl: await signedDocumentUrl(item),
+    })));
     return res.json({ documents });
   } catch (error) {
     console.error('Listing document lookup failed:', error.message);
@@ -331,16 +309,7 @@ router.get('/listing-documents/:id/preview', async (req, res) => {
     res.set('Cache-Control', 'private, no-store');
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'no-referrer');
-    if (document.storage_provider === 'supabase') {
-      const { data: signed, error: signError } = await supabaseAdmin.storage.from(document.storage_bucket)
-        .createSignedUrl(document.storage_key, 300);
-      if (signError || !signed?.signedUrl) throw signError || new Error('Unable to sign the document preview');
-      return res.redirect(302, signed.signedUrl);
-    }
-    const preview = await mediaStorageService.generateR2DownloadAuthorization(
-      document.storage_key, document.mime_type, 300, inlineFilenameForHeader(document.original_filename),
-    );
-    return res.redirect(302, preview.url);
+    return res.redirect(302, await signedDocumentUrl(document, { inline: true }));
   } catch (error) {
     console.error('Listing document preview authorization failed:', error.message);
     return unavailable(404);
@@ -367,16 +336,7 @@ router.get('/listing-documents/:id/download', async (req, res) => {
     if (!documentTypeMatchesCategory(document.document_type, listing.category)) return res.sendStatus(404);
     res.set('Cache-Control', 'private, no-store');
     res.set('X-Content-Type-Options', 'nosniff');
-    if (document.storage_provider === 'supabase') {
-      const { data: signed, error: signError } = await supabaseAdmin.storage.from(document.storage_bucket)
-        .createSignedUrl(document.storage_key, 300, { download: document.original_filename });
-      if (signError || !signed?.signedUrl) throw signError || new Error('Unable to sign the legacy document');
-      return res.redirect(302, signed.signedUrl);
-    }
-    const download = await mediaStorageService.generateR2DownloadAuthorization(
-      document.storage_key, document.mime_type, 300, filenameForHeader(document.original_filename),
-    );
-    return res.redirect(302, download.url);
+    return res.redirect(302, await signedDocumentUrl(document));
   } catch (error) {
     console.error('Listing document download authorization failed:', error.message);
     return res.sendStatus(404);

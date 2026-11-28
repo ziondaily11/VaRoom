@@ -123,7 +123,7 @@ test('"Sync now": signed in, the host\'s own link (or as a manager), at most eve
     server.close();
   }
   const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(serverJs, /setInterval\(syncCalendarLinksNow, SYNC_INTERVAL_MS\)\.unref\(\);/);
+  assert.match(serverJs, /scheduleJob\('Calendar links', \{ first: 2 \* 60 \* 1000, every: SYNC_INTERVAL_MS \},/);
   assert.match(serverJs, /app\.use\('\/api', createCalendarSyncRoutes\(\)\);/);
 });
 

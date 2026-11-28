@@ -141,6 +141,6 @@ test('the rules are wired where their events happen', () => {
   const server = read('server.js');
   assert.match(server, /void enforcement\.checkListingReports\(supabaseAdmin, data\.listing_id\)/);
   assert.match(server, /enforcement\.checkExpiredRequests\(supabaseAdmin, expired\.map\(\(row\) => row\.host_id\)\)/);
-  assert.match(server, /setInterval\(liftEndedSuspensionsNow, 10 \* 60 \* 1000\)/);
+  assert.match(server, /scheduleJob\('Ended suspensions', \{ first: 75 \* 1000, every: 10 \* 60 \* 1000 \},/);
   assert.match(read('routes/adminRoutes.js'), /enforcement\.applyAction\(supabaseAdmin, \{/);
 });
