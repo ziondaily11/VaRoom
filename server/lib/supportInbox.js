@@ -241,18 +241,23 @@ async function handleReceived(admin, event, { fetchEmail, send = sendEmail }) {
   return { ticketId: ticket.id, reply: false };
 }
 
-/** Tickets answered by an admin with no word back for 7 days are closed (an email reopens them). */
+/**
+ * Tickets whose last message is an admin reply that reached the person 7
+ * or more days ago, with no word back, are closed (an email reopens them).
+ * A reply that failed to send never counts: the person has not been answered.
+ */
 async function closeStaleTickets(admin, now = Date.now()) {
+  const cutoff = new Date(now - AUTO_CLOSE_DAYS * 24 * HOUR_MS).toISOString();
   const { data, error } = await admin.from('support_tickets').select('id').in('status', ['open', 'in_progress'])
-    .lt('updated_at', new Date(now - AUTO_CLOSE_DAYS * 24 * HOUR_MS).toISOString()).limit(200);
+    .lt('updated_at', cutoff).limit(200);
   if (error) throw error;
   let closed = 0;
   for (const { id } of data || []) {
-    const { data: latest, error: latestError } = await admin.from('support_ticket_replies').select('direction,automatic')
+    const { data: latest, error: latestError } = await admin.from('support_ticket_replies').select('direction,automatic,delivery_status,sent_at')
       .eq('ticket_id', id).order('sent_at', { ascending: false }).limit(1);
     if (latestError) throw latestError;
     const last = latest && latest[0];
-    if (!last || last.direction !== 'outbound' || last.automatic) continue;
+    if (!last || last.direction !== 'outbound' || last.automatic || last.delivery_status !== 'sent' || !(last.sent_at < cutoff)) continue;
     const { error: closeError } = await admin.from('support_tickets').update({ status: 'closed' }).eq('id', id);
     if (closeError) throw closeError;
     await admin.from('admin_activity').insert({ admin_id: null, action: 'support_ticket_auto_closed', target_type: 'support_ticket', target_id: id, reason: `No reply for ${AUTO_CLOSE_DAYS} days`, metadata: {} });

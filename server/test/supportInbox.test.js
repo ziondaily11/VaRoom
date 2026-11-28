@@ -106,15 +106,21 @@ test('auto-replies, bounces and VaRoom’s own mail never open tickets', async (
 test('tickets answered with no word back for 7 days close; ones waiting on Support stay open', async () => {
   const old = new Date(Date.now() - 8 * 86400000).toISOString();
   const db = fakeSupabase({
-    support_tickets: [{ id: 'T1', status: 'in_progress', updated_at: old }, { id: 'T2', status: 'open', updated_at: old }, { id: 'T3', status: 'open', updated_at: old }],
+    support_tickets: [
+      { id: 'T1', status: 'in_progress', updated_at: old }, { id: 'T2', status: 'open', updated_at: old }, { id: 'T3', status: 'open', updated_at: old },
+      { id: 'T4', status: 'open', updated_at: old }, { id: 'T5', status: 'open', updated_at: old },
+    ],
     support_ticket_replies: [
-      { ticket_id: 'T1', direction: 'outbound', automatic: false, sent_at: old },
-      { ticket_id: 'T2', direction: 'inbound', automatic: false, sent_at: old },
-      { ticket_id: 'T3', direction: 'outbound', automatic: true, sent_at: old },
+      { ticket_id: 'T1', direction: 'outbound', automatic: false, delivery_status: 'sent', sent_at: old },
+      { ticket_id: 'T2', direction: 'inbound', automatic: false, delivery_status: 'received', sent_at: old },
+      { ticket_id: 'T3', direction: 'outbound', automatic: true, delivery_status: 'sent', sent_at: old },
+      { ticket_id: 'T4', direction: 'outbound', automatic: false, delivery_status: 'failed', sent_at: old },
+      { ticket_id: 'T5', direction: 'outbound', automatic: false, delivery_status: 'sent', sent_at: new Date().toISOString() },
     ],
   });
   assert.equal(await inbox.closeStaleTickets(db), 1);
-  assert.deepEqual(db.tables.support_tickets.map((t) => t.status), ['closed', 'open', 'open']);
+  assert.deepEqual(db.tables.support_tickets.map((t) => t.status), ['closed', 'open', 'open', 'open', 'open'],
+    'an undelivered reply, or one sent today on an old ticket, never closes it');
   assert.equal(db.tables.admin_activity[0].action, 'support_ticket_auto_closed');
 });
 
