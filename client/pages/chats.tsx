@@ -51,7 +51,7 @@ import {
 } from '../lib/chat/inbox';
 import {
   alreadyShown, appendUnseen, bubbleStatus, canActOnMessage as canActOnThreadMessage, chatLayoutClasses, chatSettingsHref,
-  endsTyping, farFromLatest, followConversationScreen, headerStatus, lastMessage, LONG_PRESS_MS, messageContextMenu,
+  endsTyping, farFromLatest, headerStatus, lastMessage, LONG_PRESS_MS, messageContextMenu,
   messageRowClass, messagesUrl, movedTooFar, newerMessagesUrl, postChatReport, railClick, railItems, runServerMessageAction,
   shouldAnnounceTyping, showsLoadError, showsTypingFrom, typingEnabled, TYPING_SHOW_MS, unseenMessages, uploadFailed,
   uploadSending,
@@ -741,12 +741,6 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [mobileAttachMenuOpen]);
 
-  // The app's bottom navigation (phones and small tablets, up to 860px) shows
-  // with the inbox only, never over a conversation's composer. Up to 760px the
-  // inbox and a conversation are separate screens; from 761px they sit side by
-  // side, so it hides whenever a conversation is open. Rechecked on rotation.
-  useEffect(() => followConversationScreen(window, document.body, mobileView, activeId), [mobileView, activeId]);
-  useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
 
   // Search placeholder as legacy: "Search" on desktop.
   useEffect(() => {
@@ -2467,8 +2461,6 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   );
 }
 
-// The app's mobile navigation shows on the inbox (legacy loaded it on Chats).
-(ChatsPage as unknown as { appNavigation: boolean }).appNavigation = true;
 ChatsPage.phoneMenu = true;
 
 // Preserve self-contained full-screen dashboard app shell outside ClientLayout and HostLayout

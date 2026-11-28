@@ -62,5 +62,3 @@ export default function MapPage() {
   );
 }
 
-// The app's mobile navigation shows here, as it did on the legacy page.
-(MapPage as unknown as { appNavigation: boolean }).appNavigation = true;

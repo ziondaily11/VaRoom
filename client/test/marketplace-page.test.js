@@ -179,7 +179,7 @@ test('page: wording; the shared shell sidebar; the shared shell sidebar; the hid
     assert.ok(page.includes(text), text);
   }
   assert.match(page, /router\.push\(userId \? target : loginUrl\(target\)\)/, 'visitors sign in first, then return to the listing (with its trail)');
-  assert.match(page, /\.appNavigation = true;/);
+  assert.match(page, /<div className="mkt-heading"><MenuButton \/><h1>Marketplace<\/h1><\/div>/, 'phones: the hamburger opens the sidebar');
   assert.doesNotMatch(page, /price-min|verified-only|filters-reset/);
   assert.equal(fs.existsSync(path.join(root, 'components', 'marketplace', 'MarketplaceNav.tsx')), false, 'the role sidebar comes from the shared shell');
   assert.doesNotMatch(page, /desktop-sidebar|RoleSidebarLinks|MarketplaceBottomNav/);

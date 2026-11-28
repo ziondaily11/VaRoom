@@ -5,7 +5,6 @@ import Head from 'next/head';
 import Router, { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import AppShell from '../components/shell/AppShell';
-import MobileNav from '../components/shell/MobileNav';
 import LazyPhoneDrawer from '../components/shell/LazyPhoneDrawer';
 import { SidebarDrawerProvider } from '../components/shell/SidebarDrawer';
 import LocationCardHost from '../components/maps/LocationCard';
@@ -425,8 +424,6 @@ const fontSizeScript = `
 type AppPage = NextPage & {
   /** Replaces the account shell (full-screen pages, or a fixed shell variant). */
   getLayout?: (page: ReactElement) => ReactNode;
-  /** Full-screen pages outside the shell that still show the role mobile navigation. */
-  appNavigation?: boolean;
   /** Full-screen pages outside the shell whose phone hamburger opens the sidebar drawer. */
   phoneMenu?: boolean;
 };
@@ -459,7 +456,6 @@ function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps
   return (
     <>
       {layout}
-      <MobileNav enabled={isShellRoute || Boolean(Component.appNavigation)} />
       {Component.phoneMenu && <LazyPhoneDrawer />}
       {/* "View on Map" opens the location over the current page (?map=…). */}
       <LocationCardHost />

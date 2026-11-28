@@ -19,12 +19,12 @@ const { getAccountLayout } = loadTs(path.join(root, 'lib', 'accountRoleLayout.ts
 const thread = loadTs(path.join(root, 'lib', 'chat', 'thread.ts'));
 const inbox = loadTs(path.join(root, 'lib', 'chat', 'inbox.ts'));
 
-test('Chats is a native React page with its own full-screen shell and the app navigation', () => {
+test('Chats is a native React page with its own full-screen shell and the phone menu', () => {
   const { html, page } = renderChatsPage();
   assert.equal(typeof page.default, 'function');
   const element = { marker: true };
   assert.equal(page.default.getLayout(element), element, 'outside ClientLayout and HostLayout');
-  assert.equal(page.default.appNavigation, true, 'the mobile navigation shows on the inbox');
+  assert.equal(page.default.phoneMenu, true, 'the inbox hamburger opens the sidebar drawer');
   assert.match(html, /<title>Messenger Dashboard<\/title>/);
   assert.match(html, /<div class="app-shell view-inbox" style="--bubble-out-l:/);
   assert.match(html, /<nav class="icon-rail" id="chatRoleNavigation" data-role="client" aria-label="Client navigation">/);
@@ -192,29 +192,6 @@ test('message rows: classes by side and state', () => {
   assert.match(source, /onTouchStart=\{actionable \? \(e\) => onMessageTouchStart\(e, m\) : undefined\}/);
 });
 
-test('the bottom navigation shows with the inbox only, rechecked on rotation and released on leaving', () => {
-  assert.equal(thread.conversationShowing(true, 'inbox', 'c1'), false, 'phones: the inbox screen');
-  assert.equal(thread.conversationShowing(true, 'conversation', 'c1'), true);
-  assert.equal(thread.conversationShowing(true, 'info', 'c1'), true);
-  assert.equal(thread.conversationShowing(false, 'inbox', 'c1'), true, '761–860px: side by side, a conversation is open');
-  assert.equal(thread.conversationShowing(false, 'inbox', null), false);
-
-  const listeners = [];
-  const media = { matches: true, addEventListener: (type, fn) => listeners.push([type, fn]), removeEventListener: (type, fn) => listeners.splice(listeners.findIndex((l) => l[1] === fn), 1) };
-  const classes = new Set();
-  const body = { classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) } };
-  const stop = thread.followConversationScreen({ matchMedia: (query) => { assert.equal(query, '(max-width: 760px)'); return media; } }, body, 'conversation', 'c1');
-  assert.ok(classes.has('chat-page-context'));
-  media.matches = false;
-  listeners[0][1]();
-  assert.ok(classes.has('chat-page-context'), 'rotated wider: still open beside the inbox');
-  stop();
-  assert.equal(listeners.length, 0);
-  const source = read('pages', 'chats.tsx');
-  assert.match(source, /useEffect\(\(\) => followConversationScreen\(window, document\.body, mobileView, activeId\), \[mobileView, activeId\]\);/);
-  assert.match(source, /useEffect\(\(\) => \(\) => document\.body\.classList\.remove\('chat-page-context'\), \[\]\);/);
-});
-
 test('inbox previews are plain text; the media preview sits in the chat column; the composer is opaque', () => {
   const preview = inbox.conversationPreview;
   assert.equal(preview(null), '');
@@ -236,10 +213,9 @@ test('inbox previews are plain text; the media preview sits in the chat column; 
   assert.match(css, /\[data-theme="dark"\]\s+\.chat-input-area\s*\{[\s\S]*?background/);
 });
 
-test('the bottom navigation never covers a conversation: CSS hides it after the chat page as well as the body class', () => {
+test('no bottom navigation in Chats: no hiding rules, body class or contact-list room for it', () => {
   const css = read('public', 'js', 'chats.css');
-  assert.match(css, /@media \(max-width:760px\)\{\s*\.app-shell\.view-chat ~ \.varoom-mobile-nav,\s*\.app-shell\.view-info ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
-  assert.match(css, /@media \(min-width:761px\) and \(max-width:860px\)\{\s*\.app-shell\.has-conversation ~ \.varoom-mobile-nav\{ display:none !important; \}\s*\}/);
-  assert.match(renderChatsPage({ initialConversationId: 'c1' }).html, /<div class="app-shell view-inbox has-conversation"/);
-  assert.match(read('pages', '_app.tsx'), /\{layout\}\s*<MobileNav enabled=/, 'the navigation follows the page, so the sibling rule reaches it');
+  assert.doesNotMatch(css, /varoom-mobile-nav|5\.1rem/);
+  assert.doesNotMatch(read('pages', 'chats.tsx'), /chat-page-context|followConversationScreen/);
+  assert.doesNotMatch(read('lib', 'chat', 'thread.ts'), /conversationShowing|chat-page-context/);
 });

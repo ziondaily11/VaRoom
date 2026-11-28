@@ -133,7 +133,7 @@ test('page: native, identity from AuthProvider, listing cached per account, the 
   assert.match(page, /useAuth\(\)/);
   assert.doesNotMatch(page, /auth\.getSession|from\('profiles'\)\.select\('role/, 'no session or profile requests of its own');
   assert.match(page, /peekListingBundle\(userId, listingId\)/);
-  assert.match(page, /\.appNavigation = true/);
+  assert.doesNotMatch(page, /appNavigation|MenuButton/, 'a detail screen: back arrow only, no bottom bar');
   assert.match(read('lib', 'booking', 'bookingListing.ts'), /userScoped: true/);
   for (const file of ['legacy-pages/booking.html', 'public/js/booking-policy.js']) assert.equal(fs.existsSync(path.join(root, file)), false, file);
   assert.match(read('next.config.js'), /source: '\/booking\.html',\s*destination: '\/booking'/);

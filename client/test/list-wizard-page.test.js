@@ -311,7 +311,7 @@ test('wizard look: the app sidebar, one progress bar, messages in the page, scop
   assert.match(styles, /#listing-page\.nav-forward \.step-frame\.active \.step-panel > :not\(\.panel-actions\)\{ animation:lw-from-right/);
   assert.match(styles, /#listing-page\.nav-back \.step-frame\.active \.step-panel > :not\(\.panel-actions\)\{ animation:lw-from-left/);
   assert.match(styles, /\.step-panel\{ position:relative; min-width:0; min-height:0; overflow-y:auto;/, 'the form scrolls inside the card, buttons kept in view');
-  assert.match(styles, /\.panel-actions\{ position:fixed; z-index:20; left:0; right:0; bottom:calc\(4\.6rem/, 'on phones the buttons sit above the bottom bar');
+  assert.match(styles, /\.panel-actions\{ position:fixed; z-index:20; left:0; right:0; bottom:0;/, 'on phones the buttons sit at the bottom of the screen');
   assert.match(styles, /\.wz-progress-fill::after\{[^}]*transition:transform var\(--motion-standard,250ms\) var\(--ease-in-out/);
   assert.match(styles, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*animation-duration:1ms !important/);
   const copy = fs.readFileSync(path.join(root, 'lib', 'listWizard', 'copy.ts'), 'utf8');

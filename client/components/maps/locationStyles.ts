@@ -104,7 +104,7 @@ export const LOCATION_CARD_STYLES = `
   @keyframes vr-loc-card-in { from { opacity:0; transform:scale(.95); } }
   @keyframes vr-loc-card-out { to { opacity:0; transform:scale(.95); } }
 
-  /* Phones: a sheet from the bottom, above the app's bottom bar. */
+  /* Phones: a sheet from the bottom. */
   @media (max-width: 640px) {
     .vr-loc-card { inset:auto 0 0 0; margin:0; width:100%; height:calc(100dvh - 56px); border-radius:22px 22px 0 0; animation-name:vr-loc-sheet-in; }
     .vr-loc-layer.is-closing .vr-loc-card { animation-name:vr-loc-sheet-out; }

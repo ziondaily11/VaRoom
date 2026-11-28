@@ -104,9 +104,8 @@ test('rail: Home, Messages, Calendar (Analytics for hosts) with unread badges fo
   assert.match(read('public', 'js', 'chats.css'), /\.varoom-count-badge\{position:absolute/);
 });
 
-test('phones: the app navigation shows on the inbox and hides inside a conversation; identity opens information by keyboard too', () => {
-  assert.equal(thread.conversationShowing(true, 'conversation', 'c1'), true);
-  assert.equal(loadChats('pages/chats.tsx').default.appNavigation, true);
+test('phones: the inbox brings the sidebar drawer; identity opens information by keyboard too', () => {
+  assert.equal(loadChats('pages/chats.tsx').default.phoneMenu, true);
   assert.match(renderChatsPage({ initialConversationId: 'c1' }).html, /<div class="chat-header-identity" role="button" tabindex="0" aria-label="Open conversation information">/);
   assert.match(source, /\(e\.key === 'Enter' \|\| e\.key === ' '\) && window\.matchMedia/);
 });

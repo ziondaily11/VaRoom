@@ -1531,7 +1531,7 @@
   .feedArea {
     width: 100%;
     height: auto;
-    padding: 0.75rem 0.7rem 5.5rem;
+    padding: 0.75rem 0.7rem 1.5rem;
     overflow: visible;
   }
 
@@ -1588,10 +1588,6 @@
 
   .lightboxNav.next {
     right: 0.5rem;
-  }
-
-  .toast {
-    bottom: 5rem;
   }
 }
 

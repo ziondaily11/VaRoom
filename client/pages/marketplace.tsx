@@ -433,5 +433,3 @@ export default function MarketplacePage() {
   );
 }
 
-// The app's mobile navigation shows here, as it did on the legacy page.
-(MarketplacePage as unknown as { appNavigation: boolean }).appNavigation = true;

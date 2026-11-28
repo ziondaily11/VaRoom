@@ -144,5 +144,3 @@ export default function BookingApprovedPage() {
   );
 }
 
-// The app's mobile navigation shows here (MobileNav treats it as Bookings).
-(BookingApprovedPage as unknown as { appNavigation: boolean }).appNavigation = true;

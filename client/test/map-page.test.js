@@ -118,13 +118,13 @@ test('the Maps SDK loads once, only with a configured key', async () => {
 
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 
-test('page: only the map (no Get Directions); Back uses history; mobile navigation', () => {
+test('page: only the map (no Get Directions); Back uses history; no bottom bar', () => {
   assert.match(page, /← Back/);
   assert.match(page, /<LocationPanel target=\{mounted && router\.isReady \? target : undefined\}/);
   assert.doesNotMatch(page, /Get Directions|directions|sheet|Map integration in progress|fonts\.googleapis/);
   assert.match(page, /if \(window\.history\.length > 1\) router\.back\(\);/);
-  assert.match(page, /\.appNavigation = true;/);
-  assert.match(read('components', 'maps', 'mapStyles.ts'), /body\.has-varoom-mobile-nav \.map-page \.map-stage \{ margin-bottom:/);
+  assert.doesNotMatch(page, /appNavigation|MenuButton/, 'a detail screen: Back only');
+  assert.doesNotMatch(read('components', 'maps', 'mapStyles.ts'), /has-varoom-mobile-nav/, 'the map reaches the bottom edge');
   assert.match(read('lib', 'maps', 'maps.ts'), /This location is shared only with the guest and host of this booking\./);
 });
 

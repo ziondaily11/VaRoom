@@ -568,16 +568,6 @@
   .pinned-message[hidden]{ display:none; }
   .pinned-message .icon{ flex-shrink:0; color:var(--mint-dark); }
   .pinned-message[role="button"]{ cursor:pointer; }
-  /* The app's bottom navigation (rendered right after Chats, up to 860px) shows
-     with the inbox only, never over a conversation's composer; this holds
-     even before the page's script runs (pages/chats.tsx also marks the body). */
-  @media (max-width:760px){
-    .app-shell.view-chat ~ .varoom-mobile-nav,
-    .app-shell.view-info ~ .varoom-mobile-nav{ display:none !important; }
-  }
-  @media (min-width:761px) and (max-width:860px){
-    .app-shell.has-conversation ~ .varoom-mobile-nav{ display:none !important; }
-  }
   /* Elie's saved draft (Chat Settings → Elie), offered above the composer. */
   .composer-elie-draft{ display:flex; align-items:center; gap:10px; margin:0 0 10px; padding:8px 10px; border:1px solid var(--border); border-left:2px solid var(--mint-dark); border-radius:10px; font-size:.8125rem; color:var(--text-gray-2); }
   .composer-elie-draft span{ flex:1; min-width:0; }
@@ -1628,7 +1618,7 @@
     .search-box input,.search-box input::placeholder{ color:var(--text-dark); }
     .search-box input::placeholder{ color:var(--text-gray); }
     .compose-btn{ width:40px; height:40px; border-radius:50%; background:var(--mint); border-color:var(--mint); color:var(--rail-bg); }
-    .contact-list{ padding:0 10px calc(16px + 5.1rem); background:var(--va-light); }
+    .contact-list{ padding:0 10px calc(16px + env(safe-area-inset-bottom)); background:var(--va-light); }
     .inbox-empty-state{ padding:44px 22px; }
     .messages.empty-state{ padding:28px 20px; }
     .contact-item{ min-height:74px; padding:12px 10px; border-bottom:0; border-radius:0; }

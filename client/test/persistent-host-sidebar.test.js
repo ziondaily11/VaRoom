@@ -9,7 +9,6 @@ const { getAccountLayout, getSessionBoundCachedRole, usesIconRail } = loadTs(pat
 const { shellFrame, shellState, isShellSettled } = loadTs(path.join(clientDir, 'lib', 'shell', 'appShell.ts'));
 const { hostActiveNav, clientActiveNav, HOST_MORE_ITEMS } = loadTs(path.join(clientDir, 'lib', 'navigation', 'activeNav.ts'));
 const identity = loadTs(path.join(clientDir, 'lib', 'shell', 'shellIdentity.ts'));
-const mobileNav = loadTs(path.join(clientDir, 'lib', 'navigation', 'mobileNav.ts'));
 const shellCss = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
 
 test('the shell frame: host and client classes and content ids; pending adds no layout', () => {
@@ -98,7 +97,7 @@ test('_app.tsx wraps designated account routes with the persistent AppShell', ()
   assert.match(appCode, /getAccountLayout\(path, asPath, shownRole\)/, 'Uses the tested role-aware route selector');
   assert.match(appCode, /const shownRole: ShellRole = role \|\| \(status === 'signed-out' \? null : homeShellHint\(path\)\);/, 'Home routes draw their shell while the role loads, never for signed-out visitors');
   assert.match(appCode, /<AppShell variant=\{accountLayout === 'none' \? null : accountLayout\} rail=\{usesIconRail\(path, asPath\)\}>\{pageElement\}<\/AppShell>/, 'Mounts AppShell, pending until the role is known; the rail is only a prop');
-  assert.match(appCode, /<MobileNav enabled=\{isShellRoute \|\| Boolean\(Component\.appNavigation\)\} \/>/, 'One persistent mobile navigation');
+  assert.doesNotMatch(appCode, /MobileNav|appNavigation/, 'no bottom navigation: phones open the sidebar from the menu button on each page');
   assert.match(appCode, /const role: ShellRole = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
   assert.match(appCode, /<AuthProvider>/, 'AuthProvider owns the session for every page');
   assert.doesNotMatch(appCode, /varoom_role_change|attributeFilter/, 'Page-level role hints no longer trigger profile re-queries');
@@ -260,27 +259,8 @@ test('Video player treats pause-interrupted play requests separately from playba
   assert.match(playerCode, /console\.warn\('Video playback was blocked or failed:', error\)/);
 });
 
-test('one mobile navigation: client items have no host tools and Client Home keeps its own bar', () => {
-  assert.deepEqual(mobileNav.CLIENT_MOBILE_ITEMS.map((item) => item.href), ['/client-home', '/marketplace', '/chats', '/bookings', '/notifications']);
-  assert.deepEqual(mobileNav.HOST_MOBILE_ITEMS.map((item) => [item.key, item.href]), [['home', '/host-home'], ['marketplace', '/marketplace'], ['create', '/list'], ['chats', '/chats'], ['bookings', '/bookings']]);
-  for (const route of ['/booking', '/chat-settings', '/pricing']) assert.equal(mobileNav.hidesMobileNav(route), true, route);
-  assert.equal(mobileNav.hidesMobileNav('/client-home'), false, 'Client Home uses the shared bar');
-  for (const route of ['/list', '/properties']) assert.equal(mobileNav.hidesMobileNav(route), false, `${route}: the bar is the way back on phones`);
-  assert.equal(mobileNav.hidesMobileNav('/bookings'), false);
-  assert.equal(mobileNav.showsMobileNav(true, 'host', true, '/bookings'), true);
-  assert.equal(mobileNav.showsMobileNav(true, 'client', true, '/client-home'), true, 'Client Home shows the shared bar');
-  assert.equal(mobileNav.showsMobileNav(true, 'client', false, '/bookings'), false, 'not during onboarding');
-  assert.equal(mobileNav.showsMobileNav(true, null, true, '/bookings'), false, 'not signed out');
-  assert.equal(mobileNav.showsMobileNav(false, 'host', true, '/bookings'), false, 'not outside app pages');
-  assert.equal(mobileNav.mobileNavPath('/bookings?tab=past#top'), '/bookings');
-  assert.equal(mobileNav.mobileNavPath(''), '/');
-  assert.equal(mobileNav.activeMobileKey('/booking-approved'), 'bookings');
-  assert.equal(mobileNav.activeMobileKey('/chat'), 'chats');
-  assert.equal(mobileNav.activeMobileKey('/list'), 'create');
-  assert.equal(mobileNav.activeMobileKey('/'), 'home');
-  assert.equal(mobileNav.activeMobileKey('/settings'), null);
-  assert.equal(mobileNav.scrollHides('/host-home'), true);
-  assert.equal(mobileNav.scrollHides('/notifications'), false);
+test('no bottom navigation: its component and rules are gone; legacy pieces stay retired', () => {
+  for (const file of [['components', 'shell', 'MobileNav.tsx'], ['lib', 'navigation', 'mobileNav.ts']]) assert.equal(fs.existsSync(path.join(clientDir, ...file)), false, file.join('/'));
   assert.equal(fs.existsSync(path.join(clientDir, 'public', 'js', 'varoom-mobile-nav.js')), false, 'The legacy script nav is retired');
   assert.equal(fs.existsSync(path.join(clientDir, 'pages', '[...slug].js')), false, 'the legacy catch-all is retired (E1)');
 });

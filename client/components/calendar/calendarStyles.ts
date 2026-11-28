@@ -359,8 +359,8 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc-coming button,.vc-item-row,.vc-search-results button,.vc-tg-day,.vc-strip button,.vc-day-card,.vc-bar,.vc-block,.vc-fab,.vc-notices button){transition:transform var(--motion-press) var(--ease-out)}
 .vc :is(.vc-pill,.vc-btn,.vc-nav button,.vc-toggle button,.vc-mini-day,.vc-mini-head button,.vc-gear,.vc-close,.vc-back,.vc-weekdays button,.vc-kinds button,.vc-color,
   .vc-coming button,.vc-item-row,.vc-search-results button,.vc-tg-day,.vc-strip button,.vc-day-card,.vc-bar,.vc-block,.vc-fab,.vc-notices button):active:not(:disabled){transform:scale(var(--press-scale))}
-/* Phones: the add button, above the bottom navigation. */
-.vc .vc-fab{position:fixed;right:18px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:40;width:56px;height:56px;border:0;border-radius:999px;background:var(--accent);color:#fff;
+/* Phones: the add button, bottom right. */
+.vc .vc-fab{position:fixed;right:18px;bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:40;width:56px;height:56px;border:0;border-radius:999px;background:var(--accent);color:#fff;
   font-size:1.8rem;font-weight:400;line-height:1;align-items:center;justify-content:center;box-shadow:0 14px 30px -12px rgba(0,0,0,.45)}
 @keyframes vc-pulse{from{opacity:.55}to{opacity:1}}
 
@@ -385,7 +385,7 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
   .vc .vc-dow{padding:0 2px;font-size:.64rem;text-align:center}
   .vc .vc-details{top:auto;left:0;width:100%;max-height:82vh;border-radius:22px 22px 0 0;transform:translateY(105%)}
   .vc .vc-kinds.is-three{grid-template-columns:1fr}
-  .vc .vc-rangebar{border-radius:20px;bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  .vc .vc-rangebar{border-radius:20px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:760px){
   .vc .vc-only-phone{display:flex !important}

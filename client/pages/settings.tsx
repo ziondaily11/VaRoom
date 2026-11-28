@@ -44,7 +44,6 @@ const TOAST_STYLES = `
     opacity:0; pointer-events:none; transition:opacity var(--motion-quick,200ms) var(--ease-in,ease), transform var(--motion-quick,200ms) var(--ease-in,ease); }
   .settings-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); transition-duration:var(--motion-standard,250ms); transition-timing-function:var(--ease-out,ease); }
   @media (prefers-reduced-motion:reduce){ .settings-toast, .settings-toast.show{ transition:none; transform:translateX(-50%); } }
-  @media (max-width:860px){ .settings-toast{ bottom:calc(5.6rem + env(safe-area-inset-bottom)); } }
 `;
 
 export default function SettingsPage() {

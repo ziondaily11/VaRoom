@@ -45,5 +45,3 @@ export default function ChatSettingsPage() {
   );
 }
 
-// Mobile navigation stays hidden here (MobileNav), as before.
-(ChatSettingsPage as unknown as { appNavigation: boolean }).appNavigation = true;
