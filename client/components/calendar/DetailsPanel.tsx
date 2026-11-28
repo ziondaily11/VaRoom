@@ -5,6 +5,7 @@ import { initial } from '../../lib/bookings/format';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 import { KIND_LABEL, type CalendarItem } from '../../lib/calendar/calendarView';
+import { eventLabel } from '../../lib/booking/eventTypes';
 import type { CalendarBooking, CalendarListing, MonthSummary, PlannerSummary, TableBooking } from '../../lib/calendar/hostCalendar';
 
 // The Calendar's right column. With nothing chosen: what needs attention, today,
@@ -82,10 +83,12 @@ function ItemCard({ item, props }: { item: CalendarItem; props: Props }) {
         <div className="vc-person"><Avatar name={b.guest} src={b.avatar} /><div><strong>{b.guest || 'Guest'}</strong>{badge}</div></div>
         {place}
         <dl className="vc-facts">
+          {eventLabel(b.event_type) ? <><dt>Event</dt><dd>{eventLabel(b.event_type)}</dd></> : null}
           <dt>When</dt><dd>{when(b, listing)}</dd>
           {b.guest_count ? <><dt>Guests</dt><dd>{plural(b.guest_count, 'guest')}</dd></> : null}
           {b.total_price ? <><dt>Price</dt><dd>{ksh(Number(b.total_price))}</dd></> : null}
         </dl>
+        {b.event_notes && <p className="vc-notes">{b.event_notes}</p>}
         {b.status === 'pending' && (
           <div className="vc-actions">
             <button type="button" className="vc-btn is-primary" disabled={Boolean(busy)} onClick={() => onRespond(b, 'approve')}>{busy === b.id ? 'Saving…' : 'Approve'}</button>

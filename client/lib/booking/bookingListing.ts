@@ -627,7 +627,11 @@ export const ksh = (value: number) => `KSh ${value.toLocaleString()}`;
 // ---------- Writes ----------
 
 /** What the guest chose; `guests` is sent for stays and venues only. */
-export interface StayChoice { start: string | null; end: string | null; hours: number; startTime?: string | null; leaseStart: string; leaseMonths: number; guests?: number }
+export interface StayChoice {
+  start: string | null; end: string | null; hours: number; startTime?: string | null; leaseStart: string; leaseMonths: number; guests?: number;
+  /** Venues: the type of event (lib/booking/eventTypes.ts) and what the host should know. */
+  eventType?: string | null; eventNotes?: string | null;
+}
 
 /** The most guests the Guests stepper offers: the listing's maximum, else 20 (the database allows up to 1000). */
 export function guestLimit(details: Pick<BookingDetails, 'max_guests'>): number {
@@ -645,6 +649,10 @@ export function bookingPayload(listing: BookingListing, kind: BookingKind, clien
     total_price: total,
   };
   if (kind.isShortStay && choice.guests && choice.guests > 0) payload.guest_count = Math.min(Math.round(choice.guests), guestLimit(kind.details));
+  if (listing.category === 'venue' && choice.eventType) {
+    payload.event_type = choice.eventType;
+    payload.event_notes = choice.eventNotes?.trim().slice(0, 500) || null;
+  }
   if (kind.isShortStay && kind.isHourly) {
     payload.start_date = choice.start;
     payload.start_time = choice.startTime;

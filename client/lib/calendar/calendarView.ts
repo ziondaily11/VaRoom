@@ -1,4 +1,5 @@
 import type { CalendarBooking, CalendarEvent, CalendarListing, HostCalendarData, LeaseEntry, OutcomeEntry, TableBooking } from './hostCalendar';
+import { eventLabel } from '../booking/eventTypes';
 
 // The Calendar's view model (docs/host-controls/CALENDAR_UI_PLAN.md): every
 // booking, event, lease, outcome and table reservation as one kind of entry,
@@ -50,6 +51,8 @@ export interface CalendarItem {
   halfEnd: boolean;
   /** 'HH:MM–HH:MM' for timed entries. */
   time: string | null;
+  /** A venue's day hire: the hire hours it fills in Week and Day ('HH:MM–HH:MM'); Month keeps it a bar. */
+  block?: string | null;
   title: string;
   /** The host's own colour for an event, else the place's colour. */
   color: string | null;
@@ -58,6 +61,9 @@ export interface CalendarItem {
 
 const OUTCOME_WORD = { sold: 'Sold', rented: 'Rented', leased: 'Leased' } as const;
 const range = (from: string | null | undefined, to: string | null | undefined) => (from && to ? `${from}–${to}` : null);
+/** A venue hired for one day, with no time: shown over its hire hours (08:00–22:00 when it has none). */
+const dayHire = (listing: CalendarListing | undefined, start: string, end: string, time: string | null) => (
+  listing?.category === 'venue' && start === end && !time ? `${listing.hire_start || '08:00'}–${listing.hire_end || '22:00'}` : null);
 
 /**
  * Every entry of the loaded month on the shown places (and events not tied to
@@ -71,17 +77,22 @@ export function buildItems(data: HostCalendarData, shown: CalendarListing[], all
   data.bookings.filter((b) => ids.has(b.listing_id)).forEach((b) => {
     const listing = byId.get(b.listing_id);
     const nightly = Boolean(b.end_date) && listing?.price_unit !== 'day';
+    const event = eventLabel(b.event_type);
+    const time = range(b.start_time, b.end_time);
     items.push({
       key: `b${b.id}`, kind: b.status === 'pending' ? 'request' : 'booking', listingId: b.listing_id,
       start: b.start_date, end: b.end_date || b.start_date, halfStart: nightly, halfEnd: nightly,
-      time: range(b.start_time, b.end_time), title: b.guest || 'Guest', color: null, source: { type: 'booking', value: b },
+      time, block: dayHire(listing, b.start_date, b.end_date || b.start_date, time),
+      // The event first, then who booked it: "Wedding · Divine Venues".
+      title: event ? `${event} · ${b.guest || 'Guest'}` : b.guest || 'Guest', color: null, source: { type: 'booking', value: b },
     });
   });
   data.events.filter((e) => !e.listing_id || ids.has(e.listing_id)).forEach((e) => {
     const kind: ItemKind = e.source === 'ical' ? 'other' : e.blocks ? 'offline' : e.viewing ? 'viewing' : 'note';
+    const time = range(e.start_time, e.end_time);
     items.push({
       key: `e${e.id}:${e.start_date}`, kind, listingId: e.listing_id, start: e.start_date, end: e.end_date, halfStart: false, halfEnd: false,
-      time: range(e.start_time, e.end_time), title: e.title, color: e.source === 'ical' ? null : e.color, source: { type: 'event', value: e },
+      time, block: e.blocks ? dayHire(byId.get(e.listing_id || ''), e.start_date, e.end_date, time) : null, title: e.title, color: e.source === 'ical' ? null : e.color, source: { type: 'event', value: e },
     });
   });
   data.leases.filter((l) => ids.has(l.listing_id)).forEach((l) => {
@@ -188,7 +199,8 @@ export function searchItems(items: CalendarItem[], titleOf: (listingId: string |
   if (!words.length || query.trim().length < 2) return [];
   const text = (item: CalendarItem) => {
     const { source } = item;
-    const extra = source.type === 'event' ? [source.value.client_name, source.value.notes]
+    const extra = source.type === 'booking' ? [source.value.event_notes]
+      : source.type === 'event' ? [source.value.client_name, source.value.notes]
       : source.type === 'table' ? [source.value.client_name, source.value.occasion] : [];
     return [item.title, titleOf(item.listingId), ...extra].filter(Boolean).join(' ').toLowerCase();
   };
@@ -220,9 +232,10 @@ const minutes = (clock: string) => {
 };
 
 /** A timed entry's minutes from midnight; a table reservation (start only) takes an hour. */
-export function timeSpan(item: Pick<CalendarItem, 'time'>): { from: number; to: number } | null {
-  if (!item.time) return null;
-  const [start, end] = item.time.split('–');
+export function timeSpan(item: Pick<CalendarItem, 'time' | 'block'>): { from: number; to: number } | null {
+  const clock = item.time || item.block;
+  if (!clock) return null;
+  const [start, end] = clock.split('–');
   const from = minutes(start);
   if (from == null) return null;
   const to = end ? minutes(end) : null;

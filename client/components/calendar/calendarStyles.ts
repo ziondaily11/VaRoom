@@ -196,6 +196,19 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-block.is-rich{padding:8px 12px;gap:3px;font-size:.82rem}
 .vc .vc-block.is-rich strong{font-size:.9rem;white-space:normal}
 .vc .vc-block-kind{font-size:.72rem;font-weight:650;color:var(--mute)}
+/* Cards (the reference's): a tag, the booker, the time, two lines of notes, who.
+   Each card is a size container, so parts that don't fit are dropped. */
+.vc .vc-block{container-type:size;justify-content:flex-start}
+.vc .vc-block .vc-block-tag{display:inline-flex;max-width:100%;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--place) 26%,var(--card));
+  font-size:.66rem;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.vc .vc-block .vc-block-desc{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.72rem;line-height:1.35}
+.vc .vc-block .vc-block-foot{margin-top:auto;display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;font-size:.7rem}
+.vc .vc-block-foot span{overflow:hidden;text-overflow:ellipsis}
+.vc .vc-face{width:20px;height:20px;border-radius:999px;object-fit:cover;flex:none;display:inline-grid;place-items:center;background:var(--soft);font-size:.62rem;font-weight:700;font-style:normal;color:var(--fg)}
+@container (max-height:64px){.vc .vc-block-tag{display:none !important}}
+@container (max-height:104px){.vc .vc-block-desc{display:none !important}}
+@container (max-height:132px){.vc .vc-block-foot{display:none !important}}
+@container (max-width:84px){.vc :is(.vc-block-tag,.vc-block-desc,.vc-block-foot){display:none !important}}
 .vc .vc-now{position:absolute;left:0;right:0;height:2px;background:var(--fg);z-index:2;pointer-events:none}
 .vc .vc-now span{position:absolute;left:4px;top:-10px;padding:2px 7px;border-radius:999px;background:var(--fg);color:var(--canvas);font-size:.66rem;font-weight:700;font-variant-numeric:tabular-nums}
 .vc .vc-tg.is-day{border:0;border-radius:0;overflow:visible;gap:12px}

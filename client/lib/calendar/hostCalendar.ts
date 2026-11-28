@@ -27,6 +27,8 @@ export interface CalendarBooking {
   /** Hourly bookings: 'HH:MM'. */
   start_time?: string | null; end_time?: string | null;
   hours: number | null; guest_count: number | null; total_price: number | null; created_at: string; guest: string | null;
+  /** Venues: the type of event and the guest's note (migration 000097). */
+  event_type?: string | null; event_notes?: string | null;
   /** The guest's profile photo (as stored; resolveAvatarUrl makes it a URL). */
   avatar?: string | null;
 }

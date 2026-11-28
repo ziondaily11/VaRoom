@@ -8,7 +8,7 @@ import { apiFetch } from '../api';
 // loading, approve / decline, the month filter, listing videos and table
 // reservations.
 
-export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,start_time,end_time,lease_start_date,lease_months,guest_count,total_price,price_unit,created_at,client_id,'
+export const HOST_BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,start_time,end_time,lease_start_date,lease_months,guest_count,event_type,event_notes,total_price,price_unit,created_at,client_id,'
   + 'listing:listings(id,title,location_text,category,listing_purpose,availability_status,listing_photos(storage_path),listing_booking_details(units_available,listing_purpose)),'
   + 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)';
 

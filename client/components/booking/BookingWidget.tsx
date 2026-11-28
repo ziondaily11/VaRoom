@@ -16,6 +16,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { ownBookingHref } from '../../lib/bookings/links';
 import type { RatingInfo } from './ListingDetails';
 import { listingAction } from '../../lib/listings/listingAction';
+import { EVENT_NOTES_MAX, EVENT_TYPES } from '../../lib/booking/eventTypes';
 
 // The booking widget beside the listing. Nightly stays pick check-in then
 // check-out on the calendar; hourly spaces a date and hours; rentals a move-in
@@ -142,6 +143,10 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
   const [leaseMonths, setLeaseMonths] = useState(String(minMonths));
   const maxGuests = guestLimit(details);
   const [guests, setGuests] = useState(() => Math.min(2, maxGuests));
+  // Venues: what the booking is for, so the host can review it with context.
+  const isVenue = listing.category === 'venue';
+  const [eventType, setEventType] = useState('');
+  const [eventNotes, setEventNotes] = useState('');
   // Hotels taking rooms and tables: which one the guest is reserving.
   const tablesToo = supportsBoth && Boolean(dining);
   const [mode, setMode] = useState<'stay' | 'table'>('stay');
@@ -176,10 +181,11 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
 
   const book = async () => {
     if (submitting.current || isOwner || !line) return;
+    if (isVenue && !eventType) { setResult({ text: 'Choose the type of event.', error: true }); return; }
     submitting.current = true;
     setResult(null);
     confirm.current?.start();
-    const failure = await onBook({ start, end, hours: parseInt(hours, 10), startTime: startTime || null, leaseStart, leaseMonths: parseInt(leaseMonths, 10), guests: isShortStay ? guests : undefined }, line.total);
+    const failure = await onBook({ start, end, hours: parseInt(hours, 10), startTime: startTime || null, leaseStart, leaseMonths: parseInt(leaseMonths, 10), guests: isShortStay ? guests : undefined, eventType: isVenue ? eventType : null, eventNotes: isVenue ? eventNotes : null }, line.total);
     if (failure) {
       confirm.current?.error();
       submitting.current = false;
@@ -407,6 +413,22 @@ export default function BookingWidget({ listing, kind, rating, calendar, documen
         <div className="mode-view" key="stay">
           {picker}
           {isShortStay && !sent && <GuestStepper value={guests} max={maxGuests} isHotel={isHotel} onChange={setGuests} />}
+          {isVenue && !sent && !isOwner && (
+            <>
+              <div className="field">
+                <label htmlFor="event-type">Type of event</label>
+                <select id="event-type" required value={eventType} onChange={(event) => { setEventType(event.target.value); setResult(null); }}>
+                  <option value="">Choose the type of event</option>
+                  {EVENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="event-notes">Anything the host should know <span className="field-hint">(optional)</span></label>
+                <textarea id="event-notes" maxLength={EVENT_NOTES_MAX} rows={3} placeholder="e.g. About 150 guests, a DJ until 10pm, we bring our own caterer."
+                  value={eventNotes} onChange={(event) => setEventNotes(event.target.value)} />
+              </div>
+            </>
+          )}
           {isHotel && (details.checkin_time || details.checkout_time || cancellation) && (
             <ul className="stay-facts">
               {details.checkin_time && <li><span>Check-in</span><span>from {details.checkin_time}</span></li>}

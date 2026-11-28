@@ -22,6 +22,7 @@ import { clearCalendarCache } from '../../lib/calendar/hostCalendar';
 import { startBookingChat } from '../../lib/chat/startChat';
 import { useWorkspace } from '../../lib/team/team';
 import { MessageIcon } from './BookingIcons';
+import { eventLabel } from '../../lib/booking/eventTypes';
 
 // The host's Bookings (migrated from legacy-pages/bookings.html): requests by
 // status for a month, approve / decline, the request detail in the right rail
@@ -180,6 +181,7 @@ function HostBookingCard({ booking, tab, video, selected, busy, answer, now, onS
         <div className="bk-top-row">
           <div>
             <div className="bk-title">{listing.title || 'Listing'}</div>
+            {eventLabel(booking.event_type) && <div className="bk-event">{eventLabel(booking.event_type)}</div>}
             <div className="bk-guest"><span className="bk-guest-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : (guest.full_name || 'G').charAt(0).toUpperCase()}</span><span>{guestName}</span>
               {onMessage && canMessageGuest(booking) && (
                 <button type="button" className="bk-msg-link" aria-label={`Message ${guestName}`} title="Message guest" onClick={(event) => { event.stopPropagation(); onMessage(booking); }}><MessageIcon /></button>
@@ -240,6 +242,13 @@ function HostDetail({ booking, video, busy, answer, onClose, onRespond, onMessag
         <div className="host-detail-item"><div className="host-detail-label-row"><MetaIcon name="calendar" />Check-in</div><div className="host-detail-value">{checkIn || 'Date to be confirmed'}</div></div>
         <div className="host-detail-item"><div className="host-detail-label-row"><MetaIcon name="calendar" />Check-out</div><div className="host-detail-value">{checkOut || 'Date to be confirmed'}</div></div>
       </div>
+      {eventLabel(booking.event_type) && (
+        <div className="host-detail-event">
+          <div className="host-detail-label">Event</div>
+          <div className="host-detail-value">{eventLabel(booking.event_type)}</div>
+          {booking.event_notes && <p className="host-detail-note">“{booking.event_notes}”</p>}
+        </div>
+      )}
       {onMessage && canMessageGuest(booking) && (
         <button type="button" className="bk-btn bk-btn-outline host-detail-message" onClick={() => onMessage(booking)}><MessageIcon />Message guest</button>
       )}
