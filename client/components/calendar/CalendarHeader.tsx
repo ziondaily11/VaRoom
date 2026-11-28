@@ -28,10 +28,13 @@ interface Props {
   onAdd: () => void;
   onFilters: () => void;
   onOverview: () => void;
+  /** Desktop: the right column is hidden (the calendar takes its room). */
+  wide: boolean;
+  onWide: () => void;
   search: React.ReactNode;
 }
 
-export default function CalendarHeader({ day, monthTitle, mode, modes, selecting, canSelect, canAdd, onMode, onPrev, onNext, onToday, onSelect, onAdd, onFilters, onOverview, search }: Props) {
+export default function CalendarHeader({ day, monthTitle, mode, modes, selecting, canSelect, canAdd, onMode, onPrev, onNext, onToday, onSelect, onAdd, onFilters, onOverview, wide, onWide, search }: Props) {
   const date = new Date(`${day}T00:00:00Z`);
   const month = MONTH_NAMES[date.getUTCMonth()];
   return (
@@ -47,7 +50,11 @@ export default function CalendarHeader({ day, monthTitle, mode, modes, selecting
       <div className="vc-head-tools">
         {search}
         <button type="button" className="vc-pill vc-only-narrow" onClick={onFilters}>Filters</button>
-        <button type="button" className="vc-pill vc-only-narrow" onClick={onOverview}>Overview</button>
+        <button type="button" className={`vc-pill vc-only-narrow${wide ? ' is-wide-shown' : ''}`} onClick={onOverview}>Overview</button>
+        <button type="button" className="vc-pill vc-only-wide" aria-pressed={!wide} onClick={onWide} title={wide ? 'Show the details column' : 'Hide the details column for a larger calendar'}>
+          <svg className="vc-rail-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
+          {wide ? 'Show details' : 'Hide details'}
+        </button>
         <div className="vc-nav" role="group" aria-label={monthTitle}>
           <button type="button" aria-label={`Previous ${mode === 'timeline' ? 'month' : mode}`} onClick={onPrev}>‹</button>
           <button type="button" onClick={onToday}>Today</button>

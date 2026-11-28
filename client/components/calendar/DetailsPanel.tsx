@@ -177,12 +177,12 @@ export default function DetailsPanel(props: Props) {
   const title = view.kind === 'overview' ? 'Overview' : view.kind === 'day' ? dayLabel(view.day, true) : KIND_LABEL[view.item.kind];
   return (
     <>
-      <button type="button" className={`vc-scrim vc-only-narrow${open ? ' is-open' : ''}`} aria-label="Close" aria-hidden={!open} tabIndex={open ? 0 : -1} onClick={onClose} />
+      <button type="button" className={`vc-scrim vc-details-scrim vc-only-narrow${open ? ' is-open' : ''}`} aria-label="Close" aria-hidden={!open} tabIndex={open ? 0 : -1} onClick={onClose} />
       <aside className={`vc-details${open ? ' is-open' : ''}`} aria-label={title} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
         <div className="vc-panel-head">
           {onBack && <button type="button" className="vc-back" onClick={onBack} aria-label="Back to overview">‹</button>}
           <h2>{title}</h2>
-          <button type="button" className="vc-close vc-only-narrow" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="vc-close vc-details-close vc-only-narrow" aria-label="Close" onClick={onClose}>×</button>
         </div>
 
         {view.kind === 'item' && <ItemCard item={view.item} props={props} />}
