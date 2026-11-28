@@ -16,8 +16,4 @@ export const MAP_STYLES = `
   .map-page .back-link { font-size:.9rem; font-weight:500; transition:color var(--motion-micro, 150ms) var(--ease-out, ease-out); }
   .map-page .back-link:hover { color:var(--red); }
   .map-page .map-stage { position:relative; flex:1 1 auto; min-height:0; }
-  /* Phones: the map ends above the app's bottom bar. */
-  @media (max-width: 859px) {
-    body.has-varoom-mobile-nav .map-page .map-stage { margin-bottom:calc(4.6rem + env(safe-area-inset-bottom)); }
-  }
 `;

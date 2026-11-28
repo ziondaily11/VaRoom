@@ -28,6 +28,7 @@ export const ANALYTICS_CSS = `
 
 /* ---------- top bar ---------- */
 .va-top{display:flex;flex-wrap:wrap;gap:14px 20px;justify-content:space-between;align-items:center;margin-bottom:22px}
+.va-hello-row{display:flex;align-items:center;gap:12px;min-width:0}
 .va-hello{display:flex;flex-direction:column;gap:6px}
 .va-hello h1{font-size:clamp(1.5rem,2.4vw,2rem);font-weight:700;letter-spacing:-.025em;line-height:1.15}
 .va-chip{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:.74rem;font-weight:650;letter-spacing:.02em}

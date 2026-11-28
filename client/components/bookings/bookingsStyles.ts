@@ -199,7 +199,7 @@ export const BOOKINGS_STYLES = `
     .bookings-page .feed-area{ height:auto; overflow-y:visible; }
     .bookings-page .topbar{ padding:.8rem .9rem 0; min-height:46px; }
     .bookings-page .topbar-avatar-btn{ flex-shrink:0; display:flex; }
-    .bookings-page .feed-area{ padding:.6rem .9rem 5.5rem; }
+    .bookings-page .feed-area{ padding:.6rem .9rem 1.5rem; }
   }
   
   /* ---------- PAGE HEADER ---------- */
@@ -714,7 +714,7 @@ export const BOOKINGS_STYLES = `
 
   /* ---------- Booking details page (phones; /booking-approved) ---------- */
   .bookings-page.booking-approved-page{ height:auto; min-height:100vh; min-height:100dvh; overflow:visible; }
-  /* A plain top bar: back to Bookings and the page title (the app's bottom bar does the rest). */
+  /* A plain top bar: back to Bookings and the page title. */
   .booking-approved-page .ba-header{
     position:sticky; top:0; z-index:5; display:grid; grid-template-columns:40px 1fr 40px; align-items:center; gap:8px;
     padding:10px 12px; background:var(--paper); border-bottom:1px solid var(--line);
@@ -724,10 +724,7 @@ export const BOOKINGS_STYLES = `
   .booking-approved-page .ba-back:active{ transform:scale(.92); background:var(--nav-active-bg); }
   .booking-approved-page .ba-back svg{ width:20px; height:20px; }
   .booking-approved-page .ba-title{ text-align:center; font-size:1rem; font-weight:700; }
-  .booking-approved-page .ba-main{ max-width:560px; margin:0 auto; padding:16px 16px calc(110px + env(safe-area-inset-bottom)); }
-  /* The app keeps 5.1rem free under pages for its bottom bar (body padding, white). This page
-     already leaves that room inside its own background, so it reaches the bottom edge instead. */
-  @media (max-width:860px){ body.has-varoom-mobile-nav .bookings-page.booking-approved-page{ margin-bottom:-5.1rem; } }
+  .booking-approved-page .ba-main{ max-width:560px; margin:0 auto; padding:16px 16px calc(28px + env(safe-area-inset-bottom)); }
   @media (prefers-reduced-motion:reduce){ .booking-approved-page .ba-back:active{ transform:none; } }
   .booking-approved-page .ba-checking{ text-align:center; padding:5rem 0; color:var(--muted); }
   .booking-approved-page .booking-detail-panel{ display:block; }

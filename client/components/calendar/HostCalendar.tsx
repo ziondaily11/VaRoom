@@ -533,7 +533,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         </div>
       )}
 
-      {/* Phones: the add button sits above the bottom navigation (the header's + Add is hidden there). */}
+      {/* Phones: a floating add button (the header's + Add is hidden there). */}
       {!range && (
         <button type="button" className="vc-fab vc-only-phone" aria-label="Add to calendar" disabled={!data} onClick={() => setForm({ event: null, day: selectedDay || today })}>+</button>
       )}

@@ -17,7 +17,6 @@ const STYLES = `
     box-shadow:0 12px 32px rgba(0,0,0,.28); text-align:center;
   }
   html[data-theme="dark"] .add-account-notice{ background:#EFF3F4; color:#0F1419; }
-  @media (max-width:860px){ .add-account-notice{ bottom:calc(5.6rem + env(safe-area-inset-bottom)); } }
 `;
 
 export default function AddAccountNotice() {

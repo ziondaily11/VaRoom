@@ -191,7 +191,7 @@ test('deactivate / delete: 30 days then deletion as the Privacy Policy says; sig
 
 test('page: in the shell, legacy wording, phone menu opens the app drawer, legacy page retired', () => {
   const page = read('pages', 'settings.tsx');
-  assert.match(page, /window\.dispatchEvent\(new Event\(role === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)\)/);
+  assert.match(page, /<MenuButton className="mobile-menu-btn"><MenuIcon \/><\/MenuButton>/, 'the phone menu opens the app drawer');
   assert.match(page, /const view: View = isSection\(wanted\) && \(wanted !== 'plans' \|\| showPlans\) && \(wanted !== 'bookings' \|\| role === 'host'\) \? wanted : 'list';/, '?section= opens any section its owner may see; else the list');
   assert.match(page, /router\.push\(\{ pathname: '\/settings', query: \{ section: next \} \}, undefined, \{ shallow: true \}\)/, 'a section is a history entry (Back returns to the list)');
   assert.match(page, /if \(pushedSection\.current\) \{ pushedSection\.current = false; router\.back\(\); \}/, 'back pops the section it pushed');

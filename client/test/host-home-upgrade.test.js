@@ -23,11 +23,9 @@ test('Host Home styles stay inside the page and leave the shared sidebar alone',
   assert.doesNotMatch(page, /fonts\.googleapis/);
 });
 
-test('the shared phone bar has its own colours', () => {
+test('no bottom bar: its styles are gone from the shell', () => {
   const shell = read('components', 'shell', 'shellStyles.ts');
-  assert.match(shell, /\.varoom-mobile-nav\{--mn-bg:var\(--va-light\);--mn-line:#E1E8ED;--mn-ink:#0F1419;--mn-active:#E9E7E2;\}/);
-  assert.match(shell, /html\[data-theme="dark"\] \.varoom-mobile-nav\{--mn-bg:#000000;/);
-  assert.doesNotMatch(shell, /color:var\(--ink,var\(--muted,#666\)\)/);
+  assert.doesNotMatch(shell, /varoom-mobile-nav|MOBILE_NAV_STYLES|has-varoom-mobile-nav/);
 });
 
 test('search, links, errors and the post menu', () => {

@@ -46,6 +46,7 @@ import { usePresentValue } from '../lib/motion/usePresence';
 import { useFlipX } from '../lib/motion/flip';
 import { DURATION, EASE } from '../lib/motion/tokens';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
+import MenuButton from '../components/shell/MenuButton';
 import MessageActionMenu, { MESSAGE_MENU_EXIT_MS } from '../components/chat/MessageActionMenu';
 import ConfirmSheet from '../components/bookings/ConfirmSheet';
 import NotificationSettingsPanel, { PANEL_EXIT_MS } from '../components/notifications/NotificationSettingsPanel';
@@ -104,13 +105,6 @@ export default function NotificationsPage() {
   const mountedRef = useRef<boolean>(true);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
-
-  // Opens the shell's mobile drawer. Only the role's own sidebar listens to
-  // its event; the button has no #menu-toggle id, so the shell's document
-  // click handler does not toggle the drawer a second time.
-  const handleOpenMobileSidebar = () => {
-    window.dispatchEvent(new Event(userRole === 'host' ? 'open-host-sidebar' : 'open-client-sidebar'));
-  };
 
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(
@@ -508,9 +502,7 @@ export default function NotificationsPage() {
             <div className={`notifications-content${revealing ? ' is-revealing' : ''}`}>
               <header className="page-header">
                 <div className="page-header-left">
-                  <button className="notif-menu-btn" type="button" onClick={handleOpenMobileSidebar} aria-label="Open menu">
-                    <MenuIcon />
-                  </button>
+                  <MenuButton className="notif-menu-btn"><MenuIcon /></MenuButton>
                   <div>
                     <h1>Notifications</h1>
                     <p id="notif-subtitle" aria-live="polite">{subtitleText}</p>

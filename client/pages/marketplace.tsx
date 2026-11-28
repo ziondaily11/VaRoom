@@ -16,6 +16,7 @@ import { choose, crumbs, currentStep, encodeTrail, pathQuery } from '../lib/mark
 import TrailNav, { TRAIL_STYLES } from '../components/marketplace/TrailNav';
 import MarketplaceCard from '../components/marketplace/MarketplaceCard';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
+import MenuButton from '../components/shell/MenuButton';
 import { MARKETPLACE_STYLES } from '../components/marketplace/marketplaceStyles';
 import { useCardGrid } from '../components/marketplace/useCardGrid';
 
@@ -341,7 +342,7 @@ export default function MarketplacePage() {
         )}
         <header className="mkt-header">
           <div className="mkt-title-row">
-            <h1>Marketplace</h1>
+            <div className="mkt-heading"><MenuButton /><h1>Marketplace</h1></div>
             <form className="mkt-search" role="search" onSubmit={(event) => { event.preventDefault(); submit(); }}>
               <SearchIcon />
               <input
@@ -432,5 +433,3 @@ export default function MarketplacePage() {
   );
 }
 
-// The app's mobile navigation shows here, as it did on the legacy page.
-(MarketplacePage as unknown as { appNavigation: boolean }).appNavigation = true;

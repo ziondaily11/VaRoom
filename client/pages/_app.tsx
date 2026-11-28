@@ -5,7 +5,8 @@ import Head from 'next/head';
 import Router, { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import AppShell from '../components/shell/AppShell';
-import MobileNav from '../components/shell/MobileNav';
+import LazyPhoneDrawer from '../components/shell/LazyPhoneDrawer';
+import { SidebarDrawerProvider } from '../components/shell/SidebarDrawer';
 import LocationCardHost from '../components/maps/LocationCard';
 import LazyAddAccountModal from '../components/LazyAddAccountModal';
 import LazyBecomeHost from '../components/becomeHost/LazyBecomeHost';
@@ -22,6 +23,7 @@ import { getAccountLayout, getSessionBoundCachedRole, homeShellHint, usesIconRai
 import '../styles/admin.css';
 import '../styles/spinner.css';
 import '../styles/motion.css';
+import '../styles/phoneMenu.css';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // Create the shared Supabase client before any page renders so pages and
@@ -422,8 +424,8 @@ const fontSizeScript = `
 type AppPage = NextPage & {
   /** Replaces the account shell (full-screen pages, or a fixed shell variant). */
   getLayout?: (page: ReactElement) => ReactNode;
-  /** Full-screen pages outside the shell that still show the role mobile navigation. */
-  appNavigation?: boolean;
+  /** Full-screen pages outside the shell whose phone hamburger opens the sidebar drawer. */
+  phoneMenu?: boolean;
 };
 
 type ShellRole = 'host' | 'client' | null;
@@ -454,7 +456,7 @@ function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps
   return (
     <>
       {layout}
-      <MobileNav enabled={isShellRoute || Boolean(Component.appNavigation)} />
+      {Component.phoneMenu && <LazyPhoneDrawer />}
       {/* "View on Map" opens the location over the current page (?map=…). */}
       <LocationCardHost />
     </>
@@ -504,7 +506,9 @@ export default function App({ Component, pageProps }: AppProps) {
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
       <CountsBridge />
-      <AccountLayout Component={Component as AppPage} pageProps={pageProps} />
+      <SidebarDrawerProvider>
+        <AccountLayout Component={Component as AppPage} pageProps={pageProps} />
+      </SidebarDrawerProvider>
       <LazyAddAccountModal />
       <LazyBecomeHost />
     </AuthProvider>

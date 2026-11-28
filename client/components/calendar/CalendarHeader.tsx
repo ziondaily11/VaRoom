@@ -2,6 +2,7 @@ import React from 'react';
 import { MONTH_NAMES } from '../../lib/booking/bookingListing';
 import type { CalendarMode } from '../../lib/calendar/calendarView';
 import ToggleRow from './ToggleRow';
+import MenuButton from '../shell/MenuButton';
 
 // The Calendar's header: a date tile (red month, day number), the full date,
 // search, navigation (by day, week or month), the view switch (Day, Week,
@@ -36,6 +37,7 @@ export default function CalendarHeader({ day, monthTitle, mode, modes, selecting
   return (
     <header className="vc-head">
       <div className="vc-head-date">
+        <MenuButton />
         <div className="vc-tile" aria-hidden="true"><span>{month.slice(0, 3)}</span><strong>{date.getUTCDate()}</strong></div>
         <div>
           <h1>{`${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`}</h1>

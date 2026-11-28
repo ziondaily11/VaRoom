@@ -604,10 +604,9 @@ test('17. Page look, accessible rows, scoped styles and motion', () => {
     assert.match(rule, /notifications-page/, `unscoped rule: ${rule.trim()}`);
   }
 
-  // The menu button opens only the role's sidebar and avoids the shell's #menu-toggle click handler.
-  assert.match(pageSource, /new Event\(userRole === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)/);
-  assert.doesNotMatch(pageSource, /varoom-toggle-sidebar/);
-  assert.doesNotMatch(pageSource, /id="menu-toggle"|className="menu-toggle"/);
+  // The phone menu button is the shared MenuButton (it opens the shell drawer); no window events.
+  assert.match(pageSource, /<MenuButton className="notif-menu-btn"><MenuIcon \/><\/MenuButton>/);
+  assert.doesNotMatch(pageSource, /open-host-sidebar|open-client-sidebar|varoom-toggle-sidebar/);
 
   // Motion: reveal only on a network load, unread dot fades, tick draws after the click, reduced motion.
   assert.match(pageSource, /if \(!isBackground\) setRevealing\(true\);/);

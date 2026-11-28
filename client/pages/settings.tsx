@@ -22,6 +22,7 @@ import { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import type { SearchEntry } from '../lib/settings/settingsSearch';
 import { opensInNewTab } from '../lib/navigation/newTab';
 import { MenuIcon } from '../components/settings/SettingsIcons';
+import MenuButton from '../components/shell/MenuButton';
 import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 
 // Settings (migrated from legacy-pages/settings.html), inside the app shell:
@@ -43,7 +44,6 @@ const TOAST_STYLES = `
     opacity:0; pointer-events:none; transition:opacity var(--motion-quick,200ms) var(--ease-in,ease), transform var(--motion-quick,200ms) var(--ease-in,ease); }
   .settings-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); transition-duration:var(--motion-standard,250ms); transition-timing-function:var(--ease-out,ease); }
   @media (prefers-reduced-motion:reduce){ .settings-toast, .settings-toast.show{ transition:none; transform:translateX(-50%); } }
-  @media (max-width:860px){ .settings-toast{ bottom:calc(5.6rem + env(safe-area-inset-bottom)); } }
 `;
 
 export default function SettingsPage() {
@@ -204,10 +204,6 @@ export default function SettingsPage() {
   }, [target]);
   const passwordOpened = useCallback(() => setOpenPassword(false), []);
 
-  const openMenu = () => {
-    window.dispatchEvent(new Event(role === 'host' ? 'open-host-sidebar' : 'open-client-sidebar'));
-  };
-
   // After Delete or Deactivate (the server has signed out every session):
   // forget the account on this dashboard and leave.
   const leave = async (destination: string) => {
@@ -306,7 +302,7 @@ export default function SettingsPage() {
         <div className="app-shell">
           <div className="main-col">
             <div className="mobile-topbar">
-              <button type="button" className="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu" onClick={openMenu}><MenuIcon /></button>
+              <MenuButton className="mobile-menu-btn"><MenuIcon /></MenuButton>
               <Link href={homeHref} className="logo" style={{ fontSize: '1.15rem' }}><span className="va">Va</span><span className="room">Room</span></Link>
             </div>
             <main className="settings-main">

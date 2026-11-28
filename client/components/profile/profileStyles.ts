@@ -152,7 +152,7 @@ export const PROFILE_STYLES = `
   /* Dark: the shared dark theme paints .profile-main #000 (varoom-dark-theme.css, !important), so --main-bg says the same and the banner fade ends on it. */
   html[data-theme="dark"] .profile-page .profile-main{--main-bg:#000000;--card-bg:#141212;--card-border:rgba(255,255,255,.11)}
   .profile-page .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; pointer-events:none; }
-  .profile-page .profile-topbar .topbar-actions{ pointer-events:auto; }
+  .profile-page .profile-topbar .topbar-actions, .profile-page .profile-topbar .va-menu-trigger{ pointer-events:auto; }
   .profile-page .topbar-spacer{ flex:1; }
   .profile-page .topbar-actions{ display:flex; align-items:center; gap:12px; }
   .profile-page .topbar-icon{ width:36px; height:36px; border-radius:50%; background:var(--card-bg); border:1px solid var(--card-border); color:var(--ink); display:flex; align-items:center; justify-content:center; }
@@ -411,6 +411,8 @@ export const PROFILE_STYLES = `
   @media (max-width: 1100px){
     .profile-page .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr); }
   }
+  /* Phones: the banner buttons sit right of the menu button (top-left of the topbar). */
+  @media (max-width: 860px){ .profile-page .profile-banner-actions{ left:66px; } }
   @media (max-width: 930px){
     .profile-page{ height:auto; overflow:auto; }
     .profile-page .profile-desktop-shell{ display:block; max-width:none; height:auto; border-radius:0; border:none; box-shadow:none; }
@@ -442,7 +444,7 @@ export const PROFILE_STYLES = `
     .profile-page .meta-item{font-size:0.6875rem}
     .profile-page .profile-header-actions .profile-actions{gap:8px}
     .profile-page .profile-header-actions .btn-outline, .profile-page .profile-header-actions .btn-solid{padding:.55rem .9rem;font-size:.8rem}
-    .profile-page .profile-banner-actions{left:12px;top:12px}
+    .profile-page .profile-banner-actions{left:66px;top:12px}
     .profile-page .profile-banner-actions button{padding:8px 10px}
   }
   

@@ -51,7 +51,7 @@ import {
 } from '../lib/chat/inbox';
 import {
   alreadyShown, appendUnseen, bubbleStatus, canActOnMessage as canActOnThreadMessage, chatLayoutClasses, chatSettingsHref,
-  endsTyping, farFromLatest, followConversationScreen, headerStatus, lastMessage, LONG_PRESS_MS, messageContextMenu,
+  endsTyping, farFromLatest, headerStatus, lastMessage, LONG_PRESS_MS, messageContextMenu,
   messageRowClass, messagesUrl, movedTooFar, newerMessagesUrl, postChatReport, railClick, railItems, runServerMessageAction,
   shouldAnnounceTyping, showsLoadError, showsTypingFrom, typingEnabled, TYPING_SHOW_MS, unseenMessages, uploadFailed,
   uploadSending,
@@ -74,6 +74,7 @@ import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
 import ChatSettings, { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import { useCounts } from '../lib/counts/countsStore';
+import MenuButton from '../components/shell/MenuButton';
 import { isModifiedClick } from '../lib/navigation/clicks';
 import { useChatViewport } from '../components/chat/useChatViewport';
 import { keepsKeyboardOpen } from '../lib/chat/chatViewport';
@@ -740,12 +741,6 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [mobileAttachMenuOpen]);
 
-  // The app's bottom navigation (phones and small tablets, up to 860px) shows
-  // with the inbox only, never over a conversation's composer. Up to 760px the
-  // inbox and a conversation are separate screens; from 761px they sit side by
-  // side, so it hides whenever a conversation is open. Rechecked on rotation.
-  useEffect(() => followConversationScreen(window, document.body, mobileView, activeId), [mobileView, activeId]);
-  useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
 
   // Search placeholder as legacy: "Search" on desktop.
   useEffect(() => {
@@ -1501,7 +1496,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         {/* 2. CONTACTS / INBOX COLUMN */}
         <aside className={layoutClasses.contacts}>
           <div className="mobile-inbox-title">
-            Messages
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}><MenuButton />Messages</span>
             <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={openChatSettings}>
               <svg className="icon"><use href="#i-gear" /></svg>
             </button>
@@ -2466,8 +2461,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
   );
 }
 
-// The app's mobile navigation shows on the inbox (legacy loaded it on Chats).
-(ChatsPage as unknown as { appNavigation: boolean }).appNavigation = true;
+ChatsPage.phoneMenu = true;
 
 // Preserve self-contained full-screen dashboard app shell outside ClientLayout and HostLayout
 ChatsPage.getLayout = function getLayout(page: React.ReactNode) {

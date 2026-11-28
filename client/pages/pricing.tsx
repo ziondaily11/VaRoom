@@ -13,6 +13,7 @@ import { CheckoutWindow } from '../components/billing/CheckoutWindow';
 import { PRICING_STYLES } from '../components/pricing/pricingStyles';
 import { PlanCards } from '../components/pricing/PlanCards';
 import { clearHostBillingCache } from '../lib/billing/hostBilling';
+import MenuButton from '../components/shell/MenuButton';
 
 // Host plans (migrated from legacy-pages/pricing.html): the plans for the
 // host's niche, the current plan, Paystack checkout, and the check after
@@ -152,7 +153,10 @@ export default function PricingPage() {
         <div className="pricing-bg" aria-hidden="true" />
 
         <div className="pricing-top">
-          <Link href="/host-home" className="logo"><span className="va">Va</span><span className="room">Room</span></Link>
+          <div className="pricing-brand">
+            <MenuButton />
+            <Link href="/host-home" className="logo"><span className="va">Va</span><span className="room">Room</span></Link>
+          </div>
           <Link href="/host-home" className="back-link">← Back to dashboard</Link>
         </div>
 
@@ -187,3 +191,6 @@ export default function PricingPage() {
     </>
   );
 }
+
+// Phones: the hamburger opens the host sidebar as a drawer (_app mounts it).
+PricingPage.phoneMenu = true;

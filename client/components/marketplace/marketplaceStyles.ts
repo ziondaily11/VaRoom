@@ -49,6 +49,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .mkt-header{ padding:20px clamp(16px, 2.5vw, 32px) 12px; background:var(--paper); }
   .marketplace-page .mkt-title-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
   .marketplace-page .mkt-title-row h1{ font-size:1.75rem; font-weight:700; letter-spacing:-.02em; }
+  .marketplace-page .mkt-heading{ display:flex; align-items:center; gap:10px; min-width:0; }
   .marketplace-page .mkt-search{ position:relative; flex:0 1 420px; min-width:0; margin:0; }
   .marketplace-page .mkt-search > svg{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
   .marketplace-page .mkt-search input{
@@ -141,8 +142,6 @@ export const MARKETPLACE_STYLES = `
     .marketplace-page .category-strip{ margin:0 -16px; padding:0 16px; }
     .marketplace-page .category-strip .vr-seg > button{ font-size:.8rem; padding:7px 13px; }
     .marketplace-page .results-col{ padding:14px 12px 24px; }
-    /* The app keeps 5.1rem under pages for its bottom bar (white body padding); this page keeps that room on its own background. */
-    body.has-varoom-mobile-nav .marketplace-page{ margin-bottom:-5.1rem; padding-bottom:calc(5.1rem + env(safe-area-inset-bottom)); }
     /* A sticky header needs no clipping ancestor: the shell and page clip sideways without becoming scroll containers. */
     html:has(.marketplace-page), body:has(.marketplace-page), .host-app-layout:has(.marketplace-page), .client-app-layout:has(.marketplace-page){ overflow-x:clip; }
   }

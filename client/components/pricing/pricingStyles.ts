@@ -71,6 +71,7 @@ export const PRICING_STYLES = `
   /* ---------- Top bar (matches payments.html) ---------- */
   
   .pricing-page .pricing-top{ position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:1.2em 2.5em; }
+  .pricing-page .pricing-brand{ display:flex; align-items:center; gap:.7em; }
   .pricing-page .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.7em; display:flex; align-items:baseline; }
   .pricing-page .logo .va{ color:var(--red); }
   .pricing-page .back-link{ font-size:1em; font-weight:500; color:var(--muted); }

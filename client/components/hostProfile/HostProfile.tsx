@@ -646,7 +646,7 @@ export default function HostProfile({ hostKey }: {
         .host-profile-actions { display:flex; align-items:center; gap:8px; }
         .host-profile-message:focus-visible, .host-profile-touch-option:focus-visible { outline:2px solid #e5384f; outline-offset:2px; }
         /* Get in touch: a menu under the button; on phones a sheet from the bottom (below). */
-        /* While Get in touch is open, the banner (and its menu or sheet) sits above the page and the phone's bottom bar (z-index 150, shellStyles.ts). */
+        /* While Get in touch is open, the banner (and its menu or sheet) sits above the page. */
         .host-profile-banner-wrap.is-touch-open { z-index:200; }
         .host-profile-touch { position:relative; }
         .host-profile-touch-scrim { display:none; }

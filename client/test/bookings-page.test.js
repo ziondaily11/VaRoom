@@ -192,7 +192,7 @@ test('phones open the details page; larger screens hand it to the Bookings rail'
   for (const text of ['No booking specified', "Couldn't load this booking", "This isn't your booking", 'Loading your booking…', 'aria-label="Back to bookings"', '<h1 className="ba-title">Booking details</h1>']) {
     assert.ok(page.includes(text), text);
   }
-  assert.match(page, /\.appNavigation = true;/);
+  assert.doesNotMatch(page, /appNavigation/);
   const styles = read('components', 'bookings', 'bookingsStyles.ts');
   assert.match(styles, /@media \(min-width:861px\) and \(max-width:1320px\)\{\s*\.bookings-page \.content-row\{ grid-template-columns:minmax\(0, 1fr\) clamp\(320px, 36vw, 460px\); \}/);
   assert.match(styles, /@media \(min-width:521px\)\{\s*@container bookings-feed \(max-width:520px\)\{/, 'laptops keep the row card');
@@ -291,7 +291,7 @@ test('/bookings is the native page inside the app shell', () => {
   const page = read('pages', 'bookings.tsx');
   assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} switcher=\{switcher\}/);
   assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} switcher=\{switcher\} \/>/);
-  assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
+  assert.match(page, /<MenuButton className="topbar-avatar-btn">/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);
 });
 
