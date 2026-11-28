@@ -23,7 +23,24 @@ export interface Ticket {
   priority?: string | null;
   createdAt: string;
   accountStatus: string;
+  /** appeal, sign_in, billing, booking, report or other. */
+  category?: string;
+  /** web (the Support page) or email. */
+  source?: string;
 }
+
+/** One message in a ticket's conversation after the first: an admin reply, the automatic acknowledgement, or the person answering by email. */
+export interface TicketReply {
+  id: string;
+  message: string;
+  direction: 'outbound' | 'inbound';
+  automatic: boolean;
+  delivery_status: string;
+  sent_at: string;
+  admin: { name?: string | null } | null;
+}
+
+export interface ReplyTemplate { id: string; title: string; body: string }
 
 export interface ListingReport { id: string; listing: string | null; reporter: string | null; reason: string; status: string; createdAt: string }
 
@@ -185,6 +202,8 @@ export const loadListings = () => rows<AdminListing>('/admin/listings');
 export const loadUpdates = () => rows<VaroomUpdate>('/admin/updates');
 export const loadActivity = () => rows<ActivityEntry>('/admin/activity');
 export const loadPendingNews = () => adminRequest<NewsEntry[] | null>('/admin/news/pending').then((result) => result || []);
+export const loadTicket = (id: string) => adminRequest<{ ticket: Ticket; replies?: TicketReply[] }>(`/admin/support/tickets/${id}`);
+export const loadTemplates = () => rows<ReplyTemplate>('/admin/support/templates');
 export const loadUser = (id: string) => adminRequest<UserDetail>(`/admin/users/${id}`);
 export const loadRules = () => adminRequest<{ rules?: ModerationRule[]; hits?: RuleHit[] }>('/admin/rules')
   .then((result) => ({ rules: result.rules || [], hits: result.hits || [] }));
@@ -193,6 +212,9 @@ export const loadRules = () => adminRequest<{ rules?: ModerationRule[]; hits?: R
 
 export const replyToTicket = (id: string, message: string, idempotencyKey: string) =>
   adminRequest<unknown>(`/admin/support/tickets/${id}/replies`, json('POST', { message }, { 'Idempotency-Key': idempotencyKey }));
+export const saveTemplate = ({ id, title, body }: { id?: string; title: string; body: string }) =>
+  adminRequest<{ template: ReplyTemplate }>(id ? `/admin/support/templates/${id}` : '/admin/support/templates', json(id ? 'PATCH' : 'POST', { title, body }));
+export const deleteTemplate = (id: string) => adminRequest<null>(`/admin/support/templates/${id}`, { method: 'DELETE' });
 export const setTicketStatus = (id: string, status: string) => adminRequest<unknown>(`/admin/support/tickets/${id}`, json('PATCH', { status }));
 export const addAdmin = (admin: NewAdmin) => adminRequest<{ admin: Omit<Admin, 'lastLogin'> }>('/admin/admins', json('POST', admin));
 export const actOnNews = (id: string, action: 'approve' | 'reject') => adminRequest<unknown>(`/admin/news/${id}/${action}`, json('POST', {}));

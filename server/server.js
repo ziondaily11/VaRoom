@@ -26,6 +26,8 @@ const { recordStepUp, verifiedTokenClaims } = require('./lib/stepUp');
 const { createPaystackClient } = require('./lib/paystackClient');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const enforcement = require('./lib/enforcement');
+const createSupportInboundRoutes = require('./routes/supportInboundRoutes');
+const supportInbox = require('./lib/supportInbox');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
@@ -72,6 +74,8 @@ app.use((req, res, next) => {
 // Paystack signs the exact request bytes. This must remain before JSON parsing
 // and before the generic /api rate limiter so provider retries are not blocked.
 app.use('/api/billing/paystack/webhook', express.raw({ type: 'application/json', limit: '1mb' }), createPaystackWebhookRoutes());
+// Email to any @varoom.co.ke address, from Resend (signed like Paystack's, so raw too).
+app.use('/api/support/inbound-email', express.raw({ type: () => true, limit: '1mb' }), createSupportInboundRoutes(supabaseAdmin));
 
 app.use(express.json({ limit: MAX_JSON_BYTES, strict: true }));
 app.use(express.urlencoded({ extended: false }));
@@ -327,16 +331,26 @@ app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   let userId = null;
   if (authUser) userId = authUser.id;
 
+  // Appeals from restricted accounts are filed as such, high priority.
+  let triaged = { category: 'other', priority: null, restriction: null };
+  try {
+    triaged = await supportInbox.triage(supabaseAdmin, { userId, subject: safeSubject, message: safeMessage });
+  } catch (triageError) {
+    console.error('Support ticket triage failed:', triageError.message);
+  }
   const { data, error } = await supabaseAdmin.from('support_tickets').insert({
     user_id: userId,
     name: resolvedName,
     email: resolvedEmail,
     subject: safeSubject,
     message: safeMessage,
-    priority: ['low', 'normal', 'high'].includes(priority) && authUser ? priority : 'normal'
-  }).select('id,status,created_at').single();
+    category: triaged.category,
+    priority: triaged.priority || (['low', 'normal', 'high'].includes(priority) && authUser ? priority : 'normal')
+  }).select('id,status,created_at,name,email,message_id').single();
   if (error) return sendError(res, 502, 'Unable to create support ticket');
-  return res.status(201).json({ ticket: data });
+  supportInbox.acknowledge(supabaseAdmin, data, { restriction: triaged.restriction })
+    .catch((ackError) => console.error('Support acknowledgement failed:', ackError.message));
+  return res.status(201).json({ ticket: { id: data.id, status: data.status, created_at: data.created_at } });
 });
 
 // Every page is native on the frontend now; this server redirects the old
@@ -903,6 +917,15 @@ function liftEndedSuspensionsNow() {
 }
 setTimeout(liftEndedSuspensionsNow, 75 * 1000).unref();
 setInterval(liftEndedSuspensionsNow, 10 * 60 * 1000).unref();
+
+// Support tickets answered with no word back for 7 days are closed (hourly).
+function closeStaleTicketsNow() {
+  supportInbox.closeStaleTickets(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Closed ${count} quiet support ticket(s).`); })
+    .catch((error) => console.error('Closing quiet support tickets failed:', error));
+}
+setTimeout(closeStaleTicketsNow, 4 * 60 * 1000).unref();
+setInterval(closeStaleTicketsNow, 60 * 60 * 1000).unref();
 
 // Calendar links from other sites (Airbnb.com, Booking.com…): read every 30
 // minutes, so their bookings block those days on VaRoom (lib/calendarSync.js).

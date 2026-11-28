@@ -55,6 +55,7 @@ const LOADERS = {
   signins: api.loadSignins,
   revenue: api.loadRevenue,
   tickets: api.loadTickets,
+  templates: api.loadTemplates,
   reports: api.loadReports,
   userReports: api.loadUserReports,
   deletions: api.loadAccountDeletions,
@@ -75,7 +76,7 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   overview: ["overview", "signins", "revenue"],
   signins: ["signins"],
   revenue: ["revenue"],
-  support: ["tickets"],
+  support: ["tickets", "templates"],
   reports: ["reports", "userReports", "deletions"],
   users: ["users"],
   listings: ["listings"],
@@ -175,7 +176,26 @@ export default function AdminDashboard() {
 
   const refreshActivity = () => { void reload("activity"); };
 
-  const replyToTicket = (id: string, message: string, idempotencyKey: string) => api.replyToTicket(id, message, idempotencyKey);
+  // The server moves an answered open ticket to in progress; the list follows.
+  const replyToTicket = async (id: string, message: string, idempotencyKey: string) => {
+    await api.replyToTicket(id, message, idempotencyKey);
+    const answered = (t: Ticket) => (t.id === id && t.status === "open" ? { ...t, status: "in_progress" } : t);
+    setResource("tickets", (prev) => prev && prev.map(answered));
+    setSelectedTicket((prev) => prev && answered(prev));
+  };
+
+  const saveTemplate = (template: { id?: string; title: string; body: string }) => run(async () => {
+    const result = await api.saveTemplate(template);
+    setResource("templates", (prev) => {
+      const others = (prev || []).filter((t) => t.id !== result.template.id);
+      return [...others, result.template].sort((a, b) => a.title.localeCompare(b.title));
+    });
+  });
+
+  const deleteTemplate = (id: string) => run(async () => {
+    await api.deleteTemplate(id);
+    setResource("templates", (prev) => prev && prev.filter((t) => t.id !== id));
+  });
 
   const updateTicketStatus = (id: string, status: string) => run(async () => {
     await api.setTicketStatus(id, status);
@@ -295,6 +315,9 @@ export default function AdminDashboard() {
             setSelected={setSelectedTicket}
             onReply={replyToTicket}
             onStatusChange={(id, status) => { void updateTicketStatus(id, status); }}
+            templates={data.templates || []}
+            saveTemplate={saveTemplate}
+            deleteTemplate={deleteTemplate}
           />
         );
       case "reports":
