@@ -49,6 +49,7 @@ export const MARKETPLACE_STYLES = `
   .marketplace-page .mkt-header{ padding:20px clamp(16px, 2.5vw, 32px) 12px; background:var(--paper); }
   .marketplace-page .mkt-title-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
   .marketplace-page .mkt-title-row h1{ font-size:1.75rem; font-weight:700; letter-spacing:-.02em; }
+  .marketplace-page .mkt-heading{ display:flex; align-items:center; gap:10px; min-width:0; }
   .marketplace-page .mkt-search{ position:relative; flex:0 1 420px; min-width:0; margin:0; }
   .marketplace-page .mkt-search > svg{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
   .marketplace-page .mkt-search input{

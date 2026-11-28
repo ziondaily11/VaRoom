@@ -33,6 +33,7 @@ export const LIST_WIZARD_STYLES = `
   #listing-page .wizard-shell{ max-width:1240px; margin:0 auto; }
   #listing-page .wz-progress{ margin-bottom:1.1rem; }
   #listing-page .wz-progress-head{ display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:.6rem; }
+  #listing-page .wz-progress-title{ display:flex; align-items:center; gap:.7rem; min-width:0; }
   #listing-page .wz-progress-label{ font-size:.92rem; font-weight:600; }
   #listing-page .wz-progress-label span{ color:var(--muted); font-weight:500; }
   #listing-page .listing-save-status{ font-size:.78rem; color:var(--muted); text-align:right; }

@@ -291,7 +291,7 @@ test('/bookings is the native page inside the app shell', () => {
   const page = read('pages', 'bookings.tsx');
   assert.match(page, /<HostBookingsView key=\{hostId\} hostId=\{hostId\} showToast=\{toast\.show\} switcher=\{switcher\}/);
   assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} switcher=\{switcher\} \/>/);
-  assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
+  assert.match(page, /<MenuButton className="topbar-avatar-btn">/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);
 });
 

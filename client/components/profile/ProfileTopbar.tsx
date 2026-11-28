@@ -5,6 +5,7 @@ import { switchAccount, useLinkedAccounts } from '../../lib/account/accountActio
 import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { AddAccountIcon, BellIcon, ChevronDownIcon, MoonIcon, SunIcon } from './ProfileIcons';
+import MenuButton from '../shell/MenuButton';
 
 // The profile's topbar (theme, notifications, account menu), over the
 // banner, as in legacy-pages/profile.html. The account menu lists this
@@ -64,6 +65,7 @@ export default function ProfileTopbar({ userId, name, avatarUrl, notify }: { use
 
   return (
     <header className="profile-topbar">
+      <MenuButton />
       <div className="topbar-spacer" />
       <div className="topbar-actions">
         <button className="topbar-icon" type="button" id="theme-toggle-btn" aria-label="Toggle theme" onClick={toggleTheme}>{dark ? <SunIcon /> : <MoonIcon />}</button>

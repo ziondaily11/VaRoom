@@ -74,6 +74,7 @@ import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
 import ChatSettings, { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import { useCounts } from '../lib/counts/countsStore';
+import MenuButton from '../components/shell/MenuButton';
 import { isModifiedClick } from '../lib/navigation/clicks';
 import { useChatViewport } from '../components/chat/useChatViewport';
 import { keepsKeyboardOpen } from '../lib/chat/chatViewport';
@@ -1501,7 +1502,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
         {/* 2. CONTACTS / INBOX COLUMN */}
         <aside className={layoutClasses.contacts}>
           <div className="mobile-inbox-title">
-            Messages
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}><MenuButton />Messages</span>
             <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={openChatSettings}>
               <svg className="icon"><use href="#i-gear" /></svg>
             </button>
@@ -2468,6 +2469,7 @@ function ChatsView({ initialConversationId }: { initialConversationId?: string }
 
 // The app's mobile navigation shows on the inbox (legacy loaded it on Chats).
 (ChatsPage as unknown as { appNavigation: boolean }).appNavigation = true;
+ChatsPage.phoneMenu = true;
 
 // Preserve self-contained full-screen dashboard app shell outside ClientLayout and HostLayout
 ChatsPage.getLayout = function getLayout(page: React.ReactNode) {

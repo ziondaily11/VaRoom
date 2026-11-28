@@ -25,6 +25,7 @@ import { ICONS, Svg } from '../components/hostHome/hostHomeIcons';
 import { HOST_HOME_STYLES } from '../components/hostHome/hostHomeStyles';
 import { profileWithNiche } from '../lib/auth/session';
 import { useCounts } from '../lib/counts/countsStore';
+import MenuButton from '../components/shell/MenuButton';
 import { loadPlanActive, peekPlanActive } from '../lib/billing/hostBilling';
 import {
   attentionView, fetchPendingRequests, isUpgradeSnoozed, snoozeUpgrade, type PendingRequest,
@@ -657,9 +658,9 @@ export default function HostHomePage() {
       <div className="app-shell">
         <div className="main-col">
           <header className="topbar">
-            <button type="button" className="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
-              <div className="avatar-circle" id="user-avatar" aria-hidden="true"><Svg markup={ICONS.menu} /></div>
-            </button>
+            <MenuButton className="topbar-avatar-btn">
+              <div className="avatar-circle" aria-hidden="true"><Svg markup={ICONS.menu} /></div>
+            </MenuButton>
             <div className="search-wrap">
               <button type="button" className="search-btn" id="search-btn" aria-label="Search"><Svg markup={ICONS.search} /></button>
               <input type="text" id="search-input" placeholder="Search places or @user" aria-label="Search by listing name, area or host username" value={searchDraft} onChange={(event) => onSearch(event.target.value)} />

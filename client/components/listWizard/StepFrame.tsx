@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import MenuButton from '../shell/MenuButton';
 
 // The listing wizard's frame: one progress bar above the steps, then each
 // step's panel (its content) beside its photo. Every step stays mounted and
@@ -25,7 +26,7 @@ export function WizardProgress({ step, furthest, saveStatus, onGo }: {
   return (
     <nav className="wz-progress" aria-label="Listing steps">
       <div className="wz-progress-head">
-        <p className="wz-progress-label"><span>Step {step} of {total}</span> · {STEP_LABELS[step - 1]}</p>
+        <div className="wz-progress-title"><MenuButton /><p className="wz-progress-label"><span>Step {step} of {total}</span> · {STEP_LABELS[step - 1]}</p></div>
         <span className="listing-save-status" role="status" aria-live="polite" data-state={saveStatus.state || undefined}>{saveStatus.message}</span>
       </div>
       <ol className="wz-progress-bar">

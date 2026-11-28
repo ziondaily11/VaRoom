@@ -202,6 +202,7 @@ export const SUPPORT_STYLES = `
   }
   /* ---------- Help centre ---------- */
   .support-page .topbar { gap:1rem; }
+  .support-page .va-menu-btn { background:#25292d; color:#e5e5e5; }
   .support-page .topbar-title { color:#9aa1a8; font-size:.78rem; padding-left:1rem; border-left:1px solid rgba(255,255,255,.14); }
   .support-page .topbar-contact { margin-left:auto; padding:.5rem .95rem; border:1px solid #3a4046; border-radius:999px; color:var(--text); background:transparent; font-size:.75rem;
     transition:border-color var(--motion-micro,150ms) var(--ease-out,ease), transform var(--motion-press,120ms) var(--ease-out,ease); }

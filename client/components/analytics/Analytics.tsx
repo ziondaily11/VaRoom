@@ -17,6 +17,7 @@ import { Icon } from './analyticsIcons';
 import ListingPicker from './ListingPicker';
 import { Count } from './motion';
 import SegmentedTabs from '../ui/SegmentedTabs';
+import MenuButton from '../shell/MenuButton';
 import { ANALYTICS_CSS } from './analyticsStyles';
 
 /* ---------- Cached loading ---------- */
@@ -219,7 +220,7 @@ export function AnalyticsSkeleton() {
       <style dangerouslySetInnerHTML={{ __html: ANALYTICS_CSS }} />
       <div className="va-wrap">
         <header className="va-top">
-          <div className="va-skel" style={{ width: 280, height: 40, borderRadius: 14 }} />
+          <div className="va-hello-row"><MenuButton /><div className="va-skel" style={{ width: 280, maxWidth: '100%', height: 40, borderRadius: 14 }} /></div>
           <div className="va-skel" style={{ width: 260, height: 44, borderRadius: 999 }} />
         </header>
         <GhostBento />
@@ -275,9 +276,12 @@ export default function HostAnalytics({ client, userId, firstName, listingId, on
       <style dangerouslySetInnerHTML={{ __html: ANALYTICS_CSS }} />
       <div className="va-wrap">
         <header className="va-top">
-          <div className="va-hello">
-            {nicheLabel && <span className="va-chip">{nicheLabel}</span>}
-            <h1>{greeting()}{firstName ? `, ${firstName}` : ''}</h1>
+          <div className="va-hello-row">
+            <MenuButton />
+            <div className="va-hello">
+              {nicheLabel && <span className="va-chip">{nicheLabel}</span>}
+              <h1>{greeting()}{firstName ? `, ${firstName}` : ''}</h1>
+            </div>
           </div>
           {(!data || data.access) && (
             <div className="va-controls">

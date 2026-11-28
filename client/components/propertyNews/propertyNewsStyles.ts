@@ -67,6 +67,12 @@ export const PROPERTY_NEWS_STYLES = `
           background: var(--newspaper-white);
         }
 
+        .property-news-root .masthead-brand-row {
+          display: flex;
+          align-items: center;
+          gap: 0.7rem;
+        }
+
         .property-news-root .masthead-topbar {
           display: flex;
           justify-content: space-between;

@@ -34,6 +34,7 @@ import { accountRole } from '../lib/types/profile';
 import { errorMessage } from '../lib/errors';
 import { loginUrl } from '../lib/safeRedirect';
 import { PROPERTY_NEWS_STYLES } from '../components/propertyNews/propertyNewsStyles';
+import MenuButton from '../components/shell/MenuButton';
 
 function NewsCardImage({ src }: { src?: string }) {
   const [loaded, setLoaded] = useState(false);
@@ -462,7 +463,10 @@ export default function PropertyNewsPage() {
         {/* NEWSPAPER MASTHEAD */}
         <header className="newspaper-masthead-container">
           <div className="masthead-topbar">
-            <Link href={homeHref} className="masthead-brand" aria-label={signedIn ? 'VaRoom home' : 'VaRoom'}><span className="masthead-badge-va">Va</span>Room</Link>
+            <div className="masthead-brand-row">
+              <MenuButton />
+              <Link href={homeHref} className="masthead-brand" aria-label={signedIn ? 'VaRoom home' : 'VaRoom'}><span className="masthead-badge-va">Va</span>Room</Link>
+            </div>
             <div className="masthead-date-nav">
               <span className="masthead-date-text">
                 <span className="masthead-date-long">{formatMastheadDate(mastheadDate)}</span>
@@ -776,3 +780,5 @@ export default function PropertyNewsPage() {
 }
 
 PropertyNewsPage.getLayout = (page: React.ReactElement) => page;
+// Phones: the hamburger opens the account's sidebar as a drawer (_app mounts it).
+PropertyNewsPage.phoneMenu = true;

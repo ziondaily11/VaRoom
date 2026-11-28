@@ -44,13 +44,6 @@ const CLIENT_MORE: Array<{ key: string; href: string; label: string; icon: React
   { key: 'become-host', href: BECOME_HOST_HREF, label: 'Become a Host', icon: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></> },
 ];
 
-const DRAWER_EVENTS = {
-  toggleSelector: '#topbar-avatar-btn, #menu-toggle, .menu-toggle',
-  openEvents: ['open-client-sidebar'],
-  closeEvents: ['close-client-sidebar', 'varoom-close-sidebar'],
-  toggleEvents: ['varoom-toggle-sidebar'],
-};
-
 export default function ClientSidebar({ activeNav: explicitActiveNav, rail = false }: { activeNav?: string; rail?: boolean } = {}) {
   const router = useRouter();
   // In the icon-only rail the labels are hidden, so each item gets a tooltip.
@@ -63,7 +56,7 @@ export default function ClientSidebar({ activeNav: explicitActiveNav, rail = fal
     accountOpen, setAccountOpen,
     mobileOpen, setMobileOpen,
     identityBtnRef, accountMenuRef,
-  } = useShellChrome(DRAWER_EVENTS);
+  } = useShellChrome();
 
   // Compute active navigation item from router if not explicitly passed
   const activeNav: string = explicitActiveNav || clientActiveNav(router.pathname || '', router.asPath || '');

@@ -13,6 +13,7 @@ import { completedClientProfile } from '../lib/types/profile';
 import Svg from '../components/booking/Svg';
 import { SOCIAL_ICONS, SOCIAL_LINKS } from '../components/shell/socialIcons';
 import AppShell from '../components/shell/AppShell';
+import MenuButton, { MenuIcon } from '../components/shell/MenuButton';
 import SegmentedTabs from '../components/ui/SegmentedTabs';
 import { searchTerm } from '../lib/marketplace/marketplace';
 import styles from './ClientHome.module.css';
@@ -1520,13 +1521,9 @@ export default function ClientHome() {
       </Head>
       <section className={styles.home}>
         <header className={styles.topbar}>
-          <button type="button" id="topbar-avatar-btn" className={styles.mobileMenu} aria-label="Open menu">
-            <span className={styles.mobileAvatar} aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
-              </svg>
-            </span>
-          </button>
+          <MenuButton className={styles.mobileMenu}>
+            <span className={styles.mobileAvatar} aria-hidden="true"><MenuIcon /></span>
+          </MenuButton>
           <div className={styles.searchWrap}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, area or @username" aria-label="Search by listing name, area or host username" />

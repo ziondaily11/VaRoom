@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { bannerFileOk, bannerUrl, removeBanner, uploadBanner } from '../../lib/profile/profilePage';
 import { BannerFadeStyles } from '../profile/BannerFade';
+import MenuButton from '../shell/MenuButton';
 
 // A host's banner on their public pages; the host can add, change or remove
 // it here. Converted from legacy-pages/ProfileBanner.jsx. The photo fades
@@ -74,12 +75,14 @@ export default function ProfileBanner({ hostId, imageKey, isOwner = false, token
           </div>
         )}
         {message && <span className="profile-banner-message" role="status">{message}</span>}
+        <div className="profile-banner-menu"><MenuButton /></div>
       </header>
       <style jsx>{`
         .profile-banner { position:relative; height:350px; overflow:hidden; background:var(--host-profile-avatar-fallback,#d9d3ca); background-position:center 45%; background-size:cover; }
         /* The shared fade (BannerFade, as on /profile) ends on this page's own background, in light and dark. */
         .profile-banner { --vr-banner-fade-to:var(--host-profile-page); --vr-banner-fade-z:1; }
         .profile-banner-actions { position:absolute; z-index:3; right:22px; top:18px; display:flex; gap:8px; }
+        .profile-banner-menu { position:absolute; z-index:3; left:12px; top:12px; }
         .profile-banner-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff88;border-radius:999px;background:#090909b8;color:#fff;font-size:0.75rem;cursor:pointer;backdrop-filter:blur(10px); }
         .profile-banner-actions button:disabled { opacity:.6;cursor:wait; }

@@ -31,12 +31,6 @@ const HOST_MORE: Array<{ key: string; href: HostStartPage; label: string; icon: 
   { key: 'upgrade', href: '/pricing', label: 'Premium', icon: <><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" /><path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z" /></> },
 ];
 
-const DRAWER_EVENTS = {
-  toggleSelector: '#topbar-avatar-btn, #menu-toggle',
-  openEvents: ['open-host-sidebar'],
-  closeEvents: ['close-host-sidebar'],
-};
-
 export default function HostSidebar({ activeNav: explicitActiveNav, rail = false }: { activeNav?: string; rail?: boolean }) {
   const router = useRouter();
   // In the icon-only rail the labels are hidden, so each item gets a tooltip.
@@ -50,7 +44,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav, rail = false
     accountOpen, setAccountOpen,
     mobileOpen, setMobileOpen, closeMobile,
     moreBtnRef, moreMenuRef, identityBtnRef, accountMenuRef,
-  } = useShellChrome(DRAWER_EVENTS);
+  } = useShellChrome();
   // The start page: pinned from a row's pin, its right-click menu or a long press.
   const startPage = useStartPage();
   const [pinMenu, setPinMenu] = useState<MenuRequest | null>(null);

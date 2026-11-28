@@ -2,18 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { activeLinkedAccount, logout, switchAccount } from '../../lib/account/accountActions';
 import { resolveShellIdentity, storedIdentity, type ShellIdentity } from '../../lib/shell/shellIdentity';
+import { useSidebarDrawer } from './SidebarDrawer';
 
 // Behaviour shared by the host and client sidebars: the More and account
-// popovers, closing on outside click or Escape, the mobile drawer, the
-// displayed identity and the account actions.
-
-export interface DrawerEvents {
-  /** Elements whose clicks toggle the drawer (legacy topbar buttons). */
-  toggleSelector: string;
-  openEvents: string[];
-  closeEvents: string[];
-  toggleEvents?: string[];
-}
+// popovers, closing on outside click or Escape, the mobile drawer (its state
+// is SidebarDrawer's, opened by MenuButton), the displayed identity and the
+// account actions.
 
 function positionPopover(button: HTMLElement | null, menu: HTMLElement | null) {
   if (!button || !menu) return;
@@ -30,10 +24,10 @@ function positionPopover(button: HTMLElement | null, menu: HTMLElement | null) {
   menu.style.overflowY = 'auto';
 }
 
-export function useShellChrome({ toggleSelector, openEvents, closeEvents, toggleEvents = [] }: DrawerEvents) {
+export function useShellChrome() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { open: mobileOpen, setOpen: setMobileOpen } = useSidebarDrawer();
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const identityBtnRef = useRef<HTMLButtonElement>(null);
@@ -79,34 +73,9 @@ export function useShellChrome({ toggleSelector, openEvents, closeEvents, toggle
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [setMobileOpen]);
 
-  // Mobile drawer: legacy topbar buttons and window events open/close it.
-  useEffect(() => {
-    const onDocumentClick = (event: MouseEvent) => {
-      const trigger = (event.target as Element | null)?.closest?.(toggleSelector);
-      if (!trigger) return;
-      event.preventDefault();
-      setMobileOpen((open) => !open);
-    };
-    const open = () => setMobileOpen(true);
-    const close = () => setMobileOpen(false);
-    const toggle = () => setMobileOpen((value) => !value);
-    document.addEventListener('click', onDocumentClick);
-    openEvents.forEach((name) => window.addEventListener(name, open));
-    closeEvents.forEach((name) => window.addEventListener(name, close));
-    toggleEvents.forEach((name) => window.addEventListener(name, toggle));
-    return () => {
-      document.removeEventListener('click', onDocumentClick);
-      openEvents.forEach((name) => window.removeEventListener(name, open));
-      closeEvents.forEach((name) => window.removeEventListener(name, close));
-      toggleEvents.forEach((name) => window.removeEventListener(name, toggle));
-    };
-    // The event lists are constants per sidebar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), [setMobileOpen]);
 
   return {
     moreOpen, setMoreOpen,

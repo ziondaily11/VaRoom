@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import MenuButton, { MenuIcon } from '../components/shell/MenuButton';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
 import { managerHostId, useWorkspace } from '../lib/team/team';
@@ -89,11 +90,9 @@ export default function BookingsPage() {
         <div className="app-shell">
           <div className="main-col">
             <header className="topbar">
-              <button type="button" className="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
-                <div className="avatar-circle" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg>
-                </div>
-              </button>
+              <MenuButton className="topbar-avatar-btn">
+                <div className="avatar-circle" aria-hidden="true"><MenuIcon /></div>
+              </MenuButton>
               <span className="mobile-page-title">{role === 'host' ? 'Bookings' : 'My Bookings'}</span>
             </header>
             <div className={`content-row${role === 'host' && view === 'hosting' ? ' host-layout' : ''}`} id="content-row">

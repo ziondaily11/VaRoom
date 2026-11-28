@@ -9,6 +9,7 @@ import SupportDialog from '../components/support/SupportDialog';
 import RateVaroom from '../components/support/RateVaroom';
 import { takeSupportHandoff } from '../lib/support/handoff';
 import { SUPPORT_STYLES } from '../components/support/supportStyles';
+import MenuButton from '../components/shell/MenuButton';
 
 // Help & Support: search the help articles (results as you type), browse them
 // by topic, open the steps for one, and if that does not solve it, contact
@@ -137,6 +138,7 @@ export default function SupportPage() {
       <style dangerouslySetInnerHTML={{ __html: SUPPORT_STYLES }} />
       <div className="page support-page">
         <header className="topbar">
+          <MenuButton />
           <a className="logo" href={user ? homeHref : '/'} id="support-home-logo"><span className="va">Va</span>Room</a>
           <span className="topbar-title">Help &amp; Support</span>
           <button type="button" className="topbar-contact" onClick={() => contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Contact us</button>
@@ -251,3 +253,6 @@ export default function SupportPage() {
     </>
   );
 }
+
+// Phones: the hamburger opens the account's sidebar as a drawer (_app mounts it).
+SupportPage.phoneMenu = true;

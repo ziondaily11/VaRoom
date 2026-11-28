@@ -1,0 +1,29 @@
+/* The phone menu: the hamburger (components/shell/MenuButton.tsx) and the
+   sidebar drawer on pages outside the app shell (components/shell/PhoneDrawer.tsx). */
+
+.va-menu-trigger { position: relative; cursor: pointer; }
+.va-menu-trigger[data-menu-state='pending'] { visibility: hidden; }
+
+/* Default look: the round menu button Client Home already had. Phones only. */
+.va-menu-btn {
+  display: none; flex: 0 0 auto; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%;
+  background: #E9E7E2; color: #0F1419;
+}
+html[data-theme='dark'] .va-menu-btn { background: rgba(239, 243, 244, .15); color: #E7E9EA; }
+.va-menu-btn:focus-visible { outline: 2px solid var(--red, #C41E3A); outline-offset: 2px; }
+@media (max-width: 860px) { .va-menu-btn { display: inline-flex; } }
+
+.va-menu-dot {
+  position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%;
+  background: #C41E3A; box-shadow: 0 0 0 2px var(--va-light, #FFFFFF); pointer-events: none;
+}
+html[data-theme='dark'] .va-menu-dot { box-shadow: 0 0 0 2px #000000; }
+
+/* The drawer outside the shell: the shell's class for the sidebar styles, no layout of its own. */
+.host-app-layout.phone-drawer,
+.client-app-layout.phone-drawer { display: contents; }
+@media (min-width: 861px) {
+  .host-app-layout.phone-drawer,
+  .client-app-layout.phone-drawer { display: none; }
+}
