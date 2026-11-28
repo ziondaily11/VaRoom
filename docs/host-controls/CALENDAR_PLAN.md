@@ -1,6 +1,6 @@
 # Host calendar: plan
 
-Status: **approved 2026-11-27 with every recommendation (C1–C6 below). Parts 1–6 merged and applied (000089–000094). Part 7 (cleaning days between stays, prices by date; 000095) on `claude/calendar-prices-turnover`; 000095 applied 2026-11-28. With it the calendar's logic is complete; the UI redesign comes next.**
+Status: **complete. Approved 2026-11-27 with every recommendation (C1–C6 below); parts 1–7 merged and applied (000089–000095). The UI followed in `CALENDAR_UI_PLAN.md` and `CALENDAR_EVENTS_PLAN.md`. Left for later, outside this plan: guest-requested viewing times, and table capacity per time slot.**
 
 ## Goal
 
