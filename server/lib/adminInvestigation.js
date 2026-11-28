@@ -54,7 +54,7 @@ async function accountOverview(admin, userId) {
     recent(admin.from('listing_reports').select('id,listing_id,reason,details,status,created_at').eq('reporter_user_id', userId)),
     recent(admin.from('support_tickets').select('id,subject,status,category,source,created_at').eq('user_id', userId)),
     authUser.email ? recent(admin.from('support_tickets').select('id,subject,status,category,source,created_at').eq('email', authUser.email.toLowerCase())) : { data: [] },
-    admin.from('host_subscriptions').select('id,plan_id,niche,status,current_period_end,cancel_at_period_end,created_at').eq('host_id', userId).order('created_at', { ascending: false }),
+    admin.from('host_subscriptions').select('id,plan_id,niche,status,current_period_end,cancel_at_period_end,created_at,comp:provider_metadata->comp').eq('host_id', userId).order('created_at', { ascending: false }),
     recent(admin.from('billing_payments').select('id,payment_kind,plan_id,amount_minor,currency,status,provider_reference,paid_at,vcoins,created_at').eq('host_id', userId)),
     admin.from('elie_ledger').select('delta,kind,created_at').eq('user_id', userId).order('created_at', { ascending: false }),
     admin.from('account_enforcement_actions').select('id,action,reason,rule_key,suspended_until,created_at,admin:admins(name)').eq('user_id', userId).order('created_at', { ascending: false }),

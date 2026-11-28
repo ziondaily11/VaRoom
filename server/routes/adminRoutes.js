@@ -6,6 +6,7 @@ const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
 const enforcement = require('../lib/enforcement');
 const { ticketRef } = require('../lib/supportInbox');
 const investigation = require('../lib/adminInvestigation');
+const money = require('../lib/adminMoney');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -286,18 +287,18 @@ function createAdminRoutes(supabaseAdmin) {
     });
   }
 
-  router.get('/overview', adminAuth, async (_req, res) => {
+  // revenue: what VaRoom earned in the last 7 days (KES), not bookings, which hosts are paid directly.
+  router.get('/overview', adminAuth, caught(async (_req, res) => {
     const since = daysAgo(7);
-    const [users, listings, tickets, bookings] = await Promise.all([
+    const [users, listings, tickets, revenue] = await Promise.all([
       supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
       supabaseAdmin.from('listings').select('id', { count: 'exact', head: true }).gte('created_at', since),
       supabaseAdmin.from('support_tickets').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
-      supabaseAdmin.from('bookings').select('total_price', { count: 'exact' }).gte('created_at', since).in('status', ['approved', 'completed'])
+      money.weekRevenue(supabaseAdmin),
     ]);
     const signins = (users.data && users.data.users || []).filter((user) => user.last_sign_in_at && user.last_sign_in_at >= since);
-    const revenue = (bookings.data || []).reduce((sum, booking) => sum + Number(booking.total_price || 0), 0);
     return res.json({ signins: signins.length, revenue, openTickets: tickets.count || 0, newListings: listings.count || 0 });
-  });
+  }));
 
   router.get('/signins', adminAuth, async (req, res) => {
     const range = Math.min(Math.max(Number(req.query.range) || 14, 1), 365);
@@ -310,16 +311,47 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ data: rows, series: signinSeries(rows, Number(req.query.range) || 14) });
   });
 
-  router.get('/revenue', adminAuth, async (req, res) => {
-    const range = Math.min(Math.max(Number(req.query.range) || 7, 1), 365);
-    const since = daysAgo(range);
-    const { data, error } = await supabaseAdmin.from('bookings')
-      .select('id,total_price,created_at,client_id,listing_id,listing:listings(title)').gte('created_at', since)
-      .in('status', ['approved', 'completed']).order('created_at', { ascending: false });
-    if (error) return res.status(502).json({ error: error.message });
-    const transactions = (data || []).map((booking) => ({ id: booking.id, payer: booking.client_id, listing: booking.listing && booking.listing.title, amount: Number(booking.total_price || 0), date: booking.created_at }));
-    return res.json({ transactions, total: transactions.reduce((sum, row) => sum + row.amount, 0), series: dailySeries(transactions, 'amount', Number(req.query.range) || 7) });
+  // VaRoom's revenue (plans, listing payments, V-Coins), plans, and payments that failed or were refunded.
+  router.get('/revenue', adminAuth, caught(async (req, res) => {
+    const range = Math.min(Math.max(Number(req.query.range) || 30, 1), 365);
+    return res.json(await money.revenueReport(supabaseAdmin, range));
+  }));
+
+  // Money controls on an account (super admins): free plans and V-Coins.
+  const moneyAction = (handler) => caught(async (req, res) => {
+    try {
+      return await handler(req, res);
+    } catch (error) {
+      if (error instanceof money.MoneyError) return res.status(error.status).json({ error: error.message });
+      throw error;
+    }
   });
+
+  router.get('/users/:id/plans', adminAuth, caught(async (req, res) => res.json({ data: await money.plansFor(supabaseAdmin, req.params.id) })));
+
+  router.post('/users/:id/free-plan', ...superAdmin, moneyAction(async (req, res) => {
+    const days = Number(req.body && req.body.days);
+    if (!Number.isInteger(days) || days < 1 || days > 365) return res.status(400).json({ error: 'A free plan lasts 1 to 365 days' });
+    const reason = requiredReason(req, res);
+    if (reason === null) return undefined;
+    return res.json(await money.giveFreePlan(supabaseAdmin, { userId: req.params.id, planId: String(req.body.plan_id || ''), days, reason, adminId: req.admin.id }));
+  }));
+
+  router.post('/users/:id/free-plan/end', ...superAdmin, moneyAction(async (req, res) => {
+    const reason = requiredReason(req, res);
+    if (reason === null) return undefined;
+    await money.endFreePlan(supabaseAdmin, { userId: req.params.id, reason, adminId: req.admin.id });
+    return res.json({ ended: true });
+  }));
+
+  router.post('/users/:id/vcoins', ...superAdmin, moneyAction(async (req, res) => {
+    const amount = Number(req.body && req.body.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 10000) return res.status(400).json({ error: 'Grant 1 to 10,000 V-Coins' });
+    const reason = requiredReason(req, res);
+    if (reason === null) return undefined;
+    await money.grantVcoins(supabaseAdmin, { userId: req.params.id, amount, reason, adminId: req.admin.id });
+    return res.json({ granted: amount });
+  }));
 
   router.get('/support/tickets', adminAuth, caught(async (req, res) => {
     let query = supabaseAdmin.from('support_tickets').select('*').order('updated_at', { ascending: false });
@@ -870,16 +902,6 @@ function createAdminRoutes(supabaseAdmin) {
 function describeRule(rule) {
   const definition = enforcement.RULES[rule.key];
   return { ...rule, label: definition.label, description: definition.describe(rule) };
-}
-
-function dailySeries(rows, field, range) {
-  const result = [];
-  for (let i = range - 1; i >= 0; i -= 1) {
-    const day = new Date(Date.now() - i * 86400000);
-    const key = day.toISOString().slice(0, 10);
-    result.push({ day: key, revenue: rows.filter((row) => row.date.slice(0, 10) === key).reduce((sum, row) => sum + Number(row[field] || 0), 0) });
-  }
-  return result;
 }
 
 function mergeSeries(signups, listings, range) {

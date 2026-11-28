@@ -142,6 +142,8 @@ export function detailsFor(type: string): NotificationDetails {
   if (type === 'calendar_reminder') return { category: 'booking', title: 'Reminder', tint: 'tint-amber', tag: 'Calendar', iconKind: 'request' };
   // Warnings, suspensions and restores (server/lib/enforcement.js), and listings hidden after reports.
   if (type.startsWith('account_') || type === 'listing_hidden') return { category: 'other', title: 'Account notice', tint: 'tint-red', tag: 'Account', iconKind: 'declined' };
+  // A free plan or V-Coins given by VaRoom (server/lib/adminMoney.js).
+  if (type === 'plan_granted' || type === 'vcoins_granted') return { category: 'other', title: 'From VaRoom', tint: 'tint-green', tag: 'Billing', iconKind: 'approved' };
   if (type === 'booking_clash') return { category: 'booking', title: 'Possible double booking', tint: 'tint-red', tag: 'Calendar', iconKind: 'declined' };
   return { category: 'other', title: 'Notification', tint: 'tint-black', tag: 'Update', iconKind: 'update' };
 }

@@ -70,8 +70,17 @@ waiting for an admin, and gives admins what they need to investigate.
      and super admins; every reading is recorded in Admin activity. The
      Privacy Policy says so, and that messages are checked automatically
      for scams.
-4. **Money** — real VaRoom revenue (subscriptions in `billing_payments`, V-Coin
-   packs), failed payments, refunds; comp or extend a plan, grant V-Coins.
+4. **Money** — done in `claude/admin-money` (no migration;
+   `server/lib/adminMoney.js`). Revenue is what VaRoom earns
+   (`billing_payments` succeeded: plans, Silver/Gold listings, V-Coins, in
+   KES), not bookings. Monthly plan revenue, past-due and cancelling plans,
+   failed, abandoned and refunded payments. On an account: give a free plan of
+   the host's niche for N days (a `host_subscriptions` row with no Paystack
+   code, `provider_metadata.comp`), extend or end it, and grant V-Coins (an
+   `elie_ledger` grant). Free plans end by themselves (hourly); checkout
+   explains a running free plan. A plan paid through Paystack is changed in
+   Paystack (its renewals would overwrite changes here), and refunds are
+   issued there.
 5. **Coverage and hardening** — guest reviews and listing documents queues,
    paging past 1,000 users (`listUsers` cap), admin two-step verification,
    removing admins and changing roles, a health panel (failed emails,

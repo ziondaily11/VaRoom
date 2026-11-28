@@ -28,6 +28,7 @@ const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const enforcement = require('./lib/enforcement');
 const createSupportInboundRoutes = require('./routes/supportInboundRoutes');
 const supportInbox = require('./lib/supportInbox');
+const adminMoney = require('./lib/adminMoney');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
@@ -926,6 +927,15 @@ function closeStaleTicketsNow() {
 }
 setTimeout(closeStaleTicketsNow, 4 * 60 * 1000).unref();
 setInterval(closeStaleTicketsNow, 60 * 60 * 1000).unref();
+
+// Free plans from VaRoom end when their time is up, so the host can pay for one (hourly).
+function expireFreePlansNow() {
+  adminMoney.expireFreePlans(supabaseAdmin)
+    .then((count) => { if (count) console.log(`Ended ${count} free plan(s).`); })
+    .catch((error) => console.error('Ending free plans failed:', error));
+}
+setTimeout(expireFreePlansNow, 5 * 60 * 1000).unref();
+setInterval(expireFreePlansNow, 60 * 60 * 1000).unref();
 
 // Calendar links from other sites (Airbnb.com, Booking.com…): read every 30
 // minutes, so their bookings block those days on VaRoom (lib/calendarSync.js).

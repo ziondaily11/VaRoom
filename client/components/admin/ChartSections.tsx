@@ -1,7 +1,9 @@
 import React from "react";
 import { ChevronRight } from "lucide-react";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import type { GrowthPoint, Overview as OverviewData, RevenuePoint, SectionKey, SigninPoint, SigninRow, Transaction } from "../../lib/admin/adminApi";
+import type { GrowthPoint, Overview as OverviewData, RevenuePoint, RevenueReport, SectionKey, SigninPoint, SigninRow, Transaction } from "../../lib/admin/adminApi";
+
+const kes = (amount: number) => `KES ${Math.round(amount).toLocaleString()}`;
 import { SectionHeader, StatCard, Table } from "./AdminUi";
 
 export function Overview({ overview, signinsSeries, revenueSeries, goTo }: {
@@ -16,7 +18,7 @@ export function Overview({ overview, signinsSeries, revenueSeries, goTo }: {
       />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard label="Sign-ins (7d)" value={overview.signins} />
-        <StatCard label="Revenue (7d)" value={`$${totalRevenue.toFixed(0)}`} />
+        <StatCard label="Revenue (7d)" value={kes(totalRevenue)} sub="Plans, listings and V-Coins" />
         <StatCard
           label="Open support tickets"
           value={overview.openTickets}
@@ -47,7 +49,7 @@ export function Overview({ overview, signinsSeries, revenueSeries, goTo }: {
         </div>
 
         <div className="border border-[#E4E1DA] rounded-sm bg-white p-4">
-          <div className="text-sm text-[#24211E] mb-3">Revenue, last 14 days</div>
+          <div className="text-sm text-[#24211E] mb-3">Revenue, last 30 days</div>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={revenueSeries}>
               <CartesianGrid stroke="#E4E1DA" vertical={false} />
@@ -115,14 +117,44 @@ export function Signins({ signins, series }: { signins: SigninRow[]; series: Sig
   );
 }
 
-export function Revenue({ transactions, total, series }: { transactions: Transaction[]; total: number; series: RevenuePoint[] }) {
+const KIND_LABELS: Record<Transaction["kind"], string> = { subscription: "Plan", listing: "Listing", vcoins: "V-Coins" };
+const what = (t: Transaction) => (t.kind === "vcoins" ? `${t.vcoins} V-Coins` : t.kind === "listing" ? `${t.listing_tier || "Paid"} listing` : t.plan_id || "Plan");
+
+function PaymentsTable({ rows, openAccount }: { rows: Transaction[]; openAccount: (id: string) => void }) {
+  return (
+    <Table
+      columns={["Payer", "For", "Amount", "Status", "Reference", "Date"]}
+      rows={rows}
+      renderRow={(r) => (
+        <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
+          <td className="px-4 py-2"><button onClick={() => openAccount(r.host_id)} className="text-left text-[#1F6F5C] hover:underline">{r.payer || r.host_id.slice(0, 8)}</button></td>
+          <td className="px-4 py-2 text-[#8a857c]">{KIND_LABELS[r.kind]} · {what(r)}</td>
+          <td className="px-4 py-2 text-right font-mono">{kes(r.amount)}</td>
+          <td className="px-4 py-2 text-[#8a857c]">{r.status}</td>
+          <td className="px-4 py-2 font-mono text-xs text-[#8a857c]">{r.reference}</td>
+          <td className="px-4 py-2 text-xs text-[#8a857c]">{new Date(r.date).toLocaleString()}</td>
+        </tr>
+      )}
+    />
+  );
+}
+
+/** What VaRoom earns: plans, Silver/Gold listings and V-Coins (bookings are paid to hosts directly). */
+export function Revenue({ report, openAccount }: { report: RevenueReport; openAccount: (id: string) => void }) {
+  const { total, transactions, series, byKind, subscribers } = report;
   return (
     <div>
-      <SectionHeader title="Revenue" description="Paid amounts across bookings." />
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <StatCard label="Total (7d)" value={`$${total.toFixed(0)}`} />
-        <StatCard label="Transactions (7d)" value={transactions.length} />
-        <StatCard label="Avg. transaction" value={`$${(total / (transactions.length || 1)).toFixed(0)}`} />
+      <SectionHeader title="Revenue" description={`What VaRoom earned in the last ${report.range} days: plans, Silver and Gold listings, and V-Coins. Bookings are paid to hosts directly and are not included. Refunds are issued in Paystack.`} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <StatCard label={`Revenue (${report.range}d)`} value={kes(total)} sub={`${transactions.length} payments`} />
+        <StatCard label="Monthly plan revenue" value={kes(report.mrr)} sub={`${subscribers.paid} paid plans`} />
+        <StatCard label="Past due" value={subscribers.pastDue} sub={`${subscribers.cancelling} cancelling`} alert={subscribers.pastDue > 0} />
+        <StatCard label={`Failed payments (${report.range}d)`} value={report.failed.length} alert={report.failed.length > 0} />
+      </div>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <StatCard label="Plans" value={kes(byKind.subscription)} />
+        <StatCard label="Listings" value={kes(byKind.listing)} />
+        <StatCard label="V-Coins" value={kes(byKind.vcoins)} />
       </div>
       <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
         <ResponsiveContainer width="100%" height={200}>
@@ -135,19 +167,33 @@ export function Revenue({ transactions, total, series }: { transactions: Transac
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <Table
-        columns={["Transaction", "Payer", "Listing", "Amount", "Date"]}
-        rows={transactions}
-        renderRow={(r) => (
-          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
-            <td className="px-4 py-2 font-mono text-xs">{r.id}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.payer}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.listing}</td>
-            <td className="px-4 py-2 text-right font-mono">${r.amount.toFixed(2)}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.date}</td>
-          </tr>
-        )}
-      />
+      <SectionHeader title="Payments" />
+      <PaymentsTable rows={transactions} openAccount={openAccount} />
+      <div className="grid md:grid-cols-2 gap-4 mt-6">
+        <div>
+          <SectionHeader title="Paid plans" />
+          <Table columns={["Plan", "Hosts", "Monthly"]} rows={subscribers.byPlan} renderRow={(p) => (
+            <tr key={p.plan_id} className="border-b border-[#E4E1DA] last:border-0">
+              <td className="px-4 py-2">{p.name}</td><td className="px-4 py-2">{p.count}</td><td className="px-4 py-2 font-mono">{kes(p.monthly)}</td>
+            </tr>
+          )} />
+        </div>
+        <div>
+          <SectionHeader title="Free plans from VaRoom" />
+          <Table columns={["Host", "Plan", "Until"]} rows={report.freePlans} renderRow={(f) => (
+            <tr key={f.host_id} className="border-b border-[#E4E1DA] last:border-0">
+              <td className="px-4 py-2"><button onClick={() => openAccount(f.host_id)} className="text-left text-[#1F6F5C] hover:underline">{f.host || f.host_id.slice(0, 8)}</button></td>
+              <td className="px-4 py-2">{f.name}</td><td className="px-4 py-2 text-xs text-[#8a857c]">{new Date(f.until).toLocaleDateString()}</td>
+            </tr>
+          )} />
+        </div>
+      </div>
+      <div className="mt-6" />
+      <SectionHeader title="Failed and abandoned payments" description="Checkouts that did not go through. The payer can be contacted from their account." />
+      <PaymentsTable rows={report.failed} openAccount={openAccount} />
+      <div className="mt-6" />
+      <SectionHeader title="Refunded payments" />
+      <PaymentsTable rows={report.refunded} openAccount={openAccount} />
     </div>
   );
 }

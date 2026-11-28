@@ -26,9 +26,16 @@ function fakeSupabase(seed = {}, { unique = {}, rpc = {} } = {}) {
   const from = (name) => {
     tables[name] = tables[name] || [];
     const filters = [];
-    let op = 'select', values = null, head = false, single = false, countMode = false, limit = Infinity, order = null;
+    let op = 'select', values = null, head = false, single = false, countMode = false, limit = Infinity, order = null, aliases = [];
     const q = {
-      select(_columns, options = {}) { head = Boolean(options.head); countMode = options.count === 'exact'; return q; },
+      select(columns, options = {}) {
+        head = Boolean(options.head);
+        countMode = options.count === 'exact';
+        // JSON-path aliases (alias:column->key) are added to the rows read.
+        aliases = [...String(columns || '').matchAll(/(\w+):(\w+)->(\w+)/g)].map(([, alias, column, key]) => [alias, column, key]);
+        return q;
+      },
+      is(c, v) { filters.push((r) => (r[c] ?? null) === v); return q; },
       insert(row) { op = 'insert'; values = row; return q; },
       upsert(row) { op = 'upsert'; values = row; return q; },
       update(row) { op = 'update'; values = row; return q; },
@@ -72,6 +79,11 @@ function fakeSupabase(seed = {}, { unique = {}, rpc = {} } = {}) {
           if (op === 'update') matched.forEach((r) => Object.assign(r, values));
           if (op === 'delete') tables[name] = rows.filter((r) => !matched.includes(r));
           result = matched;
+          result.total = total;
+        }
+        if (aliases.length && op === 'select') {
+          const total = result.total;
+          result = result.map((r) => ({ ...r, ...Object.fromEntries(aliases.map(([alias, column, key]) => [alias, r[column] && r[column][key] !== undefined ? r[column][key] : null])) }));
           result.total = total;
         }
         const payload = error ? { data: null, error }
