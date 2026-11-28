@@ -222,7 +222,7 @@ test('font size: five stages like X, a VaRoom preview, and the same scales in th
 });
 
 test('font size applies across VaRoom: no text is sized in px (it would ignore the setting)', () => {
-  const allowed = new Set(['components/admin/ChartSections.tsx', 'components/listWizard/PolicyDocument.tsx']);
+  const allowed = new Set(['components/listWizard/PolicyDocument.tsx']);
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : walk(full);

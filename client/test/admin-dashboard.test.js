@@ -55,14 +55,20 @@ test('dashboard: native TSX; Overview at sign-in, other sections when first open
   assert.equal(fs.existsSync(path.join(root, 'pages', 'admin.js')), false);
   assert.match(read('pages', 'admin.tsx'), /import AdminDashboard from '\.\.\/components\/admin\/AdminDashboard'/);
   const shell = read('components', 'admin', 'AdminDashboard.tsx');
-  assert.match(shell, /overview: \["overview", "signins", "revenue"\]/);
+  assert.match(shell, /overview: \["overview", "revenue", "activity"\]/);
   assert.match(shell, /for \(const key of \["overview", \.\.\.SECTION_RESOURCES\[active\]\]/);
   assert.match(shell, /if \(!requested\.current\.has\(key\)\) void reload\(key\);/);
   assert.match(shell, /role="alert"/);
   assert.match(read('components', 'admin', 'LoginScreen.tsx'), /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); onLogin\(email, password, codeRequired \? code : undefined\); \}\}/);
-  // styles/admin.css paints dark mode by these class strings.
-  const ui = read('components', 'admin', 'AdminUi.tsx');
-  for (const cls of ['border rounded-sm p-4 bg-white', 'border-[#E4E1DA]']) assert.ok(ui.includes(cls), cls);
+  // Every colour is a token in styles/admin.css (light, and dark under the site's theme); components name none.
+  const css = read('styles', 'admin.css');
+  assert.match(css, /\.admin-dashboard,\s*\.admin-login \{[^}]*--adm-accent: #C41E3A;/);
+  assert.match(css, /\[data-theme="dark"\] \.admin-dashboard,\s*\[data-theme="dark"\] \.admin-login \{[^}]*--adm-bg: #000000;/);
+  for (const file of fs.readdirSync(path.join(root, 'components', 'admin'))) {
+    const source = read('components', 'admin', file);
+    assert.doesNotMatch(source, /#[0-9A-Fa-f]{6}\b/, `${file} names a colour`);
+    assert.doesNotMatch(source, /from "recharts"/, `${file} uses the theme's own bars`);
+  }
 });
 
 test('account actions and rules: timed suspensions send days; rules are read and changed', async () => {
@@ -141,4 +147,38 @@ test('hardening: two-step sign-in, admin management, paged users, reviews, verif
   assert.deepEqual(JSON.parse(calls[1].body), { email: 'ada@varoom.co.ke', password: 'pw', code: '123456' });
   assert.deepEqual(JSON.parse(calls[10].body), { verified: true, reason: 'Deed checked' });
   assert.doesNotMatch(read('components', 'admin', 'ChartSections.tsx'), /"Device"/, 'no made-up device column');
+});
+
+test('redesign: dates, money, names and actions read the same everywhere', () => {
+  const f = loadTs(path.join(root, 'lib', 'admin', 'format.ts'));
+  const now = new Date(2026, 10, 28, 18, 0);
+  assert.equal(f.formatWhen(new Date(2026, 10, 28, 14, 44).toISOString(), now), '28 Nov, 14:44');
+  assert.equal(f.formatWhen(new Date(2025, 0, 3, 9, 5).toISOString(), now), '3 Jan 2025, 09:05');
+  assert.equal(f.formatWhen(null, now), '—');
+  assert.equal(f.formatDate(new Date(2026, 9, 1).toISOString()), '1 Oct 2026');
+  assert.equal(f.timeAgo(new Date(2026, 10, 28, 16, 0).toISOString(), now), '2 hours ago');
+  assert.equal(f.timeAgo(new Date(2026, 10, 27, 17, 0).toISOString(), now), 'Yesterday');
+  assert.equal(f.timeAgo(new Date(2026, 10, 28, 17, 59, 40).toISOString(), now), 'Just now');
+  assert.equal(f.timeAgo(null, now), 'Never');
+  assert.equal(f.kes(16600), 'KES 16,600');
+  assert.equal(f.humanize('listing_report_dismissed'), 'Listing report dismissed');
+  assert.equal(f.initials('Achieng Otieno'), 'AO');
+  assert.equal(f.initials('jane.doe@example.com'), 'JD');
+  assert.equal(f.ticketRef('fe35ce78-e482'), '#FE35CE78');
+  assert.equal(f.actionLabel('account_suspended'), 'suspended an account');
+  assert.equal(f.actionLabel('something_new'), 'something new');
+  assert.equal(f.toneFor('abc'), f.toneFor('abc'));
+});
+
+test('redesign: Send again, the Restricted list, the font on the admin page only, and the shell', async () => {
+  const { calls, api } = withFetch([{ status: 200, body: { reply: { id: 'r1', delivery_status: 'sent' } } }, { status: 200, body: { data: [{ id: 'u1' }], total: 1 } }]);
+  assert.equal((await api.resendReply('t1', 'r1')).reply.delivery_status, 'sent');
+  assert.deepEqual(await api.loadRestrictedUsers(), { users: [{ id: 'u1' }], total: 1 });
+  assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), ['POST /admin/support/tickets/t1/replies/r1/resend', 'GET /admin/users?status=restricted']);
+  assert.match(read('pages', 'admin.tsx'), /family=Plus\+Jakarta\+Sans/);
+  assert.doesNotMatch(read('styles', 'admin.css'), /@import/, 'no font fetched on every page');
+  const shell = read('components', 'admin', 'AdminDashboard.tsx');
+  for (const group of ['Today', 'People', 'Content', 'Money', 'Safety']) assert.match(shell, new RegExp(`title: "${group}"`));
+  assert.match(shell, /localStorage\.setItem\("varoom_theme", next\)/);
+  assert.match(shell, /aria-current=\{current === key \? "page" : undefined\}/);
 });

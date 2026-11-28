@@ -8,7 +8,7 @@ const { ticketRef } = require('../lib/supportInbox');
 const investigation = require('../lib/adminInvestigation');
 const money = require('../lib/adminMoney');
 const security = require('../lib/adminSecurity');
-const { healthReport } = require('../lib/adminHealth');
+const { healthReport, attentionCounts, accountCounts } = require('../lib/adminHealth');
 const { signedDocumentUrl } = require('../lib/listingDocumentAccess');
 
 const SESSION_COOKIE = 'varoom_admin_session';
@@ -348,14 +348,16 @@ function createAdminRoutes(supabaseAdmin) {
   // revenue: what VaRoom earned in the last 7 days (KES), not bookings, which hosts are paid directly.
   router.get('/overview', adminAuth, caught(async (_req, res) => {
     const since = daysAgo(7);
-    const [signins, listings, tickets, revenue] = await Promise.all([
+    const [signins, listings, tickets, revenue, attention, accounts] = await Promise.all([
       supabaseAdmin.rpc('admin_recent_signins', { p_since: since }),
       supabaseAdmin.from('listings').select('id', { count: 'exact', head: true }).gte('created_at', since),
       supabaseAdmin.from('support_tickets').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
       money.weekRevenue(supabaseAdmin),
+      attentionCounts(supabaseAdmin),
+      accountCounts(supabaseAdmin, enforcement.effectiveStatus).catch((error) => { console.error('Account counts failed:', error.message); return null; }),
     ]);
     if (signins.error) throw signins.error;
-    return res.json({ signins: (signins.data || []).length, revenue, openTickets: tickets.count || 0, newListings: listings.count || 0 });
+    return res.json({ signins: (signins.data || []).length, revenue, openTickets: tickets.count || 0, newListings: listings.count || 0, attention, accounts });
   }));
 
   // Each person's latest sign-in in the range (counted in the database, past any number of accounts).
@@ -506,6 +508,36 @@ function createAdminRoutes(supabaseAdmin) {
     }
   });
 
+  // A reply that failed to send, sent again (the same message on the same thread).
+  router.post('/support/tickets/:id/replies/:replyId/resend', ...adminWrite, caught(async (req, res) => {
+    const { data: reply, error } = await supabaseAdmin.from('support_ticket_replies').select('*')
+      .eq('id', req.params.replyId).eq('ticket_id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!reply || reply.direction !== 'outbound') return res.status(404).json({ error: 'Reply not found' });
+    if (reply.delivery_status !== 'failed') return res.status(409).json({ error: 'This reply was not a failed one' });
+    const headers = {
+      ...(reply.message_id ? { 'Message-ID': reply.message_id } : {}),
+      ...(reply.in_reply_to ? { 'In-Reply-To': reply.in_reply_to } : {}),
+      ...(reply.references_header ? { References: reply.references_header } : {}),
+    };
+    try {
+      const email = await sendEmail({
+        from: SUPPORT_FROM, to: reply.recipient, subject: reply.subject, headers,
+        html: String(reply.message).split(/\n{2,}/).map((part) => `<p>${escapeHtml(part).replace(/\n/g, '<br>')}</p>`).join(''),
+        idempotencyKey: `support-resend-${reply.id}-${Date.now()}`,
+      });
+      const { data: sent, error: updateError } = await supabaseAdmin.from('support_ticket_replies')
+        .update({ delivery_status: 'sent', resend_email_id: email.id, sent_at: new Date().toISOString(), provider_error: null, sender: SUPPORT_FROM })
+        .eq('id', reply.id).select('*, admin:admins(name)').single();
+      if (updateError) throw updateError;
+      await logActivity(req.admin, 'support_reply_resent', 'support_ticket', req.params.id, null, { reply_id: reply.id });
+      return res.json({ reply: sent });
+    } catch (sendError) {
+      await supabaseAdmin.from('support_ticket_replies').update({ provider_error: sendError.message }).eq('id', reply.id);
+      return res.status(502).json({ error: sendError.message });
+    }
+  }));
+
   router.patch('/support/tickets/:id', ...adminWrite, caught(async (req, res) => {
     const allowed = ['status', 'priority', 'assigned_admin_id'];
     const update = Object.fromEntries(allowed.filter((key) => req.body && req.body[key] !== undefined).map((key) => [key, req.body[key]]));
@@ -518,20 +550,55 @@ function createAdminRoutes(supabaseAdmin) {
   // active Supabase sessions and account_controls is checked by critical DB
   // workflows. The browser never receives a service-role credential.
   // Accounts newest first, a page at a time (?q= matches email, name or username; ?offset=, ?limit=).
+  // Accounts newest first, a page at a time (?q= matches email, name or username; ?offset=, ?limit=).
+  // ?status=restricted lists the suspended and disabled accounts instead.
   router.get('/users', adminAuth, caught(async (req, res) => {
+    if (req.query.status === 'restricted') return res.json(await restrictedAccounts());
     const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const { data, error } = await supabaseAdmin.rpc('admin_list_accounts', { p_query: String(req.query.q || ''), p_limit: limit, p_offset: offset });
     if (error) throw error;
-    const controls = await controlsFor(supabaseAdmin, (data || []).map((user) => user.id));
+    const ids = (data || []).map((user) => user.id);
+    const [controls, roles] = await Promise.all([controlsFor(supabaseAdmin, ids), rolesFor(ids)]);
     return res.json({
       data: (data || []).map((user) => ({
         id: user.id, email: user.email, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at, provider: user.provider,
-        profile: { full_name: user.full_name, username: user.username }, account: accountOf(controls[user.id], user.banned_until),
+        profile: { full_name: user.full_name, username: user.username, role: roles[user.id] || null }, account: accountOf(controls[user.id], user.banned_until),
       })),
       total: data && data[0] ? Number(data[0].total) : 0,
     });
   }));
+
+  async function rolesFor(ids) {
+    if (!ids.length) return {};
+    const { data, error } = await supabaseAdmin.from('profiles').select('id,role').in('id', ids);
+    if (error) throw error;
+    return Object.fromEntries((data || []).map((p) => [p.id, p.role]));
+  }
+
+  /** Every account suspended or disabled now (a small set), newest restriction first. */
+  async function restrictedAccounts() {
+    const { data: rows, error } = await supabaseAdmin.from('account_controls')
+      .select('user_id,status,reason,suspended_until,rule_key,changed_at,changed_by').neq('status', 'active').order('changed_at', { ascending: false }).limit(500);
+    if (error) throw error;
+    const restricted = (rows || []).filter((row) => enforcement.effectiveStatus(row) !== 'active');
+    const ids = restricted.map((row) => row.user_id);
+    const [users, profiles] = await Promise.all([
+      Promise.all(ids.map((id) => supabaseAdmin.auth.admin.getUserById(id).then(({ data }) => data && data.user).catch(() => null))),
+      ids.length ? supabaseAdmin.from('profiles').select('id,full_name,username,role').in('id', ids) : { data: [] },
+    ]);
+    if (profiles.error) throw profiles.error;
+    const profileById = Object.fromEntries((profiles.data || []).map((p) => [p.id, p]));
+    const data = restricted.map((row, i) => {
+      const user = users[i];
+      return {
+        id: row.user_id, email: user && user.email, created_at: user && user.created_at, last_sign_in_at: user && user.last_sign_in_at,
+        provider: (user && user.app_metadata && user.app_metadata.provider) || 'email',
+        profile: profileById[row.user_id] || null, account: accountOf(row, null),
+      };
+    });
+    return { data, total: data.length };
+  }
 
   // The "Verified host" badge on a host's listings and profile.
   router.post('/users/:id/verified', ...superAdmin, async (req, res) => {
@@ -808,12 +875,14 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ update: data });
   });
 
-  router.get('/activity', adminAuth, async (req, res) => {
+  // The audit trail, with each target's name (a person, listing, ticket…) where it still exists.
+  router.get('/activity', adminAuth, caught(async (req, res) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 250);
     const { data, error } = await supabaseAdmin.from('admin_activity').select('*, admin:admins(name,email)').order('created_at', { ascending: false }).limit(limit);
     if (error) return res.status(502).json({ error: error.message });
-    return res.json({ data: data || [] });
-  });
+    const ruleLabels = Object.fromEntries(Object.entries(enforcement.RULES).map(([key, rule]) => [key, rule.label]));
+    return res.json({ data: await investigation.activityNames(supabaseAdmin, data || [], ruleLabels) });
+  }));
 
   router.get('/reports', adminAuth, async (req, res) => {
     let query = supabaseAdmin.from('listing_reports').select('*, listing:listings(title,host_id,moderation_status)').order('created_at', { ascending: false });

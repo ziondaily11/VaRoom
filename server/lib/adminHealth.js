@@ -78,4 +78,47 @@ async function healthReport(admin, { now = Date.now(), fetchFn = fetch, env = pr
   };
 }
 
-module.exports = { healthReport, ping };
+/** The Overview's "Needs attention" counts. One failing count is null, never an error for the page. */
+async function attentionCounts(admin, now = Date.now()) {
+  const head = (table, column = 'id') => admin.from(table).select(column, { count: 'exact', head: true });
+  // Each count builds its query inside its own guard, so even a client that throws at once fails only that count.
+  const count = async (build) => {
+    try {
+      const { count: n, error } = await build();
+      if (error) throw error;
+      return n || 0;
+    } catch (error) {
+      console.error('Attention count failed:', error.message);
+      return null;
+    }
+  };
+  const [failedEmails, appeals, listingReports, chatReports, stuckPlans, adminsWithoutTwoStep, shadowRules] = await Promise.all([
+    count(() => head('support_ticket_replies').eq('delivery_status', 'failed').gte('sent_at', new Date(now - 7 * DAY_MS).toISOString())),
+    count(() => head('support_tickets').eq('category', 'appeal').in('status', ['open', 'in_progress'])),
+    count(() => head('listing_reports').eq('status', 'pending')),
+    count(() => head('chat_user_reports').eq('status', 'pending')),
+    count(() => head('host_subscriptions').in('status', ['active', 'past_due', 'cancel_requested']).not('provider_subscription_code', 'is', null)
+      .lt('current_period_end', new Date(now - DAY_MS).toISOString())),
+    count(() => head('admins').is('totp_enabled_at', null)),
+    count(() => head('moderation_rules', 'key').eq('mode', 'shadow')),
+  ]);
+  const pendingReports = listingReports === null || chatReports === null ? null : listingReports + chatReports;
+  return { failedEmails, appeals, pendingReports, stuckPlans, adminsWithoutTwoStep, shadowRules };
+}
+
+/** Accounts in all, and how many are suspended or disabled now. */
+async function accountCounts(admin, effectiveStatus) {
+  const [{ data: page, error: pageError }, { data: controls, error: controlsError }] = await Promise.all([
+    admin.rpc('admin_list_accounts', { p_query: '', p_limit: 1, p_offset: 0 }),
+    admin.from('account_controls').select('status,suspended_until').neq('status', 'active'),
+  ]);
+  if (pageError || controlsError) throw pageError || controlsError;
+  const statuses = (controls || []).map((control) => effectiveStatus(control));
+  return {
+    total: page && page[0] ? Number(page[0].total) : 0,
+    suspended: statuses.filter((s) => s === 'suspended').length,
+    disabled: statuses.filter((s) => s === 'disabled').length,
+  };
+}
+
+module.exports = { healthReport, ping, attentionCounts, accountCounts };

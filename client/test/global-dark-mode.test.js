@@ -118,7 +118,7 @@ test('global light theme: one light white (#FAFAFA) for pages with modes; pages 
     assert.doesNotMatch(css, /--paper:#F7F6F3;/, file.join('/'));
   }
   assert.match(read('public', 'js', 'chats.css'), /--white:var\(--va-light\);/);
-  assert.match(read('styles', 'admin.css'), /\[data-theme="light"\]:not\(\[data-theme-fixed\]\) \.admin-dashboard \[class~="bg-white"\]/);
+  assert.match(read('styles', 'admin.css'), /\.admin-dashboard,\s*\.admin-login \{[^}]*--adm-bg: var\(--va-light, #FAFAFA\);/, 'the admin canvas is the one light white');
   // Pages without modes keep their whites.
   assert.match(read('components', 'onboarding', 'onboardingStyles.ts'), /--card:#FFFFFF/);
   assert.doesNotMatch(read('styles', 'landing.module.css'), /va-light/);
@@ -138,8 +138,9 @@ test('HostLayout and ClientLayout use X Lights Out tokens', () => {
 
 test('admin.css and the analytics styles support dark mode with #000000 canvas', () => {
   const adminCss = fs.readFileSync(path.join(clientRoot, 'styles', 'admin.css'), 'utf8');
-  assert.match(adminCss, /--admin-canvas:\s*#000000;/, 'admin.css canvas must be #000000');
-  assert.match(adminCss, /--admin-surface:\s*#000000;/, 'admin.css surface must be #000000');
+  const adminDark = adminCss.match(/\[data-theme="dark"\] \.admin-dashboard,\s*\[data-theme="dark"\] \.admin-login \{([^}]*)\}/)[1];
+  assert.match(adminDark, /--adm-bg:\s*#000000;/, 'admin.css canvas must be #000000');
+  assert.match(adminDark, /--adm-surface:\s*#000000;/, 'admin.css surface must be #000000');
   assert.doesNotMatch(adminCss, /--admin-canvas:\s*#120F0F;/, 'Old #120F0F must be removed from admin.css');
 
   const analyticsCss = fs.readFileSync(path.join(clientRoot, 'components', 'analytics', 'analyticsStyles.ts'), 'utf8');
