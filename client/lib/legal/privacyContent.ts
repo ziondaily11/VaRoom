@@ -2,7 +2,7 @@ import type { Block, Inline, Section } from "./legalDocument";
 
 export const PRIVACY_TITLE = "Privacy Policy · VaRoom";
 export const PRIVACY_DESCRIPTION = "Privacy Policy governing the use of the Varoom property marketplace.";
-export const LAST_UPDATED = "November 22, 2026";
+export const LAST_UPDATED = "November 28, 2026";
 
 const b = (strong: string): Inline => ({ strong });
 const mail: Inline = { text: "privacy@varoom.co.ke", href: "mailto:privacy@varoom.co.ke" };
@@ -174,6 +174,12 @@ export const sections: Section[] = [
     blocks: [
       p(
         "Varoom may store messages sent through the platform so users can access their conversations and so we can provide messaging functionality, address reports, investigate abuse, maintain security, and comply with applicable legal requirements."
+      ),
+      p(
+        "Messages are checked automatically for signs of scams, such as a request for payment before a viewing or to continue the conversation outside Varoom. A message that matches is flagged so our team can review the account."
+      ),
+      p(
+        "Varoom staff do not read your conversations. The exception is a conversation that has been reported: members of our support team may read that conversation to investigate the report, and each time they do it is recorded."
       ),
       p("We do not use private messages for advertising."),
     ],

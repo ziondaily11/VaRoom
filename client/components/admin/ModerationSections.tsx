@@ -1,49 +1,107 @@
 import React, { useState } from "react";
-import type { AccountDeletion, ActivityEntry, AdminListing, AdminUser, ListingReport, NewsEntry, UserDetail, UserReport, VaroomUpdate } from "../../lib/admin/adminApi";
-
-const shortDate = (value: string) => new Date(value).toLocaleString();
+import { loadReportedConversation, errorMessage } from "../../lib/admin/adminApi";
+import type { AccountDeletion, ActivityEntry, AdminListing, AdminUser, ListingReport, ListingReportAction, NewsEntry, ReportedConversation, UserReport, UserReportAction, VaroomUpdate } from "../../lib/admin/adminApi";
 import { ConsequentialButton, SectionHeader, StatusPill, Table } from "./AdminUi";
 
-export function ListingReports({ reports, userReports, accountDeletions, resolveReport, resolveUserReport }: {
+const shortDate = (value: string) => new Date(value).toLocaleString();
+const linkButton = "text-left text-[#1F6F5C] hover:underline";
+
+/** A reported conversation, read only after it was reported (each reading is logged). */
+function ConversationViewer({ conversation, onClose }: { conversation: ReportedConversation; onClose: () => void }) {
+  const { report } = conversation;
+  const nameOf = (id: string) => (id === report.reported_user_id ? report.reported || "Reported person" : report.reporter || "Reporter");
+  return (
+    <div className="mt-4 border border-[#E4E1DA] bg-white rounded-sm p-4">
+      <div className="flex justify-between items-start gap-4 mb-3">
+        <div>
+          <div className="text-sm font-medium">Reported conversation</div>
+          <div className="text-xs text-[#8a857c]">Report: {report.reason}{report.details ? ` · ${report.details}` : ""}. Your reading is recorded in Admin activity.</div>
+        </div>
+        <button onClick={onClose} className="text-xs">Close</button>
+      </div>
+      <div className="space-y-2 max-h-[28rem] overflow-auto">
+        {conversation.messages.map((m) => (
+          <div key={m.id} className={m.sender_id === report.reported_user_id ? "" : "pl-8"}>
+            <div className="text-xs text-[#8a857c]">{nameOf(m.sender_id)} · {shortDate(m.created_at)}</div>
+            <div className={`text-sm rounded-sm px-3 py-1.5 whitespace-pre-wrap ${m.sender_id === report.reported_user_id ? "bg-[#B5482E]/5" : "bg-[#F7F6F3]"}`}>
+              {m.body || (m.attachment ? `[${m.attachment.kind}: ${m.attachment.filename}]` : `[${m.message_type}]`)}
+            </div>
+          </div>
+        ))}
+        {!conversation.messages.length && <div className="text-sm text-[#8a857c]">This conversation has no messages.</div>}
+      </div>
+    </div>
+  );
+}
+
+export function ListingReports({ reports, userReports, accountDeletions, resolveReport, resolveUserReport, actOnReport, actOnUserReport, openAccount }: {
   reports: ListingReport[]; userReports: UserReport[]; accountDeletions: AccountDeletion[];
   resolveReport: (id: string, status: string) => void; resolveUserReport: (id: string, status: string) => void;
+  actOnReport: (id: string, action: ListingReportAction, reason: string) => Promise<unknown>;
+  actOnUserReport: (id: string, action: UserReportAction, reason: string) => Promise<unknown>;
+  openAccount: (id: string) => void;
 }) {
+  const [conversation, setConversation] = useState<ReportedConversation | null>(null);
+  const [conversationError, setConversationError] = useState("");
+  const open = (r: { status: string }) => r.status === "pending" || r.status === "reviewed";
+  async function viewConversation(id: string) {
+    setConversationError("");
+    try { setConversation(await loadReportedConversation(id)); } catch (error) { setConversationError(errorMessage(error, "The conversation could not be loaded.")); }
+  }
   return (
     <div>
-      <SectionHeader title="Listing reports" description="Issues flagged by guests or hosts about a listing." />
+      <SectionHeader title="Listing reports" description="Issues flagged by guests or hosts about a listing. Acting on one resolves it." />
       <Table
-        columns={["Report", "Listing", "Reporter", "Reason", "Status", "Filed", "Action"]}
+        columns={["Listing", "Host", "Reporter", "Reason", "Status", "Filed", "Action"]}
         rows={reports}
         renderRow={(r) => (
-          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
-            <td className="px-4 py-2 font-mono text-xs">{r.id}</td>
-            <td className="px-4 py-2">{r.listing}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.reporter}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.reason}</td>
-            <td className="px-4 py-2">
-              <StatusPill status={r.status} />
-            </td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
-            <td className="px-4 py-2 flex gap-2"><button onClick={() => resolveReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button><button onClick={() => resolveReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button></td>
+          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0 align-top">
+            <td className="px-4 py-2"><a href={`/booking?listing=${r.listing_id}`} target="_blank" rel="noopener noreferrer" className={linkButton}>{r.listing || "Listing"}</a>{r.listing_moderation && r.listing_moderation !== "active" && <div><StatusPill status={r.listing_moderation} /></div>}</td>
+            <td className="px-4 py-2">{r.host_id ? <button onClick={() => openAccount(r.host_id as string)} className={linkButton}>{r.host || "Host"}</button> : "—"}</td>
+            <td className="px-4 py-2">{r.reporter_user_id ? <button onClick={() => openAccount(r.reporter_user_id as string)} className={linkButton}>{r.reporter}</button> : <span className="text-[#8a857c]">{r.reporter || "—"}</span>}</td>
+            <td className="px-4 py-2 text-[#8a857c]">{r.reason}{r.details && <div className="text-xs mt-0.5 max-w-[32ch]">{r.details}</div>}</td>
+            <td className="px-4 py-2"><StatusPill status={r.status} /></td>
+            <td className="px-4 py-2 text-xs text-[#8a857c]">{shortDate(r.createdAt)}</td>
+            <td className="px-4 py-2"><div className="flex flex-wrap gap-2">
+              <button onClick={() => resolveReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button>
+              <button onClick={() => resolveReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button>
+              {open(r) && <>
+                <ConsequentialButton label="Hide listing" tone="danger" onConfirm={(reason) => actOnReport(r.id, "hide_listing", reason)} />
+                <ConsequentialButton label="Take down" tone="danger" onConfirm={(reason) => actOnReport(r.id, "remove_listing", reason)} />
+                <ConsequentialButton label="Warn host" tone="danger" onConfirm={(reason) => actOnReport(r.id, "warn_host", reason)} />
+                <ConsequentialButton label="Suspend host" tone="danger" onConfirm={(reason) => actOnReport(r.id, "suspend_host", reason)} />
+              </>}
+            </div></td>
           </tr>
         )}
       />
-      <SectionHeader title="Chat user reports" description="Reports submitted about conversation participants." />
+      <SectionHeader title="Chat user reports" description="Reports about conversation participants. The reported conversation can be read only from here, and each reading is recorded." />
       <Table
-        columns={["Report", "Reported user", "Reporter", "Reason", "Status", "Filed", "Action"]}
+        columns={["Reported user", "Reporter", "Reason", "Status", "Filed", "Action"]}
         rows={userReports}
         renderRow={(r) => (
-          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
-            <td className="px-4 py-2 font-mono text-xs">{r.id}</td>
-            <td className="px-4 py-2">{r.reportedUser && (r.reportedUser.full_name || r.reportedUser.username) || r.reported_user_id}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.reporter && (r.reporter.full_name || r.reporter.username) || r.reporter_user_id}</td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.reason}</td>
+          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0 align-top">
+            <td className="px-4 py-2"><button onClick={() => openAccount(r.reported_user_id)} className={linkButton}>{r.reportedUser && (r.reportedUser.full_name || r.reportedUser.username) || r.reported_user_id}</button></td>
+            <td className="px-4 py-2"><button onClick={() => openAccount(r.reporter_user_id)} className={linkButton}>{r.reporter && (r.reporter.full_name || r.reporter.username) || r.reporter_user_id}</button></td>
+            <td className="px-4 py-2 text-[#8a857c]">{r.reason}{r.details && <div className="text-xs mt-0.5 max-w-[32ch]">{r.details}</div>}</td>
             <td className="px-4 py-2"><StatusPill status={r.status} /></td>
-            <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
-            <td className="px-4 py-2 flex gap-2"><button onClick={() => resolveUserReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button><button onClick={() => resolveUserReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button></td>
+            <td className="px-4 py-2 text-xs text-[#8a857c]">{shortDate(r.createdAt)}</td>
+            <td className="px-4 py-2"><div className="flex flex-wrap gap-2">
+              <button onClick={() => { void viewConversation(r.id); }} className="text-xs text-[#1F6F5C]">View conversation</button>
+              <button onClick={() => resolveUserReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button>
+              <button onClick={() => resolveUserReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button>
+              {open(r) && <>
+                <ConsequentialButton label="Warn" tone="danger" onConfirm={(reason) => actOnUserReport(r.id, "warn", reason)} />
+                <ConsequentialButton label="Suspend 7 days" tone="danger" onConfirm={(reason) => actOnUserReport(r.id, "suspend_7_days", reason)} />
+                <ConsequentialButton label="Suspend until reviewed" tone="danger" onConfirm={(reason) => actOnUserReport(r.id, "suspend", reason)} />
+              </>}
+            </div></td>
           </tr>
         )}
       />
+      {conversationError && <div className="mt-3 text-sm text-[#B5482E]" role="alert">{conversationError}</div>}
+      {conversation && <ConversationViewer conversation={conversation} onClose={() => setConversation(null)} />}
+      <div className="mt-6" />
       <SectionHeader title="Deleted accounts" description="Permanent account deletions and the reasons users provided." />
       <Table
         columns={["Account", "Email", "Reason", "Additional detail", "Deleted"]}
@@ -62,29 +120,23 @@ export function ListingReports({ reports, userReports, accountDeletions, resolve
   );
 }
 
-export function UsersControl({ users, loadUser, updateStatus }: {
-  users: AdminUser[]; loadUser: (id: string) => Promise<UserDetail | null>; updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
+export function UsersControl({ users, openAccount, updateStatus }: {
+  users: AdminUser[]; openAccount: (id: string) => void; updateStatus: (id: string, status: string, reason: string, days?: number) => Promise<unknown>;
 }) {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<UserDetail | null>(null);
   const visible = users.filter((u) => [u.email, u.profile?.full_name, u.profile?.username].filter(Boolean).join(" ").toLowerCase().includes(search.toLowerCase()));
-  async function inspect(id: string) { const detail = await loadUser(id); if (detail) setSelected(detail); }
   return <div>
-    <SectionHeader title="Users" description="Search accounts, inspect their profile and listings, and apply server-enforced account controls." />
+    <SectionHeader title="Users" description="Search accounts, open one to see everything about it, and apply server-enforced account controls." />
     <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, username or email" className="w-full max-w-md mb-4 border border-[#E4E1DA] rounded-sm p-2 text-sm" />
     <Table columns={["User", "Email", "Status", "Last sign-in", "Actions"]} rows={visible} renderRow={(u) => <tr key={u.id} className="border-b border-[#E4E1DA] last:border-0">
       <td className="px-4 py-2">{u.profile?.full_name || u.profile?.username || "Unnamed user"}</td><td className="px-4 py-2 text-[#8a857c]">{u.email}</td><td className="px-4 py-2"><StatusPill status={u.account?.status} />{u.account?.status === "suspended" && <div className="text-xs text-[#8a857c] mt-0.5">{u.account.suspended_until ? `Until ${shortDate(u.account.suspended_until)}` : "Until reviewed"}{u.account.rule_key ? " · automatic" : ""}</div>}</td><td className="px-4 py-2 text-xs text-[#8a857c]">{u.last_sign_in_at || "Never"}</td>
-      <td className="px-4 py-2 flex gap-2"><button onClick={() => inspect(u.id)} className="text-xs text-[#1F6F5C]">View</button>{u.account?.status === "active" ? <>
+      <td className="px-4 py-2 flex gap-2"><button onClick={() => openAccount(u.id)} className="text-xs text-[#1F6F5C]">View</button>{u.account?.status === "active" ? <>
         <ConsequentialButton label="Warn" tone="danger" onConfirm={(reason) => updateStatus(u.id, "warning", reason)} />
         <ConsequentialButton label="Suspend 7 days" tone="danger" onConfirm={(reason) => updateStatus(u.id, "suspended", reason, 7)} />
         <ConsequentialButton label="Suspend until reviewed" tone="danger" onConfirm={(reason) => updateStatus(u.id, "suspended", reason)} />
         <ConsequentialButton label="Disable" tone="danger" onConfirm={(reason) => updateStatus(u.id, "disabled", reason)} />
       </> : <ConsequentialButton label="Restore" onConfirm={(reason) => updateStatus(u.id, "active", reason)} />}</td>
     </tr>} />
-    {selected && <div className="mt-4 border border-[#E4E1DA] bg-white p-4 rounded-sm"><div className="flex justify-between"><div><div className="font-medium">{selected.user.profile?.full_name || selected.user.email}</div><div className="text-xs text-[#8a857c]">{selected.user.email} · {selected.user.account?.status}</div></div><button onClick={() => setSelected(null)} className="text-xs">Close</button></div><div className="mt-3 text-sm">Listings: {selected.listings.length} · Admin history: {selected.activity.length}</div>{selected.user.account?.status !== "active" && selected.user.account?.reason && <div className="mt-1 text-xs text-[#8a857c]">Current restriction reason: {selected.user.account.reason}</div>}
-      {selected.actions.length > 0 && <div className="mt-3"><div className="text-xs text-[#8a857c] mb-1">Warnings, suspensions and restores</div>
-        <ul className="text-xs space-y-1">{selected.actions.map((a) => <li key={a.id}><span className="font-medium">{a.action}</span>{a.suspended_until ? ` until ${shortDate(a.suspended_until)}` : ""} · {a.reason} · {a.admin?.name || "System"} · {shortDate(a.created_at)}</li>)}</ul>
-      </div>}</div>}
   </div>;
 }
 

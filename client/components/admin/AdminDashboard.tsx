@@ -6,7 +6,6 @@ import {
   LifeBuoy,
   Flag,
   TrendingUp,
-  Search,
   LogOut,
   Shield,
   Newspaper,
@@ -26,6 +25,8 @@ import { Activity, ListingReports, ListingsControl, PropertyNews, UpdatesControl
 import { Admins } from "./AdminsSection";
 import { VaroomReviews } from "./VaroomReviewsSection";
 import { Rules } from "./RulesSection";
+import { Account } from "./AccountSection";
+import { SearchBox } from "./SearchBox";
 import { LoginScreen } from "./LoginScreen";
 
 // The VaRoom admin dashboard (/admin). Overview loads at sign-in; every other
@@ -87,6 +88,7 @@ const SECTION_RESOURCES: Record<SectionKey, ResourceKey[]> = {
   "property-news": [],
   "varoom-reviews": ["varoomReviews"],
   rules: ["rules"],
+  account: [],
 };
 
 const EMPTY_OVERVIEW = { signins: 0, revenue: 0, openTickets: 0, newListings: 0 };
@@ -102,6 +104,11 @@ export default function AdminDashboard() {
   const [propertyNews, setPropertyNews] = useState<NewsEntry[]>([]);
   const [propertyNewsError, setPropertyNewsError] = useState("");
   const [actionError, setActionError] = useState("");
+  // The account page: opened accounts are kept (and refreshed when reopened) until sign-out.
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Record<string, api.AccountOverview>>({});
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [returnTo, setReturnTo] = useState<SectionKey>("users");
 
   const setResource = useCallback(<K extends ResourceKey>(key: K, update: (current: Resources[K] | undefined) => Resources[K] | undefined) => {
     setData((current) => ({ ...current, [key]: update(current[key] as Resources[K] | undefined) }));
@@ -149,6 +156,8 @@ export default function AdminDashboard() {
     setSelectedTicket(null);
     setPropertyNews([]);
     setActionError("");
+    setAccounts({});
+    setAccountId(null);
   };
 
   async function login(email: string, password: string) {
@@ -218,15 +227,53 @@ export default function AdminDashboard() {
     }
   }
 
-  async function loadUser(id: string): Promise<api.UserDetail | null> {
-    setActionError("");
-    try {
-      return await api.loadUser(id);
-    } catch (error) {
-      setActionError(api.errorMessage(error, "That action could not be completed."));
-      return null;
-    }
-  }
+  const refreshAccount = (id: string) => {
+    setAccountLoading(true);
+    return api.loadAccount(id)
+      .then((account) => setAccounts((current) => ({ ...current, [id]: account })))
+      .catch((error: unknown) => setActionError(api.errorMessage(error, "The account could not be loaded.")))
+      .finally(() => setAccountLoading(false));
+  };
+
+  /** Opens an account's page (shown at once when opened before, refreshed in the background). */
+  const openAccount = (id: string) => {
+    if (active !== "account") setReturnTo(active);
+    setAccountId(id);
+    setActive("account");
+    void refreshAccount(id);
+  };
+
+  /** Opens a ticket in Support, loading it when the list does not have it yet. */
+  const openTicket = (id: string) => {
+    setActive("support");
+    const known = (data.tickets || []).find((t) => t.id === id);
+    if (known) { setSelectedTicket(known); return; }
+    api.loadTicket(id).then((result) => setSelectedTicket(result.ticket))
+      .catch((error: unknown) => setActionError(api.errorMessage(error, "The ticket could not be loaded.")));
+  };
+
+  const addNote = (userId: string, body: string) => run(async () => {
+    const { note } = await api.addNote(userId, body);
+    setAccounts((current) => current[userId] ? { ...current, [userId]: { ...current[userId], notes: [note, ...current[userId].notes] } } : current);
+  });
+
+  // Acting on a report can change listings and accounts; those reload when next shown.
+  const forget = (...keys: ResourceKey[]) => keys.forEach((key) => requested.current.delete(key));
+
+  const actOnReport = (id: string, action: api.ListingReportAction, reason: string) => run(async () => {
+    await api.actOnListingReport(id, action, reason);
+    setResource("reports", (prev) => prev && prev.map((r) => (r.id === id ? { ...r, status: "actioned" } : r)));
+    forget("listings", "users");
+    void reload("reports");
+    refreshActivity();
+  });
+
+  const actOnUserReport = (id: string, action: api.UserReportAction, reason: string) => run(async () => {
+    await api.actOnUserReport(id, action, reason);
+    setResource("userReports", (prev) => prev && prev.map((r) => (r.id === id ? { ...r, status: "actioned" } : r)));
+    forget("users");
+    refreshActivity();
+  });
 
   const updateUserStatus = (id: string, status: string, reason: string, days?: number) => run(async () => {
     const result = await api.setUserStatus(id, status, reason, days);
@@ -234,6 +281,7 @@ export default function AdminDashboard() {
     if (accountStatus) {
       setResource("users", (prev) => prev && prev.map((u) => (u.id === id ? { ...u, account: { ...u.account, status: accountStatus, reason: accountReason, suspended_until, rule_key: null } } : u)));
     }
+    if (accounts[id]) void refreshAccount(id);
     refreshActivity();
   });
 
@@ -321,11 +369,23 @@ export default function AdminDashboard() {
           />
         );
       case "reports":
-        return <ListingReports reports={data.reports || []} userReports={data.userReports || []} accountDeletions={data.deletions || []} resolveReport={resolveReport} resolveUserReport={resolveUserReport} />;
+        return <ListingReports reports={data.reports || []} userReports={data.userReports || []} accountDeletions={data.deletions || []} resolveReport={resolveReport} resolveUserReport={resolveUserReport} actOnReport={actOnReport} actOnUserReport={actOnUserReport} openAccount={openAccount} />;
       case "varoom-reviews":
         return <VaroomReviews reviews={data.varoomReviews || []} setStatus={setVaroomReviewStatus} />;
       case "users":
-        return <UsersControl users={data.users || []} loadUser={loadUser} updateStatus={updateUserStatus} />;
+        return <UsersControl users={data.users || []} openAccount={openAccount} updateStatus={updateUserStatus} />;
+      case "account":
+        return (
+          <Account
+            account={accountId ? accounts[accountId] || null : null}
+            loading={accountLoading}
+            onBack={() => setActive(returnTo)}
+            openAccount={openAccount}
+            openTicket={openTicket}
+            updateStatus={updateUserStatus}
+            addNote={addNote}
+          />
+        );
       case "rules":
         return <Rules rules={data.rules?.rules || []} hits={data.rules?.hits || []} save={saveRule} />;
       case "listings":
@@ -385,10 +445,7 @@ export default function AdminDashboard() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b border-[#E4E1DA] bg-white flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-2 text-[#8a857c] text-sm">
-            <Search size={15} />
-            <span>Search users, listings, tickets…</span>
-          </div>
+          <SearchBox openAccount={openAccount} openTicket={openTicket} />
           <div className="text-sm text-[#5c584f]">Admin</div>
         </header>
         <main className="flex-1 overflow-auto p-6">

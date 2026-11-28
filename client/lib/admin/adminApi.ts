@@ -4,7 +4,7 @@
 
 export type SectionKey =
   | 'overview' | 'signins' | 'revenue' | 'support' | 'reports' | 'users'
-  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules';
+  | 'listings' | 'updates' | 'growth' | 'activity' | 'admins' | 'property-news' | 'varoom-reviews' | 'rules' | 'account';
 
 export interface Overview { signins: number; revenue: number; openTickets: number; newListings: number }
 export interface SigninRow { user: string; method: string; time: string; device: string }
@@ -42,7 +42,20 @@ export interface TicketReply {
 
 export interface ReplyTemplate { id: string; title: string; body: string }
 
-export interface ListingReport { id: string; listing: string | null; reporter: string | null; reason: string; status: string; createdAt: string }
+export interface ListingReport {
+  id: string;
+  listing_id: string;
+  listing: string | null;
+  listing_moderation?: string | null;
+  host_id?: string | null;
+  host?: string | null;
+  reporter_user_id?: string | null;
+  reporter: string | null;
+  reason: string;
+  details?: string | null;
+  status: string;
+  createdAt: string;
+}
 
 export interface PersonRef { full_name?: string | null; username?: string | null }
 
@@ -53,6 +66,7 @@ export interface UserReport {
   reporter: PersonRef | null;
   reportedUser: PersonRef | null;
   reason: string;
+  details?: string | null;
   status: string;
   createdAt: string;
 }
@@ -117,7 +131,69 @@ export interface AdminUser {
   account: AccountControl;
 }
 
-export interface UserDetail { user: AdminUser; listings: Array<{ id: string }>; activity: Array<{ id: string }>; actions: EnforcementAction[] }
+/** A person another record points at (by id), with their name when they have a profile. */
+export interface Related { other: string | null; other_id: string }
+
+export interface AccountReport extends Partial<Related> {
+  id: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  created_at: string;
+  listing?: string | null;
+  listing_id?: string;
+}
+
+export interface AccountBooking extends Related {
+  id: string;
+  listing_id: string;
+  listing?: string | null;
+  status: string;
+  total_price: number | null;
+  start_date: string | null;
+  created_at: string;
+}
+
+export interface AdminNote { id: string; body: string; created_at: string; admin: { name?: string | null } | null }
+
+/** Everything about one account (GET /admin/users/:id, server/lib/adminInvestigation.js). */
+export interface AccountOverview {
+  user: AdminUser & {
+    provider: string;
+    profile: (PersonRef & { id: string; role?: string | null; phone?: string | null; city?: string | null; host_type?: string | null;
+      business_name?: string | null; verified?: boolean | null; created_at?: string; deactivated_at?: string | null; deletion_scheduled_for?: string | null }) | null;
+  };
+  linked: Array<{ id: string; name: string | null; status: string }>;
+  team: Array<{ as: 'owner' | 'member'; id: string; name: string | null; roles: string[] | null; status: string }>;
+  listings: Array<{ id: string; title: string; category: string; created_at: string; availability_status: string; moderation_status: string; moderation_reason: string | null; publication_state: string | null }>;
+  bookings: { asHost: { count: number; recent: AccountBooking[] }; asGuest: { count: number; recent: AccountBooking[] } };
+  reports: { received: AccountReport[]; filed: AccountReport[]; onListings: AccountReport[]; filedOnListings: AccountReport[] };
+  tickets: Array<{ id: string; subject: string; status: string; category: string | null; source: string | null; created_at: string }>;
+  billing: {
+    subscriptions: Array<{ id: string; plan_id: string; niche: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean }>;
+    payments: Array<{ id: string; payment_kind: string | null; plan_id: string; amount_minor: number; currency: string; status: string; provider_reference: string; paid_at: string | null; created_at: string }>;
+  };
+  vcoins: { balance: number; recent: Array<{ delta: number; kind: string; created_at: string }> };
+  actions: EnforcementAction[];
+  notes: AdminNote[];
+  activity: Array<{ id: string; action: string; reason: string | null; created_at: string; admin: { name?: string | null } | null }>;
+}
+
+export interface SearchResults {
+  users: Array<{ id: string; email?: string | null; full_name: string | null; username: string | null }>;
+  listings: Array<{ id: string; title: string; host_id: string; moderation_status: string }>;
+  tickets: Array<{ id: string; subject: string; email: string; status: string }>;
+  payments: Array<{ id: string; host_id: string; provider_reference: string; amount_minor: number; currency: string; status: string }>;
+}
+
+/** A reported conversation, decrypted for the admin investigating it (every reading is logged). */
+export interface ReportedConversation {
+  report: { id: string; reporter_user_id: string; reported_user_id: string; reporter: string | null; reported: string | null; reason: string; details: string | null };
+  messages: Array<{ id: string; sender_id: string; created_at: string; message_type: string; body: string | null; attachment: { kind: string; filename: string } | null }>;
+}
+
+export type ListingReportAction = 'hide_listing' | 'remove_listing' | 'warn_host' | 'suspend_host';
+export type UserReportAction = 'warn' | 'suspend_7_days' | 'suspend' | 'disable';
 
 export interface AdminListing {
   id: string;
@@ -204,7 +280,9 @@ export const loadActivity = () => rows<ActivityEntry>('/admin/activity');
 export const loadPendingNews = () => adminRequest<NewsEntry[] | null>('/admin/news/pending').then((result) => result || []);
 export const loadTicket = (id: string) => adminRequest<{ ticket: Ticket; replies?: TicketReply[] }>(`/admin/support/tickets/${id}`);
 export const loadTemplates = () => rows<ReplyTemplate>('/admin/support/templates');
-export const loadUser = (id: string) => adminRequest<UserDetail>(`/admin/users/${id}`);
+export const loadAccount = (id: string) => adminRequest<AccountOverview>(`/admin/users/${id}`);
+export const searchAdmin = (q: string, signal?: AbortSignal) => adminRequest<SearchResults>(`/admin/search?q=${encodeURIComponent(q)}`, { signal });
+export const loadReportedConversation = (reportId: string) => adminRequest<ReportedConversation>(`/admin/user-reports/${reportId}/conversation`);
 export const loadRules = () => adminRequest<{ rules?: ModerationRule[]; hits?: RuleHit[] }>('/admin/rules')
   .then((result) => ({ rules: result.rules || [], hits: result.hits || [] }));
 
@@ -230,4 +308,10 @@ export const setUpdateStatus = (id: string, status: string, reason: string) =>
 export const setReportStatus = (id: string, status: string) => adminRequest<{ report: Partial<ListingReport> }>(`/admin/reports/${id}`, json('PATCH', { status }));
 export const setVaroomReviewStatus = (id: string, status: VaroomReviewRow['status']) =>
   adminRequest<{ review: VaroomReviewRow }>(`/admin/varoom-reviews/${id}`, json('PATCH', { status }));
+export const addNote = (userId: string, body: string) => adminRequest<{ note: AdminNote }>(`/admin/users/${userId}/notes`, json('POST', { body }));
+/** Resolves a report and acts on it in one step (the server marks it actioned). */
+export const actOnListingReport = (id: string, action: ListingReportAction, reason: string) =>
+  adminRequest<{ report: Partial<ListingReport> }>(`/admin/reports/${id}`, json('PATCH', { action, reason }));
+export const actOnUserReport = (id: string, action: UserReportAction, reason: string) =>
+  adminRequest<{ report: Partial<UserReport> }>(`/admin/user-reports/${id}`, json('PATCH', { action, reason }));
 export const setUserReportStatus = (id: string, status: string) => adminRequest<{ report: Partial<UserReport> }>(`/admin/user-reports/${id}`, json('PATCH', { status }));

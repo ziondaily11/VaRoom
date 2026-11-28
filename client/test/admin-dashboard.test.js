@@ -82,3 +82,22 @@ test('account actions and rules: timed suspensions send days; rules are read and
   assert.deepEqual(JSON.parse(calls[3].body), { mode: 'enforce', threshold: 3 });
   assert.match(read('components', 'admin', 'AdminDashboard.tsx'), /rules: \["rules"\]/);
 });
+
+test('investigation: account page, search, notes, report actions and the reported conversation', async () => {
+  const { calls, api } = withFetch([]);
+  await api.loadAccount('u1');
+  await api.searchAdmin('50% & co');
+  await api.addNote('u1', 'Called them');
+  await api.actOnListingReport('r1', 'hide_listing', 'Fake photos');
+  await api.actOnUserReport('ur1', 'suspend_7_days', 'Deposit scam');
+  await api.loadReportedConversation('ur1');
+  assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), [
+    'GET /admin/users/u1', 'GET /admin/search?q=50%25%20%26%20co', 'POST /admin/users/u1/notes',
+    'PATCH /admin/reports/r1', 'PATCH /admin/user-reports/ur1', 'GET /admin/user-reports/ur1/conversation',
+  ]);
+  assert.deepEqual(JSON.parse(calls[3].body), { action: 'hide_listing', reason: 'Fake photos' });
+  assert.deepEqual(JSON.parse(calls[4].body), { action: 'suspend_7_days', reason: 'Deposit scam' });
+  const shell = read('components', 'admin', 'AdminDashboard.tsx');
+  assert.match(shell, /<SearchBox openAccount=\{openAccount\} openTicket=\{openTicket\} \/>/);
+  assert.match(read('lib', 'legal', 'privacyContent.ts'), /Varoom staff do not read your conversations/);
+});

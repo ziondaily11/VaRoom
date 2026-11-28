@@ -53,10 +53,23 @@ waiting for an admin, and gives admins what they need to investigate.
    - The Support section shows each ticket's conversation and saved replies
      (`support_reply_templates`); tickets answered with no word back for 7
      days close, and an email reopens them.
-3. **Investigation tools** — one page per account (linked accounts, teams,
-   listings, bookings, reports filed and received, tickets, payments,
-   V-Coins, admin history, private notes), report detail with one-step
-   actions, the reported-conversation view, global search.
+3. **Investigation tools** — done in `claude/admin-investigation`
+   (migration `20261129_000099_admin_investigation.sql`,
+   `server/lib/adminInvestigation.js`).
+   - The account page (Users → View, or any name): profile, linked accounts,
+     team, listings, bookings as host and guest, reports about and by the
+     person, tickets (by account and email), plans and payments, V-Coins,
+     warnings and suspensions, private admin notes (`admin_notes`) and the
+     admin trail, with the account actions.
+   - The header search: accounts (`admin_search_accounts`), listings,
+     tickets (also by #REF) and payments (by reference).
+   - Reports show names, the host, details, and act in one step: hide or
+     take down the listing, warn or suspend the host or the reported
+     person (account actions need a super admin).
+   - A reported conversation can be read from its report only, by support
+     and super admins; every reading is recorded in Admin activity. The
+     Privacy Policy says so, and that messages are checked automatically
+     for scams.
 4. **Money** — real VaRoom revenue (subscriptions in `billing_payments`, V-Coin
    packs), failed payments, refunds; comp or extend a plan, grant V-Coins.
 5. **Coverage and hardening** — guest reviews and listing documents queues,
