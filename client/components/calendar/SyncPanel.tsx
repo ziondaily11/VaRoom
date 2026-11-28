@@ -116,7 +116,7 @@ export default function SyncPanel({ client, hostId, listing, onChanged, showToas
   };
 
   return (
-    <section className="vc-weekly vc-sync" aria-label="Sync with other sites">
+    <section className="vc-section vc-sync" aria-label="Sync with other sites">
       <h3>Sync with other sites</h3>
       {failed && <p className="vc-error">The sync settings couldn’t load.</p>}
       <p className="vc-muted">Paste this link into Airbnb.com, Booking.com or Google Calendar (“Import calendar”), so they see when {listing.title} is taken here. It shows dates only.</p>

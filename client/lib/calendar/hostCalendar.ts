@@ -26,6 +26,8 @@ export interface CalendarBooking {
   /** Hourly bookings: 'HH:MM'. */
   start_time?: string | null; end_time?: string | null;
   hours: number | null; guest_count: number | null; total_price: number | null; created_at: string; guest: string | null;
+  /** The guest's profile photo (as stored; resolveAvatarUrl makes it a URL). */
+  avatar?: string | null;
 }
 export interface ClosedRange { listing_id: string; start_date: string; end_date: string | null }
 
@@ -54,7 +56,7 @@ export interface TableBooking {
 /** A rental or lease request: its move-in day and the day it ends. */
 export interface LeaseEntry {
   id: string; listing_id: string; status: 'pending' | 'approved' | 'completed'; start: string; months: number | null; end: string;
-  total_price: number | null; guest: string | null;
+  total_price: number | null; guest: string | null; avatar?: string | null;
 }
 /** A place marked sold, rented or leased. */
 export interface OutcomeEntry { id: string; listing_id: string; outcome: 'sold' | 'rented' | 'leased'; units: number; agreed_amount: number | null; date: string }

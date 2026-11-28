@@ -59,3 +59,16 @@ test('migration 000095: cleaning days and prices by date, worked out by the data
   assert.match(sql, /'prices', coalesce\(/);
   assert.match(sql, /create unique index if not exists listing_prices_one_weekend/);
 });
+
+test('migration 000096: guests\' photos on the host calendar, nothing else changed', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000096_calendar_guest_photos.sql'), 'utf8');
+  const before = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261128_000095_calendar_prices_turnover.sql'), 'utf8');
+  assert.equal((sql.match(/'avatar', \(select p\.avatar_url from public\.profiles p where p\.id = (b|x)\.client_id\)/g) || []).length, 2);
+  const strip = (raw) => {
+    const text = raw.replace(/\r\n/g, '\n');
+    return text.slice(text.indexOf('create or replace function public.host_calendar('), text.indexOf('grant execute on function public.host_calendar'))
+      .replace(/,\n\s+'avatar', \(select p\.avatar_url from public\.profiles p where p\.id = (b|x)\.client_id\)/g, '');
+  };
+  assert.equal(strip(sql), strip(before), 'host_calendar is 000095\'s plus the two photo fields');
+  assert.match(sql, /security invoker/);
+});
