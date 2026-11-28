@@ -43,6 +43,7 @@ export function StatusPill({ status }: { status: string | null | undefined }) {
     reviewed: { text: "Reviewed", cls: "bg-[#1F6F5C]/10 text-[#1F6F5C]" },
     active: { text: "Active", cls: "bg-[#1F6F5C]/10 text-[#1F6F5C]" },
     suspended: { text: "Suspended", cls: "bg-[#B5482E]/10 text-[#B5482E]" },
+    disabled: { text: "Disabled", cls: "bg-[#B5482E]/10 text-[#B5482E]" },
   };
   const { text, cls } = (status && map[status]) || { text: status, cls: "bg-gray-100 text-gray-600" };
   return (

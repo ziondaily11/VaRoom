@@ -64,3 +64,21 @@ test('dashboard: native TSX; Overview at sign-in, other sections when first open
   const ui = read('components', 'admin', 'AdminUi.tsx');
   for (const cls of ['border rounded-sm p-4 bg-white', 'border-[#E4E1DA]']) assert.ok(ui.includes(cls), cls);
 });
+
+test('account actions and rules: timed suspensions send days; rules are read and changed', async () => {
+  const { calls, api } = withFetch([
+    { status: 200, body: { status: 'suspended', reason: 'Spam', suspended_until: '2026-12-05T00:00:00Z' } },
+    { status: 200, body: { status: null, reason: 'Note' } },
+    { status: 200, body: { rules: [{ key: 'account_reports', mode: 'shadow' }], hits: [] } },
+    { status: 200, body: { rule: { key: 'account_reports', mode: 'enforce' } } },
+  ]);
+  assert.equal((await api.setUserStatus('u1', 'suspended', 'Spam', 7)).suspended_until, '2026-12-05T00:00:00Z');
+  await api.setUserStatus('u1', 'warning', 'Note');
+  assert.deepEqual((await api.loadRules()).rules.map((r) => r.key), ['account_reports']);
+  await api.updateRule('account_reports', { mode: 'enforce', threshold: 3 });
+  assert.deepEqual(calls.map((c) => `${c.method || 'GET'} ${c.url}`), ['POST /admin/users/u1/status', 'POST /admin/users/u1/status', 'GET /admin/rules', 'PATCH /admin/rules/account_reports']);
+  assert.deepEqual(JSON.parse(calls[0].body), { status: 'suspended', reason: 'Spam', days: 7 });
+  assert.deepEqual(JSON.parse(calls[1].body), { status: 'warning', reason: 'Note' });
+  assert.deepEqual(JSON.parse(calls[3].body), { mode: 'enforce', threshold: 3 });
+  assert.match(read('components', 'admin', 'AdminDashboard.tsx'), /rules: \["rules"\]/);
+});

@@ -3,6 +3,7 @@ const express = require('express');
 const { sendEmail, SECURITY_EMAIL_FROM } = require('../lib/email');
 const { createNotification } = require('../lib/notifications');
 const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
+const enforcement = require('../lib/enforcement');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -87,13 +88,31 @@ function daysAgo(days) {
   return new Date(Date.now() - days * 86400000).toISOString();
 }
 
-function normalizeTicket(ticket) {
+// accountStatus: the sender's account now (suspended, disabled…), or visitor.
+function normalizeTicket(ticket, controlById = {}) {
   return {
     ...ticket,
     createdAt: ticket.created_at,
-    accountStatus: ticket.user_id ? 'active' : 'visitor'
+    accountStatus: ticket.user_id ? enforcement.effectiveStatus(controlById[ticket.user_id]) : 'visitor'
   };
 }
+
+async function controlsFor(supabaseAdmin, userIds) {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const { data, error } = await supabaseAdmin.from('account_controls')
+    .select('user_id,status,reason,suspended_until,rule_key,changed_at,changed_by').in('user_id', ids);
+  if (error) throw error;
+  return Object.fromEntries((data || []).map((control) => [control.user_id, control]));
+}
+
+// Express 4 does not catch a rejected async handler; this passes it to the error handler.
+const caught = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+// The account's control row with its status now (an ended timed suspension is active).
+const accountOf = (control, bannedUntil) => (control
+  ? { ...control, status: enforcement.effectiveStatus(control) }
+  : { status: bannedUntil ? 'suspended' : 'active' });
 
 function createAdminRoutes(supabaseAdmin) {
   // Fail fast if the session signing secret is missing so misconfigurations
@@ -300,23 +319,25 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ transactions, total: transactions.reduce((sum, row) => sum + row.amount, 0), series: dailySeries(transactions, 'amount', Number(req.query.range) || 7) });
   });
 
-  router.get('/support/tickets', adminAuth, async (req, res) => {
+  router.get('/support/tickets', adminAuth, caught(async (req, res) => {
     let query = supabaseAdmin.from('support_tickets').select('*').order('updated_at', { ascending: false });
     if (req.query.status) query = query.eq('status', req.query.status);
     if (req.query.priority) query = query.eq('priority', req.query.priority);
     const { data, error } = await query;
     if (error) return res.status(502).json({ error: error.message });
-    return res.json({ data: (data || []).map(normalizeTicket) });
-  });
+    const controls = await controlsFor(supabaseAdmin, (data || []).map((ticket) => ticket.user_id));
+    return res.json({ data: (data || []).map((ticket) => normalizeTicket(ticket, controls)) });
+  }));
 
-  router.get('/support/tickets/:id', adminAuth, async (req, res) => {
+  router.get('/support/tickets/:id', adminAuth, caught(async (req, res) => {
     const [ticketResult, repliesResult] = await Promise.all([
       supabaseAdmin.from('support_tickets').select('*').eq('id', req.params.id).single(),
       supabaseAdmin.from('support_ticket_replies').select('*').eq('ticket_id', req.params.id).order('sent_at')
     ]);
     if (ticketResult.error) return res.status(404).json({ error: 'Ticket not found' });
-    return res.json({ ticket: normalizeTicket(ticketResult.data), replies: repliesResult.data || [] });
-  });
+    const controls = await controlsFor(supabaseAdmin, [ticketResult.data.user_id]);
+    return res.json({ ticket: normalizeTicket(ticketResult.data, controls), replies: repliesResult.data || [] });
+  }));
 
   router.post('/support/tickets/:id/replies', ...adminWrite, async (req, res) => {
     const message = String(req.body && req.body.message || '').trim();
@@ -392,13 +413,13 @@ function createAdminRoutes(supabaseAdmin) {
     }
   });
 
-  router.patch('/support/tickets/:id', ...adminWrite, async (req, res) => {
+  router.patch('/support/tickets/:id', ...adminWrite, caught(async (req, res) => {
     const allowed = ['status', 'priority', 'assigned_admin_id'];
     const update = Object.fromEntries(allowed.filter((key) => req.body && req.body[key] !== undefined).map((key) => [key, req.body[key]]));
     const { data, error } = await supabaseAdmin.from('support_tickets').update(update).eq('id', req.params.id).select().single();
     if (error) return res.status(400).json({ error: error.message });
-    return res.json({ ticket: normalizeTicket(data) });
-  });
+    return res.json({ ticket: normalizeTicket(data, await controlsFor(supabaseAdmin, [data.user_id])) });
+  }));
 
   // User control is intentionally server-only: auth ban metadata invalidates
   // active Supabase sessions and account_controls is checked by critical DB
@@ -410,46 +431,101 @@ function createAdminRoutes(supabaseAdmin) {
     const ids = (data.users || []).map((user) => user.id);
     const [profilesResult, controlsResult] = await Promise.all([
       ids.length ? supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids) : { data: [] },
-      ids.length ? supabaseAdmin.from('account_controls').select('user_id,status,reason,changed_at,changed_by').in('user_id', ids) : { data: [] },
+      ids.length ? supabaseAdmin.from('account_controls').select('user_id,status,reason,suspended_until,rule_key,changed_at,changed_by').in('user_id', ids) : { data: [] },
     ]);
     if (profilesResult.error || controlsResult.error) return res.status(502).json({ error: (profilesResult.error || controlsResult.error).message });
     const profileById = Object.fromEntries((profilesResult.data || []).map((p) => [p.id, p]));
     const controlById = Object.fromEntries((controlsResult.data || []).map((c) => [c.user_id, c]));
     const users = (data.users || []).map((user) => ({
       id: user.id, email: user.email, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at,
-      profile: profileById[user.id] || null, account: controlById[user.id] || { status: user.banned_until ? 'suspended' : 'active' },
+      profile: profileById[user.id] || null, account: accountOf(controlById[user.id], user.banned_until),
     })).filter((user) => !query || [user.email, user.profile?.full_name, user.profile?.username].filter(Boolean).join(' ').toLowerCase().includes(query));
     return res.json({ data: users });
   });
 
   router.get('/users/:id', adminAuth, async (req, res) => {
-    const [{ data: userData, error: userError }, profileResult, listingsResult, activityResult] = await Promise.all([
+    const [{ data: userData, error: userError }, profileResult, listingsResult, activityResult, actionsResult] = await Promise.all([
       supabaseAdmin.auth.admin.getUserById(req.params.id),
       supabaseAdmin.from('profiles').select('id,full_name,username').eq('id', req.params.id).maybeSingle(),
       supabaseAdmin.from('listings').select('id,title,created_at,availability_status,moderation_status,moderation_reason').eq('host_id', req.params.id).order('created_at', { ascending: false }),
       supabaseAdmin.from('admin_activity').select('*').eq('target_id', req.params.id).order('created_at', { ascending: false }),
+      supabaseAdmin.from('account_enforcement_actions').select('id,action,reason,rule_key,suspended_until,created_at,admin:admins(name)')
+        .eq('user_id', req.params.id).order('created_at', { ascending: false }),
     ]);
     if (userError || !userData.user) return res.status(404).json({ error: 'User not found' });
     const { data: control } = await supabaseAdmin.from('account_controls').select('*').eq('user_id', req.params.id).maybeSingle();
-    return res.json({ user: { id: userData.user.id, email: userData.user.email, created_at: userData.user.created_at, last_sign_in_at: userData.user.last_sign_in_at, profile: profileResult.data || null, account: control || { status: userData.user.banned_until ? 'suspended' : 'active' } }, listings: listingsResult.data || [], activity: activityResult.data || [] });
+    return res.json({ user: { id: userData.user.id, email: userData.user.email, created_at: userData.user.created_at, last_sign_in_at: userData.user.last_sign_in_at, profile: profileResult.data || null, account: accountOf(control, userData.user.banned_until) }, listings: listingsResult.data || [], activity: activityResult.data || [], actions: actionsResult.data || [] });
   });
 
+  // Warn, suspend (for `days`, or until reviewed), disable (sign-in blocked)
+  // or restore. lib/enforcement.js records and audits it and tells the person.
   router.post('/users/:id/status', ...superAdmin, async (req, res) => {
     const status = String(req.body && req.body.status || '');
-    if (!['active', 'suspended', 'disabled'].includes(status)) return res.status(400).json({ error: 'Invalid account status' });
+    if (!['active', 'warning', 'suspended', 'disabled'].includes(status)) return res.status(400).json({ error: 'Invalid account status' });
+    const days = req.body && req.body.days != null ? Number(req.body.days) : null;
+    if (days !== null && (status !== 'suspended' || !Number.isInteger(days) || days < 1 || days > 365)) {
+      return res.status(400).json({ error: 'A suspension lasts 1 to 365 days' });
+    }
     const reason = status === 'active' ? String(req.body && req.body.reason || '').trim() : requiredReason(req, res);
     if (reason === null) return;
     const { data: existing, error: userError } = await supabaseAdmin.auth.admin.getUserById(req.params.id);
     if (userError || !existing.user) return res.status(404).json({ error: 'User not found' });
-    const { error } = await supabaseAdmin.from('account_controls').upsert({ user_id: req.params.id, status, reason: reason || null, changed_at: new Date().toISOString(), changed_by: req.admin.id });
-    if (error) return res.status(502).json({ error: error.message });
-    // Suspension is intentionally not an auth ban: people retain their normal
-    // session and browse-only access. Clear legacy auth bans when moderation
-    // changes so this lifecycle is enforced by account_controls instead.
-    const authUpdate = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { ban_duration: 'none' });
-    if (authUpdate.error) return res.status(502).json({ error: authUpdate.error.message });
-    await logActivity(req.admin, status === 'active' ? 'account_restored' : `account_${status}`, 'user', req.params.id, reason);
-    return res.json({ status, reason: reason || null });
+    try {
+      return res.json(await enforcement.applyAction(supabaseAdmin, {
+        userId: req.params.id, action: status === 'active' ? 'restored' : status, reason, days, adminId: req.admin.id,
+      }));
+    } catch (error) {
+      return res.status(502).json({ error: error.message });
+    }
+  });
+
+  // The automatic rules: what each does, its mode and limits, and what they recently saw and did.
+  router.get('/rules', adminAuth, async (_req, res) => {
+    const [rulesResult, hitsResult] = await Promise.all([
+      supabaseAdmin.from('moderation_rules').select('key,mode,threshold,window_hours,updated_at').order('key'),
+      supabaseAdmin.from('moderation_rule_hits').select('id,rule_key,target_type,target_id,action,metadata,created_at')
+        .order('created_at', { ascending: false }).limit(100),
+    ]);
+    if (rulesResult.error || hitsResult.error) return res.status(502).json({ error: (rulesResult.error || hitsResult.error).message });
+    const hits = hitsResult.data || [];
+    const idsOf = (type) => [...new Set(hits.filter((hit) => hit.target_type === type).map((hit) => hit.target_id))];
+    const [userIds, listingIds] = [idsOf('user'), idsOf('listing')];
+    const [profiles, listings] = await Promise.all([
+      userIds.length ? supabaseAdmin.from('profiles').select('id,full_name,username').in('id', userIds) : { data: [] },
+      listingIds.length ? supabaseAdmin.from('listings').select('id,title').in('id', listingIds) : { data: [] },
+    ]);
+    const names = Object.fromEntries([
+      ...(profiles.data || []).map((p) => [p.id, p.full_name || p.username]),
+      ...(listings.data || []).map((l) => [l.id, l.title]),
+    ]);
+    return res.json({
+      rules: (rulesResult.data || []).filter((rule) => enforcement.RULES[rule.key]).map(describeRule),
+      hits: hits.map((hit) => ({ ...hit, target_name: names[hit.target_id] || null })),
+    });
+  });
+
+  router.patch('/rules/:key', ...superAdmin, async (req, res) => {
+    if (!enforcement.RULES[req.params.key]) return res.status(404).json({ error: 'Rule not found' });
+    const body = req.body || {};
+    const changes = {};
+    if (body.mode !== undefined) {
+      if (!['off', 'shadow', 'enforce'].includes(body.mode)) return res.status(400).json({ error: 'Mode is off, shadow or enforce' });
+      changes.mode = body.mode;
+    }
+    for (const [field, label, max] of [['threshold', 'Threshold', 1000], ['window_hours', 'Window', 8760]]) {
+      if (body[field] === undefined) continue;
+      const value = Number(body[field]);
+      if (!Number.isInteger(value) || value < 1 || value > max) return res.status(400).json({ error: `${label} must be a whole number from 1 to ${max}` });
+      changes[field] = value;
+    }
+    if (!Object.keys(changes).length) return res.status(400).json({ error: 'Nothing to change' });
+    const { data, error } = await supabaseAdmin.from('moderation_rules')
+      .update({ ...changes, updated_at: new Date().toISOString(), updated_by: req.admin.id })
+      .eq('key', req.params.key).select('key,mode,threshold,window_hours,updated_at').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Rule not found' });
+    await logActivity(req.admin, 'rule_updated', 'rule', data.key, String(body.reason || '').trim(), changes);
+    return res.json({ rule: describeRule(data) });
   });
 
   router.get('/listings', adminAuth, async (req, res) => {
@@ -652,6 +728,11 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   return router;
+}
+
+function describeRule(rule) {
+  const definition = enforcement.RULES[rule.key];
+  return { ...rule, label: definition.label, description: definition.describe(rule) };
 }
 
 function dailySeries(rows, field, range) {

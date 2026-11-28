@@ -18,7 +18,7 @@ test('unanswered requests expire after 48 hours, on the server', async () => {
   };
   const now = Date.parse('2026-11-10T12:00:00Z');
   const ids = await expireStaleRequests({ from: (table) => { calls.push(['from', table]); return query; } }, now);
-  assert.deepEqual(ids, ['B1', 'B2']);
+  assert.deepEqual(ids.map((row) => row.id), ['B1', 'B2']);
   assert.equal(PENDING_EXPIRY_MS, 48 * 60 * 60 * 1000);
   assert.deepEqual(calls, [
     ['from', 'bookings'],

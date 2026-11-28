@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const enforcement = require('../lib/enforcement');
 
 async function authenticatedUser(admin, req) {
   const header = req.headers.authorization || '';
@@ -156,7 +157,9 @@ function createAccountGroupRoutes(admin) {
     }
 
     try {
-      return res.set('Cache-Control', 'no-store').json(await linkAccountGroupUsers(admin, currentUser, additionalUser));
+      const linked = await linkAccountGroupUsers(admin, currentUser, additionalUser);
+      void enforcement.checkLinkedAccounts(admin, currentUser.id, additionalUser.id);
+      return res.set('Cache-Control', 'no-store').json(linked);
     } catch (error) {
       console.error('Account group link failed:', error.message);
       const failure = linkFailure(error);

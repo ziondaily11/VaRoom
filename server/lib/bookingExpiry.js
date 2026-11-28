@@ -7,6 +7,7 @@ const { createNotification } = require('./notifications');
 const PENDING_EXPIRY_MS = 48 * 60 * 60 * 1000;
 const REMINDER_BEFORE_MS = 6 * 60 * 60 * 1000;
 
+/** The requests that just expired: [{ id, host_id }]. */
 async function expireStaleRequests(supabase, now = Date.now()) {
   const nowIso = new Date(now).toISOString();
   const { data, error } = await supabase
@@ -14,9 +15,9 @@ async function expireStaleRequests(supabase, now = Date.now()) {
     .update({ status: 'expired', responded_at: nowIso })
     .eq('status', 'pending')
     .lt('created_at', new Date(now - PENDING_EXPIRY_MS).toISOString())
-    .select('id');
+    .select('id,host_id');
   if (error) throw error;
-  return (data || []).map((row) => row.id);
+  return data || [];
 }
 
 /** Hosts hear about a request about 6 hours before it expires (once per request). */
