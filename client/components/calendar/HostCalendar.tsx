@@ -25,6 +25,7 @@ import DetailsPanel, { type Notice, type PlaceRow, type TodayRow } from './Detai
 import PlaceSettings from './PlaceSettings';
 import { DayPrice } from './PricePanel';
 import EventForm from './EventForm';
+import BookingNoteForm from './BookingNoteForm';
 import Timeline from './Timeline';
 import { DayView, WeekView } from './TimeGrid';
 import CalendarSearch from './CalendarSearch';
@@ -92,6 +93,9 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
   } | null>(null);
   // Kept on screen through their exits (animation.md §8.3).
   const shownForm = usePresentValue(form, 220);
+  // The host's own notes on a VaRoom booking (its id).
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const shownNote = usePresentValue(noteFor, 220);
   const shownSettings = usePresentValue(settingsFor, 220);
   const shownRange = usePresentValue(range, 160);
   // ‹ › and Today slide the new range in from the side it came from (C4).
@@ -508,6 +512,7 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
               onAdd={(day) => setForm({ event: null, day })} onCloseDay={(l, close) => { if (selectedDay) void apply([l], selectedDay, selectedDay, close); }}
               tableSlot={(t) => ({ reserved: tablesAt(data?.tables || [], t), total: diningTables.get(t.listing_id) ?? null })}
               onTableStatus={(t, status) => { void tableStatus(t, status); }}
+              onEditBooking={(b) => setNoteFor(b.id)}
               onCloseRooms={(l) => setForm({ event: null, day: selectedDay || today, preset: { title: 'Rooms closed', listingId: l.id, color: 'purple' } })} />
           </div>
         )}
@@ -517,6 +522,11 @@ export default function HostCalendar({ client, hostId, listingId, onListingChang
         <PlaceSettings key={settingsListing.id} client={client} hostId={hostId} listing={settingsListing} color={colors.get(settingsListing.id) || NO_COLOR} busy={Boolean(busy)} closing={shownSettings.closing}
           onClose={() => setSettingsFor(null)} onChanged={changed} onError={toast.show} onRefresh={() => { clearCalendarCache(hostId); void refresh(true).catch(() => undefined); }}
           onToggleWeekday={(l, dow) => { void toggleWeekday(l, dow); }} onSaveHours={(l, s, e, b) => { void saveHours(l, s, e, b); }} />
+      )}
+
+      {shownNote.shown && data?.bookings.find((b) => b.id === shownNote.shown) && (
+        <BookingNoteForm client={client} hostId={hostId} booking={data.bookings.find((b) => b.id === shownNote.shown) as CalendarBooking} closing={shownNote.closing}
+          onClose={() => setNoteFor(null)} onSaved={(message) => { setNoteFor(null); changed(message); }} />
       )}
 
       {shownForm.shown && data && (

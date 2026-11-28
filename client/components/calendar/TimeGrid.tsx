@@ -60,25 +60,24 @@ function stayLabel(item: CalendarItem, day: string): string {
   return item.halfStart ? 'Staying' : KIND_LABEL[item.kind];
 }
 
-/** One entry's details for a Day card. */
-function details(item: CalendarItem, listing: CalendarListing | undefined): string {
-  const { source } = item;
-  const extra = source.type === 'booking' ? (source.value.guest_count ? plural(source.value.guest_count, 'guest') : null)
-    : source.type === 'event' ? [source.value.client_name, source.value.guest_count ? plural(source.value.guest_count, 'guest') : null].filter(Boolean).join(' · ') || null
-      : source.type === 'table' ? `${plural(source.value.guest_count, 'guest')} · ${plural(source.value.table_count, 'table')}` : null;
-  return [listing?.title, extra].filter(Boolean).join(' · ');
-}
-
-/** A card's parts (the reference's cards): a tag (the event, else the kind), the title (the booker when the tag is the event), a description and who. */
+/**
+ * A card's parts (the reference's cards): a tag (the event, else the kind),
+ * the title (the host's own, else the booker when the tag is the event), a
+ * description (the host's notes, else the guest's) and who: the name first,
+ * then guests and the place.
+ */
 function cardOf(item: CalendarItem, listing: CalendarListing | undefined) {
   const { source } = item;
   const event = source.type === 'booking' ? eventLabel(source.value.event_type) : null;
+  const name = source.type === 'booking' ? source.value.guest : source.type === 'event' || source.type === 'table' ? source.value.client_name : null;
+  const guests = source.type === 'booking' || source.type === 'event' || source.type === 'table' ? source.value.guest_count : null;
   return {
     tag: event || KIND_LABEL[item.kind],
-    title: event && source.type === 'booking' ? source.value.guest || 'Guest' : item.title,
-    text: source.type === 'booking' ? source.value.event_notes : source.type === 'event' ? source.value.notes : source.type === 'table' ? source.value.occasion : null,
-    who: details(item, listing),
-    name: source.type === 'booking' ? source.value.guest : source.type === 'event' ? source.value.client_name : null,
+    title: source.type === 'booking' ? source.value.host_title || (event ? source.value.guest || 'Guest' : item.title) : item.title,
+    text: source.type === 'booking' ? source.value.host_notes || source.value.event_notes
+      : source.type === 'event' ? source.value.notes : source.type === 'table' ? source.value.occasion : null,
+    who: [name, guests ? plural(guests, 'guest') : null, listing?.title].filter(Boolean).join(' · '),
+    name,
     avatar: source.type === 'booking' ? source.value.avatar : null,
   };
 }
@@ -130,7 +129,7 @@ function Grid({ days, items, today, selectedKey, colorOf, listingOf, onPickDay, 
                 <strong>{card.title}</strong>
                 <span className="vc-block-time">{clock(p.from)}–{clock(p.to)}</span>
                 {card.text && <span className="vc-block-desc">{card.text}</span>}
-                {(card.who || card.name) && <span className="vc-block-foot">{card.name && <Face name={card.name} src={card.avatar} />}<span>{card.who}</span></span>}
+                {card.who && <span className="vc-block-foot">{card.name && <Face name={card.name} src={card.avatar} />}<span>{card.who}</span></span>}
               </button>
             ); })}
             {day === today && now >= hours.start * 60 && (
@@ -209,16 +208,17 @@ export function DayView(props: Props) {
       )}
       {allDay.length > 0 && (
         <ul className="vc-day-cards">
-          {allDay.map((item) => (
+          {allDay.map((item) => { const card = cardOf(item, listingOf(item.listingId)); return (
             <li key={item.key}>
               <button type="button" className={`vc-day-card is-${item.kind}${item.key === selectedKey ? ' is-selected' : ''}`}
                 style={{ ['--place' as string]: colorOf(item) } as React.CSSProperties} onClick={() => onPickItem(item)}>
                 <span className="vc-block-kind">{stayLabel(item, day)}</span>
-                <strong>{item.title}</strong>
-                <span className="vc-muted">{details(item, listingOf(item.listingId)) || (item.start === item.end ? 'All day' : `${dayLabel(item.start)} → ${dayLabel(item.end)}`)}</span>
+                <strong>{card.title}</strong>
+                <span className="vc-muted">{item.start === item.end ? 'All day' : `${dayLabel(item.start)} → ${dayLabel(item.end)}`}</span>
+                {card.who && <span className="vc-block-foot">{card.name && <Face name={card.name} src={card.avatar} />}<span>{card.who}</span></span>}
               </button>
             </li>
-          ))}
+          ); })}
         </ul>
       )}
       <Grid {...props} rich />

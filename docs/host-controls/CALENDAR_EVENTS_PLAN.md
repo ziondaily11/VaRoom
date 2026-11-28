@@ -1,6 +1,6 @@
 # Calendar: wide view, event bookings, and the new add card
 
-Status: **complete. Approved 2026-11-29 with both recommendations (venue day hires as cards; a one-week grace before the event type is required, until 7 Dec 2026). PRs #772 and #773 merged; 000097 applied 2026-11-29.** Follows `CALENDAR_UI_PLAN.md` (PRs #765–#768, merged).
+Status: **complete. Approved 2026-11-29 with both recommendations (venue day hires as cards; a one-week grace before the event type is required, until 7 Dec 2026). PRs #772 and #773 merged; 000097 applied 2026-11-29. Follow-up on `claude/calendar-booking-notes` (000098): the host's own title, notes and colour on VaRoom bookings (only the host and their Managers see them), and cards showing the photo, then the name, for every booking.** Follows `CALENDAR_UI_PLAN.md` (PRs #765–#768, merged).
 
 References: our Week view (dark screenshot, 29 Nov) and the "Skejulio" calendar (light: Day/Week/Month, cards with a tag, title, short description and people, and a "Create Schedule" card).
 

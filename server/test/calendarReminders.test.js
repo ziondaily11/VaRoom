@@ -87,3 +87,16 @@ test('migration 000097: a venue booking says what the event is; host_calendar is
   assert.match(sql, /security invoker/);
   assert.match(sql, /-- Undo \(in this order\):/);
 });
+
+test('migration 000098: the host\'s own notes on a booking, in their own table; host_calendar is 000097\'s plus three fields', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261129_000098_booking_host_notes.sql'), 'utf8').replace(/\r\n/g, '\n');
+  const before = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261129_000097_booking_event_types.sql'), 'utf8').replace(/\r\n/g, '\n');
+  const fn = (text) => text.slice(text.indexOf('create or replace function public.host_calendar('), text.indexOf('grant execute on function public.host_calendar'));
+  const added = ",\n        'host_title', n.title, 'host_notes', n.notes, 'host_color', n.color) order by b.start_date, b.start_time nulls first)\n      from public.bookings b\n      left join public.booking_host_notes n on n.booking_id = b.id\n";
+  assert.equal(fn(sql).replace(added, ") order by b.start_date, b.start_time nulls first)\n      from public.bookings b\n"), fn(before), 'only the notes are new');
+  assert.match(sql, /booking_id uuid primary key references public\.bookings\(id\) on delete cascade/);
+  assert.match(sql, /and host_id = \(select b\.host_id from public\.bookings b where b\.id = booking_id\)\);/, 'a note only on the host\'s own booking');
+  assert.match(sql, /using \(public\.varoom_can_act_for\(host_id, 'manager'\)\);/, 'the host and their Managers only');
+  assert.match(sql, /revoke all on public\.booking_host_notes from anon;/);
+  assert.match(sql, /security invoker/);
+});

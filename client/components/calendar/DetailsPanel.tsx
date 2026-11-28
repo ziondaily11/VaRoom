@@ -42,6 +42,8 @@ interface Props {
   /** Tables reserved at a reservation's time, and the restaurant's tables (null: not known). */
   tableSlot: (t: TableBooking) => { reserved: number; total: number | null };
   onTableStatus: (t: TableBooking, status: TableBooking['status']) => void;
+  /** The host's own title, notes and colour on a VaRoom booking. */
+  onEditBooking: (b: CalendarBooking) => void;
 }
 
 const TABLE_STATUSES: Array<[TableBooking['status'], string]> = [['requested', 'New'], ['contacted', 'Contacted'], ['closed', 'Closed']];
@@ -89,6 +91,16 @@ function ItemCard({ item, props }: { item: CalendarItem; props: Props }) {
           {b.total_price ? <><dt>Price</dt><dd>{ksh(Number(b.total_price))}</dd></> : null}
         </dl>
         {b.event_notes && <p className="vc-notes">{b.event_notes}</p>}
+        <section className="vc-section" aria-label="Your notes">
+          <h3>Your notes</h3>
+          {b.host_title || b.host_notes ? (
+            <>
+              {b.host_title && <strong>{b.host_title}</strong>}
+              {b.host_notes && <p className="vc-notes">{b.host_notes}</p>}
+            </>
+          ) : <p className="vc-muted">Other arrangements with {b.guest || 'the guest'}: only you see them.</p>}
+          <div className="vc-actions"><button type="button" className="vc-btn" onClick={() => props.onEditBooking(b)}>{b.host_title || b.host_notes ? 'Edit your notes' : 'Add a title or notes'}</button></div>
+        </section>
         {b.status === 'pending' && (
           <div className="vc-actions">
             <button type="button" className="vc-btn is-primary" disabled={Boolean(busy)} onClick={() => onRespond(b, 'approve')}>{busy === b.id ? 'Saving…' : 'Approve'}</button>

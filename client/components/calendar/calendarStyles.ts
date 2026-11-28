@@ -204,6 +204,8 @@ export const CALENDAR_CSS = `${ANALYTICS_CSS}
 .vc .vc-block .vc-block-desc{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.72rem;line-height:1.35}
 .vc .vc-block .vc-block-foot{margin-top:auto;display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;font-size:.7rem}
 .vc .vc-block-foot span{overflow:hidden;text-overflow:ellipsis}
+.vc .vc-day-card .vc-block-foot{display:flex;align-items:center;gap:6px;min-width:0;margin-top:4px;font-size:.78rem;color:var(--mute)}
+.vc .vc-color.is-none{--c:transparent;border:2px dashed var(--line)}
 .vc .vc-face{width:20px;height:20px;border-radius:999px;object-fit:cover;flex:none;display:inline-grid;place-items:center;background:var(--soft);font-size:.62rem;font-weight:700;font-style:normal;color:var(--fg)}
 @container (max-height:64px){.vc .vc-block-tag{display:none !important}}
 @container (max-height:104px){.vc .vc-block-desc{display:none !important}}
