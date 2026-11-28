@@ -182,3 +182,13 @@ test('redesign: Send again, the Restricted list, the font on the admin page only
   assert.match(shell, /localStorage\.setItem\("varoom_theme", next\)/);
   assert.match(shell, /aria-current=\{current === key \? "page" : undefined\}/);
 });
+
+test('scrollbars: 4px and shown only while the pointer is over what scrolls', () => {
+  const css = read('styles', 'admin.css');
+  assert.match(css, /\.admin-dashboard ::-webkit-scrollbar \{ width: 4px; height: 4px; \}/);
+  assert.match(css, /\.admin-dashboard ::-webkit-scrollbar-thumb \{ background: transparent; border-radius: 999px; \}/);
+  assert.match(css, /\.admin-dashboard :hover::-webkit-scrollbar-thumb \{ background: var\(--adm-line-strong\); \}/);
+  // Chrome ignores the ::-webkit-scrollbar rules wherever scrollbar-color/width is set, so those stay Firefox-only.
+  assert.match(css, /@supports \(-moz-appearance: none\) \{[^}]*scrollbar-width: thin;/);
+  assert.doesNotMatch(css.replace(/@supports \(-moz-appearance: none\) \{[\s\S]*?\n\}/, ''), /scrollbar-(?:width|color):/);
+});
